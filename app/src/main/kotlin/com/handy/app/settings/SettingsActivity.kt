@@ -4,8 +4,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,10 +17,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ContentPaste
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -26,6 +41,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,8 +49,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.handy.app.R
 import com.handy.app.theme.HandyColors
@@ -53,9 +75,21 @@ class SettingsActivity : ComponentActivity() {
         setContent {
             HandyTheme(darkTheme = true) {
                 val state by viewModel.state.collectAsState()
+                val snackbarHostState = remember { SnackbarHostState() }
+
+                // Surface one-shot save / clear toasts (DL-007). `collect`
+                // on the VM's SharedFlow — since `replay = 0`, rotations
+                // don't replay "saved" when the user comes back.
+                LaunchedEffect(Unit) {
+                    viewModel.messages.collect { text ->
+                        snackbarHostState.showSnackbar(text)
+                    }
+                }
+
                 @OptIn(ExperimentalMaterial3Api::class)
                 SettingsScreen(
                     state = state,
+                    snackbarHostState = snackbarHostState,
                     onClaudeKeyChange = viewModel::setClaudeKey,
                     onBraveKeyChange = viewModel::setBraveKey,
                     onWebSearchToggle = { enabled ->
@@ -76,6 +110,7 @@ class SettingsActivity : ComponentActivity() {
 @Composable
 private fun SettingsScreen(
     state: SettingsUiState,
+    snackbarHostState: SnackbarHostState,
     onClaudeKeyChange: (String) -> Unit,
     onBraveKeyChange: (String) -> Unit,
     onWebSearchToggle: (Boolean) -> Unit,
@@ -83,12 +118,11 @@ private fun SettingsScreen(
     onClearHistory: () -> Unit,
     onBack: () -> Unit,
 ) {
-    Surface(
-        color = HandyColors.Background,
-        contentColor = HandyColors.TextPrimary,
+    Scaffold(
         modifier = Modifier.fillMaxSize(),
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        containerColor = HandyColors.Background,
+        contentColor = HandyColors.TextPrimary,
+        topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
@@ -99,22 +133,38 @@ private fun SettingsScreen(
                     titleContentColor = HandyColors.TextPrimary,
                 ),
             )
-
-            Column(
-                modifier = Modifier
-                    .verticalScroll(rememberScrollState())
-                    .padding(HandyDimens.Space16),
-                verticalArrangement = Arrangement.spacedBy(HandyDimens.Space16),
-            ) {
+        },
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                // Dark snackbar that fits the Apple-class theme — the
+                // default Material3 snackbar is nearly-white on our
+                // background and feels jarring.
+                Snackbar(
+                    containerColor = HandyColors.SurfaceElevated,
+                    contentColor = HandyColors.TextPrimary,
+                    snackbarData = data,
+                )
+            }
+        },
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(HandyDimens.Space16),
+            verticalArrangement = Arrangement.spacedBy(HandyDimens.Space16),
+        ) {
                 SectionHeader(stringResource(R.string.settings_api_key_header))
-                PasswordField(
+                CredentialField(
                     label = stringResource(R.string.settings_anthropic_label),
-                    placeholder = state.claudeKeyMasked ?: stringResource(R.string.settings_anthropic_placeholder),
+                    placeholder = stringResource(R.string.settings_anthropic_placeholder),
+                    savedMasked = state.claudeKeyMasked,
                     onCommit = onClaudeKeyChange,
                 )
-                PasswordField(
+                CredentialField(
                     label = stringResource(R.string.settings_brave_label),
-                    placeholder = state.braveKeyMasked ?: "",
+                    placeholder = "brv-…",
+                    savedMasked = state.braveKeyMasked,
                     onCommit = onBraveKeyChange,
                 )
 
@@ -140,12 +190,11 @@ private fun SettingsScreen(
 
                 HorizontalDivider(color = HandyColors.Border)
 
-                TextButton(onClick = onClearHistory) {
-                    Text(
-                        text = stringResource(R.string.settings_reset_history),
-                        color = HandyColors.Danger,
-                    )
-                }
+            TextButton(onClick = onClearHistory) {
+                Text(
+                    text = stringResource(R.string.settings_reset_history),
+                    color = HandyColors.Danger,
+                )
             }
         }
     }
@@ -161,30 +210,150 @@ private fun SectionHeader(text: String) {
     )
 }
 
+/**
+ * Credential entry field with three must-haves (DL-006 / DL-007):
+ *  - an in-field Paste IconButton that reads `LocalClipboardManager`
+ *    directly, bypassing the emulator's flaky long-press paste;
+ *  - a show / hide visibility toggle so the user can verify what they
+ *    pasted before committing;
+ *  - a persistent "Saved" badge above the field showing the masked
+ *    preview ([savedMasked], non-null when a credential is already on
+ *    disk) so the user is never left wondering whether Save worked.
+ *
+ * The raw value is scrubbed from UI state after commit — we never keep
+ * plaintext credentials in Compose state.
+ */
 @ExperimentalMaterial3Api
 @Composable
-private fun PasswordField(
+private fun CredentialField(
     label: String,
     placeholder: String,
+    savedMasked: String?,
     onCommit: (String) -> Unit,
 ) {
+    val clipboard = LocalClipboardManager.current
     var value by remember { mutableStateOf("") }
-    OutlinedTextField(
-        value = value,
-        onValueChange = { value = it },
-        label = { Text(label) },
-        placeholder = { Text(placeholder, color = HandyColors.TextSecondary) },
-        visualTransformation = PasswordVisualTransformation(),
-        modifier = Modifier.fillMaxWidth(),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = HandyColors.Surface,
-            unfocusedContainerColor = HandyColors.Surface,
-            disabledContainerColor = HandyColors.Surface,
-            focusedTextColor = HandyColors.TextPrimary,
-            unfocusedTextColor = HandyColors.TextPrimary,
-        ),
-    )
-    TextButton(onClick = { onCommit(value); value = "" }) { Text("Save", color = HandyColors.Accent) }
+    var visible by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(HandyDimens.Space8)) {
+        if (savedMasked != null) {
+            SavedBadge(masked = savedMasked)
+        }
+
+        OutlinedTextField(
+            value = value,
+            onValueChange = { value = it },
+            label = { Text(label) },
+            placeholder = { Text(placeholder, color = HandyColors.TextSecondary) },
+            singleLine = true,
+            visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Done,
+                autoCorrectEnabled = false,
+            ),
+            trailingIcon = {
+                Row {
+                    IconButton(onClick = {
+                        val pasted = clipboard.getText()?.text?.trim().orEmpty()
+                        if (pasted.isNotEmpty()) value = pasted
+                    }) {
+                        Icon(
+                            imageVector = Icons.Outlined.ContentPaste,
+                            contentDescription = "Paste from clipboard",
+                            tint = HandyColors.TextSecondary,
+                        )
+                    }
+                    IconButton(onClick = { visible = !visible }) {
+                        Icon(
+                            imageVector = if (visible) {
+                                Icons.Outlined.VisibilityOff
+                            } else {
+                                Icons.Outlined.Visibility
+                            },
+                            contentDescription = if (visible) "Hide value" else "Show value",
+                            tint = HandyColors.TextSecondary,
+                        )
+                    }
+                }
+            },
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = HandyColors.Surface,
+                unfocusedContainerColor = HandyColors.Surface,
+                disabledContainerColor = HandyColors.Surface,
+                focusedTextColor = HandyColors.TextPrimary,
+                unfocusedTextColor = HandyColors.TextPrimary,
+            ),
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(HandyDimens.Space8),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val canSave = value.isNotBlank()
+            TextButton(
+                onClick = {
+                    onCommit(value)
+                    value = ""
+                    visible = false
+                },
+                enabled = canSave,
+            ) {
+                Text(
+                    text = if (savedMasked != null) "Update" else "Save",
+                    color = if (canSave) HandyColors.Accent else HandyColors.TextSecondary,
+                )
+            }
+            if (savedMasked != null) {
+                TextButton(
+                    onClick = {
+                        // Clears the stored key — the VM distinguishes
+                        // blank-raw → `KeyStore.remove(…)`.
+                        onCommit("")
+                        value = ""
+                        visible = false
+                    },
+                ) {
+                    Text("Remove", color = HandyColors.Danger)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SavedBadge(masked: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(HandyDimens.Space8),
+        modifier = Modifier
+            .background(
+                color = HandyColors.SurfaceElevated,
+                shape = RoundedCornerShape(HandyDimens.RadiusSm),
+            )
+            .padding(horizontal = HandyDimens.Space12, vertical = HandyDimens.Space8),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.CheckCircle,
+            contentDescription = null,
+            tint = HandyColors.Success,
+            modifier = Modifier.height(18.dp),
+        )
+        Text(
+            text = "Saved",
+            color = HandyColors.Success,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Box(Modifier.weight(1f))
+        Text(
+            text = masked,
+            color = HandyColors.TextSecondary,
+            fontSize = 13.sp,
+        )
+    }
 }
 
 @Composable

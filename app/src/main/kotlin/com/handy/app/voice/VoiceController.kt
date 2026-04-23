@@ -24,17 +24,11 @@ import timber.log.Timber
  * Application-scoped glue between the floating-widget long-press
  * gesture, the [SttClient] adapter, and the chat pipeline.
  *
- * Lifecycle (per press-and-hold):
- *   start()            — on 400 ms long-press fire. Begins recognising.
- *   latestPartial      — streams partial transcripts for UI feedback.
- *   stopAndAwaitFinal() — on release. Sends a graceful stop to the
- *                        recognizer, waits briefly for the Final
- *                        transcript, returns it (or the best partial).
- *   cancel()           — on drag-started / error. Tears down without
- *                        a transcript.
- *
- * All STT calls are confined to the main thread by [SttClient]; this
- * class only owns the collector job.
+ * DL-008: the flow collector does NOT reset [_state] to IDLE on its
+ * own. Only [stopAndAwaitFinal] and [cancel] do that. This prevents
+ * the race where the recognizer errors out before the user releases
+ * their finger, which would make [stopAndAwaitFinal] short-circuit
+ * to null and swallow the transcript (or the partial).
  */
 @Singleton
 class VoiceController @Inject constructor(
@@ -54,86 +48,118 @@ class VoiceController @Inject constructor(
     private var collectJob: Job? = null
 
     @Volatile private var finalTranscript: String = ""
+    @Volatile private var lastError: String? = null
 
     val isOnDeviceAvailable: Boolean
         get() = sttClient.isOnDeviceAvailable
 
-    /**
-     * Begin a listening session. No-op if one is already active or the
-     * `RECORD_AUDIO` runtime permission is missing.
-     *
-     * Returns true if the session actually started.
-     */
     fun start(): Boolean {
-        if (_state.value != State.IDLE) return false
+        if (_state.value != State.IDLE) {
+            Timber.d("VoiceController.start: already %s — refusing", _state.value)
+            return false
+        }
         if (!hasMicPermission()) {
-            Timber.w("VoiceController.start: RECORD_AUDIO not granted — bailing")
+            Timber.w("VoiceController.start: RECORD_AUDIO not granted")
             return false
         }
         finalTranscript = ""
+        lastError = null
         _latestPartial.value = ""
         _state.value = State.LISTENING
+
+        Timber.d("VoiceController: starting STT session")
 
         collectJob = appScope.launch(Dispatchers.Main.immediate) {
             runCatching {
                 sttClient.listen().collect { event ->
+                    Timber.d("VoiceController: STT event → %s", event)
                     when (event) {
-                        is SttEvent.Partial -> _latestPartial.value = event.transcript
+                        is SttEvent.Partial -> {
+                            _latestPartial.value = event.transcript
+                        }
                         is SttEvent.Final -> {
                             finalTranscript = event.transcript
+                            Timber.d("VoiceController: Final transcript = \"%s\"", event.transcript)
                             if (_latestPartial.value.isBlank()) {
                                 _latestPartial.value = event.transcript
                             }
                         }
                         is SttEvent.Error -> {
-                            Timber.w("STT error (recoverable=%s): %s", event.isRecoverable, event.reason)
+                            lastError = event.reason
+                            Timber.w("VoiceController: STT error (recoverable=%s): %s",
+                                event.isRecoverable, event.reason)
                         }
-                        is SttEvent.BeginningOfSpeech,
-                        is SttEvent.EndOfSpeech -> Unit
+                        is SttEvent.BeginningOfSpeech -> {
+                            Timber.d("VoiceController: beginning of speech")
+                        }
+                        is SttEvent.EndOfSpeech -> {
+                            Timber.d("VoiceController: end of speech")
+                        }
                     }
                 }
             }.onFailure { t ->
-                Timber.w(t, "VoiceController: STT flow failed")
+                Timber.w(t, "VoiceController: STT flow threw")
+                lastError = t.message ?: "STT flow failed"
             }
-            _state.value = State.IDLE
+            // Flow is done — but we do NOT reset state to IDLE here.
+            // The user may still have their finger down (long-press).
+            // stopAndAwaitFinal() or cancel() will clean up.
+            Timber.d("VoiceController: STT flow completed. final=\"%s\" partial=\"%s\" err=%s",
+                finalTranscript, _latestPartial.value, lastError)
         }
         return true
     }
 
     /**
-     * Ask the recognizer to stop and wait up to [gracePeriodMs] for the
-     * Final transcript. Returns the best usable transcript (or null if
-     * nothing usable arrived).
+     * Gracefully stop the recognizer and return the best available
+     * transcript. Returns null when nothing usable was captured.
      */
-    suspend fun stopAndAwaitFinal(gracePeriodMs: Long = 1500L): String? {
-        if (_state.value != State.LISTENING) {
-            resetBuffers()
+    suspend fun stopAndAwaitFinal(gracePeriodMs: Long = 2000L): String? {
+        Timber.d("VoiceController.stopAndAwaitFinal: state=%s final=\"%s\" partial=\"%s\"",
+            _state.value, finalTranscript, _latestPartial.value)
+
+        // Even if the flow already completed (e.g. on error), we still
+        // want to drain whatever was buffered — so we do NOT bail on
+        // state != LISTENING. We only bail if we were never started.
+        if (_state.value == State.IDLE && collectJob == null) {
+            Timber.d("VoiceController.stopAndAwaitFinal: never started — returning null")
             return null
         }
+
+        // Ask the recognizer to stop (no-op if the flow already closed).
         sttClient.stopListening()
+
+        // Wait for the collector to finish (the Final event, or the
+        // error/close that follows stopListening).
         withTimeoutOrNull(gracePeriodMs) { collectJob?.join() }
-        // Belt-and-braces: if the recognizer never closed the flow (rare),
-        // cancel so we don't leak the mic into the next session.
+
+        // Belt-and-braces: if the recognizer never closed the flow,
+        // cancel it so we don't leak the mic.
         collectJob?.cancel()
         collectJob = null
 
+        // Prefer the Final transcript; fall back to the last partial;
+        // fall back to null.
         val transcript = finalTranscript.ifBlank { _latestPartial.value }.trim()
+        val result = transcript.takeIf { it.isNotBlank() }
+
+        Timber.d("VoiceController.stopAndAwaitFinal: returning \"%s\" (err=%s)", result, lastError)
+
         resetBuffers()
-        return transcript.takeIf { it.isNotBlank() }
+        return result
     }
 
-    /**
-     * Abort without consuming a transcript (e.g. the user started
-     * dragging the widget while listening).
-     */
     fun cancel() {
+        Timber.d("VoiceController.cancel")
         collectJob?.cancel()
         collectJob = null
+        sttClient.stopListening()
         resetBuffers()
     }
 
     private fun resetBuffers() {
         finalTranscript = ""
+        lastError = null
         _latestPartial.value = ""
         _state.value = State.IDLE
     }

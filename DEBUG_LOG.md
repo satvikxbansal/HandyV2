@@ -110,3 +110,57 @@ cross-references the one being superseded.
 | **Fix** | `OnboardingViewModel` is now an `AndroidViewModel`, and `refreshFromSystem()` reads `RECORD_AUDIO`, `POST_NOTIFICATIONS` (on API 33+), `Settings.canDrawOverlays`, and the `ENABLED_ACCESSIBILITY_SERVICES` string for `HandyAccessibilityService`. `OnboardingActivity.onResume` calls `refreshFromSystem()` so state stays correct after the user bounces back from Settings. Added `OnboardingUiState.minimallyReady`; when it's true, a `LaunchedEffect` in the composable short-circuits straight to `ChatActivity`. Added an explicit `POST_NOTIFICATIONS` step to the checklist (Android 13+). `OnboardingActivity.goToChat(…)` only starts `AssistantForegroundService` when overlay + notifications are actually granted. |
 | **Iterations** | 1 |
 | **Prevention Rule** | Any onboarding / permission-gating screen **must** derive its UI state from real system queries (`checkSelfPermission`, `canDrawOverlays`, `ENABLED_ACCESSIBILITY_SERVICES`), not from in-memory session flags, and must refresh in `onResume` (or the equivalent Compose `LifecycleEventObserver`). Persist "disclosure acknowledged" to DataStore so it isn't re-shown, but **never** persist permission-grant booleans — always read them fresh from the OS. Pair it with: when every requirement is already satisfied, auto-forward and `finish()` the onboarding activity so it doesn't become a modal wall. **Why:** permission state can change any time (user revokes, app updated, device transferred) and session flags will disagree with reality (DL-005). |
+
+---
+
+### DL-006 — API-key field rejects paste (no explicit Paste affordance, unreliable long-press on emulator)
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-04-23 |
+| **Tags** | `#android #Compose #UX #TextField #Clipboard` |
+| **Severity** | Logic Bug |
+| **Environment** | Compose BOM 2024.12.01 • Android Emulator API 35 (Pixel 7) • host-clipboard passthrough default |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt` |
+| **Symptom** | User tried to paste a Claude API key into the Settings → Claude API key field, using the emulator's soft-keyboard long-press. No paste menu appeared, and the host-clipboard passthrough did not surface the Mac clipboard text either. With no other affordance, the user couldn't enter the key — effectively blocking the entire chat flow. |
+| **Root Cause Category** | Logic Error |
+| **Root Cause Context** | The `PasswordField` composable used `OutlinedTextField` with `PasswordVisualTransformation()` and no `keyboardType` / `singleLine` / trailing-icon affordances. Two problems stacked: (a) `PasswordVisualTransformation` makes the Android IME suppress the selection / paste popup on long-press in some OEM keyboards including the emulator's Gboard variant; (b) the emulator's host-clipboard bridge is best-effort and routinely drops content on first focus. Without an explicit Paste button, the user has no reliable path. There was no "show key" toggle either, so even if they got value in, they couldn't visually verify it was correct. |
+| **Fix** | `PasswordField` now renders a trailing-icon `Row` with two `IconButton`s: (1) **Paste** — reads from `LocalClipboardManager.current.getText()?.text` and populates the field directly, bypassing the IME path entirely; (2) **Show/Hide** — toggles between `PasswordVisualTransformation` and `VisualTransformation.None` so the user can verify the key before tapping Save. The field is now `singleLine = true` with `KeyboardType.Password`, `autoCorrectEnabled = false`, and `imeAction = Done`. |
+| **Iterations** | 1 |
+| **Prevention Rule** | Every Compose text field that accepts a pasteable credential (API key, OTP, token, password) **must** expose an explicit in-field **Paste** IconButton backed by `LocalClipboardManager`, in addition to the normal long-press affordance. Pair it with a show/hide toggle when the field uses `PasswordVisualTransformation`. **Why:** long-press paste is unreliable on emulators + some Gboard variants + some IMEs (DL-006), and masked fields without a visibility toggle leave the user unable to verify what they entered. |
+
+---
+
+### DL-007 — "Save" on API-key field gives no confirmation, making users think it failed
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-04-23 |
+| **Tags** | `#android #Compose #UX #Feedback #Snackbar` |
+| **Severity** | Logic Bug |
+| **Environment** | Compose BOM 2024.12.01 • Material3 • Android API 35 |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt`, `app/src/main/kotlin/com/handy/app/settings/SettingsViewModel.kt` |
+| **Symptom** | User pastes a Claude API key, taps Save, and the field appears to "go blank" — no toast, no banner, no visible state change other than the masked placeholder that looks identical to an unfilled placeholder. User asks "is it actually saving?" with no way to tell from the UI. |
+| **Root Cause Category** | Logic Error |
+| **Root Cause Context** | Two overlapping gaps: (a) `SettingsViewModel.setKey(...)` quietly wrote to `EncryptedSharedPreferences` with no observable side effect beyond an update to `claudeKeyMasked` — which was only rendered as the field's *placeholder*, visually indistinguishable from "you haven't typed anything yet"; (b) `PasswordField` correctly scrubs the raw value from its local `remember { mutableStateOf }` after commit (security-first — never retain plaintext credentials in UI state), but combined with (a) the result looked exactly like a no-op. There was also no way to clear a previously-saved key if it was wrong. |
+| **Fix** | `SettingsViewModel` now exposes a `MutableSharedFlow<String> messages` (replay=0, drop-oldest buffer) and `setKey` emits a string like "Claude API key saved" / "Claude API key cleared" after committing. `SettingsActivity.onCreate` collects the flow in a `LaunchedEffect` and calls `SnackbarHostState.showSnackbar(...)`. The `PasswordField` composable has been renamed / reworked into `CredentialField`, which (a) renders a persistent "✓ Saved — sk-••••XXXX" `SavedBadge` above the text field whenever a key is on disk, (b) disables the Save button when the text field is empty, (c) renames Save → Update when a key is already present, and (d) exposes an additional "Remove" TextButton that commits an empty string (which the VM interprets as `KeyStore.remove`). |
+| **Iterations** | 1 |
+| **Prevention Rule** | Any UI action that writes to persistent storage **must** produce a visible confirmation — either a Snackbar, an inline "Saved" chip, or both — and the confirmation **must** be derived from an observable VM event (a SharedFlow with `replay=0`, not a StateFlow reset flag) so rotations do not replay the toast. Pair it with: credential fields that wipe their raw-value state after commit **must** render a separate, unambiguous "saved on disk" badge (masked preview, icon, distinct from the empty placeholder). **Why:** without explicit confirmation the user cannot tell a successful save from a silent no-op, which is especially damaging for credentials where the next action (sending a chat) fails opaquely if the key wasn't actually stored (DL-007). |
+
+---
+
+### DL-008 — Voice long-press produces no transcript: race between flow completion and stopAndAwaitFinal
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-04-23 |
+| **Tags** | `#android #STT #SpeechRecognizer #Coroutines #RaceCondition` |
+| **Severity** | Logic Bug |
+| **Environment** | Android API 35 Emulator (Pixel 7) • Compose BOM 2024.12.01 • SpeechRecognizer via Google cloud fallback |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/voice/VoiceController.kt` |
+| **Symptom** | User long-presses the widget, speaks, releases — the widget briefly shows THINKING then returns to IDLE, but `ChatActivity` never receives a voice message. Logcat shows "Voice session produced no transcript" every time. |
+| **Root Cause Category** | Race Condition |
+| **Root Cause Context** | `VoiceController.start()` launched a coroutine that collected the `SttClient.listen()` flow and, **at the end of the launch block**, set `_state.value = State.IDLE`. On the Android emulator, `SpeechRecognizer` often errors immediately (ERROR_CLIENT when the Google app isn't properly initialised, or ERROR_NO_MATCH after a short silence timeout) — the flow emits `SttEvent.Error`, closes, the collect returns, and the launch block sets state to IDLE. All of this happens within ~200ms — well before the user's 1–2s hold-and-release. By the time `ACTION_UP` fires `stopAndAwaitFinal()`, that method checked `if (_state.value != State.LISTENING)` and short-circuited to `return null`, discarding whatever partial or final transcript had been buffered. Even when the recognizer *does* produce a Final, the state-reset race remains because the launch block is on `Dispatchers.Main.immediate` and runs immediately after the flow closes. |
+| **Fix** | Removed the `_state.value = State.IDLE` line from the end of the collector launch block. State is now ONLY reset by `stopAndAwaitFinal()` or `cancel()` — the two explicit lifecycle methods — never by flow completion. `stopAndAwaitFinal` no longer bails when `state == IDLE`; it bails only when `collectJob == null` (meaning `start()` was never called). This decouples the "recognizer is done capturing" event from the "user released their finger" event. Also bumped the grace period from 1500ms to 2000ms, and added comprehensive `Timber.d` logging on every STT event and every lifecycle method so the next voice issue is diagnosable from a logcat paste alone. |
+| **Iterations** | 1 |
+| **Prevention Rule** | In a push-to-talk flow where a background producer (speech recognizer) races against a user gesture (finger-release), **never** let the producer's completion reset shared state that the gesture handler reads. The gesture handler owns the state transition; the producer writes to buffers only. Check for "never started" by testing whether the producer's `Job` reference is null, not by reading a state enum that may have been reset behind your back. **Why:** the recognizer can error or complete in <200ms, well before a typical 1–2s hold, turning every transcript into null (DL-008). |

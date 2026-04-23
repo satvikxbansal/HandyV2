@@ -10,8 +10,12 @@ import com.handy.runtime.storage.KeyStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -26,6 +30,18 @@ class SettingsViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
+
+    /**
+     * One-shot confirmation / error strings for the Settings screen to
+     * surface as Snackbars. `replay = 0` so a rotation doesn't replay
+     * "API key saved" every time the screen re-subscribes. DL-007.
+     */
+    private val _messages = MutableSharedFlow<String>(
+        replay = 0,
+        extraBufferCapacity = 4,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val messages: SharedFlow<String> = _messages.asSharedFlow()
 
     init {
         viewModelScope.launch {
@@ -43,21 +59,50 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settings.update(transform) }
     }
 
-    fun setClaudeKey(raw: String) = setKey(KeyStore.KEY_ANTHROPIC, raw) { it.copy(claudeKeyMasked = mask(raw)) }
-    fun setBraveKey(raw: String) = setKey(KeyStore.KEY_BRAVE, raw) { it.copy(braveKeyMasked = mask(raw)) }
+    fun setClaudeKey(raw: String) =
+        setKey(
+            name = KeyStore.KEY_ANTHROPIC,
+            raw = raw,
+            savedMessage = "Claude API key saved",
+            clearedMessage = "Claude API key cleared",
+        ) { it.copy(claudeKeyMasked = mask(raw)) }
 
-    private inline fun setKey(name: String, raw: String, crossinline mutate: (SettingsUiState) -> SettingsUiState) {
+    fun setBraveKey(raw: String) =
+        setKey(
+            name = KeyStore.KEY_BRAVE,
+            raw = raw,
+            savedMessage = "Brave Search API key saved",
+            clearedMessage = "Brave Search API key cleared",
+        ) { it.copy(braveKeyMasked = mask(raw)) }
+
+    private inline fun setKey(
+        name: String,
+        raw: String,
+        savedMessage: String,
+        clearedMessage: String,
+        crossinline mutate: (SettingsUiState) -> SettingsUiState,
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
             val trimmed = raw.trim()
-            if (trimmed.isBlank()) keyStore.remove(name) else keyStore.put(name, trimmed)
+            val message = if (trimmed.isBlank()) {
+                keyStore.remove(name)
+                clearedMessage
+            } else {
+                keyStore.put(name, trimmed)
+                savedMessage
+            }
             withContext(Dispatchers.Main) {
                 _state.value = mutate(_state.value)
+                _messages.tryEmit(message)
             }
         }
     }
 
     fun clearAllHistory() {
-        viewModelScope.launch { history.clearAll() }
+        viewModelScope.launch {
+            history.clearAll()
+            _messages.tryEmit("Chat history cleared")
+        }
     }
 
     private fun mask(value: String?): String? = value?.takeIf { it.isNotBlank() }?.let {
