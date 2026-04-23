@@ -27,6 +27,11 @@ internal data class ClaudeMessage(
     val content: List<ClaudeContentPart>,
 )
 
+/**
+ * Anthropic content-block union. Claude accepts `text`, `image`,
+ * `tool_use`, and `tool_result` blocks; everything goes through the
+ * same `content: List<…>` slot on a [ClaudeMessage].
+ */
 @Serializable
 internal sealed class ClaudeContentPart {
 
@@ -44,6 +49,34 @@ internal sealed class ClaudeContentPart {
             val data: String,
         )
     }
+
+    /**
+     * An assistant-emitted tool invocation replayed back on the next
+     * request so Claude sees its own prior `tool_use` when it resumes.
+     * [input] is the full JSON object the model produced — we deserialise
+     * and re-serialise via [JsonElement] to avoid lossy round-trip.
+     */
+    @Serializable
+    @SerialName("tool_use")
+    internal data class ToolUse(
+        val id: String,
+        val name: String,
+        val input: JsonElement,
+    ) : ClaudeContentPart()
+
+    /**
+     * The user-side follow-up that carries a tool's result back to
+     * Claude. [content] is a free-form text block; [isError] is true when
+     * the tool raised — Claude handles failure modes more gracefully
+     * when we flag them explicitly.
+     */
+    @Serializable
+    @SerialName("tool_result")
+    internal data class ToolResult(
+        @SerialName("tool_use_id") val toolUseId: String,
+        val content: String,
+        @SerialName("is_error") val isError: Boolean = false,
+    ) : ClaudeContentPart()
 }
 
 @Serializable

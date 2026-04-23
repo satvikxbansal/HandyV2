@@ -7,19 +7,19 @@ todos:
     status: completed
   - id: phase-b-voice
     content: "Phase B — Wire VoiceController into ChatViewModel: inject, collect state+partial, startVoice/stopVoice methods with auto-send, composer swap on voiceState, mic IconButton in composer."
-    status: in_progress
+    status: completed
   - id: phase-c-tool-detect
     content: "Phase C — Foreground-app tool detection: ForegroundAppMonitor interface in :core, accessibility event consumer in HandyAccessibilityService (debounced), browser URL-bar walk for umbrella-site, ChatViewModel subscribes and swaps ToolContext + history."
-    status: pending
+    status: completed
   - id: phase-d-tools
     content: "Phase D — Tool round-trip: port WebSearchService (Brave/Jina/GitHub), add ToolRunner interface + HandyToolRunner impl (web tools + dispatch_action via AndroidIntentDispatcher), add availableTools builder, extend LlmClient with streamToolAwareChat, update ClaudeLlmClient with N-iteration tool loop, stop no-op'ing tool events in ChatViewModel."
-    status: pending
+    status: completed
   - id: phase-e-settings
     content: "Phase E — Settings completeness: add Jina + GitHub credential fields, group web-search section; render user turn immediately on UserTurnPersisted event."
-    status: pending
+    status: completed
   - id: phase-f-e2e
     content: Phase F — Run the post-build E2E verification matrix (core chat, voice-in-chat, tool-name switching, web search round-trip, intent dispatch, error surface, scroll/keyboard, prompt correctness, automated tests).
-    status: pending
+    status: completed
 isProject: false
 ---
 

@@ -5,6 +5,9 @@ import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.LlmChunk
 import com.handy.core.llm.LlmClient
 import com.handy.core.llm.LlmRequest
+import com.handy.core.llm.ToolDefinition
+import com.handy.core.llm.ToolResult
+import com.handy.core.llm.ToolRunner
 import com.handy.core.model.ChatMessage
 import com.handy.core.model.ConversationTurn
 import com.handy.core.model.HandySettings
@@ -183,6 +186,52 @@ class ConversationOrchestratorTest {
         assertThat(finalized.searchToolsUsed).containsExactly("web_search")
     }
 
+    @Test fun `non-empty tools list routes through streamToolAwareChat and the runner gets called`() = runTest {
+        val store = FakeHistoryStore()
+        val llm = ToolRoutingLlm(
+            toolAwareChunks = listOf(
+                LlmChunk.ToolCall(id = "t1", name = "web_search", inputJson = "{\"query\":\"kotlin news\"}"),
+                LlmChunk.Text("here is what i found. "),
+                LlmChunk.Done("end_turn"),
+            ),
+        )
+        val runner = RecordingToolRunner()
+        val orchestrator = ConversationOrchestrator(
+            llmClient = llm,
+            historyStore = store,
+            toolRunner = runner,
+            clock = { 6000L },
+            uuid = { "u-uid" },
+            rng = Random(seed = 0),
+        )
+
+        val events = orchestrator.converse(
+            OrchestrationRequest(
+                userMessage = "latest kotlin release",
+                toolContext = tool,
+                settings = settings.copy(webSearchEnabled = true),
+                fromVoice = false,
+                capture = null,
+                screenText = null,
+                hasBraveKey = true,
+                tools = listOf(
+                    ToolDefinition(name = "web_search", description = "", inputSchemaJson = "{}"),
+                ),
+            ),
+        ).collectAll()
+
+        assertThat(llm.toolAwareCallCount).isEqualTo(1)
+        assertThat(llm.plainCallCount).isEqualTo(0)
+        // The LLM client ran the tool call itself in this fake; we only
+        // want to assert the orchestrator surfaced a WebSearchStatus
+        // event and a finalisation with the tool recorded.
+        val status = events.filterIsInstance<OrchestrationEvent.WebSearchStatus>().single()
+        assertThat(status.text).isEqualTo("Searching the web...")
+
+        val finalized = events.filterIsInstance<OrchestrationEvent.AssistantTurnFinalized>().single()
+        assertThat(finalized.searchToolsUsed).containsExactly("web_search")
+    }
+
     @Test fun `llm errors surface as Error event, not a throw`() = runTest {
         val store = FakeHistoryStore()
         val llm = ThrowingLlm(IllegalStateException("kaboom"))
@@ -241,6 +290,12 @@ class ConversationOrchestratorTest {
     private class ScriptedLlm(private val chunks: List<LlmChunk>) : LlmClient {
         override val modelId: String = "scripted"
         override fun streamChat(request: LlmRequest): Flow<LlmChunk> = chunks.asFlow()
+
+        // Non-tool orchestrator tests never take the tool-aware path.
+        override fun streamToolAwareChat(
+            request: LlmRequest,
+            runner: com.handy.core.llm.ToolRunner,
+        ): Flow<LlmChunk> = chunks.asFlow()
     }
 
     private class AssertNeverCalledLlm : LlmClient {
@@ -248,11 +303,58 @@ class ConversationOrchestratorTest {
         override fun streamChat(request: LlmRequest): Flow<LlmChunk> {
             throw AssertionError("LLM must not be called on SecureWindow")
         }
+
+        override fun streamToolAwareChat(
+            request: LlmRequest,
+            runner: com.handy.core.llm.ToolRunner,
+        ): Flow<LlmChunk> {
+            throw AssertionError("LLM must not be called on SecureWindow")
+        }
     }
 
     private class ThrowingLlm(private val throwable: Throwable) : LlmClient {
         override val modelId: String = "throwing"
         override fun streamChat(request: LlmRequest): Flow<LlmChunk> = flowThatThrows(throwable)
+
+        override fun streamToolAwareChat(
+            request: LlmRequest,
+            runner: com.handy.core.llm.ToolRunner,
+        ): Flow<LlmChunk> = flowThatThrows(throwable)
+    }
+
+    /**
+     * Captures which LlmClient entry point was called so the
+     * orchestrator test can assert it took the tool-aware branch when
+     * tools were present.
+     */
+    private class ToolRoutingLlm(
+        private val plainChunks: List<LlmChunk> = emptyList(),
+        private val toolAwareChunks: List<LlmChunk> = emptyList(),
+    ) : LlmClient {
+        override val modelId: String = "tool-routing"
+        var plainCallCount: Int = 0
+        var toolAwareCallCount: Int = 0
+
+        override fun streamChat(request: LlmRequest): Flow<LlmChunk> {
+            plainCallCount++
+            return plainChunks.asFlow()
+        }
+
+        override fun streamToolAwareChat(
+            request: LlmRequest,
+            runner: ToolRunner,
+        ): Flow<LlmChunk> {
+            toolAwareCallCount++
+            return toolAwareChunks.asFlow()
+        }
+    }
+
+    private class RecordingToolRunner : ToolRunner {
+        val calls: MutableList<Pair<String, String>> = mutableListOf()
+        override suspend fun run(name: String, inputJson: String): ToolResult {
+            calls += name to inputJson
+            return ToolResult.Ok("stub-result")
+        }
     }
 }
 

@@ -3,6 +3,7 @@ package com.handy.app.settings
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -71,6 +72,7 @@ class SettingsActivity : ComponentActivity() {
     private val viewModel: SettingsViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
             HandyTheme(darkTheme = true) {
@@ -92,6 +94,8 @@ class SettingsActivity : ComponentActivity() {
                     snackbarHostState = snackbarHostState,
                     onClaudeKeyChange = viewModel::setClaudeKey,
                     onBraveKeyChange = viewModel::setBraveKey,
+                    onJinaKeyChange = viewModel::setJinaKey,
+                    onGithubKeyChange = viewModel::setGithubKey,
                     onWebSearchToggle = { enabled ->
                         viewModel.updateSettings { it.copy(webSearchEnabled = enabled) }
                     },
@@ -113,6 +117,8 @@ private fun SettingsScreen(
     snackbarHostState: SnackbarHostState,
     onClaudeKeyChange: (String) -> Unit,
     onBraveKeyChange: (String) -> Unit,
+    onJinaKeyChange: (String) -> Unit,
+    onGithubKeyChange: (String) -> Unit,
     onWebSearchToggle: (Boolean) -> Unit,
     onAssistantModeChange: (AssistantMode) -> Unit,
     onClearHistory: () -> Unit,
@@ -161,20 +167,38 @@ private fun SettingsScreen(
                     savedMasked = state.claudeKeyMasked,
                     onCommit = onClaudeKeyChange,
                 )
+
+                HorizontalDivider(color = HandyColors.Border)
+
+                SectionHeader(stringResource(R.string.settings_web_search_header))
+                Text(
+                    text = stringResource(R.string.settings_web_search_caption),
+                    color = HandyColors.TextSecondary,
+                    fontSize = 13.sp,
+                )
+                ToggleRow(
+                    title = stringResource(R.string.settings_web_search_label),
+                    description = stringResource(R.string.settings_web_search_description),
+                    checked = state.settings?.webSearchEnabled == true,
+                    onCheckedChange = onWebSearchToggle,
+                )
                 CredentialField(
                     label = stringResource(R.string.settings_brave_label),
                     placeholder = "brv-…",
                     savedMasked = state.braveKeyMasked,
                     onCommit = onBraveKeyChange,
                 )
-
-                HorizontalDivider(color = HandyColors.Border)
-
-                ToggleRow(
-                    title = stringResource(R.string.settings_web_search_label),
-                    description = stringResource(R.string.settings_web_search_description),
-                    checked = state.settings?.webSearchEnabled == true,
-                    onCheckedChange = onWebSearchToggle,
+                CredentialField(
+                    label = stringResource(R.string.settings_jina_label),
+                    placeholder = "jina_…",
+                    savedMasked = state.jinaKeyMasked,
+                    onCommit = onJinaKeyChange,
+                )
+                CredentialField(
+                    label = stringResource(R.string.settings_github_label),
+                    placeholder = "ghp_…",
+                    savedMasked = state.githubKeyMasked,
+                    onCommit = onGithubKeyChange,
                 )
 
                 HorizontalDivider(color = HandyColors.Border)

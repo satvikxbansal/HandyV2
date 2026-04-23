@@ -88,9 +88,15 @@ class PromptCatalogTest {
             webSearchEnabled = false,
             hasBraveKey = false,
         )
+        // The chat prompt itself references `<screen_ui>` inside its
+        // pointing rules (verbatim V1 text), so both prompts contain
+        // that literal. The addendum is identifiable by its distinctive
+        // "screen text (from accessibility):" lead-in.
         assertThat(withSnapshot).contains("<screen_ui>")
         assertThat(withSnapshot).contains("com.google.android.gm")
-        assertThat(withoutSnapshot).doesNotContain("<screen_ui>")
+        assertThat(withSnapshot).contains("screen text (from accessibility):")
+        assertThat(withoutSnapshot).doesNotContain("screen text (from accessibility):")
+        assertThat(withoutSnapshot).doesNotContain("com.google.android.gm")
     }
 
     @Test fun `buildSystemPrompt picks tutor prompt when mode is TUTOR`() {

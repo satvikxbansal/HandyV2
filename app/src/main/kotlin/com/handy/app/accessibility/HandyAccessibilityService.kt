@@ -3,7 +3,10 @@ package com.handy.app.accessibility
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.view.accessibility.AccessibilityEvent
+import com.handy.app.foreground.HandyForegroundAppMonitor
+import dagger.hilt.android.AndroidEntryPoint
 import java.util.concurrent.atomic.AtomicReference
+import javax.inject.Inject
 import timber.log.Timber
 
 /**
@@ -14,6 +17,12 @@ import timber.log.Timber
  * [com.handy.runtime.accessibility.SemanticPointerResolver] via a
  * single atomic reference.
  *
+ * Also drives Handy's tool-memory: every
+ * `TYPE_WINDOW_STATE_CHANGED` is forwarded to
+ * [HandyForegroundAppMonitor] so the chat screen can swap its
+ * `ToolContext` + history when the foreground app or browser URL
+ * changes.
+ *
  * Configuration (canRetrieveWindowContent, canTakeScreenshot,
  * FLAG_RETRIEVE_INTERACTIVE_WINDOWS, FLAG_REPORT_VIEW_IDS, event
  * types, notificationTimeout) lives in
@@ -22,7 +31,10 @@ import timber.log.Timber
  * serviceInfo at runtime to make doubly sure the interactive-window
  * and view-id flags are set.
  */
+@AndroidEntryPoint
 class HandyAccessibilityService : AccessibilityService() {
+
+    @Inject lateinit var foregroundAppMonitor: HandyForegroundAppMonitor
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -36,9 +48,18 @@ class HandyAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // Phase 3 observes just enough to keep the service attached.
-        // v2 / richer features (tool-memory auto-switching on app
-        // change) consume events here.
+        event ?: return
+        // Only WINDOW_STATE_CHANGED matters for tool detection. The
+        // monitor itself re-checks but bailing here keeps the log quiet
+        // and avoids an unnecessary rootInActiveWindow call on every
+        // content-changed tick.
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val root = runCatching { rootInActiveWindow }.getOrNull()
+        try {
+            foregroundAppMonitor.onAccessibilityEvent(event, root)
+        } finally {
+            runCatching { root?.recycle() }
+        }
     }
 
     override fun onInterrupt() { /* no-op */ }

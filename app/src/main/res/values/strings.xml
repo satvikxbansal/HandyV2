@@ -43,7 +43,11 @@
     <string name="settings_api_key_header">API keys</string>
     <string name="settings_anthropic_label">Claude API key</string>
     <string name="settings_anthropic_placeholder">sk-ant-…</string>
-    <string name="settings_brave_label">Brave Search API key (optional)</string>
+    <string name="settings_web_search_header">Web search</string>
+    <string name="settings_web_search_caption">Brave powers general web search, Jina Reader fetches and summarises pages, GitHub searches public repos. Jina + GitHub keys are optional — they raise rate limits.</string>
+    <string name="settings_brave_label">Brave Search API key</string>
+    <string name="settings_jina_label">Jina Reader API key (optional)</string>
+    <string name="settings_github_label">GitHub API token (optional)</string>
     <string name="settings_web_search_label">Enable web search tools</string>
     <string name="settings_web_search_description">When on, Claude can call web_search / fetch_page / github_search. Off by default.</string>
     <string name="settings_assistant_mode_header">Assistant mode</string>

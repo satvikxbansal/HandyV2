@@ -20,7 +20,12 @@ import timber.log.Timber
  * `android.speech.SpeechRecognizer` adapter.
  *
  * Rules (guardrails → "SpeechRecognizer / STT rules"):
- *  - Prefer `createOnDeviceSpeechRecognizer` on API 31+ when available.
+ *  - Prefer `createOnDeviceSpeechRecognizer` on API 31+ when available,
+ *    but fall back to cloud if the on-device model errors with
+ *    `ERROR_LANGUAGE_UNAVAILABLE` / `ERROR_LANGUAGE_NOT_SUPPORTED`.
+ *    Emulators and fresh devices often report
+ *    `isOnDeviceRecognitionAvailable = true` while the English model
+ *    pack isn't actually installed (DL-015).
  *  - All recognizer calls run on the **main thread** — we post to the
  *    main `Handler` explicitly rather than trust the flow's current
  *    dispatcher.
@@ -44,8 +49,16 @@ class AndroidSttClient(
      */
     @Volatile private var activeRecognizer: SpeechRecognizer? = null
 
+    /**
+     * Once the on-device recognizer has failed with a language-
+     * unavailable error we never retry it — subsequent sessions go
+     * straight to the cloud / system recognizer. Reset only on process
+     * death.
+     */
+    @Volatile private var onDeviceDisabled: Boolean = false
+
     override val isOnDeviceAvailable: Boolean
-        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        get() = !onDeviceDisabled && if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
         } else {
             false
@@ -53,8 +66,24 @@ class AndroidSttClient(
 
     override fun listen(): Flow<SttEvent> = callbackFlow {
         var recognizer: SpeechRecognizer? = null
+        var useOnDevice = !onDeviceDisabled &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
+        var fellBackToCloud = false
 
-        val listener = object : RecognitionListener {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageTag)
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            // EXTRA_PREFER_OFFLINE is only a hint — correctness does not
+            // depend on the OS honouring it. The design uses
+            // createOnDeviceSpeechRecognizer when available instead.
+            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+
+        lateinit var listener: RecognitionListener
+        listener = object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) { /* no-op */ }
             override fun onBeginningOfSpeech() {
                 trySend(SttEvent.BeginningOfSpeech)
@@ -65,6 +94,35 @@ class AndroidSttClient(
                 trySend(SttEvent.EndOfSpeech)
             }
             override fun onError(error: Int) {
+                // On-device is configured but the language pack isn't
+                // installed. Disable on-device and restart this same
+                // listen() session with the cloud recognizer instead of
+                // bubbling an error to the user.
+                val langUnavailable = error == ERROR_LANGUAGE_UNAVAILABLE ||
+                    error == ERROR_LANGUAGE_NOT_SUPPORTED
+                if (langUnavailable && useOnDevice && !fellBackToCloud) {
+                    Timber.w(
+                        "STT: on-device reported language unavailable (code=%d) — falling back to cloud.",
+                        error,
+                    )
+                    onDeviceDisabled = true
+                    useOnDevice = false
+                    fellBackToCloud = true
+                    // Rebuild recognizer on the main thread and retry.
+                    mainHandler.post {
+                        runCatching {
+                            recognizer?.cancel()
+                            recognizer?.destroy()
+                        }
+                        val cloud = SpeechRecognizer.createSpeechRecognizer(context)
+                        Timber.d("STT: retrying with cloud recognizer (API %d)", Build.VERSION.SDK_INT)
+                        cloud.setRecognitionListener(listener)
+                        cloud.startListening(intent)
+                        recognizer = cloud
+                        activeRecognizer = cloud
+                    }
+                    return
+                }
                 val (label, recoverable) = mapError(error)
                 trySend(SttEvent.Error(label, recoverable))
                 close()
@@ -81,19 +139,8 @@ class AndroidSttClient(
             override fun onEvent(eventType: Int, params: Bundle?) { /* no-op */ }
         }
 
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageTag)
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            // EXTRA_PREFER_OFFLINE is only a hint — correctness does not
-            // depend on the OS honouring it. The design uses
-            // createOnDeviceSpeechRecognizer when available instead.
-            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-        }
-
         mainHandler.post {
-            recognizer = buildRecognizer()
+            recognizer = buildRecognizer(useOnDevice)
             recognizer?.setRecognitionListener(listener)
             recognizer?.startListening(intent)
             activeRecognizer = recognizer
@@ -101,8 +148,8 @@ class AndroidSttClient(
 
         awaitClose {
             mainHandler.post {
-                recognizer?.stopListening()
-                recognizer?.destroy()
+                runCatching { recognizer?.stopListening() }
+                runCatching { recognizer?.destroy() }
                 if (activeRecognizer === recognizer) activeRecognizer = null
                 recognizer = null
             }
@@ -125,10 +172,8 @@ class AndroidSttClient(
         }
     }
 
-    private fun buildRecognizer(): SpeechRecognizer {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-            SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
-        ) {
+    private fun buildRecognizer(useOnDevice: Boolean): SpeechRecognizer {
+        return if (useOnDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             Timber.d("STT: using on-device recognizer (API %d)", Build.VERSION.SDK_INT)
             SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
         } else {
@@ -153,6 +198,18 @@ class AndroidSttClient(
         SpeechRecognizer.ERROR_CLIENT -> "Recognizer client error." to true
         SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognizer is busy — try again." to true
         SpeechRecognizer.ERROR_SERVER -> "Recognition server error." to true
+        ERROR_LANGUAGE_UNAVAILABLE ->
+            "Speech model not installed. Connect to the internet and try again, or install the English language pack in Settings > System > Languages." to true
+        ERROR_LANGUAGE_NOT_SUPPORTED ->
+            "English speech recognition isn't supported on this device." to false
         else -> "Recognition error ($code)." to true
+    }
+
+    private companion object {
+        // These constants are part of SpeechRecognizer on API 31+ but
+        // referencing them directly hard-crashes older SDKs. We declare
+        // local copies to stay minSdk-safe.
+        const val ERROR_LANGUAGE_NOT_SUPPORTED: Int = 12
+        const val ERROR_LANGUAGE_UNAVAILABLE: Int = 13
     }
 }

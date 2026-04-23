@@ -9,6 +9,7 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -61,6 +63,7 @@ class OnboardingActivity : ComponentActivity() {
     private val viewModel: OnboardingViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
             HandyTheme(darkTheme = true) {
@@ -171,6 +174,7 @@ private fun OnboardingScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .systemBarsPadding()
                 .padding(HandyDimens.Space24),
             verticalArrangement = Arrangement.spacedBy(HandyDimens.Space16),
         ) {

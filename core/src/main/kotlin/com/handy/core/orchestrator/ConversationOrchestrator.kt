@@ -5,6 +5,7 @@ import com.handy.core.llm.LlmChunk
 import com.handy.core.llm.LlmClient
 import com.handy.core.llm.LlmRequest
 import com.handy.core.llm.ToolDefinition
+import com.handy.core.llm.ToolRunner
 import com.handy.core.model.ChatMessage
 import com.handy.core.model.ConversationTurn
 import com.handy.core.model.HandySettings
@@ -36,6 +37,7 @@ import kotlinx.coroutines.flow.flow
 class ConversationOrchestrator(
     private val llmClient: LlmClient,
     private val historyStore: ChatHistoryStore,
+    private val toolRunner: ToolRunner? = null,
     private val clock: () -> Long = { System.currentTimeMillis() },
     private val uuid: () -> String = { java.util.UUID.randomUUID().toString() },
     private val rng: Random = Random.Default,
@@ -128,8 +130,14 @@ class ConversationOrchestrator(
         var accumulated = ""
         val collectedSearchTools = mutableListOf<String>()
 
+        val stream = if (llmRequest.tools.isNotEmpty() && toolRunner != null) {
+            llmClient.streamToolAwareChat(llmRequest, toolRunner)
+        } else {
+            llmClient.streamChat(llmRequest)
+        }
+
         try {
-            llmClient.streamChat(llmRequest).collect { chunk ->
+            stream.collect { chunk ->
                 when (chunk) {
                     is LlmChunk.Text -> {
                         accumulated += chunk.delta

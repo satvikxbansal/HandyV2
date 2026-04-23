@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -45,6 +47,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.PanTool
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -91,6 +94,10 @@ class ChatActivity : ComponentActivity() {
     private val viewModel: ChatViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // targetSdk 35 renders edge-to-edge by default on Android 15+;
+        // calling this explicitly keeps behaviour consistent on 14 and
+        // lets the status bar scrim stay transparent. DL-015.
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         consumeVoiceExtra(intent)
         setContent {
@@ -103,6 +110,10 @@ class ChatActivity : ComponentActivity() {
                         startActivity(Intent(this, SettingsActivity::class.java))
                     },
                     onDismissError = viewModel::dismissError,
+                    onVoiceStart = viewModel::startVoice,
+                    onVoiceStop = viewModel::stopVoice,
+                    onSetToolName = viewModel::setToolName,
+                    onConfirmationResult = viewModel::respondToConfirmation,
                 )
             }
         }
@@ -141,7 +152,19 @@ internal fun ChatScreen(
     onSend: (String) -> Unit,
     onOpenSettings: () -> Unit,
     onDismissError: () -> Unit,
+    onVoiceStart: () -> Unit,
+    onVoiceStop: () -> Unit,
+    onSetToolName: (String) -> Unit,
+    onConfirmationResult: (Long, Boolean) -> Unit,
 ) {
+    val pending = state.pendingConfirmation
+    if (pending != null) {
+        ConfirmationDialog(
+            reason = pending.reason,
+            onContinue = { onConfirmationResult(pending.id, true) },
+            onCancel = { onConfirmationResult(pending.id, false) },
+        )
+    }
     Surface(
         color = HandyColors.Background,
         contentColor = HandyColors.TextPrimary,
@@ -150,6 +173,11 @@ internal fun ChatScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                // Edge-to-edge: push header out of the status-bar
+                // cutout and composer above the nav-bar. Without these
+                // the "Handy" title + Settings gear live behind the
+                // system icons and become un-tappable. DL-015.
+                .statusBarsPadding()
                 .navigationBarsPadding(),
         ) {
             HandyHeaderBar(
@@ -158,11 +186,22 @@ internal fun ChatScreen(
             )
             ThinDivider()
 
-            ToolNameBar(
-                toolName = state.currentToolName,
-                detectionState = state.toolDetectionState,
-            )
-            ThinDivider()
+            // Hide the tool-name row entirely when we have nothing to
+            // show (launcher in foreground, accessibility disabled, or
+            // before any detection). Only render when a real
+            // third-party app has been resolved. Matches the user
+            // spec: "when Handy is opened from the app icon, don't
+            // show the detecting-app row". DL-015.
+            if (state.toolDetectionState == ToolDetectionState.DETECTED ||
+                state.toolDetectionState == ToolDetectionState.FAILED
+            ) {
+                ToolNameBar(
+                    toolName = state.currentToolName,
+                    detectionState = state.toolDetectionState,
+                    onSetToolName = onSetToolName,
+                )
+                ThinDivider()
+            }
 
             if (state.errorBanner != null) {
                 ErrorBanner(text = state.errorBanner, onDismiss = onDismissError)
@@ -178,9 +217,8 @@ internal fun ChatScreen(
                 pendingTranscript = state.pendingTranscript,
                 enabled = !state.isStreaming,
                 onSend = onSend,
-                // Phase B replaces these stubs with real VoiceController calls.
-                onVoiceStart = { /* Phase B */ },
-                onVoiceStop = { /* Phase B */ },
+                onVoiceStart = onVoiceStart,
+                onVoiceStop = onVoiceStop,
             )
         }
     }
@@ -321,16 +359,30 @@ private fun ThinDivider() {
 /* ----- tool-name bar --------------------------------------------------- */
 
 /**
- * Slim bar above the message list. Phase A wires render-only state —
- * Phase C drives [detectionState] from the foreground-app monitor and
- * makes the "Change" button actually editable via the ChatViewModel.
- * Mirrors `ChatInterfaceView.toolNameBar` (lines 174–234).
+ * Slim bar above the message list. Mirrors
+ * `ChatInterfaceView.toolNameBar` (lines 174–234):
+ *  - IDLE / DETECTED / populated name → accent-coloured label + "Change"
+ *    button that swaps the row into an inline editor,
+ *  - DETECTING → italic "Detecting app..." with a tiny spinner,
+ *  - FAILED → populated label + 3 amber dots trailing to signal the
+ *    accessibility service is off or the foreground package is
+ *    unresolvable.
  */
 @Composable
 private fun ToolNameBar(
     toolName: String,
     detectionState: ToolDetectionState,
+    onSetToolName: (String) -> Unit,
 ) {
+    var editing by remember { mutableStateOf(false) }
+    var draft by remember { mutableStateOf("") }
+    // When the detected name changes out from under an open editor —
+    // e.g. the user switched apps mid-edit — discard the draft so the
+    // new name renders.
+    LaunchedEffect(toolName) {
+        if (!editing) draft = toolName
+    }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(HandyDimens.Space8),
@@ -345,8 +397,48 @@ private fun ToolNameBar(
             tint = HandyColors.TextSecondary,
             modifier = Modifier.size(14.dp),
         )
-        when (detectionState) {
-            ToolDetectionState.DETECTING -> {
+        when {
+            editing -> {
+                @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        color = HandyColors.TextPrimary,
+                        fontSize = 13.sp,
+                    ),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = HandyColors.Surface,
+                        unfocusedContainerColor = HandyColors.Surface,
+                        focusedTextColor = HandyColors.TextPrimary,
+                        unfocusedTextColor = HandyColors.TextPrimary,
+                    ),
+                    keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            val committed = draft.trim()
+                            if (committed.isNotEmpty()) onSetToolName(committed)
+                            editing = false
+                        },
+                    ),
+                )
+                TextButton(
+                    onClick = {
+                        val committed = draft.trim()
+                        if (committed.isNotEmpty()) onSetToolName(committed)
+                        editing = false
+                    },
+                ) {
+                    Text(
+                        text = "Done",
+                        color = HandyColors.Accent,
+                        fontSize = 12.sp,
+                    )
+                }
+            }
+            detectionState == ToolDetectionState.DETECTING -> {
                 Text(
                     text = "Detecting app...",
                     color = HandyColors.TextSecondary,
@@ -359,7 +451,7 @@ private fun ToolNameBar(
                     modifier = Modifier.size(10.dp),
                 )
             }
-            ToolDetectionState.FAILED -> {
+            else -> {
                 Text(
                     text = toolName.ifBlank { "Handy" },
                     color = HandyColors.Accent,
@@ -368,22 +460,14 @@ private fun ToolNameBar(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                AmberDotTrail()
-            }
-            ToolDetectionState.IDLE, ToolDetectionState.DETECTED -> {
-                Text(
-                    text = toolName.ifBlank { "Handy" },
-                    color = HandyColors.Accent,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                // "Change" is a render-only affordance in Phase A; the
-                // editable variant lands with Phase C's setToolName hook.
+                if (detectionState == ToolDetectionState.FAILED) {
+                    AmberDotTrail()
+                }
                 TextButton(
-                    onClick = { /* Phase C */ },
-                    enabled = false,
+                    onClick = {
+                        draft = toolName
+                        editing = true
+                    },
                 ) {
                     Text(
                         text = "Change",
@@ -450,12 +534,21 @@ private fun MessageList(
         if (
             state.messages.isEmpty() &&
             state.localOverlay.isEmpty() &&
+            state.pendingUserTurn == null &&
             state.streamingDelta.isEmpty()
         ) {
             item { EmptyHero() }
         }
         items(state.messages, key = { "persist-${it.id}" }) { message ->
             MessageRow(message)
+        }
+        // Eager user bubble for the turn currently in flight. Mirrors
+        // V1 `HandyManager.sendMessage` which appends the user message
+        // to `messages` before the LLM even starts streaming. We do it
+        // here via a separate slot so the historyStore stays the sole
+        // source of truth for persisted rows.
+        state.pendingUserTurn?.let { pending ->
+            item(key = "pending-user-${pending.id}") { MessageRow(pending) }
         }
         if (state.isStreaming && state.streamingDelta.isNotEmpty()) {
             item(key = "streaming") {
@@ -753,7 +846,9 @@ private fun ChatComposer(
     ) {
         MicButton(
             listening = listening,
-            enabled = !enabled || listening, // can always stop once started
+            // Always allow stopping once listening is live; otherwise
+            // require the composer to not be mid-stream.
+            enabled = listening || enabled,
             onStart = onVoiceStart,
             onStop = onVoiceStop,
         )
@@ -874,4 +969,38 @@ private fun SendButton(
             modifier = Modifier.size(16.dp),
         )
     }
+}
+
+/* ----- dispatch_action confirmation ----------------------------------- */
+
+/**
+ * Material3 alert shown when Handy wants to fire a destructive Intent
+ * (call, text, share). Mirrors the macOS confirmation contract from
+ * `AndroidIntentDispatcher.dispatch`: the user explicitly agrees before
+ * the Intent ever leaves our process.
+ */
+@Composable
+private fun ConfirmationDialog(
+    reason: String,
+    onContinue: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        containerColor = HandyColors.SurfaceElevated,
+        titleContentColor = HandyColors.TextPrimary,
+        textContentColor = HandyColors.TextSecondary,
+        title = { Text("Confirm action") },
+        text = { Text(reason) },
+        confirmButton = {
+            TextButton(onClick = onContinue) {
+                Text("Continue", color = HandyColors.Accent)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancel) {
+                Text("Cancel", color = HandyColors.TextSecondary)
+            }
+        },
+    )
 }

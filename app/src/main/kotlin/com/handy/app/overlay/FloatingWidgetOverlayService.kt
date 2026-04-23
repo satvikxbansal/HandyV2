@@ -20,6 +20,7 @@ import androidx.dynamicanimation.animation.SpringForce
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.handy.app.chat.ChatActivity
+import com.handy.app.foreground.HandyForegroundAppMonitor
 import com.handy.app.voice.VoiceController
 import com.handy.app.widget.WidgetContent
 import com.handy.app.widget.WidgetState
@@ -46,6 +47,7 @@ import timber.log.Timber
 class FloatingWidgetOverlayService : LifecycleService() {
 
     @Inject lateinit var voiceController: VoiceController
+    @Inject lateinit var foregroundAppMonitor: HandyForegroundAppMonitor
 
     private var host: OverlayComposeHost? = null
     private var view: android.view.View? = null
@@ -220,6 +222,16 @@ class FloatingWidgetOverlayService : LifecycleService() {
     }
 
     private fun openChat(voiceMessage: String? = null) {
+        // Capture the app currently behind the widget BEFORE launching
+        // ChatActivity. Once the chat window takes focus, the only
+        // "application" window visible to the accessibility service is
+        // our own — so the foreground detection has to happen here,
+        // not later. Mirrors macOS `HandyManager.resolveToolNameWithAutoSwitch`
+        // which snapshots the frontmost app at the moment Handy is
+        // activated. DL-015.
+        runCatching { foregroundAppMonitor.refreshNow() }
+            .onFailure { Timber.w(it, "refreshNow failed before openChat") }
+
         val intent = Intent(this, ChatActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         if (!voiceMessage.isNullOrBlank()) {

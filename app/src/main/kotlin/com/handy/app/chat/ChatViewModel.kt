@@ -2,8 +2,12 @@ package com.handy.app.chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.handy.app.voice.VoiceController
+import com.handy.core.foreground.ForegroundAppMonitor
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.LlmClient
+import com.handy.core.llm.ToolRunner
+import com.handy.core.llm.availableTools
 import com.handy.core.model.ChatMessage
 import com.handy.core.model.HandySettings
 import com.handy.core.model.LoadingVerbs
@@ -13,18 +17,22 @@ import com.handy.core.orchestrator.OrchestrationEvent
 import com.handy.core.orchestrator.OrchestrationRequest
 import com.handy.core.tool.ToolContext
 import com.handy.runtime.storage.DataStoreSettings
+import com.handy.runtime.storage.KeyStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 
 /**
  * Chat screen state holder.
@@ -38,36 +46,206 @@ import kotlinx.coroutines.withContext
  *  - carries placeholder `currentToolName` / `voiceState` / ``
  *    `pendingTranscript` fields that Phases B and C drive for real.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val llmClient: LlmClient,
     private val historyStore: ChatHistoryStore,
     private val settings: DataStoreSettings,
+    private val voiceController: VoiceController,
+    private val foregroundAppMonitor: ForegroundAppMonitor,
+    private val toolRunner: ToolRunner,
+    private val keyStore: KeyStore,
+    private val confirmationBroker: ChatConfirmationBroker,
 ) : ViewModel() {
 
     private val orchestrator = ConversationOrchestrator(
         llmClient = llmClient,
         historyStore = historyStore,
+        toolRunner = toolRunner,
     )
 
     private val _state = MutableStateFlow(ChatUiState())
     val state: StateFlow<ChatUiState> = _state.asStateFlow()
 
-    private var currentToolContext: ToolContext = DEFAULT_TOOL
+    /**
+     * Source of truth for "which tool are we chatting about?". Driven by
+     * [ForegroundAppMonitor] and by the in-bar "Change" override. The
+     * history subscription below uses `flatMapLatest` over this flow so
+     * a tool-change automatically cancels the old `historyStore.observe`
+     * and starts a fresh one on the new key.
+     */
+    private val toolContextFlow = MutableStateFlow(DEFAULT_TOOL)
+
     private var sendJob: Job? = null
     private var verbRotationJob: Job? = null
 
     init {
         viewModelScope.launch {
-            historyStore.observe(currentToolContext.historyKey).collectLatest { messages ->
-                _state.value = _state.value.copy(messages = messages)
-            }
+            toolContextFlow
+                .flatMapLatest { ctx -> historyStore.observe(ctx.historyKey) }
+                .collectLatest { messages ->
+                    _state.value = _state.value.copy(messages = messages)
+                }
         }
         viewModelScope.launch {
             settings.flow.collectLatest { s ->
                 _state.value = _state.value.copy(settings = s)
             }
         }
+        // Mirror the mic's live partial into the composer so words stream
+        // in as they are recognised. Mirrors macOS
+        // `HandyManager.startVoiceInput` → `pendingTranscript`
+        // (`HandyManager.swift` lines 1078–1081).
+        viewModelScope.launch {
+            voiceController.latestPartial.collectLatest { partial ->
+                if (_state.value.voiceState == VoiceUiState.LISTENING) {
+                    _state.value = _state.value.copy(pendingTranscript = partial)
+                }
+            }
+        }
+        // Foreground-app detection → tool-memory swap. Mirrors macOS
+        // `HandyManager.resolveToolNameWithAutoSwitch`
+        // (`HandyManager.swift` lines 596–674).
+        //
+        // Fallback for cold-start: when the chat opens without a
+        // preceding widget tap (launcher shortcut, notification,
+        // Android-recent-apps), the accessibility event buffer may be
+        // empty. Ask the monitor to look at the currently-visible
+        // windows. When nothing sticks (launcher, secure window, no
+        // accessibility service), the bar stays hidden — matches the
+        // user spec "when Handy is opened from the app icon, don't
+        // show the detecting-app row".
+        viewModelScope.launch {
+            foregroundAppMonitor.refreshNow()
+        }
+        viewModelScope.launch {
+            foregroundAppMonitor.flow.collectLatest { snapshot ->
+                val ctx = ToolContext(
+                    packageName = snapshot.packageName,
+                    appLabel = snapshot.appLabel,
+                    umbrellaSiteLabel = snapshot.umbrellaSiteLabel,
+                )
+                Timber.d(
+                    "ChatViewModel: tool swap → %s (pkg=%s site=%s)",
+                    ctx.displayLabel, ctx.packageName, ctx.umbrellaSiteLabel,
+                )
+                toolContextFlow.value = ctx
+                _state.value = _state.value.copy(
+                    currentToolName = ctx.displayLabel,
+                    toolDetectionState = ToolDetectionState.DETECTED,
+                )
+            }
+        }
+        // Mirror the confirmation broker's pending request into UI
+        // state. The chat sheet reads this to know when to render.
+        viewModelScope.launch {
+            confirmationBroker.pending.collectLatest { pending ->
+                _state.value = _state.value.copy(pendingConfirmation = pending)
+            }
+        }
+    }
+
+    /**
+     * Starts a push-to-talk session in the chat composer. Mirrors the
+     * macOS contract from `HandyManager.startVoiceInput`
+     * (`HandyManager.swift` lines 1062–1106): clear pending transcript,
+     * flip UI into LISTENING, let the controller emit partials; the mic
+     * stays open until [stopVoice] or [cancelVoice] is called.
+     *
+     * Returns silently and surfaces an error banner when the controller
+     * refuses to start (missing RECORD_AUDIO or an already-active
+     * session) — the banner copy matches the permission-path rule in
+     * `.cursor/rules/10-handy-project-guardrails.mdc` → "Error-message
+     * strings".
+     */
+    fun startVoice() {
+        if (_state.value.voiceState != VoiceUiState.IDLE) {
+            Timber.d("startVoice: refusing, state=%s", _state.value.voiceState)
+            return
+        }
+        val ok = voiceController.start()
+        if (!ok) {
+            _state.value = _state.value.copy(
+                errorBanner = "Microphone permission denied. Tap the widget → Settings → grant microphone access.",
+            )
+            return
+        }
+        _state.value = _state.value.copy(
+            voiceState = VoiceUiState.LISTENING,
+            pendingTranscript = "",
+            errorBanner = null,
+        )
+    }
+
+    /**
+     * Ends the push-to-talk session and, if the recognizer produced any
+     * text, auto-sends it through [send] with `fromVoice = true`. An
+     * empty transcript is a silent no-op — no bubble, no banner. Mirrors
+     * macOS `HandyManager.stopVoiceInput`
+     * (`HandyManager.swift` lines 1108–1132).
+     */
+    fun stopVoice() {
+        if (_state.value.voiceState != VoiceUiState.LISTENING) {
+            Timber.d("stopVoice: not listening (state=%s) — ignoring", _state.value.voiceState)
+            return
+        }
+        // Move straight to PROCESSING while we drain the recognizer's
+        // buffered final. PROCESSING keeps the amber status dot on and
+        // disables the composer so the user can't double-fire.
+        _state.value = _state.value.copy(voiceState = VoiceUiState.PROCESSING)
+
+        viewModelScope.launch {
+            val transcript = voiceController.stopAndAwaitFinal()
+            Timber.d("stopVoice: final transcript=\"%s\"", transcript)
+            if (transcript.isNullOrBlank()) {
+                _state.value = _state.value.copy(
+                    voiceState = VoiceUiState.IDLE,
+                    pendingTranscript = "",
+                )
+                return@launch
+            }
+            // Non-empty transcript → auto-send. `send(...)` keeps
+            // `voiceState = PROCESSING` until `AssistantTurnFinalized`.
+            _state.value = _state.value.copy(pendingTranscript = "")
+            send(transcript, fromVoice = true)
+        }
+    }
+
+    /** Abort an in-flight voice session without sending anything. */
+    fun cancelVoice() {
+        Timber.d("cancelVoice")
+        voiceController.cancel()
+        _state.value = _state.value.copy(
+            voiceState = VoiceUiState.IDLE,
+            pendingTranscript = "",
+        )
+    }
+
+    /**
+     * User override for the tool-memory label. Keeps the current
+     * [ToolContext.packageName] (we know what app they are in) but
+     * replaces the display label; also clears the
+     * `umbrellaSiteLabel` so the new key is stable until the user
+     * switches apps.
+     *
+     * Mirrors macOS `HandyManager.setToolName` (`HandyManager.swift`
+     * lines 566–570): a no-op when the new name equals the current
+     * display label.
+     */
+    fun setToolName(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        val current = toolContextFlow.value
+        if (current.displayLabel == trimmed) return
+        toolContextFlow.value = current.copy(
+            appLabel = trimmed,
+            umbrellaSiteLabel = null,
+        )
+        _state.value = _state.value.copy(
+            currentToolName = trimmed,
+            toolDetectionState = ToolDetectionState.DETECTED,
+        )
     }
 
     fun send(userText: String, fromVoice: Boolean = false) {
@@ -79,16 +257,31 @@ class ChatViewModel @Inject constructor(
             val snapshot = _state.value
             val current = snapshot.settings ?: withContext(Dispatchers.IO) { settings.current() }
 
+            val hasBraveKey = withContext(Dispatchers.IO) {
+                !keyStore.get(KeyStore.KEY_BRAVE).isNullOrBlank()
+            }
+            // Mirrors V1 `ClaudeAPIService.availableTools`: web tools
+            // ride on `webSearchEnabled`; `dispatch_action` is always
+            // available (the prompt addendum already advertises it).
+            val tools = availableTools(
+                webSearchEnabled = current.webSearchEnabled,
+                hasBraveKey = hasBraveKey,
+                intentDispatchEnabled = true,
+            )
+
             val request = OrchestrationRequest(
                 userMessage = trimmed,
-                toolContext = currentToolContext,
+                toolContext = toolContextFlow.value,
                 settings = current,
                 fromVoice = fromVoice,
                 capture = null, // Phase 4 hooks capture pipeline here.
                 screenText = null,
-                hasBraveKey = false,
-                tools = emptyList(),
+                hasBraveKey = hasBraveKey,
+                tools = tools,
             )
+
+            // Reset the per-turn search-tools buffer before the new stream.
+            collectedSearchTools.clear()
 
             _state.value = snapshot.copy(
                 isStreaming = true,
@@ -110,18 +303,35 @@ class ChatViewModel @Inject constructor(
                         _state.value = _state.value.copy(streamingDelta = event.accumulated)
                     is OrchestrationEvent.AssistantTurnFinalized -> {
                         stopVerbRotation()
+                        // Stamp the collected tool list onto the just-
+                        // persisted assistant message so the italic
+                        // "web searched · github searched" caption
+                        // renders above the bubble. Mirrors macOS
+                        // `HandyManager.sendMessage` lines 963–973.
+                        val tagged = event.searchToolsUsed.ifEmpty { collectedSearchTools.toList() }
                         _state.value = _state.value.copy(
                             isStreaming = false,
                             streamingDelta = "",
                             loadingVerb = "",
                             loadingVerbFrozen = false,
                             voiceState = VoiceUiState.IDLE,
+                            pendingUserTurn = null,
                         )
+                        if (tagged.isNotEmpty()) stampSearchToolsOnLastAssistant(tagged)
                     }
                     is OrchestrationEvent.Error -> {
                         stopVerbRotation()
                         val accumulated = _state.value.streamingDelta
-                        val overlay = buildErrorOverlay(accumulated, event.message)
+                        // Carry the pendingUserTurn into the overlay so
+                        // failed turns still show both sides of the
+                        // exchange (user bubble + assistant failure +
+                        // system error).
+                        val priorUser = _state.value.pendingUserTurn
+                        val overlay = buildErrorOverlay(
+                            pendingUser = priorUser,
+                            accumulated = accumulated,
+                            errorMessage = event.message,
+                        )
                         _state.value = _state.value.copy(
                             isStreaming = false,
                             streamingDelta = "",
@@ -130,18 +340,69 @@ class ChatViewModel @Inject constructor(
                             errorBanner = event.message,
                             localOverlay = overlay,
                             voiceState = VoiceUiState.IDLE,
+                            pendingUserTurn = null,
                         )
                     }
-                    is OrchestrationEvent.UserTurnPersisted,
-                    is OrchestrationEvent.SystemMessageInjected,
-                    is OrchestrationEvent.ToolCall,
+                    is OrchestrationEvent.ToolCall -> {
+                        // Log the tool; the matching WebSearchStatus
+                        // event carries the user-facing verb.
+                        if (event.name !in collectedSearchTools) {
+                            collectedSearchTools += event.name
+                        }
+                    }
                     is OrchestrationEvent.WebSearchStatus -> {
-                        // Phase D hooks tool calls +
-                        // search-status overlays.
+                        // Override + freeze the loading strip so the
+                        // random verb rotation doesn't stomp the
+                        // tool-specific status string.
+                        _state.value = _state.value.copy(
+                            loadingVerb = event.text,
+                            loadingVerbFrozen = true,
+                        )
+                    }
+                    is OrchestrationEvent.UserTurnPersisted -> {
+                        // Render the user bubble immediately so hitting
+                        // Send never feels like it vanished while the
+                        // assistant is still warming up. The bubble is
+                        // cleared on AssistantTurnFinalized — by then
+                        // the historyStore has emitted the persisted
+                        // pair, so no duplication.
+                        _state.value = _state.value.copy(
+                            pendingUserTurn = event.message,
+                        )
+                    }
+                    is OrchestrationEvent.SystemMessageInjected -> {
+                        // historyStore observer already surfaces these;
+                        // nothing extra to do.
                     }
                 }
             }
         }
+    }
+
+    private val collectedSearchTools: MutableList<String> = mutableListOf()
+
+    /**
+     * Replaces the last assistant message in [ChatUiState.messages] with
+     * a copy that carries [tools] in [ChatMessage.searchToolsUsed].
+     *
+     * The on-disk history (`JsonHistoryStore`) doesn't persist the tool
+     * list today — it only stores user+assistant text pairs via
+     * `ConversationTurn`. This stamp lives in UI state so the italic
+     * caption renders during the session; kill-restart reloads from
+     * disk (without the caption) which matches V1 behavior for legacy
+     * turns.
+     */
+    private fun stampSearchToolsOnLastAssistant(tools: List<String>) {
+        val currentMessages = _state.value.messages
+        val idx = currentMessages.indexOfLast { it.role == MessageRole.ASSISTANT }
+        if (idx < 0) return
+        val updated = currentMessages.toMutableList()
+        updated[idx] = updated[idx].copy(searchToolsUsed = tools)
+        _state.value = _state.value.copy(messages = updated.toList())
+    }
+
+    fun respondToConfirmation(requestId: Long, approved: Boolean) {
+        confirmationBroker.respond(requestId, approved)
     }
 
     fun dismissError() {
@@ -173,18 +434,24 @@ class ChatViewModel @Inject constructor(
         verbRotationJob = null
     }
 
-    private fun buildErrorOverlay(accumulated: String, errorMessage: String): List<ChatMessage> {
+    private fun buildErrorOverlay(
+        pendingUser: ChatMessage?,
+        accumulated: String,
+        errorMessage: String,
+    ): List<ChatMessage> {
+        val key = toolContextFlow.value.historyKey
         val overlay = mutableListOf<ChatMessage>()
+        if (pendingUser != null) overlay += pendingUser
         val failedAssistantBody = accumulated.ifEmpty { "(response failed)" }
         overlay += ChatMessage.new(
             role = MessageRole.ASSISTANT,
             content = failedAssistantBody,
-            toolName = currentToolContext.historyKey,
+            toolName = key,
         )
         overlay += ChatMessage.new(
             role = MessageRole.SYSTEM,
             content = "Error: $errorMessage",
-            toolName = currentToolContext.historyKey,
+            toolName = key,
         )
         return overlay
     }
@@ -238,4 +505,20 @@ data class ChatUiState(
     val toolDetectionState: ToolDetectionState = ToolDetectionState.IDLE,
     val voiceState: VoiceUiState = VoiceUiState.IDLE,
     val pendingTranscript: String = "",
+    /**
+     * Non-null while the user is being asked to confirm a destructive
+     * `dispatch_action` call. The chat UI renders a bottom sheet /
+     * dialog; the ViewModel calls [ChatConfirmationBroker.respond] when
+     * the user taps Continue / Cancel.
+     */
+    val pendingConfirmation: ChatConfirmationBroker.Request? = null,
+    /**
+     * User message for the turn currently in flight. Rendered eagerly
+     * on [OrchestrationEvent.UserTurnPersisted] so hitting Send never
+     * feels like the message disappeared. Cleared when the assistant
+     * turn is finalised (at which point `historyStore` has emitted the
+     * persisted pair) or on error (where it flows into `localOverlay`
+     * alongside the failed response).
+     */
+    val pendingUserTurn: ChatMessage? = null,
 )

@@ -4,18 +4,21 @@ import android.content.Context
 import com.handy.core.action.ActionPerformer
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.LlmClient
+import com.handy.core.llm.ToolRunner
 import com.handy.core.speech.SttClient
 import com.handy.core.speech.TtsClient
 import com.handy.runtime.action.NoopActionPerformer
 import com.handy.runtime.intent.AndroidIntentDispatcher
 import com.handy.runtime.intent.LaunchableAppIndex
 import com.handy.runtime.llm.ClaudeLlmClient
+import com.handy.runtime.llm.HandyToolRunner
 import com.handy.runtime.speech.AndroidSttClient
 import com.handy.runtime.speech.AndroidTtsClient
 import com.handy.runtime.storage.DataStoreSettings
 import com.handy.runtime.storage.EncryptedKeyStore
 import com.handy.runtime.storage.JsonHistoryStore
 import com.handy.runtime.storage.KeyStore
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -113,6 +116,11 @@ object RuntimeModule {
     fun provideTtsClient(@ApplicationContext context: Context): TtsClient =
         AndroidTtsClient(context)
 
+    /**
+     * `ActionPerformer` stays a NOOP per the guardrails — it is the
+     * tap-for-me seam (v2). The action-**tool** (`dispatch_action`,
+     * wired separately via [HandyToolRunner]) is how v1 fires Intents.
+     */
     @Provides
     @Singleton
     fun provideActionPerformer(): ActionPerformer = NoopActionPerformer()
@@ -136,6 +144,19 @@ object RuntimeModule {
     // instance and therefore bind in `:app` (`AppRuntimeBindings`) rather
     // than here. `:android-runtime` stays agnostic of the `:app`-owned
     // service class.
+}
+
+/**
+ * Interface-only bindings. Kept in a separate `abstract class` module so
+ * `@Binds` and `@Provides` don't collide in the same module.
+ */
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class RuntimeBindsModule {
+
+    @Binds
+    @Singleton
+    abstract fun bindToolRunner(impl: HandyToolRunner): ToolRunner
 }
 
 /**

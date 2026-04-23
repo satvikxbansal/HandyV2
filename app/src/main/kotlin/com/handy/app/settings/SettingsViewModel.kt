@@ -50,6 +50,8 @@ class SettingsViewModel @Inject constructor(
                     settings = s,
                     claudeKeyMasked = mask(keyStore.get(KeyStore.KEY_ANTHROPIC)),
                     braveKeyMasked = mask(keyStore.get(KeyStore.KEY_BRAVE)),
+                    jinaKeyMasked = mask(keyStore.get(KeyStore.KEY_JINA)),
+                    githubKeyMasked = mask(keyStore.get(KeyStore.KEY_GITHUB)),
                 )
             }
         }
@@ -74,6 +76,22 @@ class SettingsViewModel @Inject constructor(
             savedMessage = "Brave Search API key saved",
             clearedMessage = "Brave Search API key cleared",
         ) { it.copy(braveKeyMasked = mask(raw)) }
+
+    fun setJinaKey(raw: String) =
+        setKey(
+            name = KeyStore.KEY_JINA,
+            raw = raw,
+            savedMessage = "Jina Reader API key saved",
+            clearedMessage = "Jina Reader API key cleared",
+        ) { it.copy(jinaKeyMasked = mask(raw)) }
+
+    fun setGithubKey(raw: String) =
+        setKey(
+            name = KeyStore.KEY_GITHUB,
+            raw = raw,
+            savedMessage = "GitHub API key saved",
+            clearedMessage = "GitHub API key cleared",
+        ) { it.copy(githubKeyMasked = mask(raw)) }
 
     private inline fun setKey(
         name: String,
@@ -114,5 +132,7 @@ data class SettingsUiState(
     val settings: HandySettings? = null,
     val claudeKeyMasked: String? = null,
     val braveKeyMasked: String? = null,
+    val jinaKeyMasked: String? = null,
+    val githubKeyMasked: String? = null,
     val assistantModes: List<AssistantMode> = AssistantMode.entries,
 )
