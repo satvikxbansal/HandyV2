@@ -1,5 +1,6 @@
 package com.handy.app.chat
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -65,6 +66,7 @@ class ChatActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        consumeVoiceExtra(intent)
         setContent {
             HandyTheme(darkTheme = true) {
                 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -74,13 +76,39 @@ class ChatActivity : ComponentActivity() {
                         state = state,
                         onSend = { viewModel.send(it, fromVoice = false) },
                         onOpenSettings = {
-                            startActivity(android.content.Intent(this, SettingsActivity::class.java))
+                            startActivity(Intent(this, SettingsActivity::class.java))
                         },
                         onDismissError = viewModel::dismissError,
                     )
                 })
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // launchMode="singleTask" means a second startActivity(ChatActivity)
+        // — as issued by the widget after a voice session — ends up here
+        // instead of onCreate. Route the extra the same way.
+        setIntent(intent)
+        consumeVoiceExtra(intent)
+    }
+
+    /**
+     * Reads `EXTRA_VOICE_MESSAGE` out of [intent] and, if present, sends
+     * it through the chat pipeline with `fromVoice = true`. The extra
+     * is removed from the Intent after consumption so config changes or
+     * Activity recreations don't replay the same message.
+     */
+    private fun consumeVoiceExtra(intent: Intent?) {
+        val voice = intent?.getStringExtra(EXTRA_VOICE_MESSAGE)?.trim().orEmpty()
+        if (voice.isEmpty()) return
+        intent?.removeExtra(EXTRA_VOICE_MESSAGE)
+        viewModel.send(voice, fromVoice = true)
+    }
+
+    companion object {
+        const val EXTRA_VOICE_MESSAGE: String = "handy.voice.message"
     }
 }
 

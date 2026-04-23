@@ -18,12 +18,16 @@ import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
 import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.lifecycleScope
 import com.handy.app.chat.ChatActivity
+import com.handy.app.voice.VoiceController
 import com.handy.app.widget.WidgetContent
 import com.handy.app.widget.WidgetState
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlin.math.hypot
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 /**
@@ -40,6 +44,8 @@ import timber.log.Timber
  */
 @AndroidEntryPoint
 class FloatingWidgetOverlayService : LifecycleService() {
+
+    @Inject lateinit var voiceController: VoiceController
 
     private var host: OverlayComposeHost? = null
     private var view: android.view.View? = null
@@ -59,9 +65,16 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private val longPressRunnable = Runnable {
         longPressFired = true
         view?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-        state.value = WidgetState.LISTENING
-        // Phase 4 wires VoiceController here.
-        Timber.d("Widget: long-press → voice start (Phase 4 wires the controller)")
+        val started = voiceController.start()
+        if (started) {
+            state.value = WidgetState.LISTENING
+        } else {
+            // Permission missing or already-active session. Revert so the
+            // user doesn't see a stuck listening state they didn't trigger.
+            longPressFired = false
+            state.value = WidgetState.IDLE
+            Timber.d("Widget: voice start refused — check RECORD_AUDIO")
+        }
     }
 
     override fun onCreate() {
@@ -139,7 +152,9 @@ class FloatingWidgetOverlayService : LifecycleService() {
                     dragging = true
                     mainHandler.removeCallbacks(longPressRunnable)
                     if (longPressFired) {
-                        // Cancel voice: phase 4 hooks in.
+                        // Widget dragged while listening — abort the voice
+                        // session without submitting anything.
+                        voiceController.cancel()
                         longPressFired = false
                     }
                     state.value = WidgetState.DRAGGING
@@ -161,9 +176,20 @@ class FloatingWidgetOverlayService : LifecycleService() {
                         state.value = WidgetState.IDLE
                     }
                     longPressFired -> {
-                        state.value = WidgetState.IDLE
                         longPressFired = false
-                        // Phase 4 wires VoiceController.stopAndSubmit()
+                        // Show the "thinking" state while we wait for the
+                        // recognizer to deliver its final transcript, then
+                        // hand off to ChatActivity with the user message.
+                        state.value = WidgetState.THINKING
+                        lifecycleScope.launch {
+                            val transcript = voiceController.stopAndAwaitFinal()
+                            state.value = WidgetState.IDLE
+                            if (!transcript.isNullOrBlank()) {
+                                openChat(voiceMessage = transcript)
+                            } else {
+                                Timber.d("Voice session produced no transcript")
+                            }
+                        }
                     }
                     else -> {
                         state.value = WidgetState.IDLE
@@ -193,9 +219,12 @@ class FloatingWidgetOverlayService : LifecycleService() {
         }
     }
 
-    private fun openChat() {
+    private fun openChat(voiceMessage: String? = null) {
         val intent = Intent(this, ChatActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        if (!voiceMessage.isNullOrBlank()) {
+            intent.putExtra(ChatActivity.EXTRA_VOICE_MESSAGE, voiceMessage)
+        }
         startActivity(intent)
     }
 

@@ -35,6 +35,15 @@ class AndroidSttClient(
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    /**
+     * Reference to the recognizer owned by the currently-active
+     * [listen] session. Used by [stopListening] to signal a graceful
+     * stop without cancelling the flow (see [SttClient.stopListening]).
+     * Confined to the main thread — both producers and consumers post
+     * to [mainHandler] before touching it.
+     */
+    @Volatile private var activeRecognizer: SpeechRecognizer? = null
+
     override val isOnDeviceAvailable: Boolean
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
@@ -87,21 +96,33 @@ class AndroidSttClient(
             recognizer = buildRecognizer()
             recognizer?.setRecognitionListener(listener)
             recognizer?.startListening(intent)
+            activeRecognizer = recognizer
         }
 
         awaitClose {
             mainHandler.post {
                 recognizer?.stopListening()
                 recognizer?.destroy()
+                if (activeRecognizer === recognizer) activeRecognizer = null
                 recognizer = null
             }
         }
     }
 
+    override fun stopListening() {
+        mainHandler.post {
+            // Graceful stop: lets onResults / onError still fire so the
+            // collector receives Final / Error before the flow closes.
+            activeRecognizer?.stopListening()
+        }
+    }
+
     override fun release() {
-        // Single-shot sessions destroy in awaitClose — this is here so
-        // callers that own the client across many sessions can force a
-        // teardown on service-stop.
+        mainHandler.post {
+            activeRecognizer?.cancel()
+            activeRecognizer?.destroy()
+            activeRecognizer = null
+        }
     }
 
     private fun buildRecognizer(): SpeechRecognizer {

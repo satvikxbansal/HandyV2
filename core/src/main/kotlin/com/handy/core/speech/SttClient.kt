@@ -29,6 +29,15 @@ interface SttClient {
      */
     fun listen(): Flow<SttEvent>
 
+    /**
+     * Politely stop capturing audio but *keep the session alive* until
+     * the recognizer emits its final transcript (or errors out). The
+     * flow returned by [listen] closes naturally after the terminal
+     * event. Cancelling the collector outright would usually swallow
+     * the final transcript.
+     */
+    fun stopListening()
+
     /** Explicit release (e.g. when the service is being torn down). */
     fun release()
 }
