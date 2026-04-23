@@ -1,0 +1,38 @@
+---
+description: Karpathy Skill 2 — Simplicity First
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Simplicity First
+
+Prefer the simplest solution that satisfies the spec. Reach for
+abstractions only when you have at least two concrete call-sites that
+prove the abstraction pays for itself.
+
+## Concrete rules for this repo
+
+* No new interface unless the build plan names it OR a second
+  implementation is imminent in the same PR.
+* No new Gradle module unless the build plan names it.
+* No reflection, no annotation processors outside Hilt/KSP. (Room is
+  out of v1 — see the persistence rule in
+  `10-handy-project-guardrails.mdc`.)
+* No DSL, no custom operators, no "clever" one-liners. Boring Kotlin.
+* If you're writing a generic `<T>` function and T is only ever one
+  type in this codebase, delete the generic.
+* If the plan says "data class", it's a data class. Not a sealed
+  hierarchy, not a builder.
+
+## Why
+
+Handy's macOS twin has shipped to users. Every cleverness tax Android
+charges delays reaching parity. Boring code is fast code and is cheap
+to replace.
+
+## How to apply
+
+* On every new file, ask: "would a senior Android engineer joining
+  tomorrow understand this in under 60 seconds?" If not, simplify.
+* When tempted to add an extension point "just in case", don't. Leave
+  a TODO(v2) comment instead.

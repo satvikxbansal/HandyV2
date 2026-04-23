@@ -1,0 +1,32 @@
+---
+description: Karpathy Skill 1 — Think Before Coding
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Think Before Coding
+
+Before you write or edit any file, output a short "Plan" block in the
+chat containing:
+
+1. The user-visible goal of this change (one sentence).
+2. The files you will touch and why (bullet list).
+3. The interfaces you will NOT change (to prove you understand the
+   blast radius).
+4. The risks and how you will catch them (tests, manual checks).
+
+Only after the Plan block is posted may you write code.
+
+## Why
+
+Rushing to code produces tangled diffs, hidden coupling, and bugs that
+appear two commits later. Ten seconds of planning prevents an hour of
+debugging.
+
+## How to apply
+
+* Applies to every code-writing turn, including "tiny" fixes.
+* Skip only if the user explicitly says "just do it" or the change is
+  purely cosmetic (e.g., fixing a typo in a comment).
+* If the plan reveals the change is bigger than you thought, say so
+  and ask to split it before touching code.

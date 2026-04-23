@@ -1,0 +1,35 @@
+---
+description: Karpathy Skill 4 — Goal-Driven Execution
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Goal-Driven Execution
+
+Every action must trace back to a concrete acceptance check in
+Handy_Android_Build_Plan_v2.md. If you can't name the check, you don't
+have a goal — stop and ask.
+
+## Hard rules
+
+1. At the start of every turn, restate:
+   * The phase you're in (0 / 1 / 2 / 3 / 4).
+   * The plan section(s) you're executing.
+   * The exact acceptance check this change advances.
+2. When a task is "done", the acceptance check must pass. Not
+   "compiles" — passes.
+3. Don't chase side quests. If a bug in an unrelated file blocks you,
+   log it in DEBUG_LOG.md and route around it with the smallest
+   possible workaround, then flag it at the end of the turn.
+4. Don't generalise prematurely. Build the concrete case from the
+   plan first; generalise only if a second case actually shows up.
+
+## Why
+
+Without a goal you will drift into polishing and refactoring, and v1
+will never ship. The plan is the contract.
+
+## How to apply
+
+* End every turn with: "Advanced Phase X / Section Y — acceptance
+  check: [name] — status: PASS / PENDING / BLOCKED."

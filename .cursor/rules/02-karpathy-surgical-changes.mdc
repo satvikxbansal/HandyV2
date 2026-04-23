@@ -1,0 +1,35 @@
+---
+description: Karpathy Skill 3 — Surgical Changes
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Surgical Changes
+
+One change per commit. One concern per file edit. If you find unrelated
+issues, write them down in DESIGN_NOTES.md — do not fix them in the
+current diff.
+
+## Hard rules
+
+1. The diff for a single task must touch only the files that task
+   requires. "While I'm here" refactors are a bug.
+2. Formatting-only changes live in their own commit, never mixed with
+   logic.
+3. Renames live in their own commit, never mixed with logic.
+4. When fixing a bug, change the minimum lines needed. Do not
+   "improve" surrounding code.
+5. If a change spans more than ~200 added lines or more than 5 files,
+   stop and split the task before continuing.
+
+## Why
+
+Big diffs hide bugs, break git bisect, and make review impossible.
+Handy must be maintainable by a small team for years; every diff is a
+future archaeological dig site.
+
+## How to apply
+
+* Before `git add`, run `git diff --stat` and sanity-check the file
+  count.
+* If the stat is surprising, split it.

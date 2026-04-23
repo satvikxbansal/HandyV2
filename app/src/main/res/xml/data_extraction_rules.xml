@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Phase 0 placeholder. Handy does not want cloud backup / device-transfer
+  extraction of secrets (EncryptedSharedPreferences-backed API keys) or of
+  per-tool chat history. The final policy lands in Phase 4 alongside the
+  privacy-policy commit.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="file" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="file" path="." />
+    </device-transfer>
+</data-extraction-rules>

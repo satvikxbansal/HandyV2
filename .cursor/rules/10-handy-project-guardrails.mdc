@@ -1,0 +1,668 @@
+---
+description: Handy Android v1 project-specific guardrails
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Handy Android Guardrails
+
+These rules are derived directly from `Handy_Android_Build_Plan_v2.md`
+and the v1 Cursor prompt. They are non-negotiable for v1.
+
+## SDK targets (locked for v1)
+
+* `minSdk = 26`
+* `targetSdk = 35`
+* `compileSdk = 35`
+* A compatibility smoke lane runs on Android 16 / API 36, but **API 36
+  is not the shipping target for v1**. Do not change the above numbers
+  without a DESIGN_NOTES entry and the user's explicit approval.
+
+## Modules
+
+* `:core` is pure Kotlin/JVM. No `android.*` imports, no `androidx.*`
+  imports, no `kotlinx.coroutines.android`, no `Context`, no
+  `SharedPreferences`, no Compose. If you need a platform capability,
+  define an interface in `:core` and implement it in
+  `:android-runtime`.
+* `:android-runtime` contains Android adapters and wrappers only. **No
+  UI** (no Compose, no Activities, no Fragments, no View subclasses
+  tied to a screen) **and no manifest-declared Android components**
+  in v1. Every `Service`, `AccessibilityService`, `Activity`,
+  `BroadcastReceiver`, or `ContentProvider` lives in `:app`.
+* `:app` owns all manifest-declared components (`HandyApplication`,
+  `ChatActivity`, `SettingsActivity`, `OnboardingActivity`, the
+  floating-widget overlay service, the foreground service, and the
+  `AccessibilityService`) **and** all Compose UI. It depends on
+  `:android-runtime` and `:core`; `:android-runtime` must not depend
+  on `:app`.
+* A unit test in `:core` scans the compiled classpath and fails the
+  build if any `android.` reference leaks in.
+
+## Concurrency
+
+* No main-thread I/O. All network, disk, and Accessibility tree walks
+  run on `Dispatchers.IO` or `Dispatchers.Default`.
+* No bitmap or JSON-heavy work on the main thread.
+* Use structured concurrency. Every `CoroutineScope` you create must
+  have a well-defined cancellation owner (ViewModel, Service,
+  lifecycle).
+* No `GlobalScope`. Ever.
+* `StateFlow` for UI state. `SharedFlow` (replay=0, extraBufferCapacity
+  sized intentionally) for one-shot events.
+* `StrictMode` with the thread + VM policies enabled in debug builds;
+  crashes in debug on main-thread disk/network and on leaked closables.
+
+## OS resources
+
+* Every owner of an OS resource (`SpeechRecognizer`, `TextToSpeech`,
+  `MediaRecorder`, `AudioRecord`, `AccessibilityService` connections,
+  `MediaProjection` sessions, window overlays) must expose
+  `release()` and be released in `onDestroy()` / service teardown.
+* Overlays use `WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY`.
+  The idle floating widget uses
+  `FLAG_NOT_FOCUSABLE | FLAG_LAYOUT_IN_SCREEN | FLAG_LAYOUT_NO_LIMITS`.
+  v1 has no overlay-hosted text input — typed chat lives in
+  `ChatActivity`, not an overlay.
+
+## Persistence (v1)
+
+* Chat history is stored as **JSON files** — not Room. One file per
+  tool-memory key; atomic write via temp-file-then-rename; per-tool
+  cap enforced at write time. The on-disk schema is JSON-compatible
+  with the macOS `ChatMessage` / `MessageRole` / `ConversationTurn`
+  schema so histories can round-trip later.
+* App settings live in `DataStore<Preferences>`.
+* Secrets (Claude API key, optional Brave/Jina/GitHub keys) live in
+  `EncryptedSharedPreferences` backed by the Android Keystore.
+* **Do not add Room in v1.** If a future feature genuinely needs
+  relational storage, that is a v2 discussion.
+
+## LLM brain
+
+* There is exactly one `LlmClient` implementation wired in v1:
+  `ClaudeLlmClient`. It uses OkHttp + Server-Sent Events.
+* The Claude system prompts — `chatSystemPrompt`,
+  `voiceSystemPrompt`, `tutorModeSystemPrompt`, and the dynamic
+  `webSearchPromptAddendum` — live in
+  `core/prompts/PromptCatalog.kt` and are copied verbatim from
+  `HandyManager.swift`. See the "macOS prompt reuse" rule below
+  for the full inventory and the ONLY platform adaptations that
+  are allowed.
+* `[POINT:…]` and `[SPOKEN]...[/SPOKEN]` markers are parsed
+  by `core/parsing/AssistantMarkupParser.kt` and have unit tests
+  covering every edge case from the macOS implementation
+  (`PointParser.stripPointTags`, `extractSpokenPart`,
+  `clampVoiceSpokenForTTS` with `maxChars = 420`,
+  `clampVoiceSpokenForOverlay` with `maxChars = 110`). Only the
+  **semantic** pointer form (Strategy B) is produced in v1; the
+  parser accepts both shapes so legacy macOS samples still round-trip
+  in tests.
+
+## Guided / multi-step workflows
+
+* The macOS continuous guided-workflow / multi-step runner is
+  **out of scope for v1**. Do not wire a multi-step orchestrator,
+  step planner, or "do the next thing" loop. v1 is one-shot
+  guidance + semantic pointing + screen reading + direct intents.
+* Tutor mode is ported for parity but **off by default**. Do not
+  expand its behaviour beyond flag-wired parity in v1.
+
+## macOS prompt reuse — port verbatim, adapt only when you must
+
+The user has spent months tuning the macOS prompts, loading verbs,
+status strings, error messages, and UX contracts. Treat those as
+the product spec, not as starting-point suggestions. Before writing
+any assistant-facing string in Android, grep `./Handy/` for the
+concept. If it exists and is platform-agnostic, port it exactly.
+
+### Verbatim ports (no changes allowed)
+
+* `HandyManager.swift → loadingVerbs` (34 strings).
+* `HandyManager.swift → webSearchStatusText` tool-name → status-line
+  mapping ("Searching the web…", "Searching GitHub…", "Reading
+  page…", "Looking things up…").
+* `HandyManager.swift → introPrefix` behaviour (first-turn-only
+  greeting prefix).
+* `PointParser` utilities, including the exact `maxChars` caps
+  (420 for TTS, 110 for overlay) and the sentence-boundary
+  truncation rule.
+* `ChatMessage`, `MessageRole`, `ConversationTurn` JSON schema —
+  Android writes the same JSON that macOS reads.
+* `AssistantMode`, `STTProvider`, `TTSProvider`, `SarvamVoice` enum
+  raw values and display descriptions.
+* `WebSearchService` citation contract: "briefly mention your source
+  naturally… in voice responses, just name the source; in chat, you
+  may include a link. do not list raw URLs in spoken responses."
+* All user-facing error strings that are platform-agnostic (no API
+  key configured, network error, rate limit, invalid response).
+
+### Prompts — ported verbatim, with ONE narrow exception
+
+`chatSystemPrompt`, `voiceSystemPrompt`, and
+`tutorModeSystemPrompt` are copied into Kotlin string constants in
+`PromptCatalog.kt` with every line preserved. The ONLY transforms
+allowed are the platform adaptation rules below. Every other word,
+rule, example, and stylistic choice (all lowercase, no emojis, never
+say "simply" or "just", "plant a seed" closing sentence,
+"don't read out code verbatim", the exemplar dialogues) is
+preserved exactly.
+
+If you believe a prompt line needs changing for reasons other than
+the allowed platform adaptations, stop and ask. Do not unilaterally
+"improve" the user's tuned prompts.
+
+### Platform adaptation — the ONLY allowed transforms
+
+Apply these mechanically; do not editorialise.
+
+| macOS text                                           | Android text                                             |
+|------------------------------------------------------|----------------------------------------------------------|
+| "on **macos**" / "on macos"                          | "on **android**" / "on android"                          |
+| "menu bar" (as the home for Handy)                   | "floating widget" (as the home for Handy)                |
+| "open handy's chat from the **menu bar**"            | "tap the handy widget to open the full chat"             |
+| "command, option, control" shortcuts                 | gestures: "tap the widget", "long-press to speak"; omit keyboard shortcuts unless the user has a physical keyboard |
+| "windows/linux" platform disclaimers                 | remove or replace with "android phones and tablets"      |
+| pixel-coordinate `[POINT:x,y:label]` contract        | **semantic pointer** contract (see next bullet)          |
+
+### Pointing contract — diverges from macOS (Strategy B, plan §8)
+
+Android is semantic-pointer only. Update the pointing section of
+each prompt to:
+
+```
+element pointing:
+you have a small blue arrow that can fly to ui elements on the user's
+screen. use it whenever pointing would genuinely help. append a
+pointer tag at the very end of your response, AFTER your text:
+
+  [POINT:role=<role>;text=<exact visible text>]
+  or
+  [POINT:viewId=<resource id suffix>]
+  or
+  [POINT:desc=<contentDescription>]
+
+use the attribute you have highest confidence in. role is one of
+button, link, textfield, image, checkbox, switch, tab, menuitem. the
+text, viewId, or desc must match what's in the screen_text block you
+were given.
+
+if pointing wouldn't help, append [POINT:none].
+```
+
+Keep the rest of the pointing guidance (when to point, when not to,
+err on the side of pointing) word-for-word. `AssistantMarkupParser`
+parses both the legacy pixel form and the new semantic form; only
+the semantic form is produced in v1.
+
+### Android-only prompt addendums (NEW for Android)
+
+Two addendums that do not exist on macOS. Wire them into
+`buildSystemPrompt(mode, settings, screenSnapshot, tools)`:
+
+1. **Screen-text addendum** (appended only when
+   `ScreenInputMode` ≠ `VisionOnly` and a `ScreenTextSnapshot` is
+   present):
+
+   ```
+   screen text (from accessibility): the user is in package
+   {packageName}; here is the visible ui tree in flattened form. use
+   this as your primary source — do not hallucinate ui elements that
+   are not listed. when you point at an element, reference its text,
+   contentDescription, or viewId from this block.
+
+   <screen_ui>
+   {flattened YAML-ish tree, one line per visible node}
+   </screen_ui>
+   ```
+
+2. **Intent-tool addendum** (always present in v1 when intents are
+   enabled):
+
+   ```
+   direct actions: for well-defined requests like "set a 10-minute
+   timer", "open youtube", "call mom", "text sarah 'on my way'",
+   "search google for X", prefer the `dispatch_action` tool over
+   verbal instructions. ask the user for confirmation only if the
+   action is destructive (calling, texting, sharing). for simple
+   one-step actions, just dispatch.
+   ```
+
+The exact keyword list the router keys off (`timer`, `alarm`,
+`open`, `call`, `text`, etc.) lives in
+`core/intent/IntentKeywordHints.kt` and is referenced from the
+prompt, not re-stated in it.
+
+### Error-message strings — port AND relocalise platform permissions
+
+The macOS app ships specific user-facing error strings. Port them,
+but rewrite the permission-flow strings for Android settings paths.
+
+| macOS string                                                           | Android string                                                          |
+|------------------------------------------------------------------------|-------------------------------------------------------------------------|
+| "Screen Recording permission needed. Toggle Handy OFF then ON in System Settings > Privacy & Security > Screen Recording, then relaunch." | "Screen sharing permission needed. Enable Handy in Settings > Accessibility, then try again." |
+| "Speech recognition not authorized. Go to System Settings > Privacy & Security > Speech Recognition." | "Microphone permission denied. Tap the widget → Settings → grant microphone access."           |
+| `ClaudeAPIError.noAPIKey` → "No Claude API key. Add one in Settings."  | same wording, points to Android settings screen                          |
+| `ClaudeAPIError.httpError(429, …)` → Claude rate-limit message          | same wording, same retry guidance                                        |
+| `ClaudeAPIError.networkError(…)` → "Network error: …"                   | same wording                                                             |
+
+Anything NOT on this table is a verbatim port.
+
+### When in doubt — grep first
+
+Before writing a new assistant-facing string, grep for its concept
+in `./Handy/`. If a similar string exists, port it and adapt only
+the allowed transforms. If it genuinely doesn't exist and is not a
+macOS-only concept, you may write a new one — but mention it in
+your "Plan" block so the user sees it.
+
+## Action performance (tap-for-me seam)
+
+* v1 binds `ActionPerformer → NoopActionPerformer`.
+  `NoopActionPerformer` returns `PerformResult.Unsupported` for every
+  call and logs a structured breadcrumb. Do not implement a real
+  performer in v1 even if it "would be easy".
+* `ActionPerformer` lives in `:core` and must not reference
+  `AccessibilityService`. The v2 binding will be
+  `AccessibilityGestureActionPerformer` in the module that owns the
+  `AccessibilityService` (`:app` in v1).
+
+## Pointing (Strategy B only)
+
+* Only `SemanticPointerResolver` is implemented in v1. It takes the
+  assistant's pointing instruction (role + text + optional hints) and
+  resolves it against the live `AccessibilityNodeInfo` tree with the
+  fallback chain: exact text + role match → contentDescription match
+  → viewId suffix match → fuzzy text (Levenshtein ≤ 2).
+* Do **NOT** implement pixel-coordinate pointing (Strategy A)
+  anywhere. Do not generate `[POINT:x,y:…]` markers. If legacy
+  fixtures feed them in for parser tests, the parser tolerates them
+  but the runtime must never emit them.
+
+## Accessibility service configuration (must be declared)
+
+The app's `AccessibilityService` XML config and runtime flags must
+be configured so screen reading, window inspection, viewId-based
+pointing, and screenshot capture all work. The config declares:
+
+* `android:canRetrieveWindowContent="true"`
+* `android:canTakeScreenshot="true"` (API 30+)
+* `android:accessibilityEventTypes` covers at minimum
+  `typeWindowStateChanged | typeWindowContentChanged`.
+* `android:accessibilityFeedbackType="feedbackGeneric"`.
+* A reasonable `android:notificationTimeout` (100 ms starting
+  point).
+* `android:canRequestFilterKeyEvents="false"` (we do not filter
+  keys).
+
+At runtime, `AccessibilityService.serviceInfo` sets:
+
+* `AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS`
+* `AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS`
+
+Without the above, `getWindows()`, `viewIdResourceName`, and
+`takeScreenshot` degrade silently on production devices. Do not
+ship the service without verifying these flags in an
+instrumentation test.
+
+## Screen capture pipeline (v1 order)
+
+The capture pipeline branches in this exact order:
+
+1. **API 34+ (Android 14+)** — prefer
+   `AccessibilityService.takeScreenshotOfWindow(activeWindowId, …)`
+   so we capture the focused window only. Cheaper, no projection
+   consent, respects per-window secure flags.
+2. **API 30–33** — fall back to
+   `AccessibilityService.takeScreenshot(Display.DEFAULT_DISPLAY, …)`.
+3. **API 26–29** — fall back to `MediaProjection`. The
+   MediaProjection-owning service declares
+   `foregroundServiceType="mediaProjection"`; the pipeline registers
+   a `MediaProjection.Callback`, handles `onStop()`, releases the
+   virtual display + surface immediately, and clears capture state so
+   no further frames are produced.
+
+Every entry point returns a `CaptureResult` sealed type:
+
+```
+CaptureResult.Bitmap(bitmap)        // usable
+CaptureResult.SecureWindow          // treated via §OS-5 below
+CaptureResult.NotPermitted          // missing runtime permission or user denial
+CaptureResult.Unsupported           // no backing API on this device
+CaptureResult.Failed(reason)        // everything else, with a loggable reason
+```
+
+**No raw `Bitmap` crosses an orchestration boundary.** The LLM path
+accepts `CaptureResult`, not `Bitmap`.
+
+## SpeechRecognizer / STT rules
+
+* Prefer on-device: on API 31+, use
+  `SpeechRecognizer.createOnDeviceSpeechRecognizer(context)` when
+  `isOnDeviceRecognitionAvailable(context)` returns true; otherwise
+  use `SpeechRecognizer.createSpeechRecognizer(context)`.
+* `EXTRA_PREFER_OFFLINE` is a **hint**, not the design. It may be
+  set on the `RecognizerIntent`, but correctness does not depend on
+  the OS honouring it.
+* **All `SpeechRecognizer` calls run on the main thread.** Never
+  invoke `startListening` / `stopListening` / `cancel` / `destroy`
+  from `Dispatchers.IO`. The voice controller confines itself to
+  `Dispatchers.Main.immediate`.
+* Always call `destroy()` on teardown. Leaked recognizers keep the
+  microphone and the mic indicator.
+* The app manifest must declare a `<queries>` block listing
+  `android.speech.RecognitionService` so the OS-provided recognizer
+  resolves on targetSdk 30+.
+* Voice UX must support partial results, graceful release-to-submit
+  (empty release → no-op, never a stuck spinner), and a friendly
+  fallback when on-device recognition is unavailable. Every commit
+  that touches STT ships with at least one test.
+
+## Package visibility / launchable-app resolution
+
+* Do **not** do naive fuzzy `PackageManager` lookups on every chat
+  request.
+* Build and cache a `LaunchableAppIndex` at app start from
+  `PackageManager.queryIntentActivities(Intent(ACTION_MAIN).addCategory(CATEGORY_LAUNCHER), …)`.
+* Refresh the index on `ACTION_PACKAGE_ADDED` /
+  `ACTION_PACKAGE_REMOVED` / `ACTION_PACKAGE_REPLACED` broadcasts
+  (registered dynamically to satisfy targetSdk 35 restrictions).
+* Respect package visibility: keep the manifest `<queries>` minimal
+  and explicit. If you need a query, list it; don't use the
+  `QUERY_ALL_PACKAGES` permission.
+
+## Intent dispatch contract
+
+* `dispatch_action` is the **only** action-tool registered with the
+  LLM. The dispatcher never fires an action without the LLM
+  explicitly calling that tool — no regex-based inference from free
+  text.
+* Every dispatch returns a structured `IntentResult`:
+
+  ```
+  sealed class IntentResult {
+      data class Dispatched(val component: ComponentName?) : IntentResult()
+      data object ChooserShown : IntentResult()
+      data class NeedsConfirmation(val reason: String) : IntentResult()
+      data object NoHandler : IntentResult()
+      data class Failed(val reason: String) : IntentResult()
+  }
+  ```
+
+* Destructive actions (placing a call, sending a message, sharing
+  content) return `NeedsConfirmation` and require explicit user
+  approval before dispatch. Non-destructive one-step actions
+  (timer, alarm, open URL, open app, maps search) may dispatch
+  directly.
+
+## Web search
+
+* Web search is wired end-to-end but `webSearchEnabled` defaults to
+  `false`. Respect the toggle — do not make calls to Brave/Jina/GitHub
+  when it's off, and do not send search-tool definitions to Claude in
+  that mode.
+
+## Voice + animations
+
+* Voice capture and TTS are "must-work" features. Every commit that
+  touches audio ships with an instrumentation test that covers at
+  least one round-trip. TTS speaks only the clamped
+  `[SPOKEN]…[/SPOKEN]` segment (420 chars for TTS, 110 for overlay).
+* Animations are parity with macOS. Match the curves and durations
+  specified in build plan §12 exactly. If you change a curve,
+  document the reason in DESIGN_NOTES.md.
+
+## UI
+
+* Theme is Apple-class. Inter font family, the typography scale in
+  plan §11, the colour tokens in plan §11, the motion tokens in
+  plan §11. Do not introduce new design tokens without a DESIGN_NOTES
+  entry.
+* Dark theme is default. Light theme must remain usable (contrast
+  ratios ≥ AA).
+* Haptics: `HapticFeedbackConstants.LONG_PRESS` on voice arm,
+  `HapticFeedbackConstants.CONTEXT_CLICK` on snap.
+
+## Dependencies
+
+* Do not add a new dependency without writing its name + justification
+  in DESIGN_NOTES.md "Dependencies" section.
+* No networking libraries other than OkHttp. No Retrofit unless the
+  plan explicitly adds it.
+* No "AI" helper libraries. Claude is called over raw SSE.
+
+## Play / policy deliverables (treat as must-ship, not later-risk)
+
+v1 does not ship until these are in place:
+
+* A prominent **in-app disclosure** for Accessibility Service use on
+  first launch, stating in plain language what Handy will read on
+  screen and what it will not, with a link to the privacy policy.
+* An **explicit consent step** before the Accessibility setting
+  deep-link is opened; the user must be able to decline and use a
+  reduced mode that leaves the toggle off.
+* A drafted **Play Console Accessibility / permissions
+  declaration** matching actual runtime behaviour (no tap-for-me in
+  v1; clearly describe read + pointing + intent dispatch).
+* A short **review artifact list**: screen-recorded demo of the
+  consent flow, of a canonical chat + pointing session, and of the
+  Accessibility-off fallback.
+* A **privacy policy** whose wording matches the app's actual
+  behaviour (what leaves the device, what doesn't, retention,
+  third-party keys).
+* Avoid marketing copy that positions Handy as an unrestricted
+  autonomous controller of the phone.
+
+## Android OS constraints (v1 must-handle — do NOT skip any of these)
+
+These are the five platform traps that will silently break v1 if you
+are not deliberate about them. They are not "nice to haves" — each
+one will crash the app or produce garbage output on real devices
+until handled. Wire them into the relevant classes from day one;
+don't defer.
+
+### OS-1. Foreground Service types (manifest crash + Android 15 start rules)
+
+Starting on Android 14 (API 34), starting a foreground service
+without declaring an explicit `foregroundServiceType` in the
+manifest throws a fatal `MissingForegroundServiceTypeException` and
+crashes the app on first launch. Because `targetSdk 35` is required,
+this rule applies to every foreground service in Handy, with the
+added Android 15 wrinkle that background-initiated FGS starts are
+more restricted than before.
+
+Rules:
+
+* `AssistantForegroundService` (the widget/lifecycle anchor, which
+  also owns the microphone during voice capture) must declare
+  `android:foregroundServiceType="specialUse|microphone"` in
+  `AndroidManifest.xml`.
+* The manifest must include both
+  `android.permission.FOREGROUND_SERVICE_SPECIAL_USE` and
+  `android.permission.FOREGROUND_SERVICE_MICROPHONE` alongside the
+  base `FOREGROUND_SERVICE` permission.
+* Any service that uses `MediaProjection` (the screen-capture
+  fallback path) must additionally declare
+  `android:foregroundServiceType="mediaProjection"` on its own
+  `<service>` entry and request
+  `android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION`.
+* When declaring `specialUse`, also include the
+  `<property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" .../>`
+  element with a short, accurate justification string (e.g.,
+  `"on-screen AI assistant overlay that must remain visible across
+  apps"`).
+* `Service.startForeground(...)` must be called within 5 seconds of
+  `onStartCommand()` with a notification whose channel is created at
+  application start — not lazily.
+* **Android 15 `SYSTEM_ALERT_WINDOW` background-start exemption:**
+  the overlay must **already be visible** at the moment the FGS is
+  started if we rely on this exemption. If the widget is not
+  currently attached to `WindowManager`, route the start through an
+  activity or a user-initiated broadcast rather than assuming the
+  exemption covers us.
+
+### OS-2. Idle-widget overlay stays non-focusable; typed chat lives in `ChatActivity`
+
+In v1, the floating widget is the **only** overlay that hosts
+interactive chrome, and the idle widget uses
+`FLAG_NOT_FOCUSABLE` so it does not steal touches from the app
+behind it. **There is no chat-panel overlay in v1.** A tap on the
+widget launches `ChatActivity` (its own window, normal IME
+handling), so the historical "remove `FLAG_NOT_FOCUSABLE` when the
+chat panel opens" dance does not apply.
+
+Rules:
+
+* Treat the overlay's `LayoutParams.flags` as state through a single
+  function `overlayFlagsFor(mode: OverlayMode): Int` in the
+  floating-widget overlay service. In v1, `OverlayMode` has a single
+  public value (`IdleWidget`) that returns
+  `FLAG_NOT_FOCUSABLE | FLAG_LAYOUT_IN_SCREEN | FLAG_LAYOUT_NO_LIMITS`.
+  The helper exists so v2 can add another mode without refactoring.
+* When the user taps the widget, start `ChatActivity` via an
+  explicit `Intent` with `FLAG_ACTIVITY_NEW_TASK`. The widget
+  overlay is hidden while `ChatActivity` is foreground and restored
+  on close.
+* An instrumentation test must assert that typing into the
+  `ChatActivity` input actually commits characters — don't trust
+  manual testing for IME behaviour.
+* **Do not add a `ChatPanelOverlayService`** or any other overlay
+  that hosts a text field. If a future product decision needs one,
+  it ships in a later version and brings its own full IME test
+  matrix.
+
+### OS-3. Screenshot API tiers + MediaProjection lifecycle
+
+Because `minSdk 26`, a single capture call site cannot assume any
+particular screenshot API. The capture pipeline must branch in the
+exact order below.
+
+Rules:
+
+* `AccessibilityScreenReader` and any other capture site route
+  through the central pipeline:
+  1. **API 34+ (Android 14+)** — prefer
+     `AccessibilityService.takeScreenshotOfWindow(activeWindowId, …)`.
+     Cheaper, respects per-window secure flags, no projection
+     consent.
+  2. **API 30–33** — use
+     `AccessibilityService.takeScreenshot(Display.DEFAULT_DISPLAY, …)`.
+  3. **API 26–29** — use `MediaProjection` fallback.
+* Both accessibility-based calls are guarded by `@RequiresApi` on
+  the private method that actually calls them, with an SDK-agnostic
+  public entry point.
+* The capture abstraction returns the `CaptureResult` sealed type;
+  the orchestrator handles each variant explicitly. Never silently
+  degrade to "no screenshot".
+* **MediaProjection lifecycle discipline:** register a
+  `MediaProjection.Callback`; in `onStop()` (or when capture is
+  cancelled), immediately release the `VirtualDisplay` and the
+  backing `Surface`/`ImageReader`, and clear any cached capture
+  state so no further frames are produced. Leaking the virtual
+  display keeps sending black frames to the LLM long after the
+  user stopped the session.
+* A unit test must verify the API branch picks the right path on
+  simulated `Build.VERSION.SDK_INT = 28`, `= 31`, and `= 34`.
+
+### OS-4. Compose inside a WindowManager overlay (lifecycle wiring)
+
+Jetpack Compose expects to live inside an `Activity` that provides
+a `LifecycleOwner`, a `ViewModelStoreOwner`, and a
+`SavedStateRegistryOwner`. Inflating a `ComposeView` directly into
+`WindowManager` from a `Service` will crash at `setContent { }`
+with "ViewTreeLifecycleOwner not found" (or the
+`SavedStateRegistryOwner` equivalent). In v1 this applies to the
+floating widget overlay (and any future pointer overlay chrome).
+
+Rules:
+
+* Every overlay `ComposeView` must be hosted by a small helper
+  class — `OverlayComposeHost` — that:
+  1. Owns a `LifecycleRegistry`.
+  2. Owns a `SavedStateRegistryController` (with
+     `performAttach()` + `performRestore(null)`).
+  3. Optionally owns a `ViewModelStore` if the overlay has
+     ViewModels.
+  4. Calls, before `setContent { }`:
+     ```kotlin
+     root.setViewTreeLifecycleOwner(this)
+     root.setViewTreeSavedStateRegistryOwner(this)
+     root.setViewTreeViewModelStoreOwner(this)
+     ```
+  5. Moves the lifecycle `Lifecycle.State.CREATED` →
+     `STARTED` → `RESUMED` as the overlay is attached, and
+     `RESUMED` → `STARTED` → `CREATED` → `DESTROYED` on tear-down.
+* The host's `release()` must move to `DESTROYED` before
+  `windowManager.removeView(root)` to avoid leaked compositions.
+* Do not shortcut this with reflection or by copying a random
+  Gist — write it once in `OverlayComposeHost.kt` and reuse it
+  for every overlay.
+
+### OS-5. Secure / unusable capture — don't feed blank frames to the LLM
+
+Banking apps, password managers, DRM'd video, and incognito browser
+tabs set `FLAG_SECURE` on their windows. Both
+`AccessibilityService.takeScreenshot(…)` and `MediaProjection`
+return all-black buffers for those surfaces. Sending a black image
+to Claude produces confident hallucinated answers, which is worse
+than a clear error.
+
+Rules:
+
+* The capture pipeline returns a `CaptureResult` sealed type:
+  `Bitmap`, `SecureWindow`, `NotPermitted`, `Unsupported`,
+  `Failed(reason)`. The LLM path never accepts raw bitmaps; it
+  accepts `CaptureResult`.
+* **Primary detection (required)** comes from the capture API
+  itself: official `takeScreenshot` / `takeScreenshotOfWindow`
+  failure codes such as `ERROR_TAKE_SCREENSHOT_NO_ACCESSIBILITY_ACCESS`
+  and `ERROR_TAKE_SCREENSHOT_INTERNAL_ERROR`, and — for
+  MediaProjection — a cheap "is the bitmap essentially all-black"
+  sampler (16-pixel stride; >99% of samples within 3 of RGB(0,0,0)
+  → classify as secure / unusable).
+* `windowInfo.isSecure` from `AccessibilityService.getWindows()` is
+  **not a required source of truth** and must not be the only
+  signal. Treat it as an optional hint: if the capture API did not
+  already classify the frame as secure, a `true` value may promote
+  a `Bitmap` result to `SecureWindow`, but a `false` value never
+  overrides a secure classification from the capture path.
+* On `SecureWindow`, do not call the LLM with an image. Instead,
+  inject a system-style chat message into the conversation:
+  `"I can't see this screen — the app is marked secure (e.g. banking,
+  incognito, or password manager). Ask me again from a non-secure
+  screen, or paste the text you want help with."`
+* The accessibility text-reading path (`readScreenText`) consumes
+  the same pipeline: if the capture channel flags the active
+  window as secure, or if a tree walk returns no usable text while
+  the capture path reports `SecureWindow`, return the same
+  injected system message rather than a possibly-partial node
+  list.
+
+## Forbidden
+
+* `!!` (not-null assertion) outside of test code.
+* `runBlocking` outside of tests.
+* `LiveData` (use `StateFlow`).
+* `View` XML layouts (Compose only).
+* `System.out` / `println` for logging (use `Timber`, planted per
+  build type).
+* `@SuppressLint` without a comment explaining why.
+* Disabling lint, ktlint, or detekt rules without a DESIGN_NOTES
+  entry.
+* Starting a foreground service without `foregroundServiceType` in
+  the manifest (see OS-1).
+* Any new overlay window that hosts a text input (v1 chat is
+  `ChatActivity` only — see OS-2).
+* Calling `AccessibilityService.takeScreenshot(…)` or
+  `takeScreenshotOfWindow(…)` without the tiered API guard
+  (see OS-3).
+* Inflating a `ComposeView` into `WindowManager` without an
+  `OverlayComposeHost` (see OS-4).
+* Passing a raw `Bitmap` to `LlmClient` — only `CaptureResult`
+  crosses that boundary (see OS-5).
+* Adding Room to the v1 build for chat history (see "Persistence").
+* Generating `[POINT:x,y:…]` pixel pointers at runtime (Strategy A
+  is out of v1).
+* Wiring a real `ActionPerformer` in v1 — the binding is
+  `NoopActionPerformer` until v2.
+* Implementing a multi-step / continuous guided workflow in v1.

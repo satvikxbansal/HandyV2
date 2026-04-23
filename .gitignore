@@ -1,0 +1,20 @@
+*.iml
+.gradle
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild
+.cxx
+*.jks
+*.keystore
+*.log
+app/release/
+app/debug/
+
+# Reference tree carries its own .git — leave it out of Android project lint.
+!/Handy-V2/**
+
+# Wrapper jar IS checked in so fresh checkouts can ./gradlew.
+!/gradle/wrapper/gradle-wrapper.jar

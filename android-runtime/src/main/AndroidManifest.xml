@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+      :android-runtime declares no manifest components in v1.
+      All Activities, Services, AccessibilityService, and receivers live in :app.
+    -->
+</manifest>
