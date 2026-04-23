@@ -1,17 +1,90 @@
 package com.handy.app
 
 import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.os.Build
+import android.os.StrictMode
+import com.handy.runtime.di.ApplicationScope
+import com.handy.runtime.intent.LaunchableAppIndex
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import timber.log.Timber
 
 /**
  * Handy's [Application] subclass.
  *
- * Phase 0 wires Hilt only. Phase 3 will own:
- *  - StrictMode install under `BuildConfig.DEBUG` (Guardrails: Concurrency).
- *  - `NotificationChannel` creation for the foreground-service notifications
- *    (OS-1: channels are created at startup, never lazily).
- *  - Timber `DebugTree` plant + a production tree in release builds
- *    (Guardrails: Forbidden — no `println`).
+ * - Hilt-wired (`@HiltAndroidApp`).
+ * - Plants Timber in debug only; `println` / `System.out` are forbidden
+ *   (guardrails → Forbidden).
+ * - Installs `StrictMode` under `BuildConfig.DEBUG` so main-thread IO and
+ *   leaked closables crash during development.
+ * - Creates foreground-service notification channels at `onCreate`
+ *   (OS-1: channels created at startup, never lazily).
+ * - Warms up the [LaunchableAppIndex] on a background scope.
  */
 @HiltAndroidApp
-class HandyApplication : Application()
+class HandyApplication : Application() {
+
+    @Inject lateinit var launchableAppIndex: LaunchableAppIndex
+    @Inject @ApplicationScope lateinit var appScope: CoroutineScope
+
+    override fun onCreate() {
+        super.onCreate()
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
+            installStrictMode()
+        }
+        createNotificationChannels()
+
+        appScope.launch { launchableAppIndex.initialise() }
+    }
+
+    private fun installStrictMode() {
+        StrictMode.setThreadPolicy(
+            StrictMode.ThreadPolicy.Builder()
+                .detectAll()
+                .penaltyLog()
+                .penaltyDeath()
+                .build(),
+        )
+        StrictMode.setVmPolicy(
+            StrictMode.VmPolicy.Builder()
+                .detectLeakedSqlLiteObjects()
+                .detectLeakedClosableObjects()
+                .detectActivityLeaks()
+                .penaltyLog()
+                .build(),
+        )
+    }
+
+    private fun createNotificationChannels() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        listOf(
+            NotificationChannel(
+                CHANNEL_ASSISTANT,
+                getString(R.string.assistant_service_channel_name),
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = getString(R.string.assistant_service_channel_description)
+                setShowBadge(false)
+            },
+            NotificationChannel(
+                CHANNEL_CAPTURE,
+                getString(R.string.capture_service_channel_name),
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = getString(R.string.capture_service_channel_description)
+                setShowBadge(false)
+            },
+        ).forEach(nm::createNotificationChannel)
+    }
+
+    companion object {
+        const val CHANNEL_ASSISTANT: String = "handy_assistant"
+        const val CHANNEL_CAPTURE: String = "handy_capture"
+    }
+}

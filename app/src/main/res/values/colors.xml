@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Handy palette — dark primary. See design system / build plan §11. -->
+    <color name="handy_background">#FF0B0B0F</color>
+    <color name="handy_surface">#FF141419</color>
+    <color name="handy_surface_elevated">#FF1C1C22</color>
+    <color name="handy_text_primary">#FFF2F2F5</color>
+    <color name="handy_text_secondary">#FF9A9AA2</color>
+    <color name="handy_accent">#FF3B82F6</color>
+    <color name="handy_amber">#FFF59E0B</color>
+    <color name="handy_border">#FF2A2A31</color>
+
+    <!-- Notifications channel background — matches surfaceElevated. -->
+    <color name="handy_notification_tint">#FF3B82F6</color>
+</resources>

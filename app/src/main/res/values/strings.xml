@@ -1,4 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Handy</string>
+
+    <!-- Foreground services -->
+    <string name="assistant_service_channel_name">Handy Assistant</string>
+    <string name="assistant_service_channel_description">Keeps the floating widget active and the microphone ready for push-to-talk.</string>
+    <string name="assistant_service_notification_title">Handy is ready</string>
+    <string name="assistant_service_notification_text">Tap the widget to chat. Long-press to speak.</string>
+
+    <string name="capture_service_channel_name">Handy Screen Capture</string>
+    <string name="capture_service_channel_description">Runs while Handy captures the screen to answer a question (API 26–29 fallback).</string>
+    <string name="capture_service_notification_title">Handy is reading the screen</string>
+
+    <!-- Accessibility service (Play-policy compliant description) -->
+    <string name="accessibility_service_label">Handy assistant</string>
+    <string name="accessibility_service_description">Handy reads visible on-screen text and the UI tree so the assistant can answer questions about what you see and point at the right button. Handy never taps or types on your behalf in v1. You can turn this off at any time in Settings → Accessibility.</string>
+
+    <!-- Specialuse FGS subtype property -->
+    <string name="special_use_fgs_subtype">on-screen AI assistant overlay that must remain visible across apps</string>
+
+    <!-- Onboarding disclosure (Play-policy compliant in-app disclosure) -->
+    <string name="onboarding_disclosure_title">Handy needs a few permissions</string>
+    <string name="onboarding_disclosure_body">Handy is an on-screen AI assistant. To help you in context, Handy will ask for: a floating-widget overlay, the microphone for push-to-talk, and the Accessibility service so it can read visible text and point at buttons. Handy does not tap or type on your behalf. You can decline any permission and Handy will run in a reduced mode.</string>
+    <string name="onboarding_continue">Continue</string>
+    <string name="onboarding_decline">Not now</string>
+    <string name="onboarding_accessibility_title">Turn on Handy in Accessibility settings</string>
+    <string name="onboarding_accessibility_body">Android will now open Accessibility settings. Find Handy in the list and toggle it on, then press back to return.</string>
+    <string name="onboarding_open_accessibility">Open Accessibility settings</string>
+    <string name="onboarding_overlay_title">Allow Handy to draw over other apps</string>
+    <string name="onboarding_overlay_body">This is how the floating widget stays visible while you use other apps.</string>
+    <string name="onboarding_open_overlay">Open overlay settings</string>
+
+    <!-- Chat -->
+    <string name="chat_title">Handy</string>
+    <string name="chat_input_placeholder">Ask Handy anything…</string>
+    <string name="chat_send">Send</string>
+    <string name="chat_empty_title">Ready when you are</string>
+    <string name="chat_empty_body">Ask a question, point at a button, or tell Handy to do something like "set a 10-minute timer".</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_api_key_header">API keys</string>
+    <string name="settings_anthropic_label">Claude API key</string>
+    <string name="settings_anthropic_placeholder">sk-ant-…</string>
+    <string name="settings_brave_label">Brave Search API key (optional)</string>
+    <string name="settings_web_search_label">Enable web search tools</string>
+    <string name="settings_web_search_description">When on, Claude can call web_search / fetch_page / github_search. Off by default.</string>
+    <string name="settings_assistant_mode_header">Assistant mode</string>
+    <string name="settings_app_theme_header">Theme</string>
+    <string name="settings_accessibility_header">Accessibility</string>
+    <string name="settings_reset_history">Clear all chat history</string>
+    <string name="settings_privacy_policy">Privacy policy</string>
+    <string name="settings_version_footer">Handy for Android — v%1$s</string>
 </resources>

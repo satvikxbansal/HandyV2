@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose owns the real theme. These XML entries exist only so the
+         manifest's activity declarations have a valid parent style. -->
+    <style name="Theme.Handy" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/handy_background</item>
+        <item name="android:statusBarColor">@color/handy_background</item>
+        <item name="android:navigationBarColor">@color/handy_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <style name="Theme.Handy.Transparent" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>
