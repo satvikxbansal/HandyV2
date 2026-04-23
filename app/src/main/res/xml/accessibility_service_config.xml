@@ -1,13 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Handy's AccessibilityService configuration. The flags below satisfy the
-  guardrails ("Accessibility service configuration") — without them,
-  getWindows(), viewIdResourceName, and takeScreenshot degrade silently.
+  Handy's AccessibilityService configuration.
+
+  Flags are intentionally minimal — see DL-004:
+
+    flagReportViewIds             needed for the semantic pointer
+                                  resolver (matches viewId suffixes).
+    flagRetrieveInteractiveWindows needed for getWindows() on API 30+
+                                   and for takeScreenshotOfWindow on
+                                   API 34+.
+    flagIncludeNotImportantViews  lets us read labels on Views that
+                                   mark themselves not-important-for-a11y
+                                   (some ad-hoc UI in 3p apps does).
+
+  Explicitly NOT set:
+    flagRequestTouchExplorationMode - this is for TalkBack-style
+      services that steal touch input to drive a screen reader.
+      Handy does NOT want that behaviour; setting it makes Android
+      display its Accessibility-shortcut bubble on top of the app.
+    flagRequestFilterKeyEvents - pointless without
+      canRequestFilterKeyEvents="true" (we filter no keys).
+    flagRequestAccessibilityButton - we have no use for the system
+      a11y button; requesting it forces the bubble.
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewFocused|typeViewClicked"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagRequestFilterKeyEvents|flagReportViewIds|flagRetrieveInteractiveWindows|flagRequestTouchExplorationMode|flagIncludeNotImportantViews"
+    android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
     android:canRequestFilterKeyEvents="false"
     android:canRetrieveWindowContent="true"
     android:canTakeScreenshot="true"

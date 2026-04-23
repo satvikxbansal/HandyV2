@@ -38,11 +38,18 @@ class AssistantForegroundService : LifecycleService() {
         val notification = buildNotification()
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                // v1: start with SPECIAL_USE only (the widget/lifecycle
+                // anchor). The microphone FGS type requires `RECORD_AUDIO`
+                // to already be granted; declaring it here at startup —
+                // before onboarding may have requested the runtime
+                // permission — throws `ForegroundServiceStartNotAllowedException`
+                // on API 34+ and kills the process. Voice capture will
+                // re-call `startForeground(…, SPECIAL_USE | MICROPHONE)`
+                // when the mic session begins. See DL-003.
                 startForeground(
                     NOTIFICATION_ID,
                     notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
                 )
             } else {
                 startForeground(NOTIFICATION_ID, notification)
@@ -55,8 +62,16 @@ class AssistantForegroundService : LifecycleService() {
 
         // Launch the widget overlay iff the user has granted SAW.
         // The overlay service guards itself on Settings.canDrawOverlays.
+        // `startService` (NOT `startForegroundService`) because the
+        // widget overlay service is a regular bound-to-process service;
+        // it does not call `startForeground(…)` and is kept alive by
+        // this foreground service's process. See DL-003.
         val widgetIntent = Intent(this, FloatingWidgetOverlayService::class.java)
-        ContextCompat.startForegroundService(this, widgetIntent)
+        try {
+            startService(widgetIntent)
+        } catch (t: Throwable) {
+            Timber.w(t, "Failed to start FloatingWidgetOverlayService")
+        }
 
         return START_STICKY
     }

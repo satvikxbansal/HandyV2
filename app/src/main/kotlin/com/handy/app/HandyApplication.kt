@@ -19,8 +19,11 @@ import timber.log.Timber
  * - Hilt-wired (`@HiltAndroidApp`).
  * - Plants Timber in debug only; `println` / `System.out` are forbidden
  *   (guardrails → Forbidden).
- * - Installs `StrictMode` under `BuildConfig.DEBUG` so main-thread IO and
- *   leaked closables crash during development.
+ * - Installs `StrictMode` under `BuildConfig.DEBUG` with **logging only**
+ *   (never `penaltyDeath`) — see `DEBUG_LOG.md` DL-002. Crashing on
+ *   detection is a policy that belongs in CI / lint once the singleton
+ *   graph is 100% off-main; doing it now makes Hilt's own lazy
+ *   initialisation of `EncryptedSharedPreferences` fatal.
  * - Creates foreground-service notification channels at `onCreate`
  *   (OS-1: channels created at startup, never lazily).
  * - Warms up the [LaunchableAppIndex] on a background scope.
@@ -43,11 +46,13 @@ class HandyApplication : Application() {
     }
 
     private fun installStrictMode() {
+        // Log-only: see class-level doc + DL-002.
+        // When the singleton graph is proven off-main, re-enable
+        // `penaltyDeath()` on the ThreadPolicy to catch regressions.
         StrictMode.setThreadPolicy(
             StrictMode.ThreadPolicy.Builder()
                 .detectAll()
                 .penaltyLog()
-                .penaltyDeath()
                 .build(),
         )
         StrictMode.setVmPolicy(

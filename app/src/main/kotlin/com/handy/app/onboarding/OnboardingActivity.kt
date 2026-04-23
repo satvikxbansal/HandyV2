@@ -12,7 +12,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,6 +25,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -44,15 +44,16 @@ import dagger.hilt.android.AndroidEntryPoint
 /**
  * Handy's launcher entry point.
  *
- * Flow (Phase 3 baseline — Phase 4 polish):
- *  1. In-app disclosure + explicit consent (Play-policy requirement).
- *  2. Ask for microphone permission (runtime).
- *  3. Deep-link to `canDrawOverlays` / `ManageOverlayPermission`.
- *  4. Deep-link to Accessibility settings.
- *  5. Start `AssistantForegroundService` and open `ChatActivity`.
+ * Flow (Phase 3 + DL-005 fix):
+ *  1. If the user has already acknowledged the disclosure AND holds
+ *     every required permission, short-circuit straight to
+ *     [ChatActivity]. Accessibility stays optional — declining it
+ *     leaves Handy in reduced mode (no screen reading / pointing).
+ *  2. Otherwise walk the disclosure → microphone → notifications →
+ *     overlay → accessibility steps.
  *
- * Declining any step leaves Handy in a reduced mode (chat + voice
- * work; screen reading / pointing do not).
+ * System state is re-read on every `onResume` so the checklist
+ * reflects reality — not the stale defaults from last launch.
  */
 @AndroidEntryPoint
 class OnboardingActivity : ComponentActivity() {
@@ -65,29 +66,47 @@ class OnboardingActivity : ComponentActivity() {
             HandyTheme(darkTheme = true) {
                 val state by viewModel.state.collectAsState()
 
+                // Short-circuit: already set up → skip straight to chat.
+                LaunchedEffect(state.minimallyReady) {
+                    if (state.minimallyReady) {
+                        goToChat()
+                    }
+                }
+
                 val micLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission(),
                 ) { granted ->
                     viewModel.setMicGranted(granted)
                 }
+                val notificationsLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestPermission(),
+                ) { granted ->
+                    viewModel.setNotificationsGranted(granted)
+                }
                 val overlayLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.StartActivityForResult(),
                 ) {
-                    viewModel.setOverlayGranted(Settings.canDrawOverlays(this))
+                    viewModel.refreshFromSystem()
                 }
                 val accessibilityLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.StartActivityForResult(),
                 ) {
                     viewModel.markAccessibilityVisited()
+                    viewModel.refreshFromSystem()
                 }
 
                 OnboardingScreen(
                     state = state,
-                    onAcknowledgeDisclosure = {
-                        viewModel.acknowledgeDisclosure()
-                    },
+                    onAcknowledgeDisclosure = viewModel::acknowledgeDisclosure,
                     onRequestMic = {
                         micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    },
+                    onRequestNotifications = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notificationsLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            viewModel.setNotificationsGranted(true)
+                        }
                     },
                     onRequestOverlay = {
                         val intent = Intent(
@@ -99,19 +118,32 @@ class OnboardingActivity : ComponentActivity() {
                     onRequestAccessibility = {
                         accessibilityLauncher.launch(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                     },
-                    onSkip = {
-                        finishOnboardingAndOpenChat(reduced = true)
-                    },
-                    onFinish = {
-                        finishOnboardingAndOpenChat(reduced = false)
-                    },
+                    onSkip = { goToChat(reduced = true) },
+                    onFinish = { goToChat(reduced = false) },
                 )
             }
         }
     }
 
-    private fun finishOnboardingAndOpenChat(reduced: Boolean) {
-        AssistantForegroundService.start(this)
+    override fun onResume() {
+        super.onResume()
+        // Re-read real system state every time the user bounces back
+        // from Settings / a permission dialog / another app. This is
+        // the fix for DL-005 — without it the checklist defaults reset
+        // to `false` on every onCreate and the user sees the same
+        // prompts forever.
+        viewModel.refreshFromSystem()
+    }
+
+    private fun goToChat(reduced: Boolean = false) {
+        // Starting the assistant FGS only when overlay + notifications
+        // are actually allowed — otherwise the service can't present
+        // its required notification on API 33+ and the user sees
+        // nothing. Chat still opens either way.
+        val state = viewModel.state.value
+        if (state.overlayGranted && state.notificationsGranted) {
+            AssistantForegroundService.start(this)
+        }
         startActivity(
             Intent(this, ChatActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
@@ -125,6 +157,7 @@ private fun OnboardingScreen(
     state: OnboardingUiState,
     onAcknowledgeDisclosure: () -> Unit,
     onRequestMic: () -> Unit,
+    onRequestNotifications: () -> Unit,
     onRequestOverlay: () -> Unit,
     onRequestAccessibility: () -> Unit,
     onSkip: () -> Unit,
@@ -169,6 +202,14 @@ private fun OnboardingScreen(
                     actionEnabled = !state.micGranted,
                     onAction = onRequestMic,
                 )
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    StepRow(
+                        title = "Notifications",
+                        actionLabel = if (state.notificationsGranted) "Granted" else "Allow",
+                        actionEnabled = !state.notificationsGranted,
+                        onAction = onRequestNotifications,
+                    )
+                }
                 StepRow(
                     title = stringResource(R.string.onboarding_overlay_title),
                     actionLabel = if (state.overlayGranted) "Granted" else stringResource(R.string.onboarding_open_overlay),
@@ -177,8 +218,12 @@ private fun OnboardingScreen(
                 )
                 StepRow(
                     title = stringResource(R.string.onboarding_accessibility_title),
-                    actionLabel = stringResource(R.string.onboarding_open_accessibility),
-                    actionEnabled = true,
+                    actionLabel = if (state.accessibilityEnabled) {
+                        "Enabled"
+                    } else {
+                        stringResource(R.string.onboarding_open_accessibility)
+                    },
+                    actionEnabled = !state.accessibilityEnabled,
                     onAction = onRequestAccessibility,
                 )
 
