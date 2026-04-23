@@ -4,10 +4,10 @@ overview: "Close every gap identified in the feature-status table: voice-in-chat
 todos:
   - id: phase-a-chat-ui
     content: "Phase A — Chat UI parity: extend ChatUiState, rebuild MessageRow with avatar/timestamp/streaming-dots/search-tools label, custom header with status dot + listening bars, tool-name bar composable, loading-verb rotation timer, error UX finalisation."
-    status: in_progress
+    status: completed
   - id: phase-b-voice
     content: "Phase B — Wire VoiceController into ChatViewModel: inject, collect state+partial, startVoice/stopVoice methods with auto-send, composer swap on voiceState, mic IconButton in composer."
-    status: pending
+    status: in_progress
   - id: phase-c-tool-detect
     content: "Phase C — Foreground-app tool detection: ForegroundAppMonitor interface in :core, accessibility event consumer in HandyAccessibilityService (debounced), browser URL-bar walk for umbrella-site, ChatViewModel subscribes and swaps ToolContext + history."
     status: pending
