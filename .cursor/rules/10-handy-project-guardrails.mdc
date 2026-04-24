@@ -9,14 +9,18 @@ alwaysApply: true
 These rules are derived directly from `Handy_Android_Build_Plan_v2.md`
 and the v1 Cursor prompt. They are non-negotiable for v1.
 
-## SDK targets (locked for v1)
+## SDK targets (locked for v1, as of DL-017)
 
 * `minSdk = 26`
-* `targetSdk = 35`
-* `compileSdk = 35`
-* A compatibility smoke lane runs on Android 16 / API 36, but **API 36
-  is not the shipping target for v1**. Do not change the above numbers
-  without a DESIGN_NOTES entry and the user's explicit approval.
+* `targetSdk = 36`
+* `compileSdk = 36`
+* Android 16 / API 36 is the shipping target. Google Play requires
+  `targetSdk >= 36` for all new apps and updates starting April 2026,
+  which is the deadline we ship under. Android 16 went stable June 2025
+  and ships by default on Pixel 10+.
+* A compatibility smoke lane may run against Android 17 / API 37 in
+  later sprints; keep the above numbers unchanged without a
+  DESIGN_NOTES entry and the user's explicit approval.
 
 ## Modules
 

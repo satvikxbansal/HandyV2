@@ -23,6 +23,64 @@ when one exists.
   syntax differs. Claude understands the examples as illustrations of
   output format.
 
+## Toolchain pairing (DL-017, April 2026)
+
+Android Studio Panda 4 | 2025.3.4 is the reference IDE. We ship on the
+**conservative 8.x branch** of AGP even though Panda 4 ships with AGP
+9.2.0-alpha — stable beats canary for a product headed to Play.
+
+| Stack item | Version | Why |
+|---|---|---|
+| AGP | 8.13.2 | Last stable on 8.x; Panda 4 supports 4.0–9.1. |
+| Kotlin | 2.2.21 | Pairs with AGP 8.13; Kotlin 2.3 needs AGP 8.13.2, 2.4 needs AGP 9.1. |
+| KSP | 2.2.21-2.0.4 | Matches Kotlin prefix. |
+| Gradle wrapper | 8.14.3 | Minimum for AGP 8.13; JDK 17 toolchain. |
+| Compose BOM | 2025.11.01 | Latest stable BOM as of cut-off. |
+| Hilt | 2.57.2 | Current stable. |
+| OkHttp | 5.3.2 | 5.x stable; SSE factory API unchanged from 4.x. |
+| JUnit Jupiter | 5.14.0 | Paired with `junit-platform-launcher 1.14.0` (required on Gradle 8.14+ to avoid `OutputDirectoryProvider not available`). |
+| `compileSdk` / `targetSdk` | 36 | Google Play mandate April 2026. |
+| `minSdk` | 26 | Unchanged. |
+| Emulator | Pixel 9 Pro API 36 | Android 16 stable, Google APIs image. Pixel 10 also fine. |
+
+Kotlin 2.2 notes:
+- `-Xannotation-default-target=param-property` is enabled in the
+  top-level `build.gradle.kts` to quiet the KT-73255 forward-compat
+  warning that now fires on every Hilt `@Inject constructor(@Qualifier …)`
+  site.
+- Kotlin 2.2 is stricter about nullable receivers — `MediaProjection?`
+  from `getMediaProjection(...)` now requires `?.apply { }` instead of
+  `.apply { }` (fixed in MediaProjectionCaptureService).
+
+## Emulator (DL-017)
+
+Existing AVD on the dev machine: `Pixel_7` on `android-35`. Retire
+after the new one is verified working.
+
+New AVD (canonical shipping target):
+
+1. Android Studio > **Device Manager** > **Create Virtual Device**.
+2. Pick **Pixel 9 Pro** (or Pixel 10 if available).
+3. System image tab > **Android 16.0 (API 36) · Google APIs** for
+   `arm64-v8a` (Apple Silicon) or `x86_64` (Intel Macs / Linux).
+   Download if not installed.
+4. Name it `Pixel_9_Pro_API_36`; keep defaults. Finish.
+5. First boot: open Settings > Accessibility > Handy > toggle on so
+   `HandyAccessibilityService.onServiceConnected` fires.
+6. Keep `Pixel_7` around until the API 36 AVD has run the Phase 4
+   verification matrix successfully, then delete via Device Manager.
+
+CLI equivalent (requires `~/Library/Android/sdk/cmdline-tools/latest`
+installed — open Android Studio > SDK Manager > SDK Tools >
+**Android SDK Command-line Tools (latest)**, accept licenses):
+
+```bash
+sdkmanager "system-images;android-36;google_apis;arm64-v8a"
+avdmanager create avd -n Pixel_9_Pro_API_36 \
+  -k "system-images;android-36;google_apis;arm64-v8a" \
+  -d pixel_9_pro
+```
+
 ## Dependencies
 
 Every new library lands here with a one-line justification.

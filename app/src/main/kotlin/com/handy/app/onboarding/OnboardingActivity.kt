@@ -69,9 +69,14 @@ class OnboardingActivity : ComponentActivity() {
             HandyTheme(darkTheme = true) {
                 val state by viewModel.state.collectAsState()
 
-                // Short-circuit: already set up → skip straight to chat.
-                LaunchedEffect(state.minimallyReady) {
-                    if (state.minimallyReady) {
+                // Short-circuit: already set up AND either has a11y on
+                // or has explicitly chosen reduced mode → skip straight
+                // to chat. Gating on `fullyReady` (not `minimallyReady`)
+                // is the DL-016 fix: first-time users must SEE the
+                // accessibility toggle instead of silently skipping past
+                // it after granting mic/overlay/notifications.
+                LaunchedEffect(state.fullyReady) {
+                    if (state.fullyReady) {
                         goToChat()
                     }
                 }
@@ -121,6 +126,7 @@ class OnboardingActivity : ComponentActivity() {
                     onRequestAccessibility = {
                         accessibilityLauncher.launch(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                     },
+                    onAcknowledgeReducedMode = viewModel::acknowledgeReducedMode,
                     onSkip = { goToChat(reduced = true) },
                     onFinish = { goToChat(reduced = false) },
                 )
@@ -163,6 +169,7 @@ private fun OnboardingScreen(
     onRequestNotifications: () -> Unit,
     onRequestOverlay: () -> Unit,
     onRequestAccessibility: () -> Unit,
+    onAcknowledgeReducedMode: () -> Unit,
     onSkip: () -> Unit,
     onFinish: () -> Unit,
 ) {
@@ -233,12 +240,35 @@ private fun OnboardingScreen(
 
                 Spacer(Modifier.height(HandyDimens.Space16))
 
+                // Primary "Open Handy" is gated on accessibility — the
+                // whole app-detection / pointing pipeline needs it.
+                // Users who explicitly decline via the reduced-mode
+                // link below still unlock the button, and the chat
+                // will remind them via the amber banner. DL-016.
                 PrimaryButton(
                     text = "Open Handy",
+                    enabled = state.fullyReady,
                     onClick = onFinish,
                 )
-                OutlinedButton(onClick = onSkip) {
-                    Text("Use in reduced mode")
+                if (!state.accessibilityEnabled && !state.reducedModeAcknowledged) {
+                    Text(
+                        text = "Enable the accessibility toggle above so Handy can detect your app and point at UI. Or tap below to continue without it.",
+                        color = HandyColors.TextSecondary,
+                        fontSize = 12.sp,
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            onAcknowledgeReducedMode()
+                        },
+                    ) {
+                        Text("Use without app detection")
+                    }
+                } else if (!state.accessibilityEnabled && state.reducedModeAcknowledged) {
+                    Text(
+                        text = "Running in reduced mode. You can enable the accessibility toggle anytime from the chat banner.",
+                        color = HandyColors.TextSecondary,
+                        fontSize = 12.sp,
+                    )
                 }
             }
         }
@@ -246,13 +276,16 @@ private fun OnboardingScreen(
 }
 
 @Composable
-private fun PrimaryButton(text: String, onClick: () -> Unit) {
+private fun PrimaryButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
     Button(
         onClick = onClick,
+        enabled = enabled,
         shape = RoundedCornerShape(HandyDimens.RadiusMd),
         colors = ButtonDefaults.buttonColors(
             containerColor = HandyColors.Accent,
             contentColor = Color.White,
+            disabledContainerColor = HandyColors.SurfaceElevated,
+            disabledContentColor = HandyColors.TextSecondary,
         ),
         modifier = Modifier.fillMaxWidth(),
     ) {

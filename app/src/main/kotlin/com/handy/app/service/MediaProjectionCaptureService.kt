@@ -69,7 +69,10 @@ class MediaProjectionCaptureService : LifecycleService() {
 
         if (resultCode != -1 && resultData != null) {
             val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-            projection = manager.getMediaProjection(resultCode, resultData).apply {
+            // Kotlin 2.2+ treats `getMediaProjection` as returning
+            // `MediaProjection?` (platform type narrowed). `.apply` now
+            // requires a safe call on nullable receivers.
+            projection = manager.getMediaProjection(resultCode, resultData)?.apply {
                 registerCallback(projectionCallback, null)
             }
         } else {

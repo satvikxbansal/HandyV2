@@ -41,7 +41,12 @@ class OnboardingViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             settings.flow.collectLatest { s ->
-                _state.update { it.copy(disclosureAcknowledged = s.accessibilityDisclosureAcknowledged) }
+                _state.update {
+                    it.copy(
+                        disclosureAcknowledged = s.accessibilityDisclosureAcknowledged,
+                        reducedModeAcknowledged = s.reducedModeAcknowledged,
+                    )
+                }
             }
         }
         refreshFromSystem()
@@ -98,6 +103,20 @@ class OnboardingViewModel @Inject constructor(
     fun markAccessibilityVisited() =
         _state.update { it.copy(accessibilityVisited = true) }
 
+    /**
+     * User explicitly chose to proceed without accessibility. Flips
+     * [OnboardingUiState.fullyReady] true so the primary button unlocks;
+     * the chat still renders a nudge banner so the user always has a
+     * one-tap path back. Persisted in DataStore so repeat launches
+     * don't re-gate. DL-016.
+     */
+    fun acknowledgeReducedMode() {
+        _state.update { it.copy(reducedModeAcknowledged = true) }
+        viewModelScope.launch {
+            settings.update { it.copy(reducedModeAcknowledged = true) }
+        }
+    }
+
     private fun isAccessibilityServiceEnabled(context: Context): Boolean {
         val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
             ?: return false
@@ -128,8 +147,30 @@ data class OnboardingUiState(
     val overlayGranted: Boolean = false,
     val accessibilityEnabled: Boolean = false,
     val accessibilityVisited: Boolean = false,
+    /**
+     * Set to true when the user explicitly opts into reduced mode
+     * (declined accessibility). Unlocks the primary "Open Handy" button
+     * so they aren't stuck on the checklist forever, while the chat
+     * still shows the [com.handy.app.chat.AccessibilityNudgeBanner].
+     */
+    val reducedModeAcknowledged: Boolean = false,
 ) {
-    /** True when all *required* permissions have been granted. */
+    /**
+     * Minimum required permissions — mic + notifications + overlay, plus
+     * the disclosure tap. Used as the cold-launch short-circuit so
+     * returning users don't have to re-click through. Accessibility is
+     * NOT in this set because we don't want to gate repeat launches on
+     * it — it's a runtime fallback via the chat banner.
+     */
     val minimallyReady: Boolean
         get() = disclosureAcknowledged && overlayGranted && micGranted && notificationsGranted
+
+    /**
+     * "Fully ready" = minimally ready AND app-detection works. The
+     * onboarding primary button uses this as its enabled state so
+     * first-time users cannot slip past the accessibility toggle
+     * without an explicit "Use in reduced mode" tap. DL-016.
+     */
+    val fullyReady: Boolean
+        get() = minimallyReady && (accessibilityEnabled || reducedModeAcknowledged)
 }

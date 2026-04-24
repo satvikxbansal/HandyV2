@@ -54,6 +54,7 @@ class DataStoreSettings(private val context: Context) {
             next.geminiModelOverride?.let { p[GEMINI_MODEL_OVERRIDE] = it }
                 ?: p.remove(GEMINI_MODEL_OVERRIDE)
             p[ACCESSIBILITY_DISCLOSURE_ACK] = next.accessibilityDisclosureAcknowledged
+            p[REDUCED_MODE_ACK] = next.reducedModeAcknowledged
         }
     }
 
@@ -82,6 +83,7 @@ class DataStoreSettings(private val context: Context) {
             claudeModelOverride = this[CLAUDE_MODEL_OVERRIDE],
             geminiModelOverride = this[GEMINI_MODEL_OVERRIDE],
             accessibilityDisclosureAcknowledged = this[ACCESSIBILITY_DISCLOSURE_ACK] ?: false,
+            reducedModeAcknowledged = this[REDUCED_MODE_ACK] ?: false,
         )
     }
 
@@ -97,6 +99,7 @@ class DataStoreSettings(private val context: Context) {
         val CLAUDE_MODEL_OVERRIDE = stringPreferencesKey("claude_model_override")
         val GEMINI_MODEL_OVERRIDE = stringPreferencesKey("gemini_model_override")
         val ACCESSIBILITY_DISCLOSURE_ACK = booleanPreferencesKey("accessibility_disclosure_ack")
+        val REDUCED_MODE_ACK = booleanPreferencesKey("reduced_mode_ack")
     }
 }
 

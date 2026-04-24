@@ -35,6 +35,7 @@ import timber.log.Timber
 class HandyAccessibilityService : AccessibilityService() {
 
     @Inject lateinit var foregroundAppMonitor: HandyForegroundAppMonitor
+    @Inject lateinit var stateMonitor: AccessibilityStateMonitor
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -44,6 +45,11 @@ class HandyAccessibilityService : AccessibilityService() {
             AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
         serviceInfo = si
         active.set(this)
+        // Push the "service connected" edge immediately so the chat
+        // banner / onboarding gate flip within the same frame. The
+        // monitor's own AccessibilityStateChangeListener would pick this
+        // up shortly too, but this is deterministic.
+        stateMonitor.refreshBlocking()
         Timber.d("HandyAccessibilityService connected")
     }
 
@@ -66,12 +72,14 @@ class HandyAccessibilityService : AccessibilityService() {
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
         active.compareAndSet(this, null)
+        runCatching { stateMonitor.refreshBlocking() }
         Timber.d("HandyAccessibilityService unbound")
         return super.onUnbind(intent)
     }
 
     override fun onDestroy() {
         active.compareAndSet(this, null)
+        runCatching { stateMonitor.refreshBlocking() }
         super.onDestroy()
     }
 

@@ -30,6 +30,7 @@ dependencies {
     testImplementation(libs.turbine)
     testImplementation(libs.mockk)
     testRuntimeOnly(libs.junit.jupiter.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 tasks.test {

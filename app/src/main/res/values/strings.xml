@@ -19,9 +19,11 @@
     <!-- Specialuse FGS subtype property -->
     <string name="special_use_fgs_subtype">on-screen AI assistant overlay that must remain visible across apps</string>
 
-    <!-- Onboarding disclosure (Play-policy compliant in-app disclosure) -->
+    <!-- Onboarding disclosure (Play-policy compliant in-app disclosure).
+         Requirements: name the specific data accessed, how it is used,
+         who it is shared with, and the user's control. -->
     <string name="onboarding_disclosure_title">Handy needs a few permissions</string>
-    <string name="onboarding_disclosure_body">Handy is an on-screen AI assistant. To help you in context, Handy will ask for: a floating-widget overlay, the microphone for push-to-talk, and the Accessibility service so it can read visible text and point at buttons. Handy does not tap or type on your behalf. You can decline any permission and Handy will run in a reduced mode.</string>
+    <string name="onboarding_disclosure_body">Handy is an on-screen AI assistant. When you ask a question, Handy reads visible on-screen text via the Android Accessibility service and may capture the active window, then sends your message plus that context to Anthropic (Claude) over HTTPS using your own API key. Optional web-search tools send queries to Brave, Jina, and the public GitHub API only when you enable them in Settings. Handy never taps, types, or scrolls on your behalf. No data is sent to our servers — Handy has none. You can decline any permission and Handy will run in a reduced mode.</string>
     <string name="onboarding_continue">Continue</string>
     <string name="onboarding_decline">Not now</string>
     <string name="onboarding_accessibility_title">Turn on Handy in Accessibility settings</string>

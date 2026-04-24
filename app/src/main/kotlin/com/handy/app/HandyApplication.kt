@@ -49,9 +49,21 @@ class HandyApplication : Application() {
         // Log-only: see class-level doc + DL-002.
         // When the singleton graph is proven off-main, re-enable
         // `penaltyDeath()` on the ThreadPolicy to catch regressions.
+        //
+        // `detectAll()` previously surfaced
+        // `android.os.strictmode.ExplicitGcViolation` every time the OS
+        // ran `System.gc()` from `ActivityThread.performDestroyActivity`
+        // — that's platform code, not ours, and the noise drowned the
+        // real violations (DL-018). We list the checks we actually care
+        // about instead.
         StrictMode.setThreadPolicy(
             StrictMode.ThreadPolicy.Builder()
-                .detectAll()
+                .detectDiskReads()
+                .detectDiskWrites()
+                .detectNetwork()
+                .detectCustomSlowCalls()
+                .detectResourceMismatches()
+                .detectUnbufferedIo()
                 .penaltyLog()
                 .build(),
         )

@@ -121,6 +121,13 @@ data class HandySettings(
      * (no screen reading, no pointing, no intent dispatch).
      */
     val accessibilityDisclosureAcknowledged: Boolean = false,
+    /**
+     * Whether the user has explicitly opted to continue without
+     * enabling the Accessibility service. Persisted so repeat launches
+     * short-circuit through onboarding — the chat banner still nudges
+     * them every session. DL-016.
+     */
+    val reducedModeAcknowledged: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-5-20250929"

@@ -2,6 +2,7 @@ package com.handy.app.chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.handy.app.accessibility.AccessibilityStateMonitor
 import com.handy.app.voice.VoiceController
 import com.handy.core.foreground.ForegroundAppMonitor
 import com.handy.core.history.ChatHistoryStore
@@ -57,6 +58,7 @@ class ChatViewModel @Inject constructor(
     private val toolRunner: ToolRunner,
     private val keyStore: KeyStore,
     private val confirmationBroker: ChatConfirmationBroker,
+    private val accessibilityStateMonitor: AccessibilityStateMonitor,
 ) : ViewModel() {
 
     private val orchestrator = ConversationOrchestrator(
@@ -142,6 +144,24 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             confirmationBroker.pending.collectLatest { pending ->
                 _state.value = _state.value.copy(pendingConfirmation = pending)
+            }
+        }
+        // Accessibility gate: the foreground-app monitor and pointer
+        // resolver only work when Handy's AccessibilityService is
+        // enabled. Surface the live state so the chat can render an
+        // amber nudge banner when it's off, and proactively refresh
+        // foreground on the false→true edge (the user just came back
+        // from Accessibility settings — their prior app is now
+        // visible to us through `windows()`).
+        viewModelScope.launch {
+            var lastSeen: Boolean? = null
+            accessibilityStateMonitor.isEnabled.collectLatest { enabled ->
+                _state.value = _state.value.copy(accessibilityServiceEnabled = enabled)
+                if (enabled && lastSeen == false) {
+                    Timber.d("ChatViewModel: a11y flipped on — refreshing foreground app")
+                    foregroundAppMonitor.refreshNow()
+                }
+                lastSeen = enabled
             }
         }
     }
@@ -521,4 +541,12 @@ data class ChatUiState(
      * alongside the failed response).
      */
     val pendingUserTurn: ChatMessage? = null,
+    /**
+     * True when Handy's `AccessibilityService` is enabled for our
+     * package in Android Settings. Drives the "Enable accessibility to
+     * detect the app you're on" nudge banner in [ChatActivity]. Default
+     * true so we don't flash the banner during the first frame while
+     * the singleton's StateFlow is warming up.
+     */
+    val accessibilityServiceEnabled: Boolean = true,
 )

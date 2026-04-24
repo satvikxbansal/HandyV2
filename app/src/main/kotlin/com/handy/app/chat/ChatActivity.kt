@@ -1,7 +1,9 @@
 package com.handy.app.chat
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -42,6 +44,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.Accessibility
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Mic
@@ -114,6 +117,7 @@ class ChatActivity : ComponentActivity() {
                     onVoiceStop = viewModel::stopVoice,
                     onSetToolName = viewModel::setToolName,
                     onConfirmationResult = viewModel::respondToConfirmation,
+                    onOpenAccessibilitySettings = ::openAccessibilitySettings,
                 )
             }
         }
@@ -141,6 +145,28 @@ class ChatActivity : ComponentActivity() {
         viewModel.send(voice, fromVoice = true)
     }
 
+    /**
+     * Deep-link to Android's Accessibility services list. We can't land
+     * the user directly on Handy's toggle from a non-system app — OS
+     * restrictions — but dropping them on the services list removes the
+     * "where is this toggle?" search problem.
+     */
+    private fun openAccessibilitySettings() {
+        val direct = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { startActivity(direct) }.onFailure {
+            // Fallback: the generic app-details screen, which has a
+            // path to accessibility on most OEM skins.
+            runCatching {
+                startActivity(
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        .setData(Uri.parse("package:$packageName"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }
+        }
+    }
+
     companion object {
         const val EXTRA_VOICE_MESSAGE: String = "handy.voice.message"
     }
@@ -156,6 +182,7 @@ internal fun ChatScreen(
     onVoiceStop: () -> Unit,
     onSetToolName: (String) -> Unit,
     onConfirmationResult: (Long, Boolean) -> Unit,
+    onOpenAccessibilitySettings: () -> Unit,
 ) {
     val pending = state.pendingConfirmation
     if (pending != null) {
@@ -185,6 +212,13 @@ internal fun ChatScreen(
                 onOpenSettings = onOpenSettings,
             )
             ThinDivider()
+
+            // Accessibility nudge: honest about the gate. Without our
+            // AccessibilityService bound, the whole foreground-app
+            // detection pipeline is inert. DL-016.
+            if (!state.accessibilityServiceEnabled) {
+                AccessibilityNudgeBanner(onOpenAccessibilitySettings)
+            }
 
             // Hide the tool-name row entirely when we have nothing to
             // show (launcher in foreground, accessibility disabled, or
@@ -968,6 +1002,69 @@ private fun SendButton(
             tint = tint,
             modifier = Modifier.size(16.dp),
         )
+    }
+}
+
+/* ----- accessibility nudge -------------------------------------------- */
+
+/**
+ * Amber row that lives above the message list whenever Handy's
+ * [com.handy.app.accessibility.HandyAccessibilityService] is not bound.
+ * Gives the user a one-tap path to the Accessibility settings list.
+ *
+ * The banner is **not dismissible** — it flips off automatically via
+ * [com.handy.app.accessibility.AccessibilityStateMonitor] the moment
+ * the service binds. Dismissible banners invite users to ignore the
+ * gate and then wonder why detection is broken. DL-016.
+ */
+@Composable
+private fun AccessibilityNudgeBanner(
+    onOpenAccessibilitySettings: () -> Unit,
+) {
+    Surface(
+        color = HandyColors.Amber.copy(alpha = 0.18f),
+        contentColor = HandyColors.Amber,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = HandyDimens.Space16,
+                    vertical = HandyDimens.Space12,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(HandyDimens.Space8),
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Accessibility,
+                contentDescription = null,
+                tint = HandyColors.Amber,
+                modifier = Modifier.size(18.dp),
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Enable accessibility to detect apps",
+                    color = HandyColors.TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "Handy needs your Accessibility toggle on to see which app you're in and point at UI.",
+                    color = HandyColors.TextSecondary,
+                    fontSize = 12.sp,
+                )
+            }
+            TextButton(onClick = onOpenAccessibilitySettings) {
+                Text(
+                    text = "Open Settings",
+                    color = HandyColors.Amber,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+        }
     }
 }
 

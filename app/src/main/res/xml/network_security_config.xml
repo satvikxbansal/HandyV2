@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Handy has no need for cleartext traffic. We talk to Anthropic,
+  Brave Search, Jina Reader, and the GitHub API — all of which are
+  HTTPS-only. Declaring the policy explicitly (rather than relying on
+  the platform default) is a Play Store data-safety best practice and
+  closes the door on accidental cleartext debug traffic.
+
+  References:
+    https://developer.android.com/training/articles/security-config
+    Play Console → Data safety → "Data is encrypted in transit"
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
