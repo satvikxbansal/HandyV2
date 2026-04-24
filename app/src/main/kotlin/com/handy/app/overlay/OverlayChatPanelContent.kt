@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -71,22 +73,46 @@ fun OverlayChatPanelContent(
     val focusRequester = remember { FocusRequester() }
     var draft by remember { mutableStateOf(panel.draftInput) }
 
-    // Cursorbuddy recipe #5: 200 ms grace lets WindowManager attach
-    // the view before requestFocus / IME toggle.
-    LaunchedEffect(state.isPanelVisible) {
-        if (state.isPanelVisible && !panel.isStreaming && !panel.isListening) {
-            kotlinx.coroutines.delay(200L)
-            runCatching { focusRequester.requestFocus() }
-        }
-    }
+    // NOTE: we deliberately do NOT auto-request focus on the input
+    // field when the panel opens. Auto-focusing triggers the IME the
+    // moment the user taps the widget, which is surprising and hides
+    // the panel content behind the keyboard. The text field is still
+    // focusable — a manual tap on "Ask me anything…" shows the IME,
+    // at which point `Modifier.imePadding()` on the panel lifts it
+    // above the keyboard. (DL-027.)
 
-    Column(
+    // Panel docked to the bottom of a full-screen transparent overlay.
+    // `imePadding()` on the panel Column reads `WindowInsets.ime` from
+    // the ComposeView — which the full-screen overlay reliably
+    // propagates (unlike WRAP_CONTENT overlays which silently drop
+    // IME insets on stock Android). Tapping the transparent top area
+    // dismisses the panel (modal-sheet semantics). DL-027.
+    androidx.compose.foundation.layout.Box(
         modifier = modifier
-            .fillMaxWidth()
-            .glassSurface(cornerDp = 22)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .fillMaxSize()
+            .clickable(
+                indication = null,
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                onClick = callbacks.onDismiss,
+            ),
     ) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .imePadding()
+                .clickable(
+                    // Consume clicks on the panel itself so the
+                    // backdrop's onDismiss doesn't fire when the user
+                    // interacts with panel content.
+                    indication = null,
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    onClick = {},
+                )
+                .glassSurface(cornerDp = 22)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
         PanelHeader(
             greeting = panel.greeting,
             toolLabel = panel.snapshot?.toolContext?.displayLabel,
@@ -152,6 +178,7 @@ fun OverlayChatPanelContent(
         // the panel footer so the user sees the same text that's
         // floating next to the docked buddy.
         state.bubble?.let { bubble -> BubbleFooter(bubble) }
+        }
     }
 }
 

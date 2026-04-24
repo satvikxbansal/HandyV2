@@ -8,14 +8,10 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
-import android.view.ViewTreeObserver
 import android.view.inputmethod.InputMethodManager
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsAnimationCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.handy.app.chat.ChatActivity
@@ -84,24 +80,33 @@ class OverlayChatPanelService : LifecycleService() {
             OverlayChatPanelContent(state = state, callbacks = callbacks)
         }
 
+        // DL-027: migrated from WRAP_CONTENT bottom-gravity to a
+        // full-screen transparent overlay. The small bottom-docked
+        // overlay never received IME insets on stock Android 16 —
+        // the system's IME-insets dispatch chain silently skipped
+        // overlay windows that aren't full-height. A MATCH_PARENT
+        // overlay with `SOFT_INPUT_ADJUST_RESIZE` DOES receive IME
+        // insets, so Compose's `WindowInsets.ime` + `Modifier.imePadding()`
+        // on the panel Column lifts it above the keyboard naturally —
+        // no more manual `params.y` plumbing.
+        //
+        // The overlay covers the full screen transparently; the panel
+        // sits at `Alignment.BottomCenter`. The transparent backdrop
+        // has a `clickable { onDismiss }` so tapping outside the panel
+        // dismisses it (modal-sheet semantics). Users cannot interact
+        // with the underlying app while the panel is open, which
+        // matches "modal quick action" UX — dismiss first, then
+        // interact with the app.
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             panelFlags(),
             PixelFormat.TRANSLUCENT,
         ).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            gravity = Gravity.TOP or Gravity.START
+            x = 0
             y = 0
-            // SOFT_INPUT_ADJUST_RESIZE is the only softInputMode some
-            // OEM skins honour on TYPE_APPLICATION_OVERLAY windows;
-            // ADJUST_PAN is a documented no-op on overlays. Even when
-            // ADJUST_RESIZE is also ignored, it doesn't hurt — the
-            // real lift happens in `installImeInsetsListener` which
-            // observes IME insets through three redundant paths and
-            // updates `params.y` directly (DL-026). The constant is
-            // deprecated in the `WindowInsetsCompat` era but still the
-            // right hint on overlay windows.
             @Suppress("DEPRECATION")
             softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         }
@@ -114,104 +119,16 @@ class OverlayChatPanelService : LifecycleService() {
                 return
             }
 
-        // Lift the panel up by the IME height whenever the keyboard is
-        // visible; drop it back down on dismiss.
-        installImeInsetsListener(composeView, params)
-
         view = composeView
-        Timber.d("OverlayChatPanelService: panel attached")
+        Timber.d("OverlayChatPanelService: panel attached (full-screen MATCH_PARENT)")
     }
 
-    /**
-     * Observe IME insets on the overlay root view and lift the panel
-     * above the keyboard by setting `params.y = imeHeight`. Because
-     * `TYPE_APPLICATION_OVERLAY` windows do NOT reliably receive IME
-     * insets through the ordinary `setOnApplyWindowInsetsListener`
-     * dispatch — the overlay is outside the activity-based IME
-     * propagation chain — we wire three redundant observers and take
-     * whichever one fires first (DL-026):
-     *
-     *  1. `setOnApplyWindowInsetsListener` — the ordinary path.
-     *     Sometimes fires on overlays when the OEM chose to extend the
-     *     dispatcher, but unreliable on stock Pixel builds.
-     *  2. `WindowInsetsAnimationCompat.Callback` — the API designed for
-     *     IME animation tracking on Android 11+. Fires progress
-     *     updates as the keyboard slides in / out and, critically,
-     *     fires an `onEnd` with the final resting IME height. This
-     *     path works on overlays where Path 1 does not.
-     *  3. `OnPreDrawListener` polling `rootWindowInsets` — a
-     *     belt-and-suspenders fallback. Every frame it reads the root
-     *     insets and updates if the value changed. Cheap because the
-     *     `update` closure only calls `updateViewLayout` on actual
-     *     changes.
-     */
-    private fun installImeInsetsListener(
-        v: View,
-        params: WindowManager.LayoutParams,
-    ) {
-        var lastY = params.y
-
-        val update: (Int, String) -> Unit = { imeHeight, source ->
-            if (imeHeight != lastY) {
-                Timber.d(
-                    "OverlayChatPanelService: IME lift %s imeHeight=%d (was y=%d)",
-                    source, imeHeight, lastY,
-                )
-                lastY = imeHeight
-                params.y = imeHeight
-                runCatching { windowManager.updateViewLayout(v, params) }
-                    .onFailure { Timber.w(it, "OverlayChatPanelService: updateViewLayout failed") }
-            }
-        }
-
-        // Path 1 — classic apply-insets listener.
-        ViewCompat.setOnApplyWindowInsetsListener(v) { _, insets ->
-            val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            update(imeHeight, "onApplyWindowInsets")
-            insets
-        }
-
-        // Path 2 — IME animation callback. This is the API designed
-        // for keyboard tracking on Android 11+ and the only one that
-        // fires reliably on `TYPE_APPLICATION_OVERLAY` in our testing.
-        ViewCompat.setWindowInsetsAnimationCallback(
-            v,
-            object : WindowInsetsAnimationCompat.Callback(DISPATCH_MODE_STOP) {
-                override fun onProgress(
-                    insets: WindowInsetsCompat,
-                    runningAnimations: MutableList<WindowInsetsAnimationCompat>,
-                ): WindowInsetsCompat {
-                    val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-                    update(imeHeight, "animation.onProgress")
-                    return insets
-                }
-
-                override fun onEnd(animation: WindowInsetsAnimationCompat) {
-                    val rootInsets = ViewCompat.getRootWindowInsets(v)
-                    val imeHeight = rootInsets?.getInsets(WindowInsetsCompat.Type.ime())?.bottom ?: 0
-                    update(imeHeight, "animation.onEnd")
-                }
-            },
-        )
-
-        // Path 3 — per-frame polling of root window insets. Defensive
-        // fallback for the rare case where neither listener fires;
-        // the early-return inside `update` keeps this free unless the
-        // IME is actively changing state.
-        val preDraw = ViewTreeObserver.OnPreDrawListener {
-            val rootInsets = ViewCompat.getRootWindowInsets(v)
-            if (rootInsets != null) {
-                val imeHeight = rootInsets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-                update(imeHeight, "onPreDraw")
-            }
-            true
-        }
-        v.viewTreeObserver.addOnPreDrawListener(preDraw)
-
-        // Kick the listener once so the initial state is correct if
-        // the IME is already up when the panel attaches.
-        v.requestApplyInsets()
-    }
+    // DL-026's `installImeInsetsListener` is removed in DL-027. The
+    // full-screen MATCH_PARENT overlay now receives IME insets into
+    // its ComposeView via the normal dispatch chain, so Compose's
+    // `Modifier.imePadding()` on the panel Column handles the lift
+    // automatically — no more manual `params.y` plumbing, no more
+    // three-redundant-listeners hack.
 
     private fun detachPanel(hideIme: Boolean) {
         val v = view
