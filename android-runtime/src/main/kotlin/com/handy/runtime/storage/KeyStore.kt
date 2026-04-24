@@ -23,6 +23,8 @@ interface KeyStore {
         const val KEY_BRAVE: String = "brave_api_key"
         const val KEY_JINA: String = "jina_api_key"
         const val KEY_GITHUB: String = "github_api_key"
+        /** V2 — Gemini cloud (Generative Language API). */
+        const val KEY_GEMINI: String = "gemini_api_key"
     }
 }
 

@@ -11,7 +11,10 @@ import com.handy.runtime.action.NoopActionPerformer
 import com.handy.runtime.intent.AndroidIntentDispatcher
 import com.handy.runtime.intent.LaunchableAppIndex
 import com.handy.runtime.llm.ClaudeLlmClient
+import com.handy.runtime.llm.GeminiCloudLlmClient
+import com.handy.runtime.llm.GeminiNanoLocalGenAiClient
 import com.handy.runtime.llm.HandyToolRunner
+import com.handy.runtime.llm.SwitchingCloudLlmClient
 import com.handy.runtime.speech.AndroidSttClient
 import com.handy.runtime.speech.AndroidTtsClient
 import com.handy.runtime.storage.DataStoreSettings
@@ -96,14 +99,52 @@ object RuntimeModule {
 
     @Provides
     @Singleton
-    fun provideLlmClient(
+    fun provideClaudeClient(
         keyStore: KeyStore,
         httpClient: OkHttpClient,
         json: Json,
-    ): LlmClient = ClaudeLlmClient(
+    ): ClaudeLlmClient = ClaudeLlmClient(
         keyStore = keyStore,
         httpClient = httpClient,
         json = json,
+    )
+
+    @Provides
+    @Singleton
+    fun provideGeminiCloudClient(
+        keyStore: KeyStore,
+        httpClient: OkHttpClient,
+        json: Json,
+    ): GeminiCloudLlmClient = GeminiCloudLlmClient(
+        keyStore = keyStore,
+        httpClient = httpClient,
+        json = json,
+    )
+
+    @Provides
+    @Singleton
+    fun provideLocalGenAiClient(
+        @ApplicationContext context: Context,
+    ): com.handy.core.llm.LocalGenAiClient = GeminiNanoLocalGenAiClient(context)
+
+    /**
+     * V2: the primary [LlmClient] seen by the orchestrator is a
+     * settings-gated switcher between Claude and Gemini. Scope §5.
+     */
+    @Provides
+    @Singleton
+    fun provideLlmClient(impl: SwitchingCloudLlmClient): LlmClient = impl
+
+    @Provides
+    @Singleton
+    fun provideBrainRouter(
+        claude: ClaudeLlmClient,
+        gemini: GeminiCloudLlmClient,
+        local: com.handy.core.llm.LocalGenAiClient,
+    ): com.handy.core.brain.BrainRouter = com.handy.core.brain.BrainRouter(
+        claude = claude,
+        geminiCloud = gemini,
+        localGenAi = local,
     )
 
     @Provides
@@ -117,13 +158,25 @@ object RuntimeModule {
         AndroidTtsClient(context)
 
     /**
-     * `ActionPerformer` stays a NOOP per the guardrails — it is the
-     * tap-for-me seam (v2). The action-**tool** (`dispatch_action`,
-     * wired separately via [HandyToolRunner]) is how v1 fires Intents.
+     * V2: the [ActionPerformer] binding now lives in `:app` as
+     * [com.handy.app.accessibility.SwitchingActionPerformer] (settings-gated).
+     *
+     * We still provide the plain [NoopActionPerformer] here so the
+     * switcher can inject it as one of its two arms. V1-style tests
+     * that inject `ActionPerformer` directly still work because Hilt
+     * resolves the `:app`-level binding last.
      */
     @Provides
     @Singleton
-    fun provideActionPerformer(): ActionPerformer = NoopActionPerformer()
+    fun provideNoopActionPerformer(): NoopActionPerformer = NoopActionPerformer()
+
+    @Provides
+    @Singleton
+    fun provideAuditStore(
+        @ApplicationContext context: Context,
+        json: Json,
+    ): com.handy.core.audit.AuditStore =
+        com.handy.runtime.audit.FileAuditStore(context, json)
 
     @Provides
     @Singleton

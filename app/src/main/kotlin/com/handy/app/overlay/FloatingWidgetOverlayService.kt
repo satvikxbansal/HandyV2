@@ -22,12 +22,21 @@ import androidx.lifecycle.lifecycleScope
 import com.handy.app.chat.ChatActivity
 import com.handy.app.foreground.HandyForegroundAppMonitor
 import com.handy.app.voice.VoiceController
+import com.handy.app.widget.BezierFlightController
 import com.handy.app.widget.WidgetContent
 import com.handy.app.widget.WidgetState
+import com.handy.core.overlay.AccessibilityMark
+import com.handy.core.overlay.BuddyState
+import com.handy.runtime.accessibility.AccessibilityMarksProvider
+import com.handy.runtime.accessibility.SemanticPointerResolver
+import com.handy.runtime.storage.DataStoreSettings
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlin.math.hypot
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -49,7 +58,23 @@ class FloatingWidgetOverlayService : LifecycleService() {
     @Inject lateinit var voiceController: VoiceController
     @Inject lateinit var foregroundAppMonitor: HandyForegroundAppMonitor
 
+    // V2: presenter owns the panel state machine; bridge is the panel→chat
+    // submission channel; pipeline drives orchestrator turns for panel
+    // submissions; marks provider is the cursorbuddy recipe #2 source.
+    @Inject lateinit var presenter: OverlayPresenter
+    @Inject lateinit var panelBridge: OverlayPanelBridge
+    @Inject lateinit var overlayChatPipeline: OverlayChatPipeline
+    @Inject lateinit var marksProvider: AccessibilityMarksProvider
+    @Inject lateinit var settings: DataStoreSettings
+    @Inject lateinit var pointerResolver: SemanticPointerResolver
+    @Inject lateinit var flightDriver: BuddyFlightDriver
+
     private var host: OverlayComposeHost? = null
+    private val flightController = BezierFlightController()
+    // Dock coordinates captured whenever the buddy enters DOCKED — flight
+    // returns here regardless of where it took off from.
+    private var dockX: Int = 0
+    private var dockY: Int = 0
     private var view: android.view.View? = null
     private lateinit var windowManager: WindowManager
     private lateinit var params: WindowManager.LayoutParams
@@ -70,6 +95,11 @@ class FloatingWidgetOverlayService : LifecycleService() {
         val started = voiceController.start()
         if (started) {
             state.value = WidgetState.LISTENING
+            // V2 cache-at-tap recipe #4 — snapshot foreground + marks
+            // at the moment voice arms, before the recognizer emits.
+            presenter.onWidgetLongPressArmed(
+                marksProvider = { marksProvider.collect() },
+            )
         } else {
             // Permission missing or already-active session. Revert so the
             // user doesn't see a stuck listening state they didn't trigger.
@@ -89,9 +119,80 @@ class FloatingWidgetOverlayService : LifecycleService() {
 
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         attachOverlay()
+
+        // V2: start the single panel pipeline so panel-originated
+        // turns stream through the orchestrator even when ChatActivity
+        // is closed.
+        overlayChatPipeline.start()
+
+        // Start / stop the overlay chat panel service as the presenter
+        // moves through ChatPanel mode. The panel service owns its own
+        // WindowManager view lifecycle.
+        lifecycleScope.launch {
+            presenter.state
+                .map { it.mode == com.handy.core.overlay.OverlayMode.ChatPanel }
+                .distinctUntilChanged()
+                .collectLatest { panelVisible ->
+                    if (panelVisible) {
+                        OverlayChatPanelService.start(this@FloatingWidgetOverlayService)
+                    }
+                    // We never explicitly stop the panel service — the
+                    // panel service itself detaches its view when the
+                    // presenter exits ChatPanel. Leaving the service
+                    // bound avoids repeated addView / removeView churn
+                    // on fast open/dismiss cycles.
+                }
+        }
+
+        // Mirror live voice partials into the presenter so the yellow
+        // transcript bubble updates alongside the widget / panel.
+        lifecycleScope.launch {
+            voiceController.latestPartial.collectLatest { partial ->
+                presenter.updatePartialTranscript(partial)
+            }
+        }
+
+        // Bridge the richer [BuddyState] from the presenter into the
+        // local widget state. The gesture handler is the authoritative
+        // driver for IDLE / TOUCHED / DRAGGING — we only override here
+        // for orchestrator-driven states the gesture handler doesn't
+        // produce (STREAMING, FLYING, POINTING, ACTING, SPEAKING).
+        lifecycleScope.launch {
+            presenter.state
+                .map { it.buddyState }
+                .distinctUntilChanged()
+                .collectLatest { buddy ->
+                    // Don't clobber an active drag or touch — those are
+                    // transient, finger-driven, and the gesture handler
+                    // resets them on ACTION_UP.
+                    if (state.value == WidgetState.DRAGGING ||
+                        state.value == WidgetState.TOUCHED
+                    ) return@collectLatest
+
+                    state.value = when (buddy) {
+                        BuddyState.LISTENING -> WidgetState.LISTENING
+                        BuddyState.THINKING,
+                        BuddyState.STREAMING,
+                        BuddyState.FLYING,
+                        BuddyState.POINTING,
+                        BuddyState.ACTING -> WidgetState.THINKING
+                        BuddyState.DOCKED,
+                        BuddyState.SPEAKING,
+                        BuddyState.DRAGGING -> WidgetState.IDLE
+                    }
+                }
+        }
+
+        // Hand the flight driver a pointer to this service so it can
+        // move the widget window during flights. Weakly-referenced so
+        // destroy tears cleanly.
+        flightDriver.attachService(this)
     }
 
     override fun onDestroy() {
+        flightDriver.detachService(this)
+        flightController.cancelAll()
+        OverlayChatPanelService.stop(this)
         detachOverlay()
         super.onDestroy()
     }
@@ -100,6 +201,20 @@ class FloatingWidgetOverlayService : LifecycleService() {
         val host = OverlayComposeHost(this).also { this.host = it }
 
         val composeView = host.createView {
+            // V2 keeps the V1 widget visual: clean hand icon + amber
+            // outline + scale/colour transitions. Using `WidgetContent`
+            // (a single Box with no inner AndroidView) guarantees the
+            // root `OnTouchListener` sees every gesture — wrapping the
+            // lens in a Row + `AndroidView` shadowed the listener and
+            // made the widget un-draggable (DL-023).
+            //
+            // The richer [BuddyState] from the presenter is mirrored
+            // into the local [WidgetState] by the `presenter.state`
+            // collector below so orchestrator-driven transitions
+            // (streaming / flying / pointing / acting) still light up
+            // the widget. Bubble chips (yellow / teal / green / blue)
+            // render on the overlay chat panel's BubbleFooter — they
+            // do NOT attach to the widget itself, matching V1.
             val s by state.collectAsState()
             WidgetContent(state = s)
         }
@@ -115,6 +230,8 @@ class FloatingWidgetOverlayService : LifecycleService() {
             x = 24
             y = 240
         }
+        dockX = params.x
+        dockY = params.y
 
         composeView.setOnTouchListener(::onTouch)
 
@@ -160,6 +277,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
                         longPressFired = false
                     }
                     state.value = WidgetState.DRAGGING
+                    presenter.onWidgetDragStart()
                 }
                 if (dragging) {
                     val screenW = resources.displayMetrics.widthPixels
@@ -179,23 +297,53 @@ class FloatingWidgetOverlayService : LifecycleService() {
                     }
                     longPressFired -> {
                         longPressFired = false
-                        // Show the "thinking" state while we wait for the
-                        // recognizer to deliver its final transcript, then
-                        // hand off to ChatActivity with the user message.
                         state.value = WidgetState.THINKING
+                        presenter.onWidgetThinking()
                         lifecycleScope.launch {
                             val transcript = voiceController.stopAndAwaitFinal()
                             state.value = WidgetState.IDLE
                             if (!transcript.isNullOrBlank()) {
-                                openChat(voiceMessage = transcript)
+                                // V2 recipe #6: auto-submit through the
+                                // panel pipeline when the panel is the
+                                // configured quick surface. Legacy path
+                                // (launch ChatActivity with voice extra)
+                                // is used only when the panel is off.
+                                val snapshot = settings.current()
+                                if (snapshot.useOverlayChatPanel) {
+                                    presenter.onVoiceFinalized(transcript)
+                                    // Ensure panel is open so the user
+                                    // sees the streaming response.
+                                    presenter.onWidgetTap(
+                                        marksProvider = { marksProvider.collect() },
+                                    )
+                                    // Brief 300 ms grace (cursorbuddy #6)
+                                    // to let the panel attach / IME
+                                    // settle before the stream starts.
+                                    kotlinx.coroutines.delay(VOICE_AUTOSUBMIT_GRACE_MS)
+                                    panelBridge.submitFromVoice(transcript)
+                                } else {
+                                    presenter.onWidgetIdle()
+                                    openChat(voiceMessage = transcript)
+                                }
                             } else {
+                                presenter.onWidgetIdle()
                                 Timber.d("Voice session produced no transcript")
                             }
                         }
                     }
                     else -> {
                         state.value = WidgetState.IDLE
-                        openChat()
+                        lifecycleScope.launch {
+                            val snapshot = settings.current()
+                            if (snapshot.useOverlayChatPanel) {
+                                presenter.onWidgetTap(
+                                    marksProvider = { marksProvider.collect() },
+                                )
+                            } else {
+                                presenter.onWidgetIdle()
+                                openChat()
+                            }
+                        }
                     }
                 }
                 return true
@@ -219,7 +367,34 @@ class FloatingWidgetOverlayService : LifecycleService() {
             }
             start()
         }
+        dockX = targetX
+        dockY = params.y
     }
+
+    /**
+     * Move the widget window to an arbitrary screen coordinate during
+     * a flight. Called by [BuddyFlightDriver] tick.
+     */
+    internal fun moveBuddyTo(x: Int, y: Int) {
+        val v = view ?: return
+        params.x = x
+        params.y = y
+        runCatching { windowManager.updateViewLayout(v, params) }
+    }
+
+    /** Current buddy dock coordinates (top-left of widget window). */
+    internal fun currentDockPosition(): Pair<Int, Int> = dockX to dockY
+
+    /** Current widget window position (top-left). */
+    internal fun currentWindowPosition(): Pair<Int, Int> = params.x to params.y
+
+    /** Widget view width/height (0 when unattached). */
+    internal fun widgetSize(): Pair<Int, Int> {
+        val v = view ?: return 0 to 0
+        return (v.width.takeIf { it > 0 } ?: 0) to (v.height.takeIf { it > 0 } ?: 0)
+    }
+
+    internal fun flightControllerInstance(): BezierFlightController = flightController
 
     private fun openChat(voiceMessage: String? = null) {
         // Capture the app currently behind the widget BEFORE launching
@@ -250,6 +425,8 @@ class FloatingWidgetOverlayService : LifecycleService() {
 
     companion object {
         const val LONG_PRESS_MS: Long = 400L
+        /** Cursorbuddy recipe #6 — grace before auto-submitting a voice transcript. */
+        const val VOICE_AUTOSUBMIT_GRACE_MS: Long = 300L
     }
 }
 

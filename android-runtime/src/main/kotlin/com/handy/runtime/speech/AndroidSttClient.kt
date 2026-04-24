@@ -70,15 +70,23 @@ class AndroidSttClient(
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
             SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
         var fellBackToCloud = false
+        var forcedOnlineRetry = false
 
+        // DL-024: `EXTRA_PREFER_OFFLINE` is only meaningful when the
+        // caller owns an on-device recognizer. Setting it on the
+        // generic system recognizer (`createSpeechRecognizer`) forces
+        // OEM services like "Speech Services by Google"
+        // (`com.google.android.tts`) into offline Soda mode — which
+        // then fails with `LANGUAGE_PACK_ERROR 13` on any fresh device
+        // / emulator where MDD hasn't downloaded the language pack.
+        // We only set the hint on the on-device path now.
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageTag)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            // EXTRA_PREFER_OFFLINE is only a hint — correctness does not
-            // depend on the OS honouring it. The design uses
-            // createOnDeviceSpeechRecognizer when available instead.
-            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+            if (useOnDevice) {
+                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+            }
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         }
 
@@ -94,12 +102,13 @@ class AndroidSttClient(
                 trySend(SttEvent.EndOfSpeech)
             }
             override fun onError(error: Int) {
-                // On-device is configured but the language pack isn't
-                // installed. Disable on-device and restart this same
-                // listen() session with the cloud recognizer instead of
-                // bubbling an error to the user.
                 val langUnavailable = error == ERROR_LANGUAGE_UNAVAILABLE ||
                     error == ERROR_LANGUAGE_NOT_SUPPORTED
+
+                // Tier 1 fallback (DL-015): on-device reported the
+                // language pack missing — disable on-device for this
+                // install, swap to the generic system recognizer, and
+                // retry the same session.
                 if (langUnavailable && useOnDevice && !fellBackToCloud) {
                     Timber.w(
                         "STT: on-device reported language unavailable (code=%d) — falling back to cloud.",
@@ -108,12 +117,14 @@ class AndroidSttClient(
                     onDeviceDisabled = true
                     useOnDevice = false
                     fellBackToCloud = true
-                    // Rebuild recognizer on the main thread and retry.
                     mainHandler.post {
                         runCatching {
                             recognizer?.cancel()
                             recognizer?.destroy()
                         }
+                        // The retry intent drops the offline hint so
+                        // the system recognizer is free to go online.
+                        intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
                         val cloud = SpeechRecognizer.createSpeechRecognizer(context)
                         Timber.d("STT: retrying with cloud recognizer (API %d)", Build.VERSION.SDK_INT)
                         cloud.setRecognitionListener(listener)
@@ -123,6 +134,35 @@ class AndroidSttClient(
                     }
                     return
                 }
+
+                // Tier 2 fallback (DL-024): we're already on the
+                // generic system recognizer and it STILL reported the
+                // language pack missing. This is the emulator / fresh-
+                // Pixel case — `com.google.android.tts` forced itself
+                // into offline Soda mode even though we didn't ask it
+                // to. Retry once with `EXTRA_PREFER_OFFLINE=false`
+                // explicitly set so the service cannot pick offline.
+                if (langUnavailable && !useOnDevice && !forcedOnlineRetry) {
+                    Timber.w(
+                        "STT: system recognizer still picked offline (code=%d) — retrying with EXTRA_PREFER_OFFLINE=false.",
+                        error,
+                    )
+                    forcedOnlineRetry = true
+                    mainHandler.post {
+                        runCatching {
+                            recognizer?.cancel()
+                            recognizer?.destroy()
+                        }
+                        intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
+                        val cloud = SpeechRecognizer.createSpeechRecognizer(context)
+                        cloud.setRecognitionListener(listener)
+                        cloud.startListening(intent)
+                        recognizer = cloud
+                        activeRecognizer = cloud
+                    }
+                    return
+                }
+
                 val (label, recoverable) = mapError(error)
                 trySend(SttEvent.Error(label, recoverable))
                 close()
@@ -199,9 +239,9 @@ class AndroidSttClient(
         SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognizer is busy — try again." to true
         SpeechRecognizer.ERROR_SERVER -> "Recognition server error." to true
         ERROR_LANGUAGE_UNAVAILABLE ->
-            "Speech model not installed. Connect to the internet and try again, or install the English language pack in Settings > System > Languages." to true
+            "Speech recognition needs an English language pack. Open Settings > System > Languages > Speech recognition & Text-to-speech > download English, then try again." to true
         ERROR_LANGUAGE_NOT_SUPPORTED ->
-            "English speech recognition isn't supported on this device." to false
+            "English speech recognition isn't supported by the default recognizer on this device. Install the Google app or pick a different recognizer in Settings > System > Languages." to false
         else -> "Recognition error ($code)." to true
     }
 

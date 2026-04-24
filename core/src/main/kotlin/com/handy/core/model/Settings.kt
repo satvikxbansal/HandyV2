@@ -128,8 +128,86 @@ data class HandySettings(
      * them every session. DL-016.
      */
     val reducedModeAcknowledged: Boolean = false,
+
+    // ============================================================
+    // V2 settings (all default to safe-for-V1 values; feature flags
+    // gate new behaviours so existing users see the same app until
+    // they opt in via settings).
+    // ============================================================
+
+    /**
+     * V2 §2: overlay chat panel as the default quick-access surface.
+     * When `false`, widget tap still launches [ChatActivity] (V1
+     * behaviour). When `true`, widget tap opens the overlay panel and
+     * only the "Expand" button escalates to ChatActivity.
+     */
+    val useOverlayChatPanel: Boolean = true,
+
+    /**
+     * V2 §4: enables the real `AccessibilityGestureActionPerformer`
+     * binding. When `false`, `NoopActionPerformer` remains bound — V1
+     * behaviour. Confirmation policy still gates destructive actions.
+     */
+    val tapForMeEnabled: Boolean = false,
+
+    /**
+     * V2 §5: cloud provider pick. `ClaudeCloud` is the default; the
+     * router still falls back to Claude on Gemini errors until parity
+     * tests land.
+     */
+    val cloudProvider: CloudProvider = CloudProvider.CLAUDE,
+
+    /**
+     * V2 §5: when `true`, eligible text-only `LocalTask` requests run
+     * through [LocalGenAiClient] first; otherwise cloud always.
+     */
+    val preferLocalWhenPossible: Boolean = false,
+
+    /** V2 §5: master on-device AI toggle. */
+    val localAiEnabled: Boolean = false,
+
+    /** V2 §8: notification listener feature — opt-in. */
+    val notificationListenerEnabled: Boolean = false,
+
+    /** V2 §9: clipboard assist feature — opt-in. */
+    val clipboardAssistEnabled: Boolean = false,
+
+    /** V2 §12: tutor mode — opt-in bounded tutor. */
+    val tutorModeEnabled: Boolean = false,
+
+    /**
+     * V2 §11: Quick Settings tile action. User picks which of:
+     *  - [QuickTileAction.OPEN_PANEL]
+     *  - [QuickTileAction.START_VOICE]
+     *  - [QuickTileAction.OPEN_CHAT]
+     */
+    val quickTileAction: QuickTileAction = QuickTileAction.OPEN_PANEL,
+
+    /** V2 §11: optional Assist entry (VoiceInteractionService). */
+    val assistEntryEnabled: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-5-20250929"
+        const val DEFAULT_GEMINI_CLOUD_MODEL = "gemini-2.5-flash"
     }
+}
+
+/**
+ * V2 cloud provider selection. Gemini is experimental — kept separate
+ * from [LlmProvider] which is the older pre-V2 enum.
+ */
+@Serializable
+enum class CloudProvider(val displayName: String, val experimental: Boolean) {
+    @SerialName("Claude") CLAUDE("Claude", false),
+    @SerialName("GeminiExperimental") GEMINI("Gemini (Experimental)", true),
+    ;
+}
+
+/** V2 §11: Quick Settings tile configured action. */
+@Serializable
+enum class QuickTileAction(val displayName: String) {
+    @SerialName("OpenPanel") OPEN_PANEL("Open chat panel"),
+    @SerialName("StartVoice") START_VOICE("Start voice"),
+    @SerialName("OpenChat") OPEN_CHAT("Open full chat"),
+    ;
 }

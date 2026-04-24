@@ -2,10 +2,140 @@
 
 > This file is **the single source of truth for how Cursor should drive the Handy Android build**. It is designed to be pasted directly into Cursor's chat (or used to seed `.cursor/rules/*.mdc`). It references `Handy_Android_Build_Plan_v2.md` (sibling file) as **required reading** — Cursor must read and internalise that plan before writing a single line of code.
 >
-> Two top-level sections below:
+> **V2 addendum (2026-04-24).** The original Section 1 below (pasted prompt) and the Execution Order it embeds describe the **V1 baseline** — Phase 0 through Phase 4 ending with a shipped V1. That content is preserved unchanged as historical baseline. The **V2 Execution Phases section that follows this banner (Section 0 below)** supersedes the V1 Phase 0–4 order for all V2 work. Where the V1 prompt and the V2 Execution Phases disagree, **V2 wins** and the V1 text is stale for that topic.
 >
-> 1. **The Cursor Prompt** — paste this into Cursor.
-> 2. **The Cursor Rules** — copy these into `.cursor/rules/*.mdc` files so they apply automatically on every turn.
+> **Required reading for V2 work (in order):**
+>
+> 1. [`Handy_Android_Build_Plan_V2_Scope.md`](Handy_Android_Build_Plan_V2_Scope.md) — authoritative V2 scope doc. Read end-to-end before touching V2 code. If this file and the V2 scope doc disagree, the scope doc wins.
+> 2. [`Handy_Android_Build_Plan_v2.md`](Handy_Android_Build_Plan_v2.md) — V1 baseline architecture. The V2 work builds on these modules and interfaces.
+> 3. [`./Handy V1 (macOS app)/`](Handy V1 (macOS app)) — behavioural source of truth for ported prompts, strings, bubble rules, and motion tokens.
+> 4. [`.cursor/rules/10-handy-project-guardrails.mdc`](.cursor/rules/10-handy-project-guardrails.mdc) — guardrails with the V1 rules plus a new "V2 extensions" section and "Anti-patterns observed in `cursorbuddy-android-main`" block.
+> 5. [`.cursor/rules/20-debug-log.mdc`](.cursor/rules/20-debug-log.mdc) — DEBUG_LOG protocol.
+> 6. [`DEBUG_LOG.md`](DEBUG_LOG.md) — all Prevention Rules from DL-000 onwards.
+> 7. [`DESIGN_NOTES.md`](DESIGN_NOTES.md) — running design log including SDK divergence note, Unified Buddy decision, bubble taxonomy, cursorbuddy licensing discipline.
+> 8. [`cursorbuddy-android-main/`](cursorbuddy-android-main) — AGPL-3.0 reference implementation of the V3 product class. We port **recipes only** (scope doc §15). Anything that looks like porting their `TutorialEngine` / `TutorialControls` / `ClaudeAIPlanner` pixel-bounds pointing is a V3 feature being smuggled in — stop and revert.
+>
+> Three top-level sections below:
+>
+> 0. **V2 Execution Phases** (this addendum) — the phase order for V2 work.
+> 1. **The Cursor Prompt** (V1 baseline — shipped) — preserved for historical context.
+> 2. **The Cursor Rules** — pointer summary of the authoritative files on disk.
+
+---
+
+## 0. V2 Execution Phases (supersedes V1 Phase 0–4 for V2 work)
+
+Every V2 coding turn must open with the "Think Before Coding" block described in `.cursor/rules/00-karpathy-think-before-coding.mdc` AND name the phase below it is advancing. The phase, slice, acceptance check, files to touch, and interfaces NOT to change must all be declared before code is written.
+
+### Phase 0 — Source-of-truth alignment (docs + rules only)
+
+**Slice:** no runtime code. Land the V2 scope doc, the V2 banner on the V1 plan, the V2 execution phases in this cursor prompt, the V2 extensions in the guardrails rule, and the V2 entries in DESIGN_NOTES.
+
+**Acceptance:**
+
+- [`Handy_Android_Build_Plan_V2_Scope.md`](Handy_Android_Build_Plan_V2_Scope.md) exists with all 15 V2 prompt subsections, the Unified Buddy state machine, the four-color bubble taxonomy, the `LocalGenAiClient` allowed / forbidden task lists, the action audit schema, the V3 fence, and the cursorbuddy borrowings (§15 of the scope doc, ten numbered recipes + Do-NOT-borrow anti-patterns).
+- V1 plan has a V2-supersession banner and a "Promoted to V2" pointer section.
+- This cursor prompt has Section 0 (V2 Execution Phases).
+- `.cursor/rules/10-handy-project-guardrails.mdc` has a `## V2 extensions` section whose every bullet maps to a named subsection in the scope doc.
+- `DESIGN_NOTES.md` has four new entries: Unified Buddy, Bubble Taxonomy, SDK Divergence, and cursorbuddy AGPL-3.0 recipes-not-source discipline.
+- Zero `.kt` / manifest changes in this phase.
+
+### Phase 1 — Overlay chat panel (primary quick surface)
+
+**Slice:** new Compose overlay panel, IME-focus choreography per cursorbuddy recipe #5, expand-to-`ChatActivity` path, lifecycle stability (rotation / multi-window / overlay revocation / app switch), quick-prompt chips per cursorbuddy recipe #9, voice auto-submit 300 ms grace per cursorbuddy recipe #6, glassmorphism palette + no-backdrop-blur per cursorbuddy recipe #8.
+
+**Acceptance:**
+
+- Tap widget → overlay chat panel opens in ≤ 250 ms.
+- Typing commits characters (instrumented test).
+- IME resizes the panel (`SOFT_INPUT_ADJUST_PAN`); does not resize the whole screen.
+- Rotation does not crash; panel either recreates or dismisses cleanly.
+- Idle widget keeps the OS-2 idle flag set before panel open and after panel dismiss.
+- Voice final result auto-submits after 300 ms grace.
+- Quick-prompt chips render based on cached package from cursorbuddy recipe #4.
+- No `RenderEffect.createBlurEffect` or `FLAG_BLUR_BEHIND` on the panel window.
+- `OverlayComposeHost` reused; no second Compose host class is created.
+
+### Phase 2 — Smarter capture + grounding + Unified Buddy
+
+**Slice:** `RequestBudgeter` (`:core`), `AccessibilityMarksProvider` per cursorbuddy recipe #2 (`:android-runtime`), semantic point-from-text path, `LaunchableAppIndex` hardening (`PACKAGE_ADDED / REMOVED / REPLACED` refresh; no `QUERY_ALL_PACKAGES`), diagnostics plumbing foundations, Glass Lens render per cursorbuddy recipe #1, Bezier flight (macOS math + cursorbuddy's `DecelerateInterpolator(2f)` + `OvershootInterpolator(1.5f)` pulse) + return + four-color bubble renderer, `StateFlow<AccessibilityConnectionState>` per cursorbuddy recipe #10.
+
+**Acceptance:**
+
+- A `[POINT]` from a pure-text request flies the Unified Buddy to a resolved semantic node, arrives in ≤ 1.4 s, dwells 3–5 s with the blue label bubble, returns to dock.
+- Glass Lens golden-image test passes for Docked / Listening / Thinking / Flying / Pointing / Acting / Speaking.
+- A screen-text-only request to Claude includes the `<screen_ui>` block but no image.
+- `FLAG_SECURE` test window classifies as `SecureWindow` and the orchestrator injects the "can't see this screen" system message without calling `LlmClient` with an image (OS-5).
+- `AccessibilityConnectionState` flips from `NeverConnected` / `Disconnected` to `Connected` on `onServiceConnected` without polling.
+- `AccessibilityMarksProvider` emits ≤ 50 nodes; password fields appear with `password: true` and empty / redacted `text`.
+
+### Phase 3 — Tap-for-me
+
+**Slice:** Hilt binding flips `ActionPerformer` → `AccessibilityGestureActionPerformer`; node-first / gesture-second recipe #3; cache-at-tap rule #4; confirmation policy (scope §4.1); bounded action catalog (scope §4.2); action audit (scope §4.3); teal lens bubble + `PanelActionConfirming` panel state.
+
+**Acceptance:**
+
+- "Tap Send" on a clickable node fires `ACTION_CLICK`; no `dispatchGesture` fires; `AuditEvent.userConfirmed = false` (benign one-step).
+- "Share this link" (destructive) shows the panel confirmation chip; only on tap does the action fire; `AuditEvent.userConfirmed = true`.
+- Disabled button → `PerformResult.Failed("node not clickable")`; no gesture; audit captures the failure reason.
+- Stale node (user switched screens between request and resolve) → re-resolve once, else fail; no guessing.
+- WebView low-quality tree → fall back to pointer, no brute-force gesture.
+- Hilt binding test proves the V2 binding is wired; V1 `NoopActionPerformer` is only bound when `settings.tapForMeEnabled = false`.
+
+### Phase 4 — Brains expansion
+
+**Slice:** `GeminiCloudLlmClient` (:android-runtime); `LocalGenAiClient` interface (:core); `GeminiNanoLocalGenAiClient` (:android-runtime) with availability gating; `BrainRouter` (:core); provider + local-AI + privacy-mode settings surface; experimental labeling in Settings UI.
+
+**Acceptance:**
+
+- Provider toggle in Settings swaps brain end-to-end without app restart.
+- Shared `LlmClient` contract test runs green against both Claude and Gemini cloud.
+- `BrainRouter` routes `SUMMARIZE_TEXT` to Nano when `LocalAvailability.Available`; falls back to cloud on `Unsupported` / `Downloading` / `TemporarilyUnavailable`.
+- `preferLocalWhenPossible = true` routes eligible text-only tasks to Nano first; non-eligible tasks still go cloud.
+- Gemini cloud provider has an "experimental" tag in Settings and is not default.
+
+### Phase 5 — System surfaces
+
+**Slice:** `HandyQuickSettingsTileService` with configurable tile action (open panel / start voice / open full chat); launcher / home icon polish (adaptive + themed + monochrome); optional Assist entry (`HandyAssistIntentService`).
+
+**Acceptance:**
+
+- Tile add-flow works on API 33+ via `TileService.requestAddTileService`.
+- Launcher icon opens `ChatActivity` directly after first launch.
+- Assist entry is off by default; when enabled, voice invocation routes to Handy; when disabled, restores OEM default without a reboot.
+
+### Phase 6 — Notification listener + clipboard
+
+**Slice:** `HandyNotificationListenerService` (scope §8) with narrow features; `ClipboardAssist` (scope §9) gated by visible Handy state; in-app disclosures + consent for both; Diagnostics expansion.
+
+**Acceptance:**
+
+- User enables notification access via the in-app disclosure.
+- Recent-notifications summary works; `RemoteInput` reply requires confirmation + writes an audit event.
+- Clipboard summarize works from a visible panel.
+- Clipboard does NOT auto-process when a clip looks like a password / OTP.
+- Disabled → permissions revoked cleanly; no residual background work.
+
+### Phase 7 — Tutor mode enablement
+
+**Slice:** bounded tutor mode per scope §12; cadence + cooldown logic; screen-text-heavy tutoring; local summarization path where applicable.
+
+**Acceptance:**
+
+- Tutor fires at most one nudge per 60 s.
+- Suspends under battery-saver / thermal throttling.
+- Stops on app switch or user interrupt.
+- **Does not** chain multi-step actions.
+
+### Phase 8 — Hardening / policy / beta
+
+**Slice:** Play disclosure package for V2 (tap-for-me explicit, notification listener explicit, no `QUERY_ALL_PACKAGES`); policy pass; device matrix (Pixel 6a / Samsung A / Moto G / OnePlus Nord / Redmi Note); performance pass (cold start, drag fps, panel open latency, Bezier flight fps); `DEBUG_LOG.md` hardening.
+
+**Acceptance:**
+
+- DEBUG_LOG tail silent for ≥ 1 week.
+- All scope §13 policy deliverables present.
+- Play internal testing beta live.
 
 ---
 

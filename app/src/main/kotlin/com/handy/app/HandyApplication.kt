@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import android.os.StrictMode
+import com.handy.app.tutor.TutorModeController
 import com.handy.runtime.di.ApplicationScope
 import com.handy.runtime.intent.LaunchableAppIndex
 import dagger.hilt.android.HiltAndroidApp
@@ -32,6 +33,7 @@ import timber.log.Timber
 class HandyApplication : Application() {
 
     @Inject lateinit var launchableAppIndex: LaunchableAppIndex
+    @Inject lateinit var tutorModeController: TutorModeController
     @Inject @ApplicationScope lateinit var appScope: CoroutineScope
 
     override fun onCreate() {
@@ -43,6 +45,10 @@ class HandyApplication : Application() {
         createNotificationChannels()
 
         appScope.launch { launchableAppIndex.initialise() }
+        // Tutor mode self-activates when the setting is on; observes
+        // [DataStoreSettings.flow] and subscribes to foreground events
+        // only then. Safe to call unconditionally here.
+        tutorModeController.start()
     }
 
     private fun installStrictMode() {

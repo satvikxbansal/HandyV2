@@ -5,7 +5,10 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.AlarmClock
+import android.provider.CalendarContract
+import android.provider.Settings
 import com.handy.core.action.AssistantAction
+import com.handy.core.action.SettingsTarget
 import com.handy.core.intent.IntentResult
 import timber.log.Timber
 
@@ -40,6 +43,17 @@ class AndroidIntentDispatcher(
             reason = "Share \"${action.text.take(40)}…\"?",
         )
         is AssistantAction.WebSearchIntent -> fireWebSearch(action.query)
+        // V2 additions
+        is AssistantAction.ComposeSms -> IntentResult.NeedsConfirmation(
+            reason = "Open SMS draft${action.to?.let { " to $it" }.orEmpty()}?",
+        )
+        is AssistantAction.CreateCalendarEvent -> fireCreateEvent(action)
+        is AssistantAction.OpenSettings -> fireOpenSettings(action.target)
+        is AssistantAction.OpenAppInfo -> fireOpenAppInfo(action.packageHint)
+        is AssistantAction.StartNavigation -> fireNavigation(action.query)
+        is AssistantAction.ShareUrl -> IntentResult.NeedsConfirmation(
+            reason = "Share URL${action.title?.let { " \"$it\"" }.orEmpty()}?",
+        )
     }
 
     /**
@@ -50,7 +64,80 @@ class AndroidIntentDispatcher(
         is AssistantAction.DialNumber -> fireDial(action.number)
         is AssistantAction.ComposeEmail -> fireEmail(action)
         is AssistantAction.ShareText -> fireShare(action.text)
+        is AssistantAction.ComposeSms -> fireSms(action)
+        is AssistantAction.ShareUrl -> fireShareUrl(action)
         else -> dispatch(action) // non-destructive: no confirmation needed
+    }
+
+    // ---------- V2 destructive — fired after confirmation ----------
+
+    private fun fireSms(action: AssistantAction.ComposeSms): IntentResult {
+        val uri = Uri.parse("smsto:${action.to.orEmpty()}")
+        val intent = Intent(Intent.ACTION_SENDTO, uri)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        action.body?.let { intent.putExtra("sms_body", it) }
+        return start(intent) { "sms to ${action.to}" }
+    }
+
+    private fun fireShareUrl(action: AssistantAction.ShareUrl): IntentResult {
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, action.url)
+            action.title?.let { putExtra(Intent.EXTRA_SUBJECT, it) }
+        }
+        val chooser = Intent.createChooser(send, action.title).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return runCatching {
+            context.startActivity(chooser)
+            IntentResult.ChooserShown
+        }.getOrElse { IntentResult.Failed(it.message ?: "share URL failed") }
+    }
+
+    // ---------- V2 non-destructive ----------
+
+    private fun fireCreateEvent(action: AssistantAction.CreateCalendarEvent): IntentResult {
+        val intent = Intent(Intent.ACTION_INSERT).apply {
+            data = CalendarContract.Events.CONTENT_URI
+            putExtra(CalendarContract.Events.TITLE, action.title)
+            action.startEpochMs?.let { putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, it) }
+            action.endEpochMs?.let { putExtra(CalendarContract.EXTRA_EVENT_END_TIME, it) }
+            action.location?.let { putExtra(CalendarContract.Events.EVENT_LOCATION, it) }
+            action.notes?.let { putExtra(CalendarContract.Events.DESCRIPTION, it) }
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return start(intent) { "calendar event '${action.title}'" }
+    }
+
+    private fun fireOpenSettings(target: SettingsTarget): IntentResult {
+        val action = when (target) {
+            SettingsTarget.APP_INFO -> Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+            SettingsTarget.ACCESSIBILITY -> Settings.ACTION_ACCESSIBILITY_SETTINGS
+            SettingsTarget.NOTIFICATIONS -> Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS
+            SettingsTarget.BATTERY_OPTIMIZATION -> Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS
+            SettingsTarget.WIFI -> Settings.ACTION_WIFI_SETTINGS
+            SettingsTarget.BLUETOOTH -> Settings.ACTION_BLUETOOTH_SETTINGS
+            SettingsTarget.APPS -> Settings.ACTION_APPLICATION_SETTINGS
+        }
+        val intent = Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (target == SettingsTarget.APP_INFO) {
+            intent.data = Uri.parse("package:${context.packageName}")
+        }
+        return start(intent) { "settings:$target" }
+    }
+
+    private fun fireOpenAppInfo(packageHint: String): IntentResult {
+        val resolved = launchableApps.resolve(packageHint) ?: return IntentResult.NoHandler
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            .setData(Uri.parse("package:${resolved.packageName}"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return start(intent) { "app_info ${resolved.packageName}" }
+    }
+
+    private fun fireNavigation(query: String): IntentResult {
+        // Google Maps turn-by-turn: `google.navigation:q=…` is the
+        // documented scheme; other maps apps pattern-match on it.
+        val uri = Uri.parse("google.navigation:q=${Uri.encode(query)}")
+        val intent = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return start(intent) { "navigation $query" }
     }
 
     // ---------- destructive — fired after confirmation ----------

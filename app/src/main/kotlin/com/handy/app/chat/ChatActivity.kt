@@ -47,6 +47,7 @@ import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Accessibility
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.CloseFullscreen
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.PanTool
 import androidx.compose.material.icons.outlined.Settings
@@ -79,13 +80,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.handy.app.R
+import com.handy.app.overlay.OverlayPresenter
 import com.handy.app.settings.SettingsActivity
 import com.handy.app.theme.HandyColors
 import com.handy.app.theme.HandyDimens
 import com.handy.app.theme.HandyTheme
 import com.handy.core.model.ChatMessage
 import com.handy.core.model.MessageRole
+import com.handy.runtime.accessibility.AccessibilityMarksProvider
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -95,6 +99,12 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 class ChatActivity : ComponentActivity() {
 
     private val viewModel: ChatViewModel by viewModels()
+
+    // V2: minimise button reopens the overlay chat panel instead of
+    // launching another instance of ChatActivity. Both injected as
+    // singletons through the standard app graph.
+    @Inject lateinit var overlayPresenter: OverlayPresenter
+    @Inject lateinit var marksProvider: AccessibilityMarksProvider
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // targetSdk 35 renders edge-to-edge by default on Android 15+;
@@ -118,9 +128,25 @@ class ChatActivity : ComponentActivity() {
                     onSetToolName = viewModel::setToolName,
                     onConfirmationResult = viewModel::respondToConfirmation,
                     onOpenAccessibilitySettings = ::openAccessibilitySettings,
+                    onMinimiseToOverlay = ::minimiseToOverlay,
                 )
             }
         }
+    }
+
+    /**
+     * Reverse of the panel's "Expand to chat" button. Reopens the
+     * overlay chat panel with a fresh cache-at-tap snapshot (the app
+     * that was behind ChatActivity is now the foreground target
+     * again once we finish) and closes this activity.
+     */
+    private fun minimiseToOverlay() {
+        runCatching {
+            overlayPresenter.onWidgetTap(
+                marksProvider = { marksProvider.collect() },
+            )
+        }.onFailure { /* presenter failure shouldn't block finish */ }
+        finish()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -183,6 +209,7 @@ internal fun ChatScreen(
     onSetToolName: (String) -> Unit,
     onConfirmationResult: (Long, Boolean) -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
+    onMinimiseToOverlay: () -> Unit = {},
 ) {
     val pending = state.pendingConfirmation
     if (pending != null) {
@@ -210,6 +237,7 @@ internal fun ChatScreen(
             HandyHeaderBar(
                 voiceState = state.voiceState,
                 onOpenSettings = onOpenSettings,
+                onMinimise = onMinimiseToOverlay,
             )
             ThinDivider()
 
@@ -270,6 +298,7 @@ internal fun ChatScreen(
 private fun HandyHeaderBar(
     voiceState: VoiceUiState,
     onOpenSettings: () -> Unit,
+    onMinimise: () -> Unit = {},
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -288,6 +317,16 @@ private fun HandyHeaderBar(
         Spacer(Modifier.weight(1f))
         AnimatedVisibility(visible = voiceState == VoiceUiState.LISTENING) {
             ListeningBars()
+        }
+        // Minimise → overlay chat panel. Reverse of the panel's
+        // "Expand to chat" arrow. Kept to the left of the settings gear
+        // so the row reads expand-for-settings, minimise-for-panel.
+        IconButton(onClick = onMinimise) {
+            Icon(
+                imageVector = Icons.Outlined.CloseFullscreen,
+                contentDescription = "Minimise to overlay panel",
+                tint = HandyColors.TextSecondary,
+            )
         }
         IconButton(onClick = onOpenSettings) {
             Icon(

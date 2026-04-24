@@ -670,3 +670,328 @@ Rules:
 * Wiring a real `ActionPerformer` in v1 — the binding is
   `NoopActionPerformer` until v2.
 * Implementing a multi-step / continuous guided workflow in v1.
+
+---
+
+## V2 extensions
+
+These rules apply to V2 work (Phase 0 onward per the V2 Execution
+Phases section in `Handy_Android_Cursor_Prompt_v2.md`). They build on
+the V1 rules above — they do not replace them. The authoritative V2
+spec is [`Handy_Android_Build_Plan_V2_Scope.md`](../../Handy_Android_Build_Plan_V2_Scope.md);
+if this section and the scope doc disagree, the scope doc wins.
+
+### Overlay chat panel (V2 primary quick surface — scope §2)
+
+* The overlay chat panel is the **default** entry for a widget tap.
+  `ChatActivity` opens only on explicit user expand or from settings /
+  diagnostics. Do not auto-launch `ChatActivity` from background.
+* `OverlayMode` gains a `ChatPanel` value in V2.
+  `overlayFlagsFor(OverlayMode.ChatPanel)` returns
+  `FLAG_NOT_TOUCH_MODAL | FLAG_LAYOUT_IN_SCREEN |
+  FLAG_WATCH_OUTSIDE_TOUCH` with `softInputMode =
+  SOFT_INPUT_ADJUST_PAN`. The idle flag set is unchanged.
+* The panel drops `FLAG_NOT_FOCUSABLE` while open and restores the
+  idle flag set on close via the same `overlayFlagsFor(mode)` helper
+  (OS-2 is preserved).
+* Panel open / close must not leak `ComposeView`, `ViewModelStore`, or
+  `WindowManager` resources. Reuse `OverlayComposeHost`.
+* Panel must handle: IME focus transitions, orientation change,
+  split-screen / multi-window, overlay permission revocation,
+  app-switch while open, animation interruption, Accessibility-off
+  reduced mode.
+* Panel state is a single `StateFlow<OverlayPanelState>` with the
+  values from scope §2 (`Hidden`, `WidgetIdle`, `WidgetListening`,
+  `WidgetThinking`, `ChatPanelCollapsed`, `ChatPanelExpanded`,
+  `PanelStreaming`, `PanelActionConfirming`).
+
+### Unified Buddy (widget = pointer — scope §3)
+
+* V2 does **NOT** introduce a second overlay window for pointing.
+  There is no `PointerOverlayController`, no `CompanionCursorManager`
+  port. The floating widget *is* the pointer.
+* The widget is one Compose overlay that morphs between Docked,
+  Listening, Thinking, Flying, Pointing, Acting, and Speaking states
+  per the scope §3 state machine. Visual continuity is the point —
+  the user watches one object the whole time.
+* Flight math: Bezier with
+  `duration = clamp(distance / 800.0, 0.6, 1.4)` s,
+  `arcHeight = min(distance * 0.2, 80)` px, smoothstep easing
+  `t' = t² · (3 − 2t)`, dwell uniform random in `[3.0, 5.0]` s,
+  triangle-tangent rotation, flight-in `DecelerateInterpolator(2f)`,
+  landed pulse `OvershootInterpolator(1.5f)` `1.0 → 1.14` 600 ms
+  reverse forever (cancelled on return). Do not invent new curves.
+* The visual is the seven-layer Glass Lens (scope §15 recipe #1).
+  Same render in Docked and Flying; only overlaid chrome changes.
+
+### Bubble taxonomy (scope §3)
+
+* Four colors only: yellow (transcript) / teal (action-in-progress) /
+  green (assistant response) / blue (pointer navigation label).
+* Only one bubble is visible at a time. Mutual-exclusion rules:
+  green > blue; teal > green; yellow fades when processing starts.
+* Teal is a **passive status indicator**, not interactive.
+  Confirmation chips live inside the overlay chat panel
+  (`PanelActionConfirming` state), never on the lens.
+* Bubbles are clamped: green 110 chars (`clampVoiceSpokenForOverlay`),
+  blue 30 chars, teal ≤ 30 chars.
+* Bubbles render with the glassmorphism palette from scope §15
+  recipe #8. No `FLAG_BLUR_BEHIND`.
+
+### Tap-for-me (scope §4)
+
+* V2 Hilt binding is
+  `ActionPerformer → AccessibilityGestureActionPerformer` when
+  `settings.tapForMeEnabled = true`; otherwise
+  `NoopActionPerformer` remains. The flip is per-setting, not a
+  permanent swap.
+* Allowed actions: tap visible semantic node, long-press visible
+  semantic node, scroll one viewport, explicit directional swipe,
+  open notification shade / Quick Settings, activate clearly
+  labelled buttons / tabs / menu items / toggles in the current app.
+* Forbidden: open-ended automation, repeated retries until success,
+  hidden UI traversal, arbitrary text entry via `ACTION_SET_TEXT`,
+  multi-step chaining, cross-app plans without explicit
+  confirmation, anything autonomous.
+* **Node-first, gesture-second** (scope §15 recipe #3): after
+  `SemanticPointerResolver.resolve` returns an
+  `AccessibilityNodeInfo`, if `node.isClickable` call
+  `node.performAction(ACTION_CLICK)`; only fall back to
+  `dispatchGesture` at the node's bounds center when not clickable.
+  Long-press mirrors (`ACTION_LONG_CLICK` first; gesture fallback).
+* **Cache-at-tap snapshot** (scope §15 recipe #4): the overlay
+  presenter caches `(packageName, umbrellaSite,
+  accessibilityMarksSnapshot, captureHint, timestampEpochMs)` at
+  the instant the widget is tapped or long-pressed. The panel and
+  voice pipeline consume the cached snapshot; they do not re-read
+  `rootInActiveWindow` inside a focused panel.
+* Confirmation policy (scope §4.1): no confirmation for benign
+  one-step actions in the current foreground app; required for
+  cross-app, send/share/post/call/text/email, settings with
+  device-wide impact, notification reply/dismiss, purchase/submit
+  flows, and any borderline-confidence target.
+* Action audit (scope §4.3): every performed tap-for-me or
+  `dispatch_action` writes an `AuditEvent` to
+  `:android-runtime/audit/AuditStore`. Oldest entries prune on
+  write. Last 20 entries surface in `DiagnosticsActivity`.
+* Do not retry on failure. Re-resolve a stale node exactly once,
+  then fail. Low-quality WebView tree → fall back to pointer, not
+  brute-force gesture.
+
+### BrainRouter + LocalGenAiClient (scope §5)
+
+* `LlmClient` is unchanged. V2 adds `LocalGenAiClient`
+  (`:core/llm/LocalGenAiClient.kt`) with the exact shape in scope
+  §5.1.
+* `BrainRouter` (`:core/brain/BrainRouter.kt`) is the single entry
+  point for picking a provider per request. Default routing order:
+  Claude cloud → Gemini cloud (if selected or Claude unreachable)
+  → Gemini Nano (only if task is in the `LocalTask` whitelist AND
+  `LocalAvailability.Available` AND user setting allows).
+  Otherwise `BrainDecision.FailGracefully`.
+* Local-preferred mode (`settings.preferLocalWhenPossible = true`):
+  eligible text-only tasks go local first; non-eligible fall
+  through to cloud.
+* **`LocalTask` allowed whitelist (scope §5.3):**
+  `SUMMARIZE_TEXT`, `REWRITE_TEXT`, `TRANSLATE_TEXT`,
+  `SCREEN_TEXT_QA`, `NOTIFICATION_SUMMARY`, `CLIPBOARD_TRANSFORM`,
+  `SHORT_TITLE_OR_LABEL`.
+* **Forbidden for local AI in V2, ever:** web search, image
+  grounding from screenshots, tool planning, action selection,
+  cross-app automation, open-ended long-context chat, multi-turn
+  memory-heavy sessions.
+* Local outputs **cannot** directly trigger action tools. They go
+  through the same post-validation / moderation / truncation as
+  cloud outputs.
+* Gemini cloud ships with an "experimental" tag in Settings and
+  remains **not default** until parity tests (same fixture set as
+  Claude) are green.
+* Never silently pretend local AI is equivalent to cloud. Label
+  local mode in `DiagnosticsActivity`.
+
+### RequestBudgeter + AccessibilityMarksProvider (scope §6)
+
+* Every request routes through `RequestBudgeter.budget(message,
+  mode)` before calling `LlmClient`. The returned `BudgetedRequest`
+  picks one of: `TEXT_ONLY`, `FOCUSED_WINDOW`, `CURRENT_DISPLAY`,
+  `BROADER`, `NONE`.
+* Never send a `SecureWindow`, `NotPermitted`, `Unsupported`, or
+  `Failed` frame to the model (OS-5 is preserved).
+* When the panel is open and the target window is known, prefer
+  `takeScreenshotOfWindow(activeWindowId)` over
+  `takeScreenshot(DEFAULT_DISPLAY)`. Broader capture is the
+  exception, not the default.
+* `AccessibilityMarksProvider` emits the compact JSON shape from
+  scope §15 recipe #2 (≤ 50 nodes, `isInteresting` filter, password
+  fields flagged with `password: true` and no `text`). Marks are
+  cheap; include them whenever available.
+
+### Semantic pointing from screen-text / marks path (scope §7)
+
+* Strategy B stays the only pointing strategy. Runtime never emits
+  `[POINT:x,y:label]`.
+* Semantic `[POINT]` must resolve from vision path, screen-text
+  path, and accessibility-marks path. Resolver fallback chain is
+  text+role → `contentDescription` → `viewId` suffix → fuzzy
+  (Levenshtein ≤ 2) → fail.
+* If marks provided a viewId hint, the resolver starts at the
+  viewId step.
+
+### Notification listener (scope §8)
+
+* `HandyNotificationListenerService` is opt-in via onboarding
+  disclosure + settings toggle. Disabled by default.
+* V2 features: summarize recent notifications, read top
+  notification text safely, open source app, filter by package,
+  group by app / conversation.
+* Guarded V2 features (require confirmation + audit): explicit
+  dismiss, explicit `RemoteInput` reply.
+* Forbidden in V2: ambient autonomous triage, auto-reply-while-away,
+  rule engines.
+* Handle: permission revoked while running, work-profile
+  notifications, redacted lock-screen / private notifications,
+  grouped notifications, media / ongoing, bubble notifications,
+  stale keys, custom remote views.
+
+### Clipboard assist (scope §9)
+
+* Access is tied to **visible Handy state or explicit user request
+  only**. No ambient harvesting.
+* V2 features: summarize / rewrite / translate / explain copied
+  text; share transformed text back; optional clipboard hint chip
+  while Handy is visible.
+* Rules: dedupe by hash, size-cap 32 KB, conservative detection of
+  password / OTP-shaped clips (skip auto-processing), mark
+  sensitive transforms via `EXTRA_IS_SENSITIVE` (API 33+).
+* Respect background-clipboard restrictions on Android 10+.
+* Do not read the clipboard from a background service when Handy
+  UI is not visible.
+
+### DiagnosticsActivity (scope §10)
+
+* New read-only activity in `:app`. Compose `LazyColumn`.
+* Required fields: overlay permission state, accessibility
+  `StateFlow<AccessibilityConnectionState>`, notification access
+  state, microphone permission, speech recognizer availability,
+  on-device speech availability, current foreground app / package /
+  tool, current browser / site umbrella label, current capture
+  mode, last `CaptureResult`, secure-screen state, current
+  provider, local GenAI availability + capability list, last model
+  error, last tool call, last `AuditEvent`, recent audit tail
+  (20 events).
+
+### Quick Settings tile + Assist entry (scope §11)
+
+* `HandyQuickSettingsTileService` in `:app` with a configurable
+  action (open panel / start voice / open full chat). Use
+  `TileService.requestAddTileService` on API 33+.
+* Launcher icon opens `ChatActivity` directly (not onboarding after
+  first launch). Adaptive + themed + monochrome icons.
+* Optional Assist entry (`HandyAssistIntentService`) is off by
+  default. Must degrade gracefully on OEMs where
+  `VoiceInteractionService` is inconsistent. **Never the only way
+  to access Handy.**
+
+### Tutor mode V2 (scope §12)
+
+* Opt-in; off by default for new users.
+* Can observe context, explain visible UI, give proactive nudges
+  after idle, point, use screen-text path, use `LocalGenAiClient`
+  for summarization.
+* **Must NOT** run a continuous runner, autonomously click the UI,
+  create open-ended loops.
+* Guardrails: minimum 60 s between nudges, per-app cooldowns,
+  suspend under battery-saver / thermal throttling, stop on app
+  switch or user interrupt, clear disclosure in settings.
+
+### Borrowings from `cursorbuddy-android-main` (scope §15)
+
+* Port **recipes, techniques, numeric constants — not Kotlin source
+  lines**. Every borrowing is a clean-room reimplementation in our
+  own Compose / adapter code. AGPL-3.0 boundary in `DESIGN_NOTES.md`.
+* The ten numbered recipes in scope §15 are the authoritative
+  contract:
+
+  1. Seven-layer Glass Lens render (`:app/widget/LensRenderer.kt`).
+  2. Compact Accessibility-marks JSON + `isInteresting` filter
+     (`:android-runtime/accessibility/AccessibilityMarksProvider.kt`).
+  3. Node-first, gesture-second tap
+     (`:app/accessibility/AccessibilityGestureActionPerformer.kt`).
+  4. Cache-at-tap snapshot (overlay presenter).
+  5. Overlay chat panel IME choreography.
+  6. Voice auto-submit 300 ms grace (`:app/voice/VoiceController.kt`).
+  7. `flagIncludeNotImportantViews` on the Accessibility service.
+  8. Glassmorphism palette + no `FLAG_BLUR_BEHIND`.
+  9. Per-app quick-prompt chips (`:core/prompts/QuickPromptCatalog.kt`
+     backed by `LaunchableAppIndex`).
+  10. `StateFlow<AccessibilityConnectionState>` replaces polling.
+
+* When a rule in this file and scope §15 disagree on numeric values
+  or field names, the scope doc wins.
+
+### Anti-patterns observed in `cursorbuddy-android-main` — forbidden
+
+These are concrete anti-examples. If code starts to look like any
+of them, stop and revert.
+
+1. **Multi-step `TutorialEngine` runner with pause / resume / next /
+   prev / replay controls** (reference:
+   [`cursorbuddy-android-main/app/src/main/java/com/cursorbuddy/android/tutorial/TutorialEngine.kt`](../../cursorbuddy-android-main/app/src/main/java/com/cursorbuddy/android/tutorial/TutorialEngine.kt),
+   [`.../overlay/TutorialControls.kt`](../../cursorbuddy-android-main/app/src/main/java/com/cursorbuddy/android/overlay/TutorialControls.kt)).
+   This IS the V3 product. Not in V2.
+2. **Strategy A pixel-bounds pointing from the LLM**
+   ([`ClaudeAIPlanner.kt`](../../cursorbuddy-android-main/app/src/main/java/com/cursorbuddy/android/service/ClaudeAIPlanner.kt)
+   — LLM emits `bounds: [l, t, r, b]`). Runtime never consumes
+   pixel-coordinate `[POINT]`. Strategy B only.
+3. **Orphaned `FOREGROUND_SERVICE_MEDIA_PROJECTION` permission**
+   (cursorbuddy declares the permission but no service of type
+   `mediaProjection`, so their capture fails on API 34+).
+   OS-1 rule prevents this — this is the anti-example.
+4. **20× 500 ms polling for accessibility-service readiness**
+   ([`CursorBuddyService.onStartCommand` L62–73](../../cursorbuddy-android-main/app/src/main/java/com/cursorbuddy/android/service/CursorBuddyService.kt)).
+   Use `StateFlow<AccessibilityConnectionState>` instead.
+5. **Raw View + XML UI with a monolithic `OverlayManager`
+   handing parents to child views**. We stay Compose-first.
+   Port Paint recipes, not View hierarchies.
+
+### V3 fence (must NOT be built in V2 — scope §16)
+
+* Continuous multi-step workflow runner. No `WorkflowRunner` port
+  from macOS. No `TutorialEngine`-style runner from cursorbuddy.
+* Autonomous initiate-plan-execute loops.
+* Arbitrary text entry via accessibility into other apps
+  (broad `ACTION_SET_TEXT`).
+* Ambient notification auto-triage / auto-reply / auto-dismiss rule
+  engines.
+* Ambient clipboard surveillance / always-on harvesting.
+* Wear OS / Android Auto.
+* On-device image reasoning via Gemini Nano (V2 local AI is
+  text-first only).
+
+### V2 expansions to the Forbidden list
+
+In addition to the V1 Forbidden list above, V2 also forbids:
+
+* Generating or consuming `[POINT:x,y:label]` at runtime (already
+  V1-forbidden; reinforced).
+* Introducing a second overlay window for pointing (no
+  `PointerOverlayController`).
+* `RenderEffect.createBlurEffect` on the overlay panel window or
+  `FLAG_BLUR_BEHIND` on any Handy overlay window (glass is a
+  surface property — scope §15 recipe #8).
+* `QUERY_ALL_PACKAGES` permission (use `LaunchableAppIndex` +
+  explicit `<queries>` only).
+* Polling for `AccessibilityService` readiness. Observe
+  `StateFlow<AccessibilityConnectionState>`.
+* Writing to clipboard or reading from it when Handy is not
+  user-visible.
+* Ambient reads in `NotificationListenerService.onNotificationPosted`
+  beyond the narrow V2 features in scope §8.
+* Calling `node.performAction(ACTION_SET_TEXT, …)` on a node we do
+  not own (V2 scope fence on arbitrary text entry).
+* Binding a real `ActionPerformer` without a `settings`-gated toggle
+  and an audit-store hook.
+* Introducing a multi-step runner under any naming (workflow, plan,
+  guide, tutorial, journey, etc.).
+* Porting V2 code from `cursorbuddy-android-main` by copy-paste.
+  Recipes only. See scope §15 and `DESIGN_NOTES.md`.

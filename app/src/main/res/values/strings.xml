@@ -58,4 +58,12 @@
     <string name="settings_reset_history">Clear all chat history</string>
     <string name="settings_privacy_policy">Privacy policy</string>
     <string name="settings_version_footer">Handy for Android — v%1$s</string>
+
+    <!-- V2 notification listener -->
+    <string name="notification_listener_label">Handy notifications</string>
+    <string name="notification_listener_description">Handy can summarize or open your notifications when you ask. Turn this on in Settings to enable.</string>
+
+    <!-- V2 clipboard assist -->
+    <string name="clipboard_assist_disclosure_title">Handy clipboard assist</string>
+    <string name="clipboard_assist_disclosure_body">When the panel or chat is open, Handy can offer to summarize, translate, or rewrite what you just copied. Handy never reads the clipboard in the background.</string>
 </resources>

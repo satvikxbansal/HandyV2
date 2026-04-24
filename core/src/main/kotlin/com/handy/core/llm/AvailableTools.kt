@@ -57,7 +57,7 @@ fun availableTools(
 }
 
 private const val DISPATCH_ACTION_DESCRIPTION =
-    "Fire a native Android Intent on the user's behalf. Call this for well-defined one-step requests: set a timer, set an alarm, open an app, open a URL, search Maps, dial a number, compose an email, share text, or run a web-search intent. Destructive actions (call, email, share) always require user confirmation — the tool will return \"needs_confirmation\" in that case; you must ask the user and, once they agree, call dispatch_action again with the same payload."
+    "Fire a native Android Intent on the user's behalf. Call this for well-defined one-step requests: set a timer, set an alarm, open an app, open a URL, search Maps, dial a number, compose an email or SMS, share text, share a URL, create a calendar event, open a settings deep-link, start navigation, or run a web-search intent. Destructive actions (call, email, SMS, share) always require user confirmation — the tool will return \"needs_confirmation\" in that case; you must ask the user and, once they agree, call dispatch_action again with the same payload."
 
 private val DISPATCH_ACTION_INPUT_SCHEMA_JSON: String = """
 {
@@ -74,7 +74,13 @@ private val DISPATCH_ACTION_INPUT_SCHEMA_JSON: String = """
         "maps_search",
         "compose_email",
         "share_text",
-        "web_search"
+        "web_search",
+        "compose_sms",
+        "create_event",
+        "open_settings",
+        "open_app_info",
+        "start_navigation",
+        "share_url"
       ],
       "description": "Which native action to dispatch."
     },
@@ -82,14 +88,20 @@ private val DISPATCH_ACTION_INPUT_SCHEMA_JSON: String = """
     "label": {"type": "string", "description": "start_timer / set_alarm: optional user-visible label."},
     "hour": {"type": "integer", "description": "set_alarm: 0-23."},
     "minute": {"type": "integer", "description": "set_alarm: 0-59."},
-    "url": {"type": "string", "description": "open_url: https://… URL."},
-    "packageHint": {"type": "string", "description": "open_app: app name or package hint (e.g. \"Spotify\" or \"com.spotify.music\")."},
+    "url": {"type": "string", "description": "open_url / share_url: https://… URL."},
+    "packageHint": {"type": "string", "description": "open_app / open_app_info: app name or package hint."},
     "number": {"type": "string", "description": "dial_number: the phone number to dial."},
-    "query": {"type": "string", "description": "maps_search / web_search: the search text."},
-    "to": {"type": "string", "description": "compose_email: recipient email address."},
+    "query": {"type": "string", "description": "maps_search / web_search / start_navigation: the search text."},
+    "to": {"type": "string", "description": "compose_email / compose_sms: recipient address or phone number."},
     "subject": {"type": "string", "description": "compose_email: email subject."},
-    "body": {"type": "string", "description": "compose_email: email body."},
-    "text": {"type": "string", "description": "share_text: the text to share."}
+    "body": {"type": "string", "description": "compose_email / compose_sms: message body."},
+    "text": {"type": "string", "description": "share_text: the text to share."},
+    "title": {"type": "string", "description": "create_event: event title."},
+    "startEpochMs": {"type": "integer", "description": "create_event: event start time in milliseconds since epoch."},
+    "endEpochMs": {"type": "integer", "description": "create_event: event end time in milliseconds since epoch."},
+    "location": {"type": "string", "description": "create_event: event location."},
+    "notes": {"type": "string", "description": "create_event: additional notes / description."},
+    "target": {"type": "string", "enum": ["app_info", "accessibility", "notifications", "battery_optimization", "wifi", "bluetooth", "apps"], "description": "open_settings: which settings screen to open."}
   },
   "required": ["type"]
 }

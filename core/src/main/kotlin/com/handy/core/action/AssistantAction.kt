@@ -57,10 +57,63 @@ sealed class AssistantAction {
     @SerialName("web_search")
     data class WebSearchIntent(val query: String) : AssistantAction()
 
+    // =============================================================
+    // V2 additions (scope §4.2). Graduates destructive ones into
+    // confirmation; non-destructive dispatch directly via the same
+    // `dispatch_action` tool.
+    // =============================================================
+
+    @Serializable
+    @SerialName("compose_sms")
+    data class ComposeSms(val to: String? = null, val body: String? = null) : AssistantAction()
+
+    @Serializable
+    @SerialName("create_event")
+    data class CreateCalendarEvent(
+        val title: String,
+        val startEpochMs: Long? = null,
+        val endEpochMs: Long? = null,
+        val location: String? = null,
+        val notes: String? = null,
+    ) : AssistantAction()
+
+    @Serializable
+    @SerialName("open_settings")
+    data class OpenSettings(val target: SettingsTarget) : AssistantAction()
+
+    @Serializable
+    @SerialName("open_app_info")
+    data class OpenAppInfo(val packageHint: String) : AssistantAction()
+
+    @Serializable
+    @SerialName("start_navigation")
+    data class StartNavigation(val query: String) : AssistantAction()
+
+    @Serializable
+    @SerialName("share_url")
+    data class ShareUrl(val url: String, val title: String? = null) : AssistantAction()
+
     /** Subset that requires explicit user confirmation before dispatching. */
     val isDestructive: Boolean
         get() = when (this) {
-            is DialNumber, is ComposeEmail, is ShareText -> true
+            is DialNumber,
+            is ComposeEmail,
+            is ShareText,
+            is ComposeSms,
+            is ShareUrl -> true
             else -> false
         }
+}
+
+/** Settings deep-link targets for `AssistantAction.OpenSettings`. */
+@Serializable
+enum class SettingsTarget {
+    @SerialName("app_info") APP_INFO,
+    @SerialName("accessibility") ACCESSIBILITY,
+    @SerialName("notifications") NOTIFICATIONS,
+    @SerialName("battery_optimization") BATTERY_OPTIMIZATION,
+    @SerialName("wifi") WIFI,
+    @SerialName("bluetooth") BLUETOOTH,
+    @SerialName("apps") APPS,
+    ;
 }

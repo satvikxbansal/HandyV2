@@ -138,6 +138,121 @@ Track completion here; every item is required before shipping v1.
 - [ ] Screenshots (widget idle / listening / thinking; chat with
   streaming response; settings).
 
+## V2 design decisions (Phase 0 — source-of-truth alignment, 2026-04-24)
+
+The entries below record the design decisions locked for V2 before
+runtime code lands. The authoritative V2 spec is
+[`Handy_Android_Build_Plan_V2_Scope.md`](Handy_Android_Build_Plan_V2_Scope.md);
+this file records *why* and *what was considered and rejected*.
+
+### Unified Buddy — the widget is the pointer
+
+**Decision.** V2 collapses the macOS two-overlay split
+(`FloatingAccessWidgetController` + `CompanionCursorManager`) into a
+single overlay on Android. The floating widget itself is the pointer.
+On a `[POINT]` the widget flies from its snapped-edge dock via Bezier
+arc to the resolved `AccessibilityNodeInfo` bounds, dwells 3–5 s with
+a label bubble, flies back, settles at the dock. No separate
+`PointerOverlayController` overlay ships in V2.
+
+**Rationale.** The macOS companion anchors to `NSEvent.mouseLocation`;
+Android has no persistent mouse cursor. Two overlays on Android would
+double the `OverlayComposeHost` bookkeeping (lifecycle registry,
+saved-state registry controller, viewmodel store) without buying the
+macOS-native "companion follows cursor" affordance. The
+`cursorbuddy-android-main` reference (AGPL-3.0) uses the same
+`LensView` render on both its docked bubble and its flying pointer to
+make them "feel like the same object"
+([`PointerView.kt` L8–10](cursorbuddy-android-main/app/src/main/java/com/cursorbuddy/android/overlay/PointerView.kt))
+— Handy goes one step further: not same render, same view.
+
+**Considered and rejected.** (a) Two-overlay, widget-hides-while-pointing.
+Clean but loses visual continuity and doubles OS-4 bookkeeping.
+(b) Two-overlay, widget-stays-put, pointer-scouts-out. Keeps the
+widget as a "home base" but adds a second window for the user to
+reason about. Both flagged for reversal only via a new DESIGN_NOTES
+deviation entry plus scope-doc update.
+
+### Four-color bubble taxonomy
+
+**Decision.** All assistant-surface bubbles on the Unified Buddy are
+one of four colors with mutual-exclusion rules.
+
+| Color | Meaning | Source | Clamp |
+|---|---|---|---|
+| Yellow | transcribed voice | macOS `overlayTranscriptBubble` | input transcript, no clamp |
+| Teal | action-in-progress (NEW) | Android-only | ≤ 30 chars, passive status |
+| Green | assistant response | macOS `overlayResponseBubble` | 110 chars (`clampVoiceSpokenForOverlay`) |
+| Blue | pointer navigation label | macOS `navigationBubble` | 30 chars or random phrase |
+
+Rules: only one bubble visible at a time; green suppresses blue; teal
+suppresses green; yellow fades on processing start; teal is **passive
+status, not interactive** — confirmation chips live in the overlay
+chat panel (`PanelActionConfirming`), never on the lens.
+
+**Rationale.** Teal is the new color because V2 adds real tap-for-me,
+which needs a clearly-distinct "something is being done on your behalf"
+state. The three macOS colors map verbatim; teal is the only
+Android-first addition.
+
+### SDK divergence — `targetSdk / compileSdk = 36` (not 35 as the V2 prompt requested)
+
+**Decision.** Keep `minSdk 26`, `targetSdk 36`, `compileSdk 36` (per
+DL-017, April 2026). Treat API 37 as a future compatibility smoke lane.
+
+**Divergence from the V2 prompt.** The V2 prompt (2026-04-24) says
+`targetSdk 35 / compileSdk 35` with "API 36 smoke lane". The on-disk
+rules say 36 because Google Play requires `targetSdk ≥ 36` for all new
+apps and updates starting 2026-08-31, and DL-017 already validated the
+toolchain + emulator against API 36. Shipping on 35 today would force
+a second migration within months.
+
+**Action requested from the user.** Please confirm: keep 36 (my
+recommendation) or revert to 35 per the V2 prompt wording. If we stay
+on 36, this divergence from the prompt text is deliberate and should
+be preserved. If we revert to 35, the V2 scope doc §1 item 8 and the
+rules need a matching update, and we accept a pre-Play-mandate
+migration later in 2026.
+
+### `cursorbuddy-android-main` — licensing and "recipes, not source"
+
+**Decision.** The `cursorbuddy-android-main/` folder in this repo is
+[jasonkneen/cursorbuddy-android](https://github.com/jasonkneen/cursorbuddy-android)
+at the stated commit, under **AGPL-3.0**. Handy is not AGPL and will
+not ship AGPL surface.
+
+**Discipline.** We port **recipes, techniques, and numeric constants**
+from cursorbuddy — not Kotlin source lines. Every borrowing in scope
+§15 is a clean-room reimplementation in our own Compose / adapter
+code. Specifically:
+
+- **Glass Lens seven-layer composite** — we implement our own
+  `LensRenderer` in Compose `Canvas` (or `AndroidView` wrapper). The
+  gradient stop values, paint strokes, specular highlights, and
+  chrome sweep are re-authored from the described visual, not copied.
+- **Compact Accessibility-marks JSON** — our
+  `AccessibilityMarksProvider` uses our own `UiNode` type and
+  `kotlinx.serialization` encoder. The `isInteresting(node)`
+  heuristic is re-stated from scratch; only the filter intent is
+  shared.
+- **Node-first-gesture-second tap** — our
+  `AccessibilityGestureActionPerformer` is authored fresh around our
+  `PerformResult` sealed type and `SemanticPointerResolver` contract.
+  The cursorbuddy file is read for the technique, never imported.
+- **IME choreography and flag combos** — these are Android platform
+  constants; no AGPL concern, but we still author the wiring inside
+  our own `OverlayPresenter`.
+
+**Forbidden.** Copy-paste from any `cursorbuddy-android-main/**/*.kt`
+into any Handy source file. If a V2 PR's diff shows a hunk that
+originated in cursorbuddy, stop and rewrite.
+
+**Attribution.** This `DESIGN_NOTES.md` entry and scope §15 are the
+attribution path. The Play listing marketing copy does not need to
+cite cursorbuddy because no AGPL surface ships.
+
+---
+
 ## Performance budget (enforced in Phase 4 pass)
 
 From build plan §15:

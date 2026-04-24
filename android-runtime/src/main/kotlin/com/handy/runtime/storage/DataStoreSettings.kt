@@ -9,8 +9,10 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.handy.core.model.AppTheme
 import com.handy.core.model.AssistantMode
+import com.handy.core.model.CloudProvider
 import com.handy.core.model.HandySettings
 import com.handy.core.model.LlmProvider
+import com.handy.core.model.QuickTileAction
 import com.handy.core.model.SarvamVoice
 import com.handy.core.model.SttProvider
 import com.handy.core.model.TtsProvider
@@ -55,6 +57,17 @@ class DataStoreSettings(private val context: Context) {
                 ?: p.remove(GEMINI_MODEL_OVERRIDE)
             p[ACCESSIBILITY_DISCLOSURE_ACK] = next.accessibilityDisclosureAcknowledged
             p[REDUCED_MODE_ACK] = next.reducedModeAcknowledged
+            // V2 keys
+            p[USE_OVERLAY_CHAT_PANEL] = next.useOverlayChatPanel
+            p[TAP_FOR_ME_ENABLED] = next.tapForMeEnabled
+            p[CLOUD_PROVIDER] = next.cloudProvider.name
+            p[PREFER_LOCAL_WHEN_POSSIBLE] = next.preferLocalWhenPossible
+            p[LOCAL_AI_ENABLED] = next.localAiEnabled
+            p[NOTIFICATION_LISTENER_ENABLED] = next.notificationListenerEnabled
+            p[CLIPBOARD_ASSIST_ENABLED] = next.clipboardAssistEnabled
+            p[TUTOR_MODE_ENABLED] = next.tutorModeEnabled
+            p[QUICK_TILE_ACTION] = next.quickTileAction.name
+            p[ASSIST_ENTRY_ENABLED] = next.assistEntryEnabled
         }
     }
 
@@ -84,6 +97,20 @@ class DataStoreSettings(private val context: Context) {
             geminiModelOverride = this[GEMINI_MODEL_OVERRIDE],
             accessibilityDisclosureAcknowledged = this[ACCESSIBILITY_DISCLOSURE_ACK] ?: false,
             reducedModeAcknowledged = this[REDUCED_MODE_ACK] ?: false,
+            useOverlayChatPanel = this[USE_OVERLAY_CHAT_PANEL] ?: true,
+            tapForMeEnabled = this[TAP_FOR_ME_ENABLED] ?: false,
+            cloudProvider = this[CLOUD_PROVIDER]
+                ?.let { runCatching { CloudProvider.valueOf(it) }.getOrNull() }
+                ?: CloudProvider.CLAUDE,
+            preferLocalWhenPossible = this[PREFER_LOCAL_WHEN_POSSIBLE] ?: false,
+            localAiEnabled = this[LOCAL_AI_ENABLED] ?: false,
+            notificationListenerEnabled = this[NOTIFICATION_LISTENER_ENABLED] ?: false,
+            clipboardAssistEnabled = this[CLIPBOARD_ASSIST_ENABLED] ?: false,
+            tutorModeEnabled = this[TUTOR_MODE_ENABLED] ?: false,
+            quickTileAction = this[QUICK_TILE_ACTION]
+                ?.let { runCatching { QuickTileAction.valueOf(it) }.getOrNull() }
+                ?: QuickTileAction.OPEN_PANEL,
+            assistEntryEnabled = this[ASSIST_ENTRY_ENABLED] ?: false,
         )
     }
 
@@ -100,6 +127,17 @@ class DataStoreSettings(private val context: Context) {
         val GEMINI_MODEL_OVERRIDE = stringPreferencesKey("gemini_model_override")
         val ACCESSIBILITY_DISCLOSURE_ACK = booleanPreferencesKey("accessibility_disclosure_ack")
         val REDUCED_MODE_ACK = booleanPreferencesKey("reduced_mode_ack")
+        // V2 keys (appended; schema is additive)
+        val USE_OVERLAY_CHAT_PANEL = booleanPreferencesKey("use_overlay_chat_panel")
+        val TAP_FOR_ME_ENABLED = booleanPreferencesKey("tap_for_me_enabled")
+        val CLOUD_PROVIDER = stringPreferencesKey("cloud_provider")
+        val PREFER_LOCAL_WHEN_POSSIBLE = booleanPreferencesKey("prefer_local_when_possible")
+        val LOCAL_AI_ENABLED = booleanPreferencesKey("local_ai_enabled")
+        val NOTIFICATION_LISTENER_ENABLED = booleanPreferencesKey("notification_listener_enabled")
+        val CLIPBOARD_ASSIST_ENABLED = booleanPreferencesKey("clipboard_assist_enabled")
+        val TUTOR_MODE_ENABLED = booleanPreferencesKey("tutor_mode_enabled")
+        val QUICK_TILE_ACTION = stringPreferencesKey("quick_tile_action")
+        val ASSIST_ENTRY_ENABLED = booleanPreferencesKey("assist_entry_enabled")
     }
 }
 

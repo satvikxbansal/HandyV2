@@ -1,10 +1,12 @@
 # Handy on Android — Build Plan v2
 
+> **V2-SUPERSESSION BANNER (Phase 0 alignment).** Everything below describes the **V1 baseline** (tap-for-me deferred, Claude-only brain, `ChatActivity`-only chat surface, pixel pointing deferred, etc.) and remains valid as historical context + the architecture the V2 work builds on. For the **actual V2 scope** — overlay chat panel, bounded tap-for-me, BrainRouter + Gemini cloud + Gemini Nano, semantic pointing from the screen-text path, notification listener, clipboard features, Diagnostics, Quick Settings tile, Unified Buddy UX, four-color bubble taxonomy, action audit, cursorbuddy-android recipe borrowings, V3 fence — read [`Handy_Android_Build_Plan_V2_Scope.md`](Handy_Android_Build_Plan_V2_Scope.md). If this document and the V2 scope doc disagree on any V2 topic, **the V2 scope doc wins** and this document's wording must be treated as stale for that topic.
+
 **Status:** Planning document. Supersedes v1. Read this end-to-end before writing any code.
 
 **Scope of v1 (first build):** a bug-free, fast, Apple-class Android port of Handy with chat, voice (long-press widget), streaming responses, `[POINT]` semantic pointing via Accessibility, per-tool memory, screen capture, screen **text** reading via Accessibility tree, intent dispatch ("set a 10-minute timer"), and a pluggable brain abstraction (Claude in v1, Gemini/others later). Widget gesture model: tap = chat, long-press = voice, drag = snap to nearest edge. Web search is implemented but **off by default** until we evaluate.
 
-**Deferred to v2:** tap-for-me / do-it-for-me via `AccessibilityService.dispatchGesture`. The *seams* are built into v1 so turning the feature on later is an implementation, not a refactor.
+**Deferred to v2 (historical note — now promoted; see V2 scope doc):** tap-for-me / do-it-for-me via `AccessibilityService.dispatchGesture`. The *seams* are built into v1 so turning the feature on later is an implementation, not a refactor.
 
 ---
 
@@ -44,13 +46,28 @@ Every pull request against v1 is reviewed against this list. If any item regress
 - `DEBUG_LOG.md` protocol enforced from day one.
 - Comprehensive unit + instrumented tests.
 
-### Deferred (v2) but seams are in v1
+### Promoted to V2 (see [`Handy_Android_Build_Plan_V2_Scope.md`](Handy_Android_Build_Plan_V2_Scope.md) for the authoritative spec)
 
-- **Tap-for-me**: `ActionPerformer` interface exists in v1 with a `NoopActionPerformer` implementation. v2 adds `AccessibilityGestureActionPerformer` using `dispatchGesture(GestureDescription)`. No call-site changes.
-- **Gemini / other brains**: `LlmClient` interface exists in v1. v2 adds `GeminiLlmClient`. Swap via setting. No call-site changes.
-- **Expanded intent catalogue**: v1 ships ~6 intents. v2 extends the catalogue — new entries in one enum, no architectural change.
-- **Semantic `[POINT]` from screen-text path**: v1 supports pointing only after vision. v2 allows the LLM to name a node (by text) from a pure text-path query.
-- **Tutor mode**: ported but off by default in v1; full enablement in v2.
+The items below were listed here as "deferred to v2 with seams in v1". They are now in V2 scope. The V2 scope doc is the source of truth; the V1-era seams in this document remain the starting point for the implementation.
+
+- **Tap-for-me** — V1 ships `NoopActionPerformer`; V2 adds `AccessibilityGestureActionPerformer` with confirmation policy, bounded catalog, and action audit (V2 scope §4). The V1 Hilt binding flip is the delivery mechanism; the surrounding rules in V2 are new.
+- **Gemini / other brains** — V1 ships the `LlmClient` seam; V2 adds `GeminiCloudLlmClient`, a new `LocalGenAiClient` interface (Gemini Nano), and a `BrainRouter` (V2 scope §5). Gemini cloud is experimental, not default.
+- **Expanded intent catalogue** — V1 ships ~9 intents; V2 adds SMS compose, calendar event, reminder, app-info / notification-settings / accessibility-settings / battery-optimization / Wi-Fi / Bluetooth deep links, share URL, start-navigation, system web search, open-by-indexed-app (V2 scope §4.2). Still dispatched through `dispatch_action` only.
+- **Semantic `[POINT]` from screen-text path** — V1 supports pointing only after vision; V2 routes `[POINT]` from pure text path and from the new accessibility-marks path (V2 scope §7).
+- **Tutor mode** — V1 keeps the prompt off by default; V2 enables it with bounded cadence + cooldown + local summarization (V2 scope §12). **Not** a continuous runner.
+
+### Net-new in V2 (no V1 seam — see scope doc for contract)
+
+- **Overlay chat panel** as the primary quick surface (V2 scope §2).
+- **Unified Buddy UX** — the widget *is* the pointer; one overlay, seven-layer Glass Lens render, Bezier flight, 3–5 s dwell, return arc (V2 scope §3).
+- **Four-color bubble taxonomy** — yellow transcript / teal action-in-progress / green response / blue pointer label, with mutual-exclusion rules (V2 scope §3).
+- **`RequestBudgeter` + `AccessibilityMarksProvider`** — smarter capture / grounding (V2 scope §6).
+- **`HandyNotificationListenerService`** — narrow scope, no ambient autonomy (V2 scope §8).
+- **Clipboard assist** — helpful, not ambient (V2 scope §9).
+- **`DiagnosticsActivity`** — runtime state + audit tail (V2 scope §10).
+- **Quick Settings tile + optional Assist entry** (V2 scope §11).
+- **Action audit** — every performed action writes an `AuditEvent` (V2 scope §4.3).
+- **Cursorbuddy-android recipe borrowings** — Glass Lens render, compact accessibility-marks JSON, node-first-gesture-second tap, cache-at-tap snapshot, IME choreography, voice auto-submit, `flagIncludeNotImportantViews`, glassmorphism-without-window-blur, per-app quick-prompt chips, `StateFlow` for accessibility connection (V2 scope §15).
 
 ### Explicitly out of v1
 
