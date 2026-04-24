@@ -24,8 +24,8 @@ import kotlin.math.min
  * Public state:
  *  - [lensBaseScale]  — 0.82 at rest, 0.78 while thinking.
  *  - [pulseScale]    — 1.0 base; 1.14 peak during `Pointing` dwell.
- *  - [saturationTint] — overlay tint for state (amber / cyan / teal
- *    / green / etc.).
+ *  - [saturationTint] — overlay tint for state (amber-forward family +
+ *    distinct teal / green / blue accents for buddy semantics).
  *
  * Software-layer is mandatory for `setShadowLayer` to render; this
  * class sets it in the constructor.
@@ -97,13 +97,13 @@ class LensRenderer(
         // Layer 1: drop shadow (offset down a touch for depth).
         canvas.drawCircle(cx, cy + 3f, radius, dropShadowPaint)
 
-        // Layer 2: lens body — very light cool tint, lets background read through.
+        // Layer 2: lens body — warm mist (handoff glass), lets background read through.
         lensBodyPaint.shader = RadialGradient(
             cx - radius * 0.25f,
             cy - radius * 0.25f,
             radius * 1.1f,
-            intArrayOf(0x30FFFFFF, 0x18AEE9FF, 0x22000000),
-            floatArrayOf(0f, 0.65f, 1f),
+            intArrayOf(0x38FFF7EC, 0x24F0A868, 0x2607060A),
+            floatArrayOf(0f, 0.58f, 1f),
             Shader.TileMode.CLAMP,
         )
         canvas.drawCircle(cx, cy, radius, lensBodyPaint)
@@ -132,16 +132,17 @@ class LensRenderer(
         )
         canvas.drawCircle(cx, cy, radius - innerShadowPaint.strokeWidth / 2f, innerShadowPaint)
 
-        // Layer 5: chrome sweep rim.
+        // Layer 5: warm chrome sweep rim (amber glass, not cyan).
         rimPaint.shader = SweepGradient(
             cx,
             cy,
             intArrayOf(
                 0xFFFFFFFF.toInt(),
-                0xFFB3E5FC.toInt(),
-                0xFF81D4FA.toInt(),
+                0xFFFFE8D4.toInt(),
+                0xFFF0A868.toInt(),
+                0xFFFFD4A8.toInt(),
                 0xFFFFFFFF.toInt(),
-                0xFFB3E5FC.toInt(),
+                0xFFFFE0C2.toInt(),
                 0xFFFFFFFF.toInt(),
             ),
             null,
@@ -177,12 +178,18 @@ class LensRenderer(
         canvas.drawCircle(cx + radius * 0.4f, cy + radius * 0.5f, radius * 0.25f, specularPaint)
     }
 
+    // ARGB constants. Any value whose MSB sets the top bit (>= 0x80000000) is
+    // > Int.MAX_VALUE and Kotlin will infer Long unless we explicitly call
+    // `.toInt()`. A single Long here is enough to poison the whole `when`
+    // block's inferred type to `Pair<Number & Comparable<*>, Int>` and break
+    // the declared `Pair<Int, Int>` return type. Cast every ARGB literal to
+    // Int to keep the contract regardless of alpha.
     private fun saturationColors(tint: Tint): Pair<Int, Int> = when (tint) {
-        Tint.Amber -> 0x66FFB347 to 0x3340E0FF
-        Tint.Cyan -> 0x6640E0FF to 0x333B82F6
-        Tint.Teal -> 0x6614B8A6 to 0x3334D399
-        Tint.Green -> 0x6610B981 to 0x3334D399
-        Tint.Blue -> 0x663B82F6 to 0x3340E0FF
-        Tint.Neutral -> 0x44AEE9FF to 0x22FFFFFF
+        Tint.Amber -> 0x88F0A868.toInt() to 0x44FFDCB4.toInt()
+        Tint.Cyan -> 0x77FFD4A8.toInt() to 0x33F0A868.toInt()
+        Tint.Teal -> 0x6614B8A6.toInt() to 0x332A6B62.toInt()
+        Tint.Green -> 0x6610B981.toInt() to 0x332D5A45.toInt()
+        Tint.Blue -> 0x668BB6E8.toInt() to 0x334A6FA8.toInt()
+        Tint.Neutral -> 0x55FFD4A8.toInt() to 0x22F0A868.toInt()
     }
 }

@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,17 +32,18 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.handy.app.accessibility.AccessibilityStateMonitor
 import com.handy.app.clipboard.ClipboardAssist
 import com.handy.app.notifications.HandyNotificationListenerService
 import com.handy.app.theme.HandyColors
+import com.handy.app.theme.HandyDimens
 import com.handy.app.theme.HandyTheme
+import com.handy.app.theme.HandyType
 import com.handy.core.accessibility.AccessibilityConnectionState
 import com.handy.core.audit.AuditEvent
 import com.handy.core.audit.AuditStore
@@ -174,8 +176,7 @@ private fun DiagnosticsScreen(state: DiagnosticsUi) {
         ) {
             Text(
                 text = "Diagnostics",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.ExtraBold,
+                style = HandyType.TitleLarge,
                 color = HandyColors.TextPrimary,
             )
             Spacer(Modifier.height(16.dp))
@@ -198,8 +199,7 @@ private fun DiagnosticsScreen(state: DiagnosticsUi) {
                         Spacer(Modifier.height(12.dp))
                         Text(
                             text = "Recent actions",
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            style = HandyType.SectionHeader,
                             color = HandyColors.TextPrimary,
                         )
                     }
@@ -214,22 +214,25 @@ private fun DiagnosticsScreen(state: DiagnosticsUi) {
 
 @Composable
 private fun DiagRow(label: String, value: String) {
+    val shape = RoundedCornerShape(HandyDimens.RadiusMd)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(HandyColors.Surface, RoundedCornerShape(10.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .clip(shape)
+            .background(HandyColors.ChipBg)
+            .border(0.5.dp, HandyColors.ChipBorder, shape)
+            .padding(horizontal = HandyDimens.RowPad, vertical = HandyDimens.StackM),
     ) {
         Text(
             text = label,
+            style = HandyType.Caption,
             color = HandyColors.TextSecondary,
-            fontSize = 13.sp,
             modifier = Modifier.weight(1f),
         )
         Text(
             text = value,
+            style = HandyType.Caption,
             color = HandyColors.TextPrimary,
-            fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
         )
     }
@@ -237,26 +240,29 @@ private fun DiagRow(label: String, value: String) {
 
 @Composable
 private fun AuditRow(event: AuditEvent) {
+    val shape = RoundedCornerShape(HandyDimens.RadiusSm)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(HandyColors.SurfaceElevated, RoundedCornerShape(8.dp))
-            .padding(10.dp),
+            .clip(shape)
+            .background(HandyColors.GlassTint)
+            .border(0.5.dp, HandyColors.GlassBorder, shape)
+            .padding(HandyDimens.StackM),
     ) {
         Column {
             Text(
                 text = "${event.action::class.simpleName} → ${event.result::class.simpleName}",
+                style = HandyType.CaptionSmall,
                 color = HandyColors.TextPrimary,
-                fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
             )
             Text(
                 text = "${event.targetApp} — ${event.semanticTarget}",
+                style = HandyType.Overline,
                 color = HandyColors.TextSecondary,
-                fontSize = 11.sp,
             )
             event.failureReason?.let {
-                Text(text = it, color = Color(0xFFEF4444), fontSize = 10.sp)
+                Text(text = it, color = HandyColors.Danger, style = HandyType.Overline)
             }
         }
     }

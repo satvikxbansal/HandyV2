@@ -33,12 +33,43 @@
     <string name="onboarding_overlay_body">This is how the floating widget stays visible while you use other apps.</string>
     <string name="onboarding_open_overlay">Open overlay settings</string>
 
+    <!-- Post-disclosure permissions screen (design-match copy) -->
+    <string name="onboarding_title_post">A few permissions,\nand you\'re set.</string>
+    <string name="onboarding_tagline_post">Handy reads your screen to help — nothing is shared with our servers. You always have the final say.</string>
+    <!-- Privacy callout — split into a bold lead (injected by the
+         composable as "Your data stays yours.") plus the detail below.
+         Copy verbatim from `handy-permissions.jsx`. -->
+    <string name="onboarding_privacy_callout">Handy talks directly to Anthropic using <i>your</i> API key. No servers of ours in the middle.</string>
+    <string name="chat_suggest_summarize">Summarize this screen</string>
+    <string name="chat_suggest_photo">What\'s in this photo?</string>
+    <string name="chat_suggest_timer">Set a 10-minute timer</string>
+    <string name="chat_suggest_lookup">Look this up online</string>
+    <string name="chat_empty_body_design">Ask a question, point at a button, or tell Handy to do something for you.</string>
+    <string name="onboarding_mic_title">Microphone</string>
+    <string name="onboarding_mic_desc">For voice capture when you long-press</string>
+    <string name="onboarding_notifications_title">Notifications</string>
+    <string name="onboarding_notifications_desc">So Handy can tell you when it\'s ready</string>
+    <string name="onboarding_overlay_short_title">Draw over other apps</string>
+    <string name="onboarding_overlay_desc">The floating widget lives above anything</string>
+    <string name="onboarding_accessibility_short_title">Accessibility</string>
+    <string name="onboarding_accessibility_desc">Read the active screen to help in context</string>
+    <string name="onboarding_row_granted">Granted</string>
+    <string name="onboarding_row_allow">Allow</string>
+    <string name="onboarding_row_enable">Enable</string>
+
     <!-- Chat -->
     <string name="chat_title">Handy</string>
     <string name="chat_input_placeholder">Ask Handy anything…</string>
     <string name="chat_send">Send</string>
     <string name="chat_empty_title">Ready when you are</string>
-    <string name="chat_empty_body">Ask a question, point at a button, or tell Handy to do something like "set a 10-minute timer".</string>
+    <string name="chat_empty_body">Ask a question, point at a button, or try a suggestion below.</string>
+    <!-- Legacy suggestion strings kept for `PLAYSTORE_SUBMISSION` /
+         historical screenshots. Live copy comes from `chat_suggest_*`
+         strings defined further down. -->
+    <string name="chat_suggest_1">Set a 10-minute timer</string>
+    <string name="chat_suggest_2">Summarize this screen</string>
+    <string name="chat_suggest_3">What can you do here?</string>
+    <string name="chat_suggest_4">Open YouTube</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>

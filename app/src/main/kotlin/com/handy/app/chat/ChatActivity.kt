@@ -17,6 +17,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,8 +49,11 @@ import androidx.compose.material.icons.outlined.Accessibility
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.CloseFullscreen
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Mic
-import androidx.compose.material.icons.outlined.PanTool
+import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -70,21 +74,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.handy.app.R
 import com.handy.app.overlay.OverlayPresenter
 import com.handy.app.settings.SettingsActivity
+import com.handy.app.theme.HandMarkIcon
 import com.handy.app.theme.HandyColors
 import com.handy.app.theme.HandyDimens
 import com.handy.app.theme.HandyTheme
+import com.handy.app.theme.HandyType
+import com.handy.app.theme.ListeningWaveformBars
 import com.handy.core.model.ChatMessage
 import com.handy.core.model.MessageRole
 import com.handy.runtime.accessibility.AccessibilityMarksProvider
@@ -272,6 +280,7 @@ internal fun ChatScreen(
             MessageList(
                 state = state,
                 modifier = Modifier.weight(1f),
+                onSuggestion = onSend,
             )
 
             ChatComposer(
@@ -300,132 +309,113 @@ private fun HandyHeaderBar(
     onOpenSettings: () -> Unit,
     onMinimise: () -> Unit = {},
 ) {
+    // Spec (`handy-fullapp.jsx`): padding `18dp 20dp 14dp`, gap 14dp,
+    // bottom border 0.5dp Divider.
+    //   - HandMark 32dp Accent (no circle).
+    //   - Title block stacked (gap 3dp): "Handy" 20sp/700/-0.4 +
+    //     status row (6dp Success dot + "Ready" 12sp TextSecondary).
+    //   - Trailing 32dp bare icon btns (0.72 opacity, 18dp icons) —
+    //     we render minimise + settings (history omitted per product
+    //     decision; see plan + DL-030).
     Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(HandyDimens.Space8),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = HandyDimens.Space16, vertical = HandyDimens.Space12),
+            .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text(
-            text = "Handy",
-            color = HandyColors.TextPrimary,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.ExtraBold,
-        )
-        StatusDot(voiceState = voiceState)
-        Spacer(Modifier.weight(1f))
+        HandMarkIcon(size = 32.dp, tint = HandyColors.Accent)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Handy",
+                style = HandyType.TitleLarge,
+                color = HandyColors.TextPrimary,
+            )
+            Spacer(Modifier.height(3.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(
+                            when (voiceState) {
+                                VoiceUiState.IDLE -> HandyColors.Success
+                                else -> HandyColors.Accent
+                            },
+                        ),
+                )
+                Text(
+                    text = when (voiceState) {
+                        VoiceUiState.IDLE -> "Ready"
+                        VoiceUiState.LISTENING -> "Listening…"
+                        VoiceUiState.PROCESSING -> "Thinking…"
+                        VoiceUiState.RESPONDING -> "Responding…"
+                    },
+                    style = HandyType.CaptionSmall,
+                    color = HandyColors.TextSecondary,
+                )
+            }
+        }
         AnimatedVisibility(visible = voiceState == VoiceUiState.LISTENING) {
-            ListeningBars()
-        }
-        // Minimise → overlay chat panel. Reverse of the panel's
-        // "Expand to chat" arrow. Kept to the left of the settings gear
-        // so the row reads expand-for-settings, minimise-for-panel.
-        IconButton(onClick = onMinimise) {
-            Icon(
-                imageVector = Icons.Outlined.CloseFullscreen,
-                contentDescription = "Minimise to overlay panel",
-                tint = HandyColors.TextSecondary,
+            ListeningWaveformBars(
+                color = HandyColors.Listening,
+                barWidth = 2.dp,
+                maxHeight = 14.dp,
+                minHeight = 3.dp,
             )
         }
-        IconButton(onClick = onOpenSettings) {
-            Icon(
-                imageVector = Icons.Outlined.Settings,
-                contentDescription = "Open settings",
-                tint = HandyColors.TextSecondary,
-            )
-        }
+        HeaderIconButton(
+            icon = Icons.Outlined.CloseFullscreen,
+            description = "Minimise to overlay panel",
+            onClick = onMinimise,
+        )
+        HeaderIconButton(
+            icon = Icons.Outlined.Settings,
+            description = "Open settings",
+            onClick = onOpenSettings,
+        )
     }
 }
 
 /**
- * Rounded dot whose colour is driven by the voice state. A larger halo
- * pulses while LISTENING — mirrors `ChatInterfaceView.statusDot`
- * (`ChatInterfaceView.swift` lines 80–113). PROCESSING is amber so the
- * colour semantics match macOS: green = ready, accent = engaged, amber
- * = working, accent = responding.
+ * Full-chat-app header bare icon button — 32dp square, radius 8,
+ * transparent bg, 18dp TextSecondary icon, 0.72 opacity. Spec
+ * (`handy-fullapp.jsx` `HeaderIconBtn`).
  */
 @Composable
-private fun StatusDot(voiceState: VoiceUiState) {
-    val color = when (voiceState) {
-        VoiceUiState.IDLE -> HandyColors.Success
-        VoiceUiState.LISTENING -> HandyColors.Accent
-        VoiceUiState.PROCESSING -> HandyColors.Amber
-        VoiceUiState.RESPONDING -> HandyColors.Accent
-    }
-    val listening = voiceState == VoiceUiState.LISTENING
-    val transition = rememberInfiniteTransition(label = "status-dot-halo")
-    val haloScale by transition.animateFloat(
-        initialValue = 0.8f,
-        targetValue = 1.4f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 800, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "halo-scale",
-    )
+private fun HeaderIconButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    description: String,
+    onClick: () -> Unit,
+) {
     Box(
-        modifier = Modifier.size(20.dp),
+        modifier = Modifier
+            .size(32.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        if (listening) {
-            Box(
-                modifier = Modifier
-                    .size(14.dp)
-                    .scale(haloScale)
-                    .background(color.copy(alpha = 0.4f), CircleShape),
-            )
-        }
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .background(color, CircleShape),
+        Icon(
+            imageVector = icon,
+            contentDescription = description,
+            tint = HandyColors.TextSecondary.copy(alpha = 0.72f),
+            modifier = Modifier.size(18.dp),
         )
-    }
-}
-
-/**
- * Three vertical bars that pulse while the mic is live. Mirrors
- * `ChatInterfaceView.listeningIndicator` (lines 138–154) with the same
- * 0.4s period and 0.15s stagger.
- */
-@Composable
-private fun ListeningBars() {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(horizontal = HandyDimens.Space8),
-    ) {
-        val transition = rememberInfiniteTransition(label = "listening-bars")
-        repeat(3) { index ->
-            val scaleY by transition.animateFloat(
-                initialValue = 0.3f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 400, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse,
-                    initialStartOffset = androidx.compose.animation.core.StartOffset(index * 150),
-                ),
-                label = "bar-$index",
-            )
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .height(12.dp)
-                    .scale(scaleX = 1f, scaleY = scaleY)
-                    .background(HandyColors.Accent, RoundedCornerShape(1.dp)),
-            )
-        }
     }
 }
 
 @Composable
 private fun ThinDivider() {
+    // Spec: 0.5dp `HandyColors.Divider` hairline (not the deprecated
+    // `Border` token). Used below the header + above the composer.
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(1.dp)
-            .background(HandyColors.Border),
+            .height(0.5.dp)
+            .background(HandyColors.Divider),
     )
 }
 
@@ -458,11 +448,14 @@ private fun ToolNameBar(
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(HandyDimens.Space8),
+        horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
         modifier = Modifier
             .fillMaxWidth()
-            .background(HandyColors.Surface)
-            .padding(horizontal = HandyDimens.Space16, vertical = HandyDimens.Space8),
+            .padding(horizontal = HandyDimens.Gutter, vertical = HandyDimens.StackS)
+            .clip(RoundedCornerShape(HandyDimens.RadiusLg))
+            .background(HandyColors.ChipBg)
+            .border(0.5.dp, HandyColors.ChipBorder, RoundedCornerShape(HandyDimens.RadiusLg))
+            .padding(horizontal = HandyDimens.RowPad, vertical = HandyDimens.StackS),
     ) {
         Icon(
             imageVector = Icons.Outlined.Apps,
@@ -483,8 +476,8 @@ private fun ToolNameBar(
                         fontSize = 13.sp,
                     ),
                     colors = TextFieldDefaults.colors(
-                        focusedContainerColor = HandyColors.Surface,
-                        unfocusedContainerColor = HandyColors.Surface,
+                        focusedContainerColor = HandyColors.ChipBg,
+                        unfocusedContainerColor = HandyColors.ChipBg,
                         focusedTextColor = HandyColors.TextPrimary,
                         unfocusedTextColor = HandyColors.TextPrimary,
                     ),
@@ -576,6 +569,7 @@ private fun AmberDotTrail() {
 private fun MessageList(
     state: ChatUiState,
     modifier: Modifier = Modifier,
+    onSuggestion: (String) -> Unit,
 ) {
     val listState = rememberLazyListState()
     // Scroll to bottom on every new message or streaming tick. Mirrors
@@ -610,7 +604,17 @@ private fun MessageList(
             state.pendingUserTurn == null &&
             state.streamingDelta.isEmpty()
         ) {
-            item { EmptyHero() }
+            item {
+                // `fillParentMaxHeight()` is a LazyItemScope extension —
+                // lets the hero+suggestions column vertically center in
+                // the list area when there are zero messages.
+                Box(
+                    modifier = Modifier.fillParentMaxHeight(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    EmptyHero(onPick = onSuggestion)
+                }
+            }
         }
         items(state.messages, key = { "persist-${it.id}" }) { message ->
             MessageRow(message)
@@ -646,23 +650,149 @@ private fun MessageList(
 }
 
 @Composable
-private fun EmptyHero() {
+private fun EmptyHero(onPick: (String) -> Unit) {
+    // Spec (`handy-fullapp.jsx` `EmptyState`):
+    //   - Outer padding `40dp 24dp`, inner gap 24dp.
+    //   - Ambient lens 72dp circle with radial-gradient highlight on
+    //     AccentSoft, 0.5dp GlassBorder, outer glow `0 0 40 accent@33`,
+    //     inner HandMark 32dp Accent.
+    //   - Title 22sp/600/-0.4 centered.
+    //   - Subtitle 13sp TextSecondary lineHeight 1.5 two-line.
+    //   - Suggestion grid 2×2 gap 8dp; each card
+    //       padding `12dp 14dp`, 14dp corner, ChipBg + 0.5dp ChipBorder,
+    //       horizontal Row gap 10dp, icon 14dp Accent, text 12.5sp/500
+    //       TextPrimary.
+    val summarize = stringResource(R.string.chat_suggest_summarize)
+    val photo = stringResource(R.string.chat_suggest_photo)
+    val timer = stringResource(R.string.chat_suggest_timer)
+    val lookup = stringResource(R.string.chat_suggest_lookup)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = HandyDimens.Space40),
+            .padding(horizontal = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        Text(
-            text = stringResource(R.string.chat_empty_title),
-            color = HandyColors.TextPrimary,
-            fontSize = 24.sp,
+        // Ambient lens — outer halo disc + circle + hand.
+        Box(
+            modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(112.dp)
+                    .clip(CircleShape)
+                    .background(HandyColors.Accent.copy(alpha = 0.10f)),
+            )
+            Box(
+                modifier = Modifier
+                    .size(HandyDimens.WidgetSize)
+                    .clip(CircleShape)
+                    .background(HandyColors.AccentSoft)
+                    .border(0.5.dp, HandyColors.GlassBorder, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                HandMarkIcon(size = 32.dp, tint = HandyColors.Accent)
+            }
+        }
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.chat_empty_title),
+                style = HandyType.EmptyHeroTitle,
+                color = HandyColors.TextPrimary,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = stringResource(R.string.chat_empty_body_design),
+                style = HandyType.Caption.copy(lineHeight = 19.sp),
+                color = HandyColors.TextSecondary,
+                textAlign = TextAlign.Center,
+            )
+        }
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                EmptySuggestionCard(
+                    icon = Icons.Outlined.AutoAwesome,
+                    text = summarize,
+                    onClick = { onPick(summarize) },
+                    modifier = Modifier.weight(1f),
+                )
+                EmptySuggestionCard(
+                    icon = Icons.Outlined.PhotoCamera,
+                    text = photo,
+                    onClick = { onPick(photo) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                EmptySuggestionCard(
+                    icon = Icons.Outlined.Bolt,
+                    text = timer,
+                    onClick = { onPick(timer) },
+                    modifier = Modifier.weight(1f),
+                )
+                EmptySuggestionCard(
+                    icon = Icons.Outlined.Language,
+                    text = lookup,
+                    onClick = { onPick(lookup) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptySuggestionCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Spec (`handy-fullapp.jsx` `EmptyState` suggestion card):
+    //   padding 12dp vertical / 14dp horizontal, 14dp corner, ChipBg +
+    //   0.5dp ChipBorder, horizontal Row gap 10dp, icon 14dp Accent
+    //   (no tile), text 12.5sp/500 TextPrimary.
+    val shape = RoundedCornerShape(HandyDimens.RadiusLg)
+    Row(
+        modifier = modifier
+            .clip(shape)
+            .background(HandyColors.ChipBg)
+            .border(0.5.dp, HandyColors.ChipBorder, shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = HandyColors.Accent,
+            modifier = Modifier.size(14.dp),
         )
-        Spacer(Modifier.height(HandyDimens.Space8))
         Text(
-            text = stringResource(R.string.chat_empty_body),
-            color = HandyColors.TextSecondary,
-            fontSize = 15.sp,
+            text = text,
+            style = HandyType.CaptionSmall.copy(
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.Medium,
+            ),
+            color = HandyColors.TextPrimary,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -681,9 +811,9 @@ private fun MessageRow(message: ChatMessage) {
     val isUser = message.role == MessageRole.USER
     val isSystem = message.role == MessageRole.SYSTEM
     val bubbleColor = when {
-        isUser -> HandyColors.SurfaceElevated
+        isUser -> HandyColors.AccentSoft
         isSystem -> HandyColors.Danger.copy(alpha = 0.18f)
-        else -> HandyColors.Surface
+        else -> HandyColors.ChipBg
     }
     val horizontal = if (isUser) Arrangement.End else Arrangement.Start
 
@@ -711,29 +841,31 @@ private fun MessageRow(message: ChatMessage) {
                     fontWeight = FontWeight.Medium,
                 )
             }
-            Surface(
-                color = bubbleColor,
-                contentColor = HandyColors.TextPrimary,
-                shape = RoundedCornerShape(HandyDimens.RadiusLg),
-            ) {
-                Column(
-                    modifier = Modifier.padding(
+            Column(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(HandyDimens.RadiusLg))
+                    .background(bubbleColor)
+                    .border(
+                        0.5.dp,
+                        HandyColors.ChipBorder,
+                        RoundedCornerShape(HandyDimens.RadiusLg),
+                    )
+                    .padding(
                         horizontal = HandyDimens.Space16,
                         vertical = HandyDimens.Space12,
                     ),
-                    verticalArrangement = Arrangement.spacedBy(HandyDimens.Space8),
-                ) {
-                    SelectionContainer {
-                        Text(
-                            text = message.content,
-                            color = HandyColors.TextPrimary,
-                            fontSize = 15.sp,
-                            lineHeight = 22.sp,
-                        )
-                    }
-                    if (message.isStreaming) {
-                        StreamingDots()
-                    }
+                verticalArrangement = Arrangement.spacedBy(HandyDimens.Space8),
+            ) {
+                SelectionContainer {
+                    Text(
+                        text = message.content,
+                        style = HandyType.Body,
+                        color = HandyColors.TextPrimary,
+                        lineHeight = 22.sp,
+                    )
+                }
+                if (message.isStreaming) {
+                    StreamingDots()
                 }
             }
             Text(
@@ -755,15 +887,11 @@ private fun AssistantAvatar() {
     Box(
         modifier = Modifier
             .size(28.dp)
-            .background(HandyColors.Accent.copy(alpha = 0.2f), CircleShape),
+            .background(HandyColors.AccentSoft, CircleShape)
+            .border(0.5.dp, HandyColors.ChipBorder, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            imageVector = Icons.Outlined.PanTool,
-            contentDescription = null,
-            tint = HandyColors.Accent,
-            modifier = Modifier.size(14.dp),
-        )
+        HandMarkIcon(size = 14.dp, tint = HandyColors.Accent)
     }
 }
 
@@ -772,7 +900,8 @@ private fun UserAvatar() {
     Box(
         modifier = Modifier
             .size(28.dp)
-            .background(HandyColors.SurfaceElevated, CircleShape),
+            .background(HandyColors.ChipBg, CircleShape)
+            .border(0.5.dp, HandyColors.ChipBorder, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -908,14 +1037,14 @@ private fun ChatComposer(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(HandyColors.Surface)
+            .background(HandyColors.PageBg)
             .imePadding()
             .padding(
-                horizontal = HandyDimens.Space12,
-                vertical = HandyDimens.Space12,
+                horizontal = HandyDimens.Gutter,
+                vertical = HandyDimens.StackM,
             ),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(HandyDimens.Space8),
+        horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
     ) {
         MicButton(
             listening = listening,
@@ -946,6 +1075,7 @@ private fun ChatComposer(
                     value = input,
                     onValueChange = { input = it },
                     enabled = enabled,
+                    shape = RoundedCornerShape(HandyDimens.RadiusLg),
                     placeholder = { Text(stringResource(R.string.chat_input_placeholder)) },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Send),
@@ -958,9 +1088,9 @@ private fun ChatComposer(
                         },
                     ),
                     colors = TextFieldDefaults.colors(
-                        focusedContainerColor = HandyColors.Surface,
-                        unfocusedContainerColor = HandyColors.Surface,
-                        disabledContainerColor = HandyColors.Surface,
+                        focusedContainerColor = HandyColors.ChipBg,
+                        unfocusedContainerColor = HandyColors.ChipBg,
+                        disabledContainerColor = HandyColors.ChipBg,
                         focusedTextColor = HandyColors.TextPrimary,
                         unfocusedTextColor = HandyColors.TextPrimary,
                         disabledTextColor = HandyColors.TextSecondary,
@@ -996,7 +1126,7 @@ private fun MicButton(
     val (fill, tint) = if (listening) {
         HandyColors.Danger.copy(alpha = 0.18f) to HandyColors.Danger
     } else {
-        HandyColors.SurfaceElevated to HandyColors.TextSecondary
+        HandyColors.ChipBg to HandyColors.Accent
     }
     val scale by animateFloatAsState(
         targetValue = if (listening) 1.05f else 1f,
@@ -1004,9 +1134,16 @@ private fun MicButton(
     )
     Box(
         modifier = Modifier
-            .size(36.dp)
+            .size(40.dp)
             .scale(scale)
             .background(fill, CircleShape)
+            .then(
+                if (!listening) {
+                    Modifier.border(0.5.dp, HandyColors.ChipBorder, CircleShape)
+                } else {
+                    Modifier
+                },
+            )
             .clickable(enabled = enabled) {
                 if (listening) onStop() else onStart()
             },
@@ -1026,12 +1163,15 @@ private fun SendButton(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    val background = if (enabled) HandyColors.Accent else HandyColors.SurfaceElevated
-    val tint = if (enabled) Color.White else HandyColors.TextSecondary
+    val background = if (enabled) HandyColors.Accent else HandyColors.ChipBg
+    val tint = if (enabled) HandyColors.AccentInk else HandyColors.TextMuted
     Box(
         modifier = Modifier
-            .size(32.dp)
+            .size(40.dp)
             .background(background, CircleShape)
+            .then(
+                if (enabled) Modifier else Modifier.border(0.5.dp, HandyColors.ChipBorder, CircleShape),
+            )
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -1123,7 +1263,7 @@ private fun ConfirmationDialog(
 ) {
     AlertDialog(
         onDismissRequest = onCancel,
-        containerColor = HandyColors.SurfaceElevated,
+        containerColor = HandyColors.ChipBg,
         titleContentColor = HandyColors.TextPrimary,
         textContentColor = HandyColors.TextSecondary,
         title = { Text("Confirm action") },

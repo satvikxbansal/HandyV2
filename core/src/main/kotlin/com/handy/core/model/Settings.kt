@@ -188,6 +188,8 @@ data class HandySettings(
 ) {
     companion object {
         const val DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-5-20250929"
+        /** Claude Haiku 4.5 — Anthropic API id (see docs.claude.com models list). */
+        const val DEFAULT_CLAUDE_HAIKU_MODEL = "claude-haiku-4-5-20251001"
         const val DEFAULT_GEMINI_CLOUD_MODEL = "gemini-2.5-flash"
     }
 }

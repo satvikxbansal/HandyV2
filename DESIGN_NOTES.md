@@ -253,6 +253,25 @@ cite cursorbuddy because no AGPL surface ships.
 
 ---
 
+## Claude Android design handoff (DL-028, April 2026)
+
+Product surfaces now follow the warm-amber / near-black glass direction
+documented in the internal handoff (`Inter`, single accent, `HandyDimens`
+radii, four bubble semantics mapped to `HandyColors.Bubble*`). Full-app
+`ChatActivity`, overlay `OverlayChatPanelContent`, `SettingsActivity`
+(Brain picker + tutor), `OnboardingActivity`, and `DiagnosticsActivity`
+were restyled in one pass so spacing and corner radii stay consistent.
+`LensRenderer` tints were moved from cyan-forward defaults to
+amber-forward glass while preserving the scope §15 seven-layer recipe.
+
+**Brain picker.** Sonnet vs Haiku is `HandySettings.claudeModelOverride`
+(`null` = default Sonnet id in the client, non-null = Haiku API id).
+Gemini remains a non-interactive “coming soon” card — cloud routing is
+still governed by `CloudProvider` elsewhere; do not imply Gemini is
+selectable until parity tests land.
+
+---
+
 ## Performance budget (enforced in Phase 4 pass)
 
 From build plan §15:

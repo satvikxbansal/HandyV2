@@ -1,15 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Handy palette — dark primary. See design system / build plan §11. -->
-    <color name="handy_background">#FF0B0B0F</color>
-    <color name="handy_surface">#FF141419</color>
-    <color name="handy_surface_elevated">#FF1C1C22</color>
-    <color name="handy_text_primary">#FFF2F2F5</color>
-    <color name="handy_text_secondary">#FF9A9AA2</color>
-    <color name="handy_accent">#FF3B82F6</color>
-    <color name="handy_amber">#FFF59E0B</color>
-    <color name="handy_border">#FF2A2A31</color>
+    <!-- Handy palette — warm-amber glass direction. Source of truth is
+         HandyColors in DesignSystem.kt; these XML entries exist only for
+         manifest / theme declarations (status bar, notification tint,
+         activity window background). -->
+    <color name="handy_background">#FF07070A</color>
+    <color name="handy_surface">#FF0C0A0E</color>
+    <color name="handy_surface_elevated">#FF110D12</color>
+    <color name="handy_text_primary">#FFFFF7EC</color>
+    <color name="handy_text_secondary">#9EFFF7EC</color>
+    <color name="handy_accent">#FFF0A868</color>
+    <color name="handy_accent_ink">#FF2A1608</color>
+    <color name="handy_border">#33F0A868</color>
 
-    <!-- Notifications channel background — matches surfaceElevated. -->
-    <color name="handy_notification_tint">#FF3B82F6</color>
+    <!-- Notifications channel tint — amber so the foreground-service
+         chip reads as "Handy" in the shade. -->
+    <color name="handy_notification_tint">#FFF0A868</color>
 </resources>

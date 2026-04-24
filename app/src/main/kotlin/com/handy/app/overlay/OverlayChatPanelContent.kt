@@ -1,6 +1,7 @@
 package com.handy.app.overlay
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -30,7 +31,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,27 +39,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.handy.core.overlay.BuddyBubble
 import com.handy.core.overlay.OverlayPanelState
 import com.handy.core.overlay.PanelContent
+import com.handy.app.theme.HandMarkIcon
+import com.handy.app.theme.HandyColors
+import com.handy.app.theme.HandyDimens
+import com.handy.app.theme.HandyGlassBottomSheet
+import com.handy.app.theme.HandyType
 
 /**
  * Overlay chat panel Compose tree. Glassmorphism per cursorbuddy
- * recipe #8, IME choreography per recipe #5, quick-prompt chips per
- * recipe #9, voice auto-submit per recipe #6.
- *
- * The panel is intentionally stateless-per-frame — it reads
- * [OverlayPanelState] and fires [OverlayPanelCallbacks]. The
- * [OverlayPresenter] owns the real state; the widget service owns the
- * WindowManager and focus-flag choreography.
+ * recipe #8, IME choreography per recipe #5 (DL-027: full-screen overlay
+ * + `imePadding()`, no auto-focus), quick-prompt chips per recipe #9.
  */
 @Composable
 fun OverlayChatPanelContent(
@@ -69,30 +70,19 @@ fun OverlayChatPanelContent(
 ) {
     if (!state.isPanelVisible) return
     val panel: PanelContent = state.panel
+    val appLabel = panel.snapshot?.toolContext?.appLabel
 
     val focusRequester = remember { FocusRequester() }
     var draft by remember { mutableStateOf(panel.draftInput) }
 
-    // NOTE: we deliberately do NOT auto-request focus on the input
-    // field when the panel opens. Auto-focusing triggers the IME the
-    // moment the user taps the widget, which is surprising and hides
-    // the panel content behind the keyboard. The text field is still
-    // focusable — a manual tap on "Ask me anything…" shows the IME,
-    // at which point `Modifier.imePadding()` on the panel lifts it
-    // above the keyboard. (DL-027.)
-
-    // Panel docked to the bottom of a full-screen transparent overlay.
-    // `imePadding()` on the panel Column reads `WindowInsets.ime` from
-    // the ComposeView — which the full-screen overlay reliably
-    // propagates (unlike WRAP_CONTENT overlays which silently drop
-    // IME insets on stock Android). Tapping the transparent top area
-    // dismisses the panel (modal-sheet semantics). DL-027.
-    androidx.compose.foundation.layout.Box(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .clickable(
                 indication = null,
-                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                interactionSource = remember {
+                    androidx.compose.foundation.interaction.MutableInteractionSource()
+                },
                 onClick = callbacks.onDismiss,
             ),
     ) {
@@ -102,82 +92,79 @@ fun OverlayChatPanelContent(
                 .fillMaxWidth()
                 .imePadding()
                 .clickable(
-                    // Consume clicks on the panel itself so the
-                    // backdrop's onDismiss doesn't fire when the user
-                    // interacts with panel content.
                     indication = null,
-                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                    onClick = {},
-                )
-                .glassSurface(cornerDp = 22)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-        PanelHeader(
-            greeting = panel.greeting,
-            toolLabel = panel.snapshot?.toolContext?.displayLabel,
-            onDismiss = callbacks.onDismiss,
-            onExpand = callbacks.onExpand,
-        )
-
-        val errorBanner = panel.errorBanner
-        if (errorBanner != null) {
-            ErrorChip(message = errorBanner, onDismiss = callbacks.onDismissError)
-        }
-
-        val pending = panel.pendingConfirmation
-        if (pending != null) {
-            ConfirmationChip(
-                reason = pending.reason,
-                onConfirm = { callbacks.onConfirm(pending.id, true) },
-                onCancel = { callbacks.onConfirm(pending.id, false) },
-            )
-        }
-
-        if (panel.isListening) {
-            ListeningRow(
-                partial = panel.partialTranscript,
-                onStop = callbacks.onVoiceStop,
-            )
-        } else if (panel.isStreaming) {
-            StreamingRow(
-                loadingVerb = panel.loadingVerb.ifBlank { "Thinking…" },
-                accumulated = panel.streamingDelta,
-            )
-        } else {
-            InputRow(
-                draft = draft,
-                onDraftChange = { draft = it },
-                onSubmit = {
-                    val submit = draft.trim()
-                    if (submit.isNotEmpty()) {
-                        callbacks.onSend(submit)
-                        draft = ""
-                    }
-                },
-                onVoiceStart = callbacks.onVoiceStart,
-                focusRequester = focusRequester,
-            )
-            if (panel.quickPrompts.isNotEmpty()) {
-                QuickPromptsRow(
-                    prompts = panel.quickPrompts,
-                    onPick = { prompt ->
-                        callbacks.onSend(prompt)
-                        draft = ""
+                    interactionSource = remember {
+                        androidx.compose.foundation.interaction.MutableInteractionSource()
                     },
+                    onClick = {},
+                ),
+        ) {
+            HandyGlassBottomSheet(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(HandyDimens.StackL),
+            ) {
+                PanelHeader(
+                    greeting = panel.greeting,
+                    appLabel = appLabel,
+                    onDismiss = callbacks.onDismiss,
+                    onExpand = callbacks.onExpand,
                 )
+
+                panel.errorBanner?.let { errorBanner ->
+                    ErrorChip(message = errorBanner, onDismiss = callbacks.onDismissError)
+                }
+
+                panel.pendingConfirmation?.let { pending ->
+                    ConfirmationChip(
+                        reason = pending.reason,
+                        onConfirm = { callbacks.onConfirm(pending.id, true) },
+                        onCancel = { callbacks.onConfirm(pending.id, false) },
+                    )
+                }
+
+                if (panel.isListening) {
+                    ListeningRow(
+                        partial = panel.partialTranscript,
+                        onStop = callbacks.onVoiceStop,
+                    )
+                } else if (panel.isStreaming) {
+                    StreamingRow(
+                        loadingVerb = panel.loadingVerb.ifBlank { "Thinking…" },
+                        accumulated = panel.streamingDelta,
+                    )
+                } else {
+                    InputRow(
+                        draft = draft,
+                        onDraftChange = { draft = it },
+                        onSubmit = {
+                            val submit = draft.trim()
+                            if (submit.isNotEmpty()) {
+                                callbacks.onSend(submit)
+                                draft = ""
+                            }
+                        },
+                        onVoiceStart = callbacks.onVoiceStart,
+                        focusRequester = focusRequester,
+                    )
+                    val chips = panel.quickPrompts.take(2)
+                    if (chips.isNotEmpty()) {
+                        QuickPromptsRow(
+                            prompts = chips,
+                            onPick = { prompt ->
+                                callbacks.onSend(prompt)
+                                draft = ""
+                            },
+                        )
+                    }
+                }
+
+                val responsePreview = panel.recentResponsePreview
+                if (responsePreview.isNotBlank() && !panel.isStreaming && !panel.isListening) {
+                    ResponsePreview(responsePreview)
+                }
+
+                state.bubble?.let { bubble -> BubbleFooter(bubble) }
             }
-        }
-
-        val responsePreview = panel.recentResponsePreview
-        if (responsePreview.isNotBlank() && !panel.isStreaming && !panel.isListening) {
-            ResponsePreview(responsePreview)
-        }
-
-        // Mirror the live buddy bubble (yellow/teal/green/blue) into
-        // the panel footer so the user sees the same text that's
-        // floating next to the docked buddy.
-        state.bubble?.let { bubble -> BubbleFooter(bubble) }
         }
     }
 }
@@ -197,60 +184,126 @@ data class OverlayPanelCallbacks(
 @Composable
 private fun PanelHeader(
     greeting: String,
-    @Suppress("UNUSED_PARAMETER") toolLabel: String?,
+    appLabel: String?,
     onDismiss: () -> Unit,
     onExpand: () -> Unit,
 ) {
-    // NB: `toolLabel` was previously rendered as a blue 11sp line above
-    // the greeting, but `QuickPromptCatalog.greetingFor()` already
-    // embeds the app label inside the greeting ("In Photos. What can
-    // I help with?"). Rendering both was redundant — the blue label
-    // repeated the same word the grey greeting already contained. The
-    // parameter stays on the signature so callers don't churn, but is
-    // deliberately unused.
+    // Spec (`handy-overlay.jsx`): gap 12dp between title block and
+    // trailing icons; title row internal gap 10dp between hand and
+    // "Handy"; subtitle marginTop 4dp, single line, ellipsis.
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
     ) {
         Column(Modifier.weight(1f)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackS + 2.dp), // 10dp
+            ) {
+                HandMarkIcon(size = 24.dp, tint = HandyColors.Accent)
+                Text(
+                    text = "Handy",
+                    style = HandyType.TitleMedium,
+                    color = HandyColors.TextPrimary,
+                )
+            }
+            Spacer(Modifier.height(4.dp))
             Text(
-                text = "Handy",
-                color = Color(0xFFF2F4F8),
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                text = greeting,
-                color = Color(0xC9D3DDE5),
-                fontSize = 12.sp,
-                maxLines = 2,
+                text = greetingWithLabelAccent(greeting, appLabel),
+                style = HandyType.Caption,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        IconSquare(Icons.Outlined.OpenInFull, "Expand to chat", onExpand)
-        IconSquare(Icons.Outlined.Close, "Dismiss", onDismiss)
+        BareIconButton(
+            imageVector = Icons.Outlined.OpenInFull,
+            description = "Expand to full chat",
+            onClick = onExpand,
+        )
+        BareIconButton(
+            imageVector = Icons.Outlined.Close,
+            description = "Dismiss",
+            onClick = onDismiss,
+        )
+    }
+}
+
+/**
+ * Renders [greeting] in muted grey, with any case-insensitive match of
+ * [appLabel] re-coloured to [HandyColors.Accent]. Matches the design
+ * screenshots where only the app-label word is amber; the surrounding
+ * copy ("I see", "On", "Browsing in", punctuation) stays muted.
+ *
+ * When [appLabel] is blank, missing, or "Handy" (our own app label in
+ * launcher foreground), the whole greeting is muted.
+ */
+internal fun greetingWithLabelAccent(
+    greeting: String,
+    appLabel: String?,
+): AnnotatedString {
+    val label = appLabel?.trim().orEmpty()
+    val shouldAccent = label.isNotEmpty() && !label.equals("Handy", ignoreCase = true)
+    if (!shouldAccent) {
+        return buildAnnotatedString {
+            withStyle(SpanStyle(color = HandyColors.TextSecondary)) {
+                append(greeting)
+            }
+        }
+    }
+    val index = greeting.indexOf(label, ignoreCase = true)
+    if (index < 0) {
+        return buildAnnotatedString {
+            withStyle(SpanStyle(color = HandyColors.TextSecondary)) {
+                append(greeting)
+            }
+        }
+    }
+    val end = index + label.length
+    return buildAnnotatedString {
+        if (index > 0) {
+            withStyle(SpanStyle(color = HandyColors.TextSecondary)) {
+                append(greeting.substring(0, index))
+            }
+        }
+        // Spec (`handy-overlay.jsx`): accented host label renders in
+        // Accent with fontWeight 500 (Medium), not the default body
+        // weight.
+        withStyle(
+            SpanStyle(
+                color = HandyColors.Accent,
+                fontWeight = FontWeight.Medium,
+            ),
+        ) {
+            append(greeting.substring(index, end))
+        }
+        if (end < greeting.length) {
+            withStyle(SpanStyle(color = HandyColors.TextSecondary)) {
+                append(greeting.substring(end))
+            }
+        }
     }
 }
 
 @Composable
-private fun IconSquare(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+private fun BareIconButton(
+    imageVector: androidx.compose.ui.graphics.vector.ImageVector,
     description: String,
     onClick: () -> Unit,
 ) {
+    // Spec (`handy-overlay.jsx` `BareIconBtn`): 28x28 square hit
+    // target, radius 8, transparent bg, 16dp icon, 0.75 opacity.
     Box(
         modifier = Modifier
-            .size(30.dp)
-            .background(GlassPalette.ChipGradient, CircleShape)
+            .size(28.dp)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = icon,
+            imageVector = imageVector,
             contentDescription = description,
-            tint = Color(0xFFE6EEF5),
-            modifier = Modifier.size(14.dp),
+            tint = HandyColors.TextSecondary.copy(alpha = 0.75f),
+            modifier = Modifier.size(16.dp),
         )
     }
 }
@@ -263,22 +316,27 @@ private fun InputRow(
     onVoiceStart: () -> Unit,
     focusRequester: FocusRequester,
 ) {
+    // Spec (`handy-overlay.jsx` `InputRow`): gap 8dp; mic + send =
+    // 40dp circles; text field 40dp with RadiusPill, 16dp horizontal
+    // padding, placeholder in TextMuted, field border → Accent when
+    // focused. Send icon 17dp AccentInk, shadow `0 6 14 -4 accent@88`.
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackS),
     ) {
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .background(GlassPalette.ChipGradient, CircleShape)
+                .background(HandyColors.ChipBg, CircleShape)
+                .border(0.5.dp, HandyColors.ChipBorder, CircleShape)
                 .clickable(onClick = onVoiceStart),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Outlined.Mic,
                 contentDescription = "Start voice",
-                tint = GlassPalette.AccentBlue,
+                tint = HandyColors.TextPrimary,
                 modifier = Modifier.size(18.dp),
             )
         }
@@ -287,26 +345,28 @@ private fun InputRow(
             modifier = Modifier
                 .weight(1f)
                 .height(40.dp)
-                .background(GlassPalette.DarkInputBg, RoundedCornerShape(20.dp))
-                .padding(horizontal = 14.dp),
+                .background(HandyColors.ChipBg, RoundedCornerShape(HandyDimens.RadiusPill))
+                .border(
+                    0.5.dp,
+                    HandyColors.ChipBorder,
+                    RoundedCornerShape(HandyDimens.RadiusPill),
+                )
+                .padding(horizontal = HandyDimens.Gutter),
             contentAlignment = Alignment.CenterStart,
         ) {
             if (draft.isEmpty()) {
                 Text(
                     text = "Ask me anything…",
-                    color = Color(0xB0C9D3DD),
-                    fontSize = 14.sp,
+                    style = HandyType.Body,
+                    color = HandyColors.TextMuted,
                 )
             }
             BasicTextField(
                 value = draft,
                 onValueChange = onDraftChange,
                 singleLine = true,
-                textStyle = TextStyle(
-                    color = Color(0xFFF2F4F8),
-                    fontSize = 14.sp,
-                ),
-                cursorBrush = SolidColor(GlassPalette.AccentBlue),
+                textStyle = HandyType.Body.copy(color = HandyColors.TextPrimary),
+                cursorBrush = SolidColor(HandyColors.Accent),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = { onSubmit() }),
                 modifier = Modifier
@@ -317,9 +377,11 @@ private fun InputRow(
 
         val sendEnabled = draft.isNotBlank()
         val sendBg = if (sendEnabled) {
-            Modifier.background(GlassPalette.AccentBlue, CircleShape)
+            Modifier.background(HandyColors.Accent, CircleShape)
         } else {
-            Modifier.background(GlassPalette.ChipGradient, CircleShape)
+            Modifier
+                .background(HandyColors.ChipBg, CircleShape)
+                .border(0.5.dp, HandyColors.ChipBorder, CircleShape)
         }
         Box(
             modifier = Modifier
@@ -331,8 +393,8 @@ private fun InputRow(
             Icon(
                 imageVector = Icons.AutoMirrored.Outlined.Send,
                 contentDescription = "Send",
-                tint = if (sendEnabled) Color.White else Color(0x80C9D3DD),
-                modifier = Modifier.size(16.dp),
+                tint = if (sendEnabled) HandyColors.AccentInk else HandyColors.TextMuted,
+                modifier = Modifier.size(17.dp),
             )
         }
     }
@@ -343,25 +405,39 @@ private fun QuickPromptsRow(
     prompts: List<String>,
     onPick: (String) -> Unit,
 ) {
+    // Spec (`handy-overlay.jsx` `QuickChip`): padding 7dp vertical /
+    // 12dp horizontal, RadiusPill, ChipBg + 0.5dp ChipBorder, 12sp
+    // Medium (500) label in TextPrimary. Wraps to next line at 10dp
+    // gap; we use horizontalScroll as a pragmatic substitute since
+    // the panel is at most 2 chips wide in practice.
     val scroll = rememberScrollState()
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(scroll),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         prompts.forEach { prompt ->
             Box(
                 modifier = Modifier
-                    .background(GlassPalette.ChipGradient, RoundedCornerShape(14.dp))
+                    .background(
+                        HandyColors.ChipBg,
+                        RoundedCornerShape(HandyDimens.RadiusPill),
+                    )
+                    .border(
+                        0.5.dp,
+                        HandyColors.ChipBorder,
+                        RoundedCornerShape(HandyDimens.RadiusPill),
+                    )
                     .clickable { onPick(prompt) }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .padding(horizontal = HandyDimens.StackM, vertical = 7.dp),
             ) {
                 Text(
                     text = prompt,
-                    color = GlassPalette.AccentBlue,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
+                    style = HandyType.CaptionSmall.copy(
+                        fontWeight = FontWeight.Medium,
+                    ),
+                    color = HandyColors.TextPrimary,
                 )
             }
         }
@@ -376,29 +452,30 @@ private fun ListeningRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0x33FBBF24), RoundedCornerShape(18.dp))
-            .padding(PaddingValues(horizontal = 12.dp, vertical = 10.dp)),
+            .background(HandyColors.AccentSoft, RoundedCornerShape(HandyDimens.RadiusXl))
+            .border(0.5.dp, HandyColors.ChipBorder, RoundedCornerShape(HandyDimens.RadiusXl))
+            .padding(PaddingValues(horizontal = HandyDimens.RowPad, vertical = HandyDimens.StackM)),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
     ) {
         Box(
             modifier = Modifier
                 .size(32.dp)
-                .background(GlassPalette.DangerRed.copy(alpha = 0.18f), CircleShape)
+                .background(HandyColors.Danger.copy(alpha = 0.18f), CircleShape)
                 .clickable(onClick = onStop),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Outlined.Mic,
                 contentDescription = "Stop listening",
-                tint = GlassPalette.DangerRed,
+                tint = HandyColors.Danger,
                 modifier = Modifier.size(16.dp),
             )
         }
         Text(
             text = partial.ifBlank { "Listening…" },
-            color = Color(0xFFF2F4F8),
-            fontSize = 13.sp,
+            style = HandyType.Body,
+            color = HandyColors.TextPrimary,
             modifier = Modifier.weight(1f),
             maxLines = 3,
             overflow = TextOverflow.Ellipsis,
@@ -408,27 +485,27 @@ private fun ListeningRow(
 
 @Composable
 private fun StreamingRow(loadingVerb: String, accumulated: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(HandyDimens.StackS)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
         ) {
             CircularProgressIndicator(
-                color = GlassPalette.AccentBlue,
+                color = HandyColors.Accent,
                 strokeWidth = 1.5.dp,
                 modifier = Modifier.size(12.dp),
             )
             Text(
                 text = loadingVerb,
-                color = Color(0xC9D3DDE5),
-                fontSize = 12.sp,
+                style = HandyType.CaptionSmall,
+                color = HandyColors.TextSecondary,
             )
         }
         if (accumulated.isNotBlank()) {
             Text(
                 text = accumulated,
-                color = Color(0xFFF2F4F8),
-                fontSize = 13.sp,
+                style = HandyType.Body,
+                color = HandyColors.TextPrimary,
                 maxLines = 4,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -442,15 +519,20 @@ private fun ResponsePreview(text: String) {
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                GlassPalette.GreenResponse.copy(alpha = 0.18f),
-                RoundedCornerShape(16.dp),
+                HandyColors.BubbleResponse.copy(alpha = 0.18f),
+                RoundedCornerShape(HandyDimens.RadiusXl),
             )
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .border(
+                0.5.dp,
+                HandyColors.BubbleResponse.copy(alpha = 0.35f),
+                RoundedCornerShape(HandyDimens.RadiusXl),
+            )
+            .padding(horizontal = HandyDimens.RowPad, vertical = HandyDimens.StackM),
     ) {
         Text(
             text = text,
-            color = Color(0xFFF2F4F8),
-            fontSize = 12.sp,
+            style = HandyType.CaptionSmall,
+            color = HandyColors.TextPrimary,
             maxLines = 3,
             overflow = TextOverflow.Ellipsis,
         )
@@ -469,13 +551,13 @@ private fun BubbleFooter(bubble: BuddyBubble) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(color.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .background(color.copy(alpha = 0.18f), RoundedCornerShape(HandyDimens.RadiusMd))
+            .padding(horizontal = HandyDimens.StackM, vertical = HandyDimens.StackS),
     ) {
         Text(
             text = text,
-            color = Color(0xFFF2F4F8),
-            fontSize = 12.sp,
+            style = HandyType.CaptionSmall,
+            color = HandyColors.TextPrimary,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
@@ -487,15 +569,15 @@ private fun ErrorChip(message: String, onDismiss: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(GlassPalette.DangerRed.copy(alpha = 0.18f), RoundedCornerShape(14.dp))
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .background(HandyColors.Danger.copy(alpha = 0.18f), RoundedCornerShape(HandyDimens.RadiusLg))
+            .padding(horizontal = HandyDimens.StackM, vertical = HandyDimens.StackM),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
     ) {
         Text(
             text = message,
-            color = GlassPalette.DangerRed,
-            fontSize = 12.sp,
+            style = HandyType.CaptionSmall,
+            color = HandyColors.Danger,
             modifier = Modifier.weight(1f),
             maxLines = 3,
             overflow = TextOverflow.Ellipsis,
@@ -503,14 +585,14 @@ private fun ErrorChip(message: String, onDismiss: () -> Unit) {
         Box(
             modifier = Modifier
                 .size(22.dp)
-                .background(GlassPalette.DangerRed.copy(alpha = 0.2f), CircleShape)
+                .background(HandyColors.Danger.copy(alpha = 0.2f), CircleShape)
                 .clickable(onClick = onDismiss),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Outlined.Close,
                 contentDescription = "Dismiss error",
-                tint = GlassPalette.DangerRed,
+                tint = HandyColors.Danger,
                 modifier = Modifier.size(12.dp),
             )
         }
@@ -526,33 +608,45 @@ private fun ConfirmationChip(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(GlassPalette.Teal.copy(alpha = 0.18f), RoundedCornerShape(16.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+            .background(HandyColors.BubbleAction.copy(alpha = 0.18f), RoundedCornerShape(HandyDimens.RadiusXl))
+            .border(
+                0.5.dp,
+                HandyColors.BubbleAction.copy(alpha = 0.35f),
+                RoundedCornerShape(HandyDimens.RadiusXl),
+            )
+            .padding(horizontal = HandyDimens.RowPad, vertical = HandyDimens.StackM),
+        verticalArrangement = Arrangement.spacedBy(HandyDimens.StackS),
     ) {
         Text(
             text = reason,
-            color = Color(0xFFF2F4F8),
-            fontSize = 13.sp,
+            style = HandyType.Body,
+            color = HandyColors.TextPrimary,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM)) {
             Box(
                 modifier = Modifier
-                    .background(GlassPalette.Teal, RoundedCornerShape(12.dp))
+                    .background(HandyColors.BubbleAction, RoundedCornerShape(HandyDimens.RadiusMd))
                     .clickable(onClick = onConfirm)
-                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                    .padding(horizontal = HandyDimens.RowPad, vertical = HandyDimens.StackS),
             ) {
-                Text("Continue", color = Color.White, fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium)
+                Text(
+                    "Continue",
+                    style = HandyType.CaptionSmall,
+                    color = HandyColors.PageBg,
+                )
             }
             Box(
                 modifier = Modifier
-                    .background(GlassPalette.ChipGradient, RoundedCornerShape(12.dp))
+                    .background(HandyColors.ChipBg, RoundedCornerShape(HandyDimens.RadiusMd))
+                    .border(0.5.dp, HandyColors.ChipBorder, RoundedCornerShape(HandyDimens.RadiusMd))
                     .clickable(onClick = onCancel)
-                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                    .padding(horizontal = HandyDimens.RowPad, vertical = HandyDimens.StackS),
             ) {
-                Text("Cancel", color = Color(0xFFC9D3DD), fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium)
+                Text(
+                    "Cancel",
+                    style = HandyType.CaptionSmall,
+                    color = HandyColors.TextSecondary,
+                )
             }
         }
         Spacer(Modifier.height(2.dp))

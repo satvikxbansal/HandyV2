@@ -61,6 +61,22 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settings.update(transform) }
     }
 
+    /**
+     * Brain picker — Sonnet uses the default model (`claudeModelOverride = null`);
+     * Haiku stores [HandySettings.DEFAULT_CLAUDE_HAIKU_MODEL]. Same Anthropic API key.
+     */
+    fun setClaudeModelVariant(useHaiku: Boolean) {
+        updateSettings { s ->
+            s.copy(
+                claudeModelOverride = if (useHaiku) {
+                    HandySettings.DEFAULT_CLAUDE_HAIKU_MODEL
+                } else {
+                    null
+                },
+            )
+        }
+    }
+
     fun setClaudeKey(raw: String) =
         setKey(
             name = KeyStore.KEY_ANTHROPIC,

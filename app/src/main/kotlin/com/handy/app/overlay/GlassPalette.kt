@@ -11,55 +11,51 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.handy.app.theme.HandyColors
 
 /**
- * Glassmorphism palette — cursorbuddy recipe #8 / scope §15.
- *
- * We deliberately do NOT use `WindowManager.LayoutParams.FLAG_BLUR_BEHIND`
- * or `RenderEffect.createBlurEffect` on the panel window. Blur is a
- * **surface** property here: two-stop TL→BR gradient + hairline stroke +
- * software-layer shadow. See `DESIGN_NOTES.md` → "cursorbuddy licensing".
+ * Legacy glass + bubble aliases — scope §15 recipe #8. Surfaces now use
+ * [HandyColors] warm-amber tokens; bubble colours are the V2 taxonomy
+ * re-tuned to sit inside that palette.
  */
 object GlassPalette {
-    // Dark surface tokens — hex-alpha encoded.
-    val DarkTopStop: Color = Color(0xEE243243)
-    val DarkBottomStop: Color = Color(0xD91A2432)
-    val DarkStroke: Color = Color(0x66FFFFFF)
+    val DarkTopStop: Color get() = HandyColors.GlassTint
+    val DarkBottomStop: Color get() = HandyColors.GlassTint
+    val DarkStroke: Color get() = HandyColors.GlassBorder
 
-    val DarkInputBg: Color = Color(0xCC101A26)
-    val DarkInputStroke: Color = Color(0x66FFFFFF)
+    val DarkInputBg: Color get() = HandyColors.ChipBg
+    val DarkInputStroke: Color get() = HandyColors.ChipBorder
 
-    val DarkChipTop: Color = Color(0xD9334B5D)
-    val DarkChipBottom: Color = Color(0xBF243445)
+    val DarkChipTop: Color get() = HandyColors.ChipBg
+    val DarkChipBottom: Color get() = HandyColors.ChipBg
 
-    val AccentBlue: Color = Color(0xFF4FC3F7)
-    val AccentBlueDark: Color = Color(0xFF81D4FA)
-    val Teal: Color = Color(0xFF14B8A6)
-    val GreenResponse: Color = Color(0xFF10B981)
-    val YellowTranscript: Color = Color(0xFFFBBF24)
-    val BlueNavigation: Color = Color(0xFF3B82F6)
-    val DangerRed: Color = Color(0xFFEF4444)
+    val AccentBlue: Color get() = HandyColors.Accent
+    val AccentBlueDark: Color get() = HandyColors.Accent
+    val Teal: Color get() = HandyColors.BubbleAction
+    val GreenResponse: Color get() = HandyColors.BubbleResponse
+    val YellowTranscript: Color get() = HandyColors.BubbleTranscript
+    val BlueNavigation: Color get() = HandyColors.BubbleNavigation
+    val DangerRed: Color get() = HandyColors.Danger
 
     val GlassGradient: Brush = Brush.linearGradient(
-        colors = listOf(DarkTopStop, DarkBottomStop),
+        colors = listOf(HandyColors.GlassTint, HandyColors.GlassTint),
     )
     val ChipGradient: Brush = Brush.linearGradient(
-        colors = listOf(DarkChipTop, DarkChipBottom),
+        colors = listOf(HandyColors.ChipBg, HandyColors.ChipBg),
     )
 }
 
 /**
- * Helper: rounded glass surface with the V2 stroke + gradient. 20-22 dp
- * corners; software-layer shadow is the parent container's job (the
- * window itself stays unblurred — recipe #8).
+ * Rounded glass strip — used where a full [com.handy.app.theme.HandyGlassBottomSheet]
+ * is not needed (e.g. legacy call sites). Prefer tokens from [HandyColors].
  */
 fun Modifier.glassSurface(
     cornerDp: Int = 20,
-    strokeColor: Color = GlassPalette.DarkStroke,
+    strokeColor: Color = HandyColors.GlassBorder,
 ): Modifier = this
     .clip(RoundedCornerShape(cornerDp.dp))
-    .background(GlassPalette.GlassGradient)
-    .border(BorderStroke(1.dp, strokeColor), RoundedCornerShape(cornerDp.dp))
+    .background(HandyColors.GlassTint)
+    .border(BorderStroke(0.5.dp, strokeColor), RoundedCornerShape(cornerDp.dp))
 
 @Composable
 fun Modifier.glassCard(cornerDp: Int = 20): Modifier =
