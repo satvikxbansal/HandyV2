@@ -193,7 +193,7 @@ private fun PanelHeader(
     // "Handy"; subtitle marginTop 4dp, single line, ellipsis.
     Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
     ) {
         Column(Modifier.weight(1f)) {
