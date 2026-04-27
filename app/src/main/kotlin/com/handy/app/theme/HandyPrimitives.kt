@@ -27,9 +27,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -111,7 +113,7 @@ fun ListeningWaveformBars(
  * look without the forbidden APIs.
  *
  * Stack (bottom → top):
- *   1. Glass fill    — [HandyColors.GlassTint]
+ *   1. Glass fill    — sheet-local high-opacity [HandyColors.GlassTint]
  *   2. Top sheen     — radial gradient `GlassHighlight → transparent`,
  *                      centred at 30% from the left / 0% from the top,
  *                      opacity 0.6, per handoff spec.
@@ -133,7 +135,7 @@ fun HandyGlassBottomSheet(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = RoundedCornerShape(HandyDimens.RadiusGlass)
-    val neutralGlassBase = Color(0xE05F5D63)
+    val sheetFill = HandyColors.GlassTint.copy(alpha = 0.92f)
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -157,12 +159,10 @@ fun HandyGlassBottomSheet(
             )
             .clip(shape)
             .drawBehind {
-                // Layer 1 — canonical glass fill (already dense via
-                // token alpha 0.82 — handoff fallback clause).
-                drawRect(HandyColors.GlassTint)
-                // Layer 1b — neutral gray wash to suppress warm/orange cast
-                // when rendered above colorful app content.
-                drawRect(neutralGlassBase)
+                // Layer 1 — high-opacity sheet fill. Keep this local to
+                // the chat overlay so widgets/snackbars retain the shared
+                // GlassTint token.
+                drawRect(sheetFill)
 
                 // Layer 2 — top-centred specular sheen. Matches CSS
                 // `radial-gradient(120% 60% at 30% 0%, highlight 0%,
@@ -176,6 +176,23 @@ fun HandyGlassBottomSheet(
                         center = Offset(x = size.width * 0.30f, y = 0f),
                         radius = size.width * 1.20f,
                     ),
+                )
+
+                // Layer 3 — CSS inset highlights from `GlassCard`:
+                // `0 1px 0 highlight inset` plus a subtle inner stroke.
+                drawLine(
+                    color = HandyColors.GlassHighlight,
+                    start = Offset.Zero,
+                    end = Offset(x = size.width, y = 0f),
+                    strokeWidth = 0.75.dp.toPx(),
+                )
+                drawRoundRect(
+                    color = HandyColors.InnerStroke,
+                    cornerRadius = CornerRadius(
+                        HandyDimens.RadiusGlass.toPx(),
+                        HandyDimens.RadiusGlass.toPx(),
+                    ),
+                    style = Stroke(width = 0.5.dp.toPx()),
                 )
             }
             .border(

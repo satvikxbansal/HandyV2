@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import androidx.annotation.DrawableRes
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -43,18 +44,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.outlined.Accessibility
-import androidx.compose.material.icons.outlined.Apps
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.CloseFullscreen
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.Mic
-import androidx.compose.material.icons.outlined.PhotoCamera
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -76,6 +65,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -368,12 +358,12 @@ private fun HandyHeaderBar(
             )
         }
         HeaderIconButton(
-            icon = Icons.Outlined.CloseFullscreen,
+            iconRes = R.drawable.ic_collapse,
             description = "Minimise to overlay panel",
             onClick = onMinimise,
         )
         HeaderIconButton(
-            icon = Icons.Outlined.Settings,
+            iconRes = R.drawable.ic_settings,
             description = "Open settings",
             onClick = onOpenSettings,
         )
@@ -387,7 +377,7 @@ private fun HandyHeaderBar(
  */
 @Composable
 private fun HeaderIconButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    @DrawableRes iconRes: Int,
     description: String,
     onClick: () -> Unit,
 ) {
@@ -399,7 +389,7 @@ private fun HeaderIconButton(
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = icon,
+            painter = painterResource(iconRes),
             contentDescription = description,
             tint = HandyColors.TextSecondary.copy(alpha = 0.72f),
             modifier = Modifier.size(18.dp),
@@ -458,7 +448,7 @@ private fun ToolNameBar(
             .padding(horizontal = HandyDimens.RowPad, vertical = HandyDimens.StackS),
     ) {
         Icon(
-            imageVector = Icons.Outlined.Apps,
+            painter = painterResource(R.drawable.ic_camera),
             contentDescription = null,
             tint = HandyColors.TextSecondary,
             modifier = Modifier.size(14.dp),
@@ -723,13 +713,13 @@ private fun EmptyHero(onPick: (String) -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 EmptySuggestionCard(
-                    icon = Icons.Outlined.AutoAwesome,
+                    iconRes = R.drawable.ic_sparkle,
                     text = summarize,
                     onClick = { onPick(summarize) },
                     modifier = Modifier.weight(1f),
                 )
                 EmptySuggestionCard(
-                    icon = Icons.Outlined.PhotoCamera,
+                    iconRes = R.drawable.ic_camera,
                     text = photo,
                     onClick = { onPick(photo) },
                     modifier = Modifier.weight(1f),
@@ -740,13 +730,13 @@ private fun EmptyHero(onPick: (String) -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 EmptySuggestionCard(
-                    icon = Icons.Outlined.Bolt,
+                    iconRes = R.drawable.ic_bolt,
                     text = timer,
                     onClick = { onPick(timer) },
                     modifier = Modifier.weight(1f),
                 )
                 EmptySuggestionCard(
-                    icon = Icons.Outlined.Language,
+                    iconRes = R.drawable.ic_globe,
                     text = lookup,
                     onClick = { onPick(lookup) },
                     modifier = Modifier.weight(1f),
@@ -758,7 +748,7 @@ private fun EmptyHero(onPick: (String) -> Unit) {
 
 @Composable
 private fun EmptySuggestionCard(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    @DrawableRes iconRes: Int,
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -779,7 +769,7 @@ private fun EmptySuggestionCard(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Icon(
-            imageVector = icon,
+            painter = painterResource(iconRes),
             contentDescription = null,
             tint = HandyColors.Accent,
             modifier = Modifier.size(14.dp),
@@ -1010,7 +1000,7 @@ private fun ErrorBanner(text: String, onDismiss: () -> Unit) {
             )
             IconButton(onClick = onDismiss) {
                 Icon(
-                    imageVector = Icons.Outlined.Close,
+                    painter = painterResource(R.drawable.ic_close),
                     contentDescription = "Dismiss",
                     tint = HandyColors.Danger,
                 )
@@ -1150,7 +1140,7 @@ private fun MicButton(
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.Outlined.Mic,
+            painter = painterResource(R.drawable.ic_mic),
             contentDescription = if (listening) "Stop listening" else "Start voice input",
             tint = tint,
             modifier = Modifier.size(18.dp),
@@ -1176,7 +1166,7 @@ private fun SendButton(
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.AutoMirrored.Outlined.Send,
+            painter = painterResource(R.drawable.ic_send),
             contentDescription = "Send",
             tint = tint,
             modifier = Modifier.size(16.dp),
@@ -1216,7 +1206,7 @@ private fun AccessibilityNudgeBanner(
             horizontalArrangement = Arrangement.spacedBy(HandyDimens.Space8),
         ) {
             Icon(
-                imageVector = Icons.Outlined.Accessibility,
+                painter = painterResource(R.drawable.ic_accessibility),
                 contentDescription = null,
                 tint = HandyColors.Amber,
                 modifier = Modifier.size(18.dp),

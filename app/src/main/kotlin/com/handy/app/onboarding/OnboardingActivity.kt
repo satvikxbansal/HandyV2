@@ -31,10 +31,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -46,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -475,7 +472,7 @@ private fun StatusIndicator(status: PermissionStatus) {
     ) {
         when (status) {
             PermissionStatus.Granted -> Icon(
-                imageVector = Icons.Outlined.Check,
+                painter = painterResource(R.drawable.ic_check),
                 contentDescription = null,
                 tint = HandyColors.Success,
                 modifier = Modifier.size(16.dp),
@@ -570,7 +567,7 @@ private fun PrivacyCallout() {
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Icon(
-            imageVector = Icons.Outlined.Shield,
+            painter = painterResource(R.drawable.ic_shield),
             contentDescription = null,
             tint = HandyColors.Success,
             modifier = Modifier
@@ -648,7 +645,7 @@ private fun PrimaryButton(
         if (enabled) {
             Spacer(Modifier.width(HandyDimens.StackS))
             Icon(
-                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                painter = painterResource(R.drawable.ic_chevron_right),
                 contentDescription = null,
                 tint = fgColor,
                 modifier = Modifier.size(16.dp),

@@ -6,7 +6,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -26,13 +25,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,20 +47,31 @@ import com.handy.core.overlay.BuddyState
 enum class WidgetState { IDLE, TOUCHED, DRAGGING, LISTENING, THINKING }
 
 /**
- * Hand-mark icon size (absolute). Kept at 32dp so the hand is the
- * dominant glyph inside the 48dp floating widget circle — the amber
- * ring around it reads as a hairline, not a halo. Updated per the
- * design note at DL-031 follow-up.
+ * Hand-mark icon size (absolute). The current handoff renders the
+ * floating disc at 60dp and keeps the palm at roughly 44% of that
+ * diameter, matching `handy-widget.jsx`.
  */
-private val HandIconSize = 32.dp
+private val HandIconSize = 26.dp
+private val FloatingDiscSize = 60.dp
+private val FloatingTouchTarget = 100.dp
 
 /**
- * Floating lens — 48dp glass circle, warm amber rim, [HandMark] idle,
- * waveform listening, rotating arc + hand thinking.
+ * Floating lens — 60dp glass circle inside a 100dp halo/touch target,
+ * warm amber rim, [HandMark] idle, waveform + halos while listening,
+ * rotating sweep rim with counter-rotated content while thinking.
  */
 @Composable
 fun WidgetContent(state: WidgetState) {
     HandyTheme(darkTheme = true) {
+        val infinite = rememberInfiniteTransition(label = "widget")
+        val rotation by infinite.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(HandyMotion.IdlePulseMs, easing = LinearEasing),
+            ),
+            label = "rim-rotation",
+        )
         val scale by animateFloatAsState(
             targetValue = when (state) {
                 WidgetState.TOUCHED, WidgetState.LISTENING -> 1.05f
@@ -72,54 +80,132 @@ fun WidgetContent(state: WidgetState) {
             animationSpec = tween(durationMillis = HandyMotion.DefaultMs),
             label = "widget-scale",
         )
-        val borderColor = when (state) {
-            WidgetState.IDLE, WidgetState.DRAGGING ->
-                HandyColors.Accent.copy(alpha = 0.60f)
-            WidgetState.TOUCHED -> HandyColors.Accent
-            WidgetState.LISTENING -> HandyColors.GlassBorder
-            WidgetState.THINKING -> HandyColors.GlassBorder
-        }
         Box(
             modifier = Modifier
-                .size(HandyDimens.WidgetLensSize)
-                .scale(scale),
+                .size(FloatingTouchTarget),
             contentAlignment = Alignment.Center,
         ) {
+            if (state == WidgetState.LISTENING) {
+                ListeningHalo(delayMillis = 0)
+                ListeningHalo(delayMillis = 400, inset = 10.dp)
+            } else if (state == WidgetState.TOUCHED) {
+                HoverGlow()
+            }
+
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .size(FloatingDiscSize)
                     .clip(CircleShape)
-                    .background(HandyColors.GlassTint)
-                    .border(HandyDimens.WidgetBorder, borderColor, CircleShape),
-                contentAlignment = Alignment.Center,
+                    .then(
+                        if (state == WidgetState.THINKING) {
+                            Modifier
+                                .rotate(rotation)
+                                .background(
+                                    Brush.sweepGradient(
+                                        0.00f to HandyColors.Accent,
+                                        0.25f to HandyColors.Accent,
+                                        0.55f to HandyColors.Accent.copy(alpha = 0f),
+                                        1.00f to HandyColors.Accent.copy(alpha = 0f),
+                                    ),
+                                    CircleShape,
+                                )
+                                .padding(1.5.dp)
+                        } else {
+                            Modifier
+                        },
+                    ),
             ) {
-                LensSheen()
-                when (state) {
-                    WidgetState.LISTENING -> ListeningWaveformBars(
-                        color = HandyColors.Listening,
-                        modifier = Modifier.padding(bottom = 2.dp),
-                        maxHeight = 14.dp,
-                        minHeight = 3.dp,
-                    )
-                    WidgetState.THINKING -> {
-                        ThinkingArcRing(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(3.dp),
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (state == WidgetState.THINKING) {
+                                Modifier.rotate(-rotation)
+                            } else {
+                                Modifier
+                            },
                         )
-                        HandMarkIcon(
+                        .scale(scale)
+                        .clip(CircleShape)
+                        .background(HandyColors.GlassTint)
+                        .border(
+                            width = if (state == WidgetState.THINKING) 0.dp else HandyDimens.WidgetBorder,
+                            color = when (state) {
+                                WidgetState.IDLE, WidgetState.DRAGGING ->
+                                    HandyColors.Accent.copy(alpha = 0.60f)
+                                WidgetState.TOUCHED -> HandyColors.Accent
+                                else -> HandyColors.GlassBorder
+                            },
+                            shape = CircleShape,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LensSheen()
+                    when (state) {
+                        WidgetState.LISTENING -> ListeningWaveformBars(
+                            color = HandyColors.Listening,
+                            modifier = Modifier.padding(bottom = 2.dp),
+                            maxHeight = 18.dp,
+                            minHeight = 4.dp,
+                        )
+                        else -> HandMarkIcon(
                             size = HandIconSize,
                             tint = HandyColors.TextPrimary,
                         )
                     }
-                    else -> HandMarkIcon(
-                        size = HandIconSize,
-                        tint = HandyColors.TextPrimary,
-                    )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun ListeningHalo(delayMillis: Int, inset: androidx.compose.ui.unit.Dp = 0.dp) {
+    val transition = rememberInfiniteTransition(label = "listening-halo-$delayMillis")
+    val t by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = HandyMotion.IdlePulseMs,
+                delayMillis = delayMillis,
+                easing = LinearEasing,
+            ),
+        ),
+        label = "halo",
+    )
+    Box(
+        modifier = Modifier
+            .padding(inset)
+            .fillMaxSize()
+            .scale(0.9f + t * 0.5f)
+            .clip(CircleShape)
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        HandyColors.Listening.copy(alpha = 0.4f * (1f - t)),
+                        Color.Transparent,
+                    )
+                ),
+            ),
+    )
+}
+
+@Composable
+private fun HoverGlow() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clip(CircleShape)
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        HandyColors.Accent.copy(alpha = 0.20f),
+                        Color.Transparent,
+                    ),
+                ),
+            ),
+    )
 }
 
 @Composable
@@ -144,30 +230,6 @@ private fun LensSheen() {
                     ),
                 ),
         )
-    }
-}
-
-@Composable
-private fun ThinkingArcRing(modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "think-spin")
-    val rotation by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(HandyMotion.RotatingRimMs, easing = LinearEasing),
-        ),
-        label = "rot",
-    )
-    Canvas(modifier) {
-        rotate(rotation) {
-            drawArc(
-                color = HandyColors.Accent.copy(alpha = 0.85f),
-                startAngle = -90f,
-                sweepAngle = 270f,
-                useCenter = false,
-                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round),
-            )
-        }
     }
 }
 

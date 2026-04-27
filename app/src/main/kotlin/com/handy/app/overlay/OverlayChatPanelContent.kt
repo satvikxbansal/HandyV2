@@ -1,5 +1,6 @@
 package com.handy.app.overlay
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,11 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Mic
-import androidx.compose.material.icons.outlined.OpenInFull
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -37,8 +33,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -48,6 +46,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.painterResource
+import com.handy.app.R
 import com.handy.core.overlay.BuddyBubble
 import com.handy.core.overlay.OverlayPanelState
 import com.handy.core.overlay.PanelContent
@@ -217,12 +217,12 @@ private fun PanelHeader(
             )
         }
         BareIconButton(
-            imageVector = Icons.Outlined.OpenInFull,
+            iconRes = R.drawable.ic_expand,
             description = "Expand to full chat",
             onClick = onExpand,
         )
         BareIconButton(
-            imageVector = Icons.Outlined.Close,
+            iconRes = R.drawable.ic_close,
             description = "Dismiss",
             onClick = onDismiss,
         )
@@ -287,7 +287,7 @@ internal fun greetingWithLabelAccent(
 
 @Composable
 private fun BareIconButton(
-    imageVector: androidx.compose.ui.graphics.vector.ImageVector,
+    @DrawableRes iconRes: Int,
     description: String,
     onClick: () -> Unit,
 ) {
@@ -296,11 +296,12 @@ private fun BareIconButton(
     Box(
         modifier = Modifier
             .size(28.dp)
+            .clip(RoundedCornerShape(HandyDimens.RadiusSm))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = imageVector,
+            painter = painterResource(iconRes),
             contentDescription = description,
             tint = HandyColors.TextSecondary.copy(alpha = 0.75f),
             modifier = Modifier.size(16.dp),
@@ -320,6 +321,7 @@ private fun InputRow(
     // 40dp circles; text field 40dp with RadiusPill, 16dp horizontal
     // padding, placeholder in TextMuted, field border → Accent when
     // focused. Send icon 17dp AccentInk, shadow `0 6 14 -4 accent@88`.
+    var fieldFocused by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -334,7 +336,7 @@ private fun InputRow(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Outlined.Mic,
+                painter = painterResource(R.drawable.ic_mic),
                 contentDescription = "Start voice",
                 tint = HandyColors.TextPrimary,
                 modifier = Modifier.size(18.dp),
@@ -348,7 +350,7 @@ private fun InputRow(
                 .background(HandyColors.ChipBg, RoundedCornerShape(HandyDimens.RadiusPill))
                 .border(
                     0.5.dp,
-                    HandyColors.ChipBorder,
+                    if (fieldFocused) HandyColors.Accent else HandyColors.ChipBorder,
                     RoundedCornerShape(HandyDimens.RadiusPill),
                 )
                 .padding(horizontal = HandyDimens.Gutter),
@@ -371,7 +373,8 @@ private fun InputRow(
                 keyboardActions = KeyboardActions(onSend = { onSubmit() }),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .focusRequester(focusRequester),
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { fieldFocused = it.isFocused },
             )
         }
 
@@ -391,7 +394,7 @@ private fun InputRow(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Outlined.Send,
+                painter = painterResource(R.drawable.ic_send),
                 contentDescription = "Send",
                 tint = if (sendEnabled) HandyColors.AccentInk else HandyColors.TextMuted,
                 modifier = Modifier.size(17.dp),
@@ -466,7 +469,7 @@ private fun ListeningRow(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Outlined.Mic,
+                painter = painterResource(R.drawable.ic_mic),
                 contentDescription = "Stop listening",
                 tint = HandyColors.Danger,
                 modifier = Modifier.size(16.dp),
@@ -590,7 +593,7 @@ private fun ErrorChip(message: String, onDismiss: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Outlined.Close,
+                painter = painterResource(R.drawable.ic_close),
                 contentDescription = "Dismiss error",
                 tint = HandyColors.Danger,
                 modifier = Modifier.size(12.dp),

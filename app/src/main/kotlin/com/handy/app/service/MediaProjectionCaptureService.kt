@@ -97,7 +97,7 @@ class MediaProjectionCaptureService : LifecycleService() {
     private fun buildNotification(): Notification {
         return NotificationCompat.Builder(this, HandyApplication.CHANNEL_CAPTURE)
             .setContentTitle(getString(R.string.capture_service_notification_title))
-            .setSmallIcon(android.R.drawable.ic_menu_camera)
+            .setSmallIcon(R.drawable.ic_camera)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()

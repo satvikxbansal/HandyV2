@@ -1,6 +1,7 @@
 package com.handy.app.settings
 
 import android.os.Bundle
+import androidx.annotation.DrawableRes
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -27,16 +28,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.ContentPaste
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.Psychology
-import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
@@ -57,8 +48,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -68,6 +59,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.handy.app.BuildConfig
+import com.handy.app.R
 import com.handy.app.theme.HandyColors
 import com.handy.app.theme.HandyDimens
 import com.handy.app.theme.HandyTheme
@@ -155,7 +147,7 @@ private fun SettingsScreen(
             ) {
                 /* ---- Brain ---- */
                 SectionHeaderWithIcon(
-                    icon = Icons.Outlined.Psychology,
+                    iconRes = R.drawable.ic_brain,
                     title = "Brain",
                     caption = "Pick the model that powers Handy. Your key unlocks it.",
                 )
@@ -214,7 +206,7 @@ private fun SettingsScreen(
 
                 /* ---- Modes ---- */
                 SectionHeaderWithIcon(
-                    icon = Icons.Outlined.Tune,
+                    iconRes = R.drawable.ic_modes,
                     title = "Modes",
                     caption = "How Handy behaves in different situations",
                 )
@@ -237,7 +229,7 @@ private fun SettingsScreen(
 
                 /* ---- Triggers ---- */
                 SectionHeaderWithIcon(
-                    icon = Icons.Outlined.Bolt,
+                    iconRes = R.drawable.ic_bolt,
                     title = "Triggers",
                     caption = "When Handy wakes up",
                 )
@@ -269,7 +261,7 @@ private fun SettingsScreen(
 
                 /* ---- Web Tools ---- */
                 SectionHeaderWithIcon(
-                    icon = Icons.Outlined.Language,
+                    iconRes = R.drawable.ic_globe,
                     title = "Web Tools",
                     caption = "Let Handy search and fetch the open web",
                 )
@@ -390,7 +382,7 @@ private fun SettingsTopBar(onBack: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                    painter = painterResource(R.drawable.ic_chevron_back),
                     contentDescription = "Back",
                     tint = HandyColors.TextPrimary,
                     modifier = Modifier.size(16.dp),
@@ -415,7 +407,7 @@ private fun SettingsTopBar(onBack: () -> Unit) {
 
 @Composable
 private fun SectionHeaderWithIcon(
-    icon: ImageVector,
+    @DrawableRes iconRes: Int,
     title: String,
     caption: String,
 ) {
@@ -437,7 +429,7 @@ private fun SectionHeaderWithIcon(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = icon,
+                    painter = painterResource(iconRes),
                     contentDescription = null,
                     tint = HandyColors.Accent,
                     modifier = Modifier.size(18.dp),
@@ -564,7 +556,7 @@ private fun BrainModelCard(
                     horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackS),
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Check,
+                        painter = painterResource(R.drawable.ic_check),
                         contentDescription = null,
                         tint = HandyColors.Success,
                         modifier = Modifier.size(12.dp),
@@ -653,7 +645,7 @@ private fun ReadyPill() {
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Icon(
-            imageVector = Icons.Outlined.Check,
+            painter = painterResource(R.drawable.ic_check),
             contentDescription = null,
             tint = HandyColors.Success,
             modifier = Modifier.size(11.dp),
@@ -855,12 +847,12 @@ private fun CompactKeyPill(
             )
         }
         KeyFieldIconBtn(
-            icon = if (visible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+            iconRes = R.drawable.ic_eye,
             description = if (visible) "Hide key" else "Show key",
             onClick = { visible = !visible },
         )
         KeyFieldIconBtn(
-            icon = Icons.Outlined.ContentPaste,
+            iconRes = R.drawable.ic_copy,
             description = "Paste from clipboard",
             onClick = {
                 val pasted = clipboard.getText()?.text?.trim().orEmpty()
@@ -880,7 +872,7 @@ private fun CompactKeyPill(
  */
 @Composable
 private fun KeyFieldIconBtn(
-    icon: ImageVector,
+    @DrawableRes iconRes: Int,
     description: String,
     onClick: () -> Unit,
 ) {
@@ -892,7 +884,7 @@ private fun KeyFieldIconBtn(
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = icon,
+            painter = painterResource(iconRes),
             contentDescription = description,
             tint = HandyColors.TextSecondary,
             modifier = Modifier.size(14.dp),

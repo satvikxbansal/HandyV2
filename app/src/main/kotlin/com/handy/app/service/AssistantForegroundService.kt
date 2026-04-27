@@ -91,7 +91,7 @@ class AssistantForegroundService : LifecycleService() {
         return NotificationCompat.Builder(this, HandyApplication.CHANNEL_ASSISTANT)
             .setContentTitle(getString(R.string.assistant_service_notification_title))
             .setContentText(getString(R.string.assistant_service_notification_text))
-            .setSmallIcon(android.R.drawable.ic_menu_compass)
+            .setSmallIcon(R.drawable.ic_hand_mark)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setContentIntent(contentIntent)
