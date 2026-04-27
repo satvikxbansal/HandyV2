@@ -147,6 +147,18 @@ class OverlayPresenter @Inject constructor(
         )
     }
 
+    fun onPanelVoiceStarted() {
+        val snapshot = _state.value
+        _state.value = snapshot.copy(
+            buddyState = BuddyState.LISTENING,
+            panel = snapshot.panel.copy(
+                isListening = true,
+                partialTranscript = "",
+            ),
+            bubble = BuddyBubble.Transcript(""),
+        )
+    }
+
     fun onVoiceFinalized(transcript: String?) {
         val snapshot = _state.value
         _state.value = snapshot.copy(

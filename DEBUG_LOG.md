@@ -608,3 +608,18 @@ cross-references the one being superseded.
 | **Root Cause** | The implementation added `Modifier.clip(RoundedCornerShape(...))` to `BareIconButton` but did not add the corresponding `androidx.compose.ui.draw.clip` import. The file already used rounded backgrounds and borders, so the missing draw import was easy to overlook while swapping Material icons to vector drawables. |
 | **Fix** | Added the missing `clip` import and reran `JAVA_HOME=$HOME/.gradle/jdks/eclipse_adoptium-17-aarch64-os_x.2/jdk-17.0.18+8/Contents/Home ./gradlew :app:assembleDebug`; the build now passes. |
 | **Prevention Rule** | After adding any new Compose modifier call to a file, run a focused compile before moving to the next screen, especially when the edit is mostly visual and import errors are otherwise easy to miss. |
+
+---
+
+### DL-035 — Design pass stranded shared voice controller
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-04-27 |
+| **Tags** | `#android #Voice #OverlayPanel #Widget #Regression #DesignHandoff` |
+| **Severity** | Logic Bug |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt`, `app/src/main/kotlin/com/handy/app/overlay/OverlayPanelBridge.kt`, `app/src/main/kotlin/com/handy/app/overlay/OverlayChatPanelService.kt`, `app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt`, `app/src/main/kotlin/com/handy/app/chat/ChatViewModel.kt`, `app/src/main/kotlin/com/handy/app/widget/WidgetContent.kt` |
+| **Symptom** | After the UI handoff pass, voice entry felt broken across surfaces: long-pressing the floating widget no longer reliably started push-to-talk, tapping the overlay mic could leave no visible transcription/stop state, and the full Handy app mic then refused to start. |
+| **Root Cause** | `OverlayPanelBridge.startVoiceFromPanel()` started the process-wide `VoiceController` but never told `OverlayPresenter` that the panel was listening. If that session ended early or the user left the panel, the shared controller could remain in `LISTENING`; subsequent widget and full-app starts returned `false` with `VoiceController.start: already LISTENING`. The same design pass also changed `WidgetContent` from the previous compact 48dp lens to a 100dp touch/halo target, changing hover/touch feel and making the widget interaction look regressed even though the service gesture code was unchanged. |
+| **Fix** | Added explicit panel voice state transitions (`onPanelVoiceStarted`, `onVoiceFinalized`) and cancel-on-dismiss/expand in the panel service. Added stale-session recovery before retrying voice start from the overlay panel, full app, and floating widget. Restored `WidgetContent` to the previous 48dp lens, 1.05 touch/listening scale, old border logic, and old thinking arc. Verified full-app mic start/stop in logcat and rebuilt successfully. |
+| **Prevention Rule** | Treat `VoiceController` as a shared state machine, not a local UI detail. Any surface that calls `VoiceController.start()` must either update its visible listening/stop state immediately or cancel/finalize the session on dismiss; every voice entry point should handle a stale shared `LISTENING` state before reporting permission failure. Visual widget changes must preserve the existing WindowManager view footprint unless the gesture math is explicitly retested. |

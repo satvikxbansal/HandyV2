@@ -146,8 +146,12 @@ class OverlayChatPanelService : LifecycleService() {
     }
 
     private fun buildCallbacks(): OverlayPanelCallbacks = OverlayPanelCallbacks(
-        onDismiss = { presenter.dismissPanel() },
+        onDismiss = {
+            panelBridge.cancelVoiceFromPanel()
+            presenter.dismissPanel()
+        },
         onExpand = {
+            panelBridge.cancelVoiceFromPanel()
             val intent = Intent(this, ChatActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(intent)

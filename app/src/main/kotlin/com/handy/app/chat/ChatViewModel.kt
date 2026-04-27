@@ -185,7 +185,14 @@ class ChatViewModel @Inject constructor(
             return
         }
         val ok = voiceController.start()
-        if (!ok) {
+        val recovered = if (!ok && voiceController.state.value == VoiceController.State.LISTENING) {
+            Timber.d("startVoice: cancelling stale shared voice session before retry")
+            voiceController.cancel()
+            voiceController.start()
+        } else {
+            ok
+        }
+        if (!recovered) {
             _state.value = _state.value.copy(
                 errorBanner = "Microphone permission denied. Tap the widget → Settings → grant microphone access.",
             )

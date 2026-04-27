@@ -34,6 +34,7 @@ import timber.log.Timber
 @Singleton
 class OverlayPanelBridge @Inject constructor(
     private val voiceController: VoiceController,
+    private val presenter: OverlayPresenter,
     private val confirmationBroker: ChatConfirmationBroker,
     @ApplicationScope private val appScope: CoroutineScope,
 ) {
@@ -67,9 +68,18 @@ class OverlayPanelBridge @Inject constructor(
     fun startVoiceFromPanel() {
         val ok = voiceController.start()
         if (!ok) {
+            if (voiceController.state.value == VoiceController.State.LISTENING) {
+                Timber.d("OverlayPanelBridge: cancelling stale voice session before retry")
+                voiceController.cancel()
+                if (voiceController.start()) {
+                    presenter.onPanelVoiceStarted()
+                }
+                return
+            }
             Timber.d("OverlayPanelBridge: voice start refused")
             return
         }
+        presenter.onPanelVoiceStarted()
         voiceJob?.cancel()
     }
 
@@ -82,9 +92,19 @@ class OverlayPanelBridge @Inject constructor(
     fun stopVoiceFromPanel() {
         voiceJob = appScope.launch(Dispatchers.Main) {
             val transcript = voiceController.stopAndAwaitFinal()
+            presenter.onVoiceFinalized(transcript)
             if (!transcript.isNullOrBlank()) {
                 submitFromVoice(transcript)
             }
+        }
+    }
+
+    fun cancelVoiceFromPanel() {
+        voiceJob?.cancel()
+        voiceJob = null
+        if (voiceController.state.value == VoiceController.State.LISTENING) {
+            voiceController.cancel()
+            presenter.onVoiceFinalized(null)
         }
     }
 

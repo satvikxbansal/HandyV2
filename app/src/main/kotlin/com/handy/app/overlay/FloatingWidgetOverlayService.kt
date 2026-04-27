@@ -92,7 +92,12 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private val longPressRunnable = Runnable {
         longPressFired = true
         view?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-        val started = voiceController.start()
+        var started = voiceController.start()
+        if (!started && voiceController.state.value == VoiceController.State.LISTENING) {
+            Timber.d("Widget: cancelling stale voice session before retry")
+            voiceController.cancel()
+            started = voiceController.start()
+        }
         if (started) {
             state.value = WidgetState.LISTENING
             // V2 cache-at-tap recipe #4 — snapshot foreground + marks
