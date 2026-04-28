@@ -19,6 +19,7 @@ import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import com.handy.app.HandyApplication
 import com.handy.app.chat.ChatActivity
 import com.handy.app.foreground.HandyForegroundAppMonitor
 import com.handy.app.voice.VoiceController
@@ -34,6 +35,7 @@ import com.handy.runtime.storage.DataStoreSettings
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlin.math.hypot
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -87,6 +89,8 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private val pointerRotationRadians = MutableStateFlow(0f)
     private val pointerScale = MutableStateFlow(1f)
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var appForegroundJob: Job? = null
+    private var isHandyActivityForeground: Boolean = false
 
     // Gesture tracking state.
     private var downX = 0f
@@ -129,6 +133,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
         }
 
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        observeHandyActivityVisibility()
         attachOverlay()
 
         // V2: start the single panel pipeline so panel-originated
@@ -216,6 +221,8 @@ class FloatingWidgetOverlayService : LifecycleService() {
     override fun onDestroy() {
         flightDriver.detachService(this)
         flightController.cancelAll()
+        appForegroundJob?.cancel()
+        appForegroundJob = null
         OverlayChatPanelService.stop(this)
         detachOverlay()
         super.onDestroy()
@@ -268,6 +275,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
             .onFailure { Timber.e(it, "Widget overlay attach failed") }
 
         view = composeView
+        applyOverlayVisibility()
     }
 
     private fun detachOverlay() {
@@ -305,6 +313,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
         runCatching { windowManager.addView(composeView, lp) }
             .onSuccess {
                 bubbleView = composeView
+                applyOverlayVisibility()
                 composeView.post { updateBubblePosition() }
             }
             .onFailure {
@@ -540,6 +549,31 @@ class FloatingWidgetOverlayService : LifecycleService() {
 
     private fun canDrawOverlays(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
+
+    private fun observeHandyActivityVisibility() {
+        if (appForegroundJob != null) return
+        val app = application as? HandyApplication
+        if (app == null) {
+            Timber.w("FloatingWidgetOverlayService: application is not HandyApplication")
+            return
+        }
+
+        isHandyActivityForeground = app.handyActivityForeground.value
+        applyOverlayVisibility()
+        appForegroundJob = lifecycleScope.launch {
+            app.handyActivityForeground
+                .collectLatest { foreground ->
+                    isHandyActivityForeground = foreground
+                    applyOverlayVisibility()
+                }
+        }
+    }
+
+    private fun applyOverlayVisibility() {
+        val visibility = if (isHandyActivityForeground) android.view.View.GONE else android.view.View.VISIBLE
+        view?.visibility = visibility
+        bubbleView?.visibility = visibility
+    }
 
     companion object {
         const val LONG_PRESS_MS: Long = 400L

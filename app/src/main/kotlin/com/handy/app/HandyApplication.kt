@@ -1,9 +1,11 @@
 package com.handy.app
 
+import android.app.Activity
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import android.os.Bundle
 import android.os.StrictMode
 import com.handy.app.tutor.TutorModeController
 import com.handy.runtime.di.ApplicationScope
@@ -11,6 +13,9 @@ import com.handy.runtime.intent.LaunchableAppIndex
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -36,8 +41,39 @@ class HandyApplication : Application() {
     @Inject lateinit var tutorModeController: TutorModeController
     @Inject @ApplicationScope lateinit var appScope: CoroutineScope
 
+    private val _handyActivityForeground = MutableStateFlow(false)
+    val handyActivityForeground: StateFlow<Boolean> = _handyActivityForeground.asStateFlow()
+
+    private var startedActivityCount = 0
+    private val activityVisibilityCallbacks = object : Application.ActivityLifecycleCallbacks {
+        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+
+        override fun onActivityStarted(activity: Activity) {
+            startedActivityCount += 1
+            if (startedActivityCount == 1) {
+                _handyActivityForeground.value = true
+            }
+        }
+
+        override fun onActivityResumed(activity: Activity) = Unit
+
+        override fun onActivityPaused(activity: Activity) = Unit
+
+        override fun onActivityStopped(activity: Activity) {
+            startedActivityCount = (startedActivityCount - 1).coerceAtLeast(0)
+            if (startedActivityCount == 0) {
+                _handyActivityForeground.value = false
+            }
+        }
+
+        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+
+        override fun onActivityDestroyed(activity: Activity) = Unit
+    }
+
     override fun onCreate() {
         super.onCreate()
+        registerActivityLifecycleCallbacks(activityVisibilityCallbacks)
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
             installStrictMode()

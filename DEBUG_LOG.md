@@ -679,3 +679,17 @@ cross-references the one being superseded.
 | **Root Cause** | The flight target top-left was computed as `bounds.center - widgetSize / 2`, which intentionally centers the overlay on the target bounds. That is good for visual pointing but wrong for a touchable overlay because it occludes the exact UI the user needs to tap. The pointer state also reused the navigation blue as the rim color rather than the widget accent. |
 | **Fix** | Added edge-aware adjacent landing: left-edge targets park Handy to the right, right-edge targets park to the left, top targets park below, bottom targets park above, with a non-overlap scored fallback for middle targets. At arrival, the pointer hand rotates back toward the actual target center. Pointer mode now keeps the amber accent rim. |
 | **Prevention Rule** | A touchable overlay pointer must never land centered on the target control. Compute a non-overlapping adjacent landing rect first, then aim the inner pointer glyph back toward the target. |
+
+---
+
+### DL-040 — StateFlow `distinctUntilChanged()` warning failed the build
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-04-28 |
+| **Severity** | Warning-as-Error |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt`, `app/src/main/kotlin/com/handy/app/HandyApplication.kt` |
+| **Symptom** | The build failed at `FloatingWidgetOverlayService.kt` with `StateFlow<T>.distinctUntilChanged()` deprecated: applying `distinctUntilChanged` to `StateFlow` has no effect. |
+| **Root Cause** | The Handy-activity foreground signal was exposed as a `StateFlow<Boolean>`, but the overlay collector still applied `.distinctUntilChanged()` as if it were a normal `Flow`. The mistake slipped through because IDE diagnostics did not flag it and the local Gradle compile attempt never reached Kotlin compilation due to the shell having no Java runtime. |
+| **Fix** | Removed the no-op `.distinctUntilChanged()` from the `handyActivityForeground` collector and searched app Kotlin sources for the same direct `StateFlow.distinctUntilChanged()` pattern. Existing remaining calls are on mapped flows or `snapshotFlow`, not directly on `StateFlow`. |
+| **Prevention Rule** | Never call `.distinctUntilChanged()` directly on a `StateFlow`; it is already distinct by contract and Kotlin treats the operator as deprecated. If a Gradle compile cannot run in the agent shell, explicitly mark verification as incomplete and run targeted searches for warning-as-error patterns introduced by the diff before reporting the change as build-safe. |
