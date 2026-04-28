@@ -142,11 +142,56 @@ class ConversationOrchestratorTest {
             ),
         ).collectAll()
 
+        val deltas = events.filterIsInstance<OrchestrationEvent.StreamingDelta>().map { it.accumulated }
+        assertThat(deltas.last()).doesNotContain("[SPOKEN]")
+        assertThat(deltas.last()).doesNotContain("[POINT:")
+
         val finalized = events.filterIsInstance<OrchestrationEvent.AssistantTurnFinalized>().single()
         assertThat(finalized.chatText).contains(spokenBody)
         assertThat(finalized.chatText).contains(detail)
         assertThat(finalized.ttsText).isEqualTo(spokenBody)
         assertThat(finalized.pointing.semantic?.text).isEqualTo("Share")
+    }
+
+    @Test fun `quick overlay mode splits spoken without enabling TTS`() = runTest {
+        val store = FakeHistoryStore()
+        val spokenBody = "tap the search icon at the top."
+        val detail = "that opens search for this app."
+        val full = "[SPOKEN]$spokenBody[/SPOKEN] $detail [POINT:desc=Search]"
+        val llm = ScriptedLlm(
+            chunks = listOf(
+                LlmChunk.Text(full),
+                LlmChunk.Done("end_turn"),
+            ),
+        )
+        val orchestrator = ConversationOrchestrator(
+            llmClient = llm,
+            historyStore = store,
+            clock = { 3500L },
+            uuid = { "u-uid" },
+            rng = Random(seed = 0),
+        )
+
+        val events = orchestrator.converse(
+            OrchestrationRequest(
+                userMessage = "how do I search here?",
+                toolContext = tool,
+                settings = settings,
+                fromVoice = false,
+                capture = null,
+                screenText = null,
+                hasBraveKey = false,
+                tools = emptyList(),
+                quickOverlayResponse = true,
+            ),
+        ).collectAll()
+
+        val finalized = events.filterIsInstance<OrchestrationEvent.AssistantTurnFinalized>().single()
+        assertThat(finalized.chatText).contains(spokenBody)
+        assertThat(finalized.chatText).contains(detail)
+        assertThat(finalized.overlaySpokenText).isEqualTo(spokenBody)
+        assertThat(finalized.ttsText).isNull()
+        assertThat(finalized.pointing.semantic?.contentDescription).isEqualTo("Search")
     }
 
     @Test fun `tool call events propagate as web search status`() = runTest {

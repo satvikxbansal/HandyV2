@@ -249,7 +249,7 @@ class OverlayPresenter @Inject constructor(
             mode = OverlayMode.Flying,
             buddyState = BuddyState.FLYING,
             isFlying = true,
-            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Navigation),
+            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Response),
         )
     }
 
@@ -258,7 +258,7 @@ class OverlayPresenter @Inject constructor(
             mode = OverlayMode.Pointing,
             buddyState = BuddyState.POINTING,
             isFlying = true,
-            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Navigation)
+            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Response)
                 ?: _state.value.bubble,
         )
     }

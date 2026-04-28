@@ -66,6 +66,7 @@ class BezierFlightController(
         toY: Float,
         dockX: Float,
         dockY: Float,
+        returnToDock: Boolean = true,
         callback: Callback,
     ) {
         cancelAll()
@@ -90,15 +91,32 @@ class BezierFlightController(
             onTick = callback::onFlightTick,
             onEnd = {
                 callback.onArrived()
-                startDwellAndReturn(
-                    fromX = toX,
-                    fromY = toY,
-                    dockX = dockX,
-                    dockY = dockY,
-                    callback = callback,
-                )
+                if (returnToDock) {
+                    startDwellAndReturn(
+                        fromX = toX,
+                        fromY = toY,
+                        dockX = dockX,
+                        dockY = dockY,
+                        callback = callback,
+                    )
+                } else {
+                    startPersistentPulse(callback)
+                }
             },
         ).also { it.start() }
+    }
+
+    private fun startPersistentPulse(callback: Callback) {
+        pulseAnimator = ValueAnimator.ofFloat(1.0f, 1.14f, 1.0f).apply {
+            duration = 600L
+            interpolator = OvershootInterpolator(1.5f)
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+            addUpdateListener { a ->
+                callback.onPulse((a.animatedValue as Float))
+            }
+            start()
+        }
     }
 
     private fun startDwellAndReturn(

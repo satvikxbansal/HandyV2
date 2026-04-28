@@ -623,3 +623,45 @@ cross-references the one being superseded.
 | **Root Cause** | `OverlayPanelBridge.startVoiceFromPanel()` started the process-wide `VoiceController` but never told `OverlayPresenter` that the panel was listening. If that session ended early or the user left the panel, the shared controller could remain in `LISTENING`; subsequent widget and full-app starts returned `false` with `VoiceController.start: already LISTENING`. The same design pass also changed `WidgetContent` from the previous compact 48dp lens to a 100dp touch/halo target, changing hover/touch feel and making the widget interaction look regressed even though the service gesture code was unchanged. |
 | **Fix** | Added explicit panel voice state transitions (`onPanelVoiceStarted`, `onVoiceFinalized`) and cancel-on-dismiss/expand in the panel service. Added stale-session recovery before retrying voice start from the overlay panel, full app, and floating widget. Restored `WidgetContent` to the previous 48dp lens, 1.05 touch/listening scale, old border logic, and old thinking arc. Verified full-app mic start/stop in logcat and rebuilt successfully. |
 | **Prevention Rule** | Treat `VoiceController` as a shared state machine, not a local UI detail. Any surface that calls `VoiceController.start()` must either update its visible listening/stop state immediately or cancel/finalize the session on dismiss; every voice entry point should handle a stale shared `LISTENING` state before reporting permission failure. Visual widget changes must preserve the existing WindowManager view footprint unless the gesture math is explicitly retested. |
+
+---
+
+### DL-036 — Overlay app-help skipped spoken pointing flow
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-04-28 |
+| **Severity** | Logic Bug |
+| **File(s)** | `core/src/main/kotlin/com/handy/core/prompts/PromptCatalog.kt`, `core/src/main/kotlin/com/handy/core/orchestrator/ConversationOrchestrator.kt`, `app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt`, `app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt`, `app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt`, `app/src/main/kotlin/com/handy/app/widget/WidgetContent.kt` |
+| **Symptom** | A typed overlay question about the foreground app produced a long assistant answer and no Handy flight/text bubble; logs showed `BuddyFlightDriver.flyTo: resolver returned null`. |
+| **Root Cause** | Overlay turns captured foreground app marks at tap time but never sent them as screen text, so the model was not grounded in the visible UI. Typed overlay turns also did not request or extract `[SPOKEN]`, and the pointer resolver ran while Handy's overlay was the active Accessibility window, so semantic targets often resolved against the wrong tree. |
+| **Fix** | Added an overlay-only prompt addendum requiring `[SPOKEN]` plus `[POINT]`, taught the orchestrator to extract spoken overlay text without enabling TTS, converted cached accessibility marks into a `<screen_ui>` snapshot, dismissed the panel before flight, added cached-mark bounds fallback in `BuddyFlightDriver`, and rendered a non-touchable bubble overlay beside the widget. |
+| **Prevention Rule** | Any overlay query about the foreground app must carry the cache-at-tap UI snapshot through prompt grounding and pointer fallback; never depend solely on `rootInActiveWindow` after an overlay input surface has taken focus. |
+
+---
+
+### DL-037 — Quick overlay leaked SPOKEN tags and kept the round lens during pointing
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-04-28 |
+| **Severity** | Logic Bug |
+| **File(s)** | `core/src/main/kotlin/com/handy/core/parsing/AssistantMarkupParser.kt`, `core/src/main/kotlin/com/handy/core/orchestrator/ConversationOrchestrator.kt`, `core/src/main/kotlin/com/handy/core/prompts/PromptCatalog.kt`, `app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt`, `app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt`, `app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt`, `app/src/main/kotlin/com/handy/app/widget/WidgetContent.kt` |
+| **Symptom** | The quick overlay showed raw `[SPOKEN]...[/SPOKEN]` tags while streaming, and the response bubble appeared beside the docked round hand widget instead of a blue triangular cursor flying to the target. |
+| **Root Cause** | Streaming deltas were rendered before final assistant markup extraction, so internal tags leaked during the thinking state. The widget state bridge collapsed `FLYING` and `POINTING` into the generic thinking lens, and the overlay path ignored legacy pixel point tags that are needed when an icon-only accessibility mark has bounds but no reliable text/desc/id. |
+| **Fix** | Added display-only assistant-tag stripping for streaming deltas, allowed quick overlay prompts to emit pixel points for bounds-only controls, wired pixel points into `BuddyFlightDriver`, added pointer pose updates from the Bezier controller, and rendered `FLYING`/`POINTING` as a blue triangular cursor with rotation and pulse scaling. |
+| **Prevention Rule** | Do not render raw LLM streaming text directly in UI when the prompt contains internal control markup. Every assistant-visible marker (`[SPOKEN]`, `[POINT]`, tool markers) needs a streaming-safe display scrubber before reaching Compose. |
+
+---
+
+### DL-038 — Flight target resolved but animator never started
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-04-28 |
+| **Severity** | Logic Bug |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt`, `app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt`, `app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt`, `app/src/main/kotlin/com/handy/app/widget/BezierFlightController.kt`, `app/src/main/kotlin/com/handy/app/widget/WidgetContent.kt` |
+| **Symptom** | Logcat showed the correct Photos navigation-drawer target (`bounds=0,168-168,336`) and target coordinate, but Handy stayed at the dock; the crash was `AndroidRuntimeException: Animators may only be run on Looper threads`. The green response bubble also disappeared after the old 3–5 second dwell. |
+| **Root Cause** | `OverlayChatPipeline` invokes the flight driver from an application coroutine that is not guaranteed to be on the main looper. `ValueAnimator.start()` must run on a Looper thread. Separately, the Bezier controller always scheduled a timed return, which contradicted the desired sticky pointer behavior. |
+| **Fix** | Start all flight animations from `Dispatchers.Main.immediate`, added a non-returning Bezier mode with persistent pulse, made the green response bubble travel from takeoff through pointing, kept the pointer/bubble at the target until the user touches Handy again, and refined the pointer into a smaller glowing blue triangle. |
+| **Prevention Rule** | Any Android animation object (`ValueAnimator`, `SpringAnimation`, Compose animation state that drives `WindowManager`) must be started from the main looper. If a service-level pipeline calls animation code from a long-lived application scope, the animation boundary must explicitly switch to `Dispatchers.Main.immediate`. |

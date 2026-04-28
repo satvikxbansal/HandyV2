@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -44,10 +46,12 @@ import com.handy.app.theme.HandyDimens
 import com.handy.app.theme.HandyMotion
 import com.handy.app.theme.HandyTheme
 import com.handy.app.theme.ListeningWaveformBars
+import com.handy.app.theme.PointerHandIcon
 import com.handy.core.overlay.BuddyBubble
 import com.handy.core.overlay.BuddyState
+import kotlin.math.PI
 
-enum class WidgetState { IDLE, TOUCHED, DRAGGING, LISTENING, THINKING }
+enum class WidgetState { IDLE, TOUCHED, DRAGGING, LISTENING, THINKING, FLYING, POINTING }
 
 /**
  * Hand-mark icon size (absolute). Kept at 32dp so the hand is the
@@ -61,7 +65,11 @@ private val HandIconSize = 32.dp
  * waveform listening, rotating arc + hand thinking.
  */
 @Composable
-fun WidgetContent(state: WidgetState) {
+fun WidgetContent(
+    state: WidgetState,
+    pointerRotationRadians: Float = 0f,
+    pointerScale: Float = 1f,
+) {
     HandyTheme(darkTheme = true) {
         val scale by animateFloatAsState(
             targetValue = when (state) {
@@ -77,7 +85,9 @@ fun WidgetContent(state: WidgetState) {
             WidgetState.TOUCHED -> HandyColors.Accent
             WidgetState.LISTENING -> HandyColors.GlassBorder
             WidgetState.THINKING -> HandyColors.GlassBorder
+            WidgetState.FLYING, WidgetState.POINTING -> HandyColors.BubbleNavigation
         }
+        val isPointer = state == WidgetState.FLYING || state == WidgetState.POINTING
         Box(
             modifier = Modifier
                 .size(HandyDimens.WidgetLensSize)
@@ -93,28 +103,41 @@ fun WidgetContent(state: WidgetState) {
                 contentAlignment = Alignment.Center,
             ) {
                 LensSheen()
-                when (state) {
-                    WidgetState.LISTENING -> ListeningWaveformBars(
+                if (state == WidgetState.LISTENING) {
+                    ListeningWaveformBars(
                         color = HandyColors.Listening,
                         modifier = Modifier.padding(bottom = 2.dp),
                         maxHeight = 14.dp,
                         minHeight = 3.dp,
                     )
-                    WidgetState.THINKING -> {
+                } else {
+                    if (state == WidgetState.THINKING) {
                         ThinkingArcRing(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(3.dp),
                         )
-                        HandMarkIcon(
-                            size = HandIconSize,
-                            tint = HandyColors.TextPrimary,
-                        )
                     }
-                    else -> HandMarkIcon(
-                        size = HandIconSize,
-                        tint = HandyColors.TextPrimary,
-                    )
+                    Crossfade(
+                        targetState = isPointer,
+                        animationSpec = tween(HandyMotion.DefaultMs),
+                        label = "widget-hand-pointer-crossfade",
+                    ) { pointer ->
+                        if (pointer) {
+                            PointerHandIcon(
+                                size = HandIconSize,
+                                tint = HandyColors.TextPrimary,
+                                modifier = Modifier
+                                    .rotate(pointerRotationRadians.toDegrees() + 90f)
+                                    .scale(pointerScale.coerceIn(0.90f, 1.18f)),
+                            )
+                        } else {
+                            HandMarkIcon(
+                                size = HandIconSize,
+                                tint = HandyColors.TextPrimary,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -215,14 +238,14 @@ fun UnifiedBuddyContent(
             }
             if (bubble != null) {
                 Spacer(Modifier.width(8.dp))
-                BubbleChip(bubble)
+                WidgetBubbleChip(bubble)
             }
         }
     }
 }
 
 @Composable
-private fun BubbleChip(bubble: BuddyBubble) {
+fun WidgetBubbleChip(bubble: BuddyBubble) {
     val (backgroundColor, textColor, text) = when (bubble) {
         is BuddyBubble.Transcript ->
             Triple(HandyColors.BubbleTranscript, HandyColors.AccentInk, bubble.text)
@@ -269,3 +292,6 @@ private fun baseScaleFor(state: BuddyState): Float = when (state) {
     BuddyState.POINTING -> 0.86f
     else -> 0.82f
 }
+
+private fun Float.toDegrees(): Float =
+    this * 180f / PI.toFloat()

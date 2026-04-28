@@ -54,6 +54,21 @@ fun HandMarkIcon(
     )
 }
 
+/** Pointer-hand glyph used while the floating widget is flying/pointing. */
+@Composable
+fun PointerHandIcon(
+    modifier: Modifier = Modifier,
+    size: Dp,
+    tint: Color,
+) {
+    Icon(
+        painter = painterResource(R.drawable.ic_pointer_hand),
+        contentDescription = null,
+        modifier = modifier.size(size),
+        tint = tint,
+    )
+}
+
 /**
  * Five vertical bars — listening state on the floating lens (prototype
  * `Waveform`, 0.9s period, 100ms stagger).

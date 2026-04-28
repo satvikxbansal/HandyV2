@@ -9,8 +9,13 @@ import com.handy.core.model.LoadingVerbs
 import com.handy.core.orchestrator.ConversationOrchestrator
 import com.handy.core.orchestrator.OrchestrationEvent
 import com.handy.core.orchestrator.OrchestrationRequest
+import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.overlay.PanelContent
+import com.handy.core.overlay.PanelSnapshot
 import com.handy.core.parsing.AssistantMarkupParser
+import com.handy.core.screen.IntRect
+import com.handy.core.screen.ScreenTextSnapshot
+import com.handy.core.screen.UiNode
 import com.handy.core.tool.ToolContext
 import com.handy.runtime.di.ApplicationScope
 import com.handy.runtime.storage.DataStoreSettings
@@ -120,15 +125,24 @@ class OverlayChatPipeline @Inject constructor(
         presenter.onStreamingStart()
         startVerbRotation()
 
+        val screenText = panelSnapshot.toScreenTextSnapshot()
+        Timber.d(
+            "OverlayChatPipeline.runTurn: app=%s marks=%d screenText=%s query=\"%s\"",
+            toolContext.packageName,
+            panelSnapshot?.marks?.size ?: 0,
+            screenText != null,
+            userText.logSnippet(),
+        )
         val request = OrchestrationRequest(
             userMessage = userText,
             toolContext = toolContext,
             settings = current,
             fromVoice = fromVoice,
             capture = null, // Phase 2 hooks RequestBudgeter + capture
-            screenText = null,
+            screenText = screenText,
             hasBraveKey = hasBraveKey,
             tools = tools,
+            quickOverlayResponse = true,
         )
 
         sendJob?.cancel()
@@ -142,12 +156,20 @@ class OverlayChatPipeline @Inject constructor(
                         is OrchestrationEvent.LoadingVerb ->
                             presenter.setLoadingVerb(event.verb)
                         is OrchestrationEvent.StreamingDelta ->
-                            presenter.onStreamingDelta(event.accumulated)
+                            presenter.onStreamingDelta(
+                                AssistantMarkupParser.stripDisplayMarkup(event.accumulated),
+                            )
                         is OrchestrationEvent.AssistantTurnFinalized -> {
                             finalChatText = event.chatText
                             finalOverlaySpoken = event.overlaySpokenText
                                 ?: fallbackOverlayClamp(event.chatText)
                             pointing = event.pointing
+                            Timber.d(
+                                "OverlayChatPipeline.finalized: spoken=\"%s\" chatChars=%d point=%s",
+                                finalOverlaySpoken.orEmpty().logSnippet(),
+                                finalChatText.length,
+                                event.pointing.logSummary(),
+                            )
                         }
                         is OrchestrationEvent.Error -> {
                             presenter.onError(event.message)
@@ -174,11 +196,60 @@ class OverlayChatPipeline @Inject constructor(
             // Navigation during dwell. If `tapForMeEnabled`, the
             // driver also taps the resolved node (scope §4 + recipe
             // #3), flipping the bubble to teal (Action) mid-dwell.
-            val spec = pointing?.semantic
-            if (spec != null) {
-                val label = spec.text ?: spec.contentDescription ?: "here"
-                runCatching { flightDriver.flyToAndTap(spec, label) }
+            val semanticSpec = pointing?.semantic ?: inferSemanticPoint(
+                userText = userText,
+                assistantText = finalChatText,
+                marks = panelSnapshot?.marks.orEmpty(),
+            ).also { inferred ->
+                if (inferred != null) {
+                    Timber.d("OverlayChatPipeline: inferred fallback point=%s", inferred.logSummary())
+                }
+            }
+            val pixelPoint = pointing?.pixel
+            if (semanticSpec != null) {
+                val spec = semanticSpec
+                val targetLabel = spec.text ?: spec.contentDescription ?: spec.viewId ?: "here"
+                val bubbleLabel = finalOverlaySpoken?.takeIf { it.isNotBlank() } ?: targetLabel
+                Timber.d(
+                    "OverlayChatPipeline: dismissing panel before semantic flight target=%s fallbackMarks=%d",
+                    spec.logSummary(),
+                    panelSnapshot?.marks?.size ?: 0,
+                )
+                presenter.dismissPanel()
+                delay(PANEL_DISMISS_BEFORE_FLIGHT_MS)
+                val landed = runCatching {
+                    flightDriver.flyToAndTap(
+                        spec = spec,
+                        bubbleLabel = bubbleLabel,
+                        targetLabel = targetLabel,
+                        fallbackMarks = panelSnapshot?.marks.orEmpty(),
+                    )
+                }
                     .onFailure { Timber.w(it, "buddy flight failed") }
+                    .getOrDefault(false)
+                Timber.d("OverlayChatPipeline: semantic flight landed=%s", landed)
+            } else if (pixelPoint != null) {
+                val targetLabel = pixelPoint.label ?: "here"
+                val bubbleLabel = finalOverlaySpoken?.takeIf { it.isNotBlank() } ?: targetLabel
+                Timber.d(
+                    "OverlayChatPipeline: dismissing panel before pixel flight target=%d,%d label=%s",
+                    pixelPoint.x,
+                    pixelPoint.y,
+                    targetLabel.logSnippet(),
+                )
+                presenter.dismissPanel()
+                delay(PANEL_DISMISS_BEFORE_FLIGHT_MS)
+                val landed = runCatching {
+                    flightDriver.flyToPoint(
+                        x = pixelPoint.x,
+                        y = pixelPoint.y,
+                        bubbleLabel = bubbleLabel,
+                    )
+                }.onFailure { Timber.w(it, "buddy pixel flight failed") }
+                    .getOrDefault(false)
+                Timber.d("OverlayChatPipeline: pixel flight landed=%s", landed)
+            } else {
+                Timber.d("OverlayChatPipeline: no point emitted or inferred")
             }
         }
     }
@@ -202,10 +273,126 @@ class OverlayChatPipeline @Inject constructor(
 
     private fun fallbackOverlayClamp(chatText: String): String {
         val cleaned = AssistantMarkupParser.stripPointTags(chatText)
-        return AssistantMarkupParser.clampVoiceSpokenForOverlay(cleaned)
+        val (spoken, _) = AssistantMarkupParser.extractSpokenPart(cleaned)
+        return AssistantMarkupParser.clampVoiceSpokenForOverlay(spoken)
     }
+
+    private fun PanelSnapshot?.toScreenTextSnapshot(): ScreenTextSnapshot? {
+        val snapshot = this ?: return null
+        val marks = snapshot.marks.takeIf { it.isNotEmpty() } ?: return null
+        return ScreenTextSnapshot(
+            packageName = snapshot.toolContext.packageName,
+            timestampEpochMs = snapshot.capturedAtEpochMs,
+            root = UiNode(
+                role = "Screen",
+                children = marks.map { it.toUiNode() },
+            ),
+        )
+    }
+
+    private fun AccessibilityMark.toUiNode(): UiNode = UiNode(
+        role = role,
+        text = text,
+        contentDescription = contentDescription,
+        viewIdResourceName = viewIdSuffix,
+        boundsInScreen = IntRect(left, top, right, bottom),
+        clickable = clickable,
+        scrollable = scrollable,
+        enabled = true,
+    )
+
+    private fun inferSemanticPoint(
+        userText: String,
+        assistantText: String,
+        marks: List<AccessibilityMark>,
+    ): AssistantMarkupParser.SemanticPoint? {
+        if (marks.isEmpty()) return null
+        val haystack = normalize("$userText $assistantText")
+        val mentionsMenu = listOf(
+            "menu",
+            "drawer",
+            "three line",
+            "three-line",
+            "hamburger",
+            "top left",
+            "navigation",
+        ).any { haystack.contains(it) }
+        if (!mentionsMenu) return null
+
+        val menuMark = marks
+            .filter { it.clickable }
+            .minByOrNull { it.top * 10_000 + it.left }
+            ?.takeIf { it.top < TOP_LEFT_MENU_MAX_Y }
+        if (menuMark != null) return menuMark.toSemanticPoint()
+
+        marks.firstOrNull { mark ->
+            mark.preferredLabel()?.let { label ->
+                label.length >= 3 && haystack.contains(normalize(label))
+            } == true
+        }?.let { return it.toSemanticPoint() }
+
+        return null
+    }
+
+    private fun AccessibilityMark.toSemanticPoint(): AssistantMarkupParser.SemanticPoint =
+        when {
+            !text.isNullOrBlank() -> AssistantMarkupParser.SemanticPoint(
+                role = semanticRole(),
+                text = text,
+            )
+            !contentDescription.isNullOrBlank() -> AssistantMarkupParser.SemanticPoint(
+                contentDescription = contentDescription,
+            )
+            !viewIdSuffix.isNullOrBlank() -> AssistantMarkupParser.SemanticPoint(
+                viewId = viewIdSuffix,
+            )
+            else -> AssistantMarkupParser.SemanticPoint(
+                role = semanticRole(),
+                text = role,
+            )
+        }
+
+    private fun AccessibilityMark.preferredLabel(): String? =
+        text ?: contentDescription ?: viewIdSuffix
+
+    private fun AccessibilityMark.semanticRole(): String? {
+        val lower = role.lowercase()
+        return when {
+            lower.contains("button") -> "button"
+            lower.contains("edit") -> "textfield"
+            lower.contains("checkbox") -> "checkbox"
+            lower.contains("switch") -> "switch"
+            lower.contains("tab") -> "tab"
+            else -> null
+        }
+    }
+
+    private fun AssistantMarkupParser.PointingResult.logSummary(): String {
+        val semanticPoint = semantic
+        val pixelPoint = pixel
+        return when {
+            semanticPoint != null -> "semantic(${semanticPoint.logSummary()})"
+            pixelPoint != null -> "pixel(${pixelPoint.x},${pixelPoint.y},label=${pixelPoint.label})"
+            isNone -> "none"
+            else -> "missing"
+        }
+    }
+
+    private fun AssistantMarkupParser.SemanticPoint.logSummary(): String =
+        "role=$role text=${text?.logSnippet()} viewId=$viewId desc=${contentDescription?.logSnippet()}"
+
+    private fun String.logSnippet(max: Int = 80): String =
+        replace('\n', ' ').take(max)
+
+    private fun normalize(value: String): String =
+        value.lowercase()
+            .replace('-', ' ')
+            .replace(Regex("""\s+"""), " ")
+            .trim()
 
     private companion object {
         const val VERB_ROTATION_MS: Long = 2500L
+        const val PANEL_DISMISS_BEFORE_FLIGHT_MS: Long = 180L
+        const val TOP_LEFT_MENU_MAX_Y: Int = 360
     }
 }

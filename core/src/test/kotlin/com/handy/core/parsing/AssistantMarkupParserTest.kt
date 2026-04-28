@@ -42,6 +42,18 @@ class AssistantMarkupParserTest {
             .isEqualTo("para one.\n\npara two.")
     }
 
+    @Test fun `stripDisplayMarkup removes internal spoken and point tags`() {
+        val input = "[SPOKEN]tap search.[/SPOKEN]\n\nopen search. [POINT:desc=Search]"
+        assertThat(AssistantMarkupParser.stripDisplayMarkup(input))
+            .isEqualTo("tap search.\n\nopen search.")
+    }
+
+    @Test fun `stripDisplayMarkup hides trailing partial control tag while streaming`() {
+        val input = "[SPOKEN]tap search.[/SPOKEN]\n\n[POINT:desc=Sea"
+        assertThat(AssistantMarkupParser.stripDisplayMarkup(input))
+            .isEqualTo("tap search.")
+    }
+
     // ---- parsePoint: semantic forms ----------------------------------------
 
     @Test fun `parsePoint reads role and text`() {
@@ -119,6 +131,12 @@ class AssistantMarkupParserTest {
         val (spoken, display) = AssistantMarkupParser.extractSpokenPart(input)
         assertThat(spoken).isEqualTo("yes.")
         assertThat(display).isEqualTo("yes.")
+    }
+
+    @Test fun `stripInternalTagsForDisplay hides spoken and point tags`() {
+        val input = "[SPOKEN]tap search.[/SPOKEN] [POINT:desc=Search]"
+        assertThat(AssistantMarkupParser.stripInternalTagsForDisplay(input))
+            .isEqualTo("tap search.")
     }
 
     // ---- clamp rules --------------------------------------------------------

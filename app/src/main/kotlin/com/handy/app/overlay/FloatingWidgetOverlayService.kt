@@ -24,6 +24,7 @@ import com.handy.app.foreground.HandyForegroundAppMonitor
 import com.handy.app.voice.VoiceController
 import com.handy.app.widget.BezierFlightController
 import com.handy.app.widget.WidgetContent
+import com.handy.app.widget.WidgetBubbleChip
 import com.handy.app.widget.WidgetState
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.overlay.BuddyState
@@ -70,16 +71,21 @@ class FloatingWidgetOverlayService : LifecycleService() {
     @Inject lateinit var flightDriver: BuddyFlightDriver
 
     private var host: OverlayComposeHost? = null
+    private var bubbleHost: OverlayComposeHost? = null
     private val flightController = BezierFlightController()
     // Dock coordinates captured whenever the buddy enters DOCKED — flight
     // returns here regardless of where it took off from.
     private var dockX: Int = 0
     private var dockY: Int = 0
     private var view: android.view.View? = null
+    private var bubbleView: android.view.View? = null
     private lateinit var windowManager: WindowManager
     private lateinit var params: WindowManager.LayoutParams
+    private var bubbleParams: WindowManager.LayoutParams? = null
 
     private val state = MutableStateFlow(WidgetState.IDLE)
+    private val pointerRotationRadians = MutableStateFlow(0f)
+    private val pointerScale = MutableStateFlow(1f)
     private val mainHandler = Handler(Looper.getMainLooper())
 
     // Gesture tracking state.
@@ -178,12 +184,25 @@ class FloatingWidgetOverlayService : LifecycleService() {
                         BuddyState.LISTENING -> WidgetState.LISTENING
                         BuddyState.THINKING,
                         BuddyState.STREAMING,
-                        BuddyState.FLYING,
-                        BuddyState.POINTING,
                         BuddyState.ACTING -> WidgetState.THINKING
+                        BuddyState.FLYING -> WidgetState.FLYING
+                        BuddyState.POINTING -> WidgetState.POINTING
                         BuddyState.DOCKED,
                         BuddyState.SPEAKING,
                         BuddyState.DRAGGING -> WidgetState.IDLE
+                    }
+                }
+        }
+
+        lifecycleScope.launch {
+            presenter.state
+                .map { it.bubble }
+                .distinctUntilChanged()
+                .collectLatest { bubble ->
+                    if (bubble == null) {
+                        detachBubbleOverlay()
+                    } else {
+                        attachBubbleOverlayIfNeeded()
                     }
                 }
         }
@@ -217,11 +236,16 @@ class FloatingWidgetOverlayService : LifecycleService() {
             // into the local [WidgetState] by the `presenter.state`
             // collector below so orchestrator-driven transitions
             // (streaming / flying / pointing / acting) still light up
-            // the widget. Bubble chips (yellow / teal / green / blue)
-            // render on the overlay chat panel's BubbleFooter — they
-            // do NOT attach to the widget itself, matching V1.
+            // the widget. Bubble chips render in a separate non-touchable
+            // overlay window so this root touch listener stays reliable.
             val s by state.collectAsState()
-            WidgetContent(state = s)
+            val rotation by pointerRotationRadians.collectAsState()
+            val scale by pointerScale.collectAsState()
+            WidgetContent(
+                state = s,
+                pointerRotationRadians = rotation,
+                pointerScale = scale,
+            )
         }
 
         params = WindowManager.LayoutParams(
@@ -247,6 +271,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
     }
 
     private fun detachOverlay() {
+        detachBubbleOverlay()
         val v = view
         val h = host
         view = null
@@ -255,10 +280,59 @@ class FloatingWidgetOverlayService : LifecycleService() {
         h?.release()
     }
 
+    private fun attachBubbleOverlayIfNeeded() {
+        if (bubbleView != null) {
+            updateBubblePosition()
+            return
+        }
+        val host = OverlayComposeHost(this).also { bubbleHost = it }
+        val composeView = host.createView {
+            val overlayState by presenter.state.collectAsState()
+            overlayState.bubble?.let { WidgetBubbleChip(it) }
+        }
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            bubbleFlags(),
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = params.x
+            y = params.y
+        }
+        bubbleParams = lp
+        runCatching { windowManager.addView(composeView, lp) }
+            .onSuccess {
+                bubbleView = composeView
+                composeView.post { updateBubblePosition() }
+            }
+            .onFailure {
+                Timber.e(it, "Widget bubble overlay attach failed")
+                bubbleHost = null
+                bubbleParams = null
+                host.release()
+            }
+    }
+
+    private fun detachBubbleOverlay() {
+        val v = bubbleView
+        val h = bubbleHost
+        bubbleView = null
+        bubbleHost = null
+        bubbleParams = null
+        if (v != null) runCatching { windowManager.removeView(v) }
+        h?.release()
+    }
+
     private fun onTouch(v: android.view.View, event: MotionEvent): Boolean {
         val slop = ViewConfiguration.get(this).scaledTouchSlop
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                if (presenter.state.value.isFlying) {
+                    flightDriver.cancel()
+                    resetPointerPose()
+                }
                 downX = event.rawX
                 downY = event.rawY
                 windowStartX = params.x
@@ -369,6 +443,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
             addUpdateListener { _, value, _ ->
                 params.x = value.toInt()
                 runCatching { windowManager.updateViewLayout(v, params) }
+                updateBubblePosition()
             }
             start()
         }
@@ -385,6 +460,20 @@ class FloatingWidgetOverlayService : LifecycleService() {
         params.x = x
         params.y = y
         runCatching { windowManager.updateViewLayout(v, params) }
+        updateBubblePosition()
+    }
+
+    internal fun updatePointerPose(
+        tangentRadians: Float? = null,
+        scale: Float? = null,
+    ) {
+        tangentRadians?.let { pointerRotationRadians.value = it }
+        scale?.let { pointerScale.value = it }
+    }
+
+    internal fun resetPointerPose() {
+        pointerRotationRadians.value = 0f
+        pointerScale.value = 1f
     }
 
     /** Current buddy dock coordinates (top-left of widget window). */
@@ -424,6 +513,30 @@ class FloatingWidgetOverlayService : LifecycleService() {
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+
+    private fun bubbleFlags(): Int =
+        idleFlags() or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+
+    private fun updateBubblePosition() {
+        val widget = view ?: return
+        val bubble = bubbleView ?: return
+        val lp = bubbleParams ?: return
+        val gap = (resources.displayMetrics.density * 8f).toInt()
+        val screenW = resources.displayMetrics.widthPixels
+        val screenH = resources.displayMetrics.heightPixels
+        val widgetW = widget.width.takeIf { it > 0 } ?: 1
+        val bubbleW = bubble.width.takeIf { it > 0 } ?: 1
+        val bubbleH = bubble.height.takeIf { it > 0 } ?: 1
+        val widgetCenterX = params.x + widgetW / 2
+        val maxBubbleX = (screenW - bubbleW).coerceAtLeast(0)
+        lp.x = if (widgetCenterX > screenW / 2) {
+            (params.x - bubbleW - gap).coerceAtLeast(0)
+        } else {
+            (params.x + widgetW + gap).coerceAtMost(maxBubbleX)
+        }
+        lp.y = params.y.coerceIn(0, (screenH - bubbleH).coerceAtLeast(0))
+        runCatching { windowManager.updateViewLayout(bubble, lp) }
+    }
 
     private fun canDrawOverlays(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)

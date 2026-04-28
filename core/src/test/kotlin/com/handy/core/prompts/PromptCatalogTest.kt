@@ -119,6 +119,20 @@ class PromptCatalogTest {
         assertThat(prompt).contains("[SPOKEN]")
     }
 
+    @Test fun `buildSystemPrompt adds quick overlay spoken contract when requested`() {
+        val prompt = PromptCatalog.buildSystemPrompt(
+            mode = AssistantMode.HELP_ONLY,
+            fromVoice = false,
+            webSearchEnabled = false,
+            hasBraveKey = false,
+            quickOverlayResponse = true,
+        )
+        assertThat(prompt).contains("quick overlay response:")
+        assertThat(prompt).contains("[SPOKEN]")
+        assertThat(prompt).contains("[POINT:")
+        assertThat(prompt).contains("[POINT:x,y:label]")
+    }
+
     @Test fun `intent tool addendum is appended by default`() {
         val prompt = PromptCatalog.buildSystemPrompt(
             mode = AssistantMode.HELP_ONLY,

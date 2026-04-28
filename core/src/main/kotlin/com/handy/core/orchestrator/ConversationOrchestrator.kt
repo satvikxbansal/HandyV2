@@ -101,6 +101,7 @@ class ConversationOrchestrator(
                 ?.takeIf { mode != ScreenInputRouter.Mode.VisionOnly }
                 ?.let { ScreenTextSerializer.flatten(it) },
             intentToolEnabled = request.tools.any { it.name == "dispatch_action" },
+            quickOverlayResponse = request.quickOverlayResponse,
         )
 
         val sendImages = when (mode) {
@@ -141,7 +142,11 @@ class ConversationOrchestrator(
                 when (chunk) {
                     is LlmChunk.Text -> {
                         accumulated += chunk.delta
-                        emit(OrchestrationEvent.StreamingDelta(introPrefix + accumulated))
+                        emit(
+                            OrchestrationEvent.StreamingDelta(
+                                AssistantMarkupParser.stripInternalTagsForDisplay(introPrefix + accumulated),
+                            ),
+                        )
                     }
                     is LlmChunk.ToolCall -> {
                         if (chunk.name !in collectedSearchTools) collectedSearchTools.add(chunk.name)
@@ -200,11 +205,15 @@ class ConversationOrchestrator(
         val ttsText: String?
         val overlaySpoken: String?
 
-        if (request.fromVoice) {
+        if (request.fromVoice || request.quickOverlayResponse) {
             val withoutPoints = AssistantMarkupParser.stripPointTags(finalText)
             val (spokenRaw, display) = AssistantMarkupParser.extractSpokenPart(withoutPoints)
             chatText = display
-            ttsText = AssistantMarkupParser.clampVoiceSpokenForTts(spokenRaw)
+            ttsText = if (request.fromVoice) {
+                AssistantMarkupParser.clampVoiceSpokenForTts(spokenRaw)
+            } else {
+                null
+            }
             overlaySpoken = AssistantMarkupParser.clampVoiceSpokenForOverlay(spokenRaw)
         } else {
             chatText = AssistantMarkupParser.stripPointTags(finalText)
@@ -245,6 +254,7 @@ data class OrchestrationRequest(
     val screenText: ScreenTextSnapshot?,
     val hasBraveKey: Boolean,
     val tools: List<ToolDefinition>,
+    val quickOverlayResponse: Boolean = false,
 )
 
 sealed class OrchestrationEvent {

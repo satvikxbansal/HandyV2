@@ -191,6 +191,21 @@ object PromptCatalog {
     """.trimIndent()
 
     /**
+     * Overlay quick-surface turns are typed, but they should behave like
+     * macOS' companion answer: one short bubble plus optional written detail.
+     */
+    fun quickOverlayAddendum(): String = """
+
+        quick overlay response:
+        the user asked from handy's floating overlay while another app is on screen. answer in TWO parts:
+
+        1. SPOKEN part — wrap the short bubble text in [SPOKEN]...[/SPOKEN]. keep it to one sentence, under 110 characters when possible. for navigation questions, say only the primary on-screen action.
+        2. DETAIL part — after [/SPOKEN], include any extra context only if it is truly useful. keep it brief.
+
+        always append a [POINT:...] tag at the very end. if your answer names a visible control from the screen_text block, point at that exact element. prefer semantic tags with text, viewId, or desc. if the target is an icon-only element that only has bounds in screen_text, use the center of its bounds as [POINT:x,y:label]. if no pointing would help, append [POINT:none].
+    """.trimIndent()
+
+    /**
      * Android-only addendum. Always present in v1 when intent dispatch is
      * enabled (which is always — v1 ships `dispatch_action` as the single
      * action tool). Body is spec'd verbatim in
@@ -215,6 +230,7 @@ object PromptCatalog {
         screenTextPackage: String? = null,
         screenTextFlattenedTree: String? = null,
         intentToolEnabled: Boolean = true,
+        quickOverlayResponse: Boolean = false,
     ): String {
         val base = when {
             mode == AssistantMode.TUTOR -> TUTOR_MODE_SYSTEM_PROMPT
@@ -232,6 +248,11 @@ object PromptCatalog {
         if (screenTextPackage != null && screenTextFlattenedTree != null) {
             buffer.append("\n\n")
             buffer.append(screenTextAddendum(screenTextPackage, screenTextFlattenedTree))
+        }
+
+        if (quickOverlayResponse) {
+            buffer.append("\n\n")
+            buffer.append(quickOverlayAddendum())
         }
 
         if (intentToolEnabled) {

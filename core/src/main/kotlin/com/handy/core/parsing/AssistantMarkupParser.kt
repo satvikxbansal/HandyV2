@@ -29,6 +29,18 @@ object AssistantMarkupParser {
     /** Any `[POINT:...]` tag — used by [stripPointTags]. */
     private val anyPointTagRegex = Regex("""\[POINT:[^\]]*\]""")
 
+    /** Full `[SPOKEN]` tags are internal control markup, never UI copy. */
+    private val anySpokenTagRegex = Regex(
+        pattern = """\[/?SPOKEN\]""",
+        option = RegexOption.IGNORE_CASE,
+    )
+
+    /** Streaming can expose an unfinished control tag; hide it until complete. */
+    private val trailingPartialControlTagRegex = Regex(
+        pattern = """\s*\[(?:/?SPOKEN|POINT:[^\]]*)$""",
+        option = RegexOption.IGNORE_CASE,
+    )
+
     /**
      * Legacy pixel form. Last match anywhere in the text wins when not
      * end-anchored (mirrors macOS behaviour for trailing punctuation /
@@ -67,6 +79,32 @@ object AssistantMarkupParser {
             result = result.replace("\n\n\n", "\n\n")
         }
         return result.trim()
+    }
+
+    /**
+     * Strip all assistant control markup before showing streaming text in
+     * transient UI. Unlike [extractSpokenPart], this does not rearrange
+     * spoken/detail text; it only removes tags and incomplete trailing tags.
+     */
+    fun stripDisplayMarkup(text: String): String {
+        var result = anyPointTagRegex.replace(text, "")
+        result = anySpokenTagRegex.replace(result, "")
+        result = trailingPartialControlTagRegex.replace(result, "")
+        while (result.contains("\n\n\n")) {
+            result = result.replace("\n\n\n", "\n\n")
+        }
+        return result.trim()
+    }
+
+    /**
+     * Display-only cleanup for streaming text. Keeps the assistant's
+     * spoken content visible while hiding internal control markers.
+     */
+    fun stripInternalTagsForDisplay(text: String): String {
+        val withoutPoints = stripPointTags(text)
+        return withoutPoints
+            .replace(Regex("""\[/?\s*SPOKEN\s*\]""", RegexOption.IGNORE_CASE), "")
+            .trim()
     }
 
     /**
