@@ -254,7 +254,9 @@ class BuddyFlightDriver @Inject constructor(
         widgetH: Int,
     ): LandingPosition {
         val density = service.resources.displayMetrics.density
-        val gap = (12f * density).toInt()
+        // Keep the buddy visibly close to the target while still avoiding
+        // overlap with the tappable bounds.
+        val gap = (8f * density).toInt()
         val edgeMargin = (72f * density).toInt()
         val screenW = service.resources.displayMetrics.widthPixels
         val screenH = service.resources.displayMetrics.heightPixels

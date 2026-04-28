@@ -537,13 +537,38 @@ class FloatingWidgetOverlayService : LifecycleService() {
         val bubbleW = bubble.width.takeIf { it > 0 } ?: 1
         val bubbleH = bubble.height.takeIf { it > 0 } ?: 1
         val widgetCenterX = params.x + widgetW / 2
+        val widgetCenterY = params.y + (widget.height.takeIf { it > 0 } ?: 1) / 2
         val maxBubbleX = (screenW - bubbleW).coerceAtLeast(0)
-        lp.x = if (widgetCenterX > screenW / 2) {
-            (params.x - bubbleW - gap).coerceAtLeast(0)
+        val maxBubbleY = (screenH - bubbleH).coerceAtLeast(0)
+
+        val preferredX = if (widgetCenterX > screenW / 2) {
+            params.x - bubbleW - gap
         } else {
-            (params.x + widgetW + gap).coerceAtMost(maxBubbleX)
+            params.x + widgetW + gap
         }
-        lp.y = params.y.coerceIn(0, (screenH - bubbleH).coerceAtLeast(0))
+        val clampedX = preferredX.coerceIn(0, maxBubbleX)
+        val centeredY = (widgetCenterY - bubbleH / 2).coerceIn(0, maxBubbleY)
+
+        val widgetLeft = params.x
+        val widgetTop = params.y
+        val widgetRight = params.x + widgetW
+        val widgetBottom = params.y + (widget.height.takeIf { it > 0 } ?: 1)
+        val bubbleLeft = clampedX
+        val bubbleRight = clampedX + bubbleW
+        val overlapsHorizontally = bubbleLeft < widgetRight && bubbleRight > widgetLeft
+
+        val aboveY = (widgetTop - bubbleH - gap).coerceIn(0, maxBubbleY)
+        val belowY = (widgetBottom + gap).coerceIn(0, maxBubbleY)
+        val roomAbove = widgetTop
+        val roomBelow = screenH - widgetBottom
+        val adjacentY = if (overlapsHorizontally) {
+            if (roomBelow >= roomAbove) belowY else aboveY
+        } else {
+            centeredY
+        }
+
+        lp.x = clampedX
+        lp.y = adjacentY
         runCatching { windowManager.updateViewLayout(bubble, lp) }
     }
 

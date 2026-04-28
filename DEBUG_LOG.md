@@ -693,3 +693,17 @@ cross-references the one being superseded.
 | **Root Cause** | The Handy-activity foreground signal was exposed as a `StateFlow<Boolean>`, but the overlay collector still applied `.distinctUntilChanged()` as if it were a normal `Flow`. The mistake slipped through because IDE diagnostics did not flag it and the local Gradle compile attempt never reached Kotlin compilation due to the shell having no Java runtime. |
 | **Fix** | Removed the no-op `.distinctUntilChanged()` from the `handyActivityForeground` collector and searched app Kotlin sources for the same direct `StateFlow.distinctUntilChanged()` pattern. Existing remaining calls are on mapped flows or `snapshotFlow`, not directly on `StateFlow`. |
 | **Prevention Rule** | Never call `.distinctUntilChanged()` directly on a `StateFlow`; it is already distinct by contract and Kotlin treats the operator as deprecated. If a Gradle compile cannot run in the agent shell, explicitly mark verification as incomplete and run targeted searches for warning-as-error patterns introduced by the diff before reporting the change as build-safe. |
+
+---
+
+### DL-041 — Pointer bubble overlapped lens and stretched to full width
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-04-28 |
+| **Severity** | Logic Bug |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt`, `app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt`, `app/src/main/kotlin/com/handy/app/widget/WidgetContent.kt` |
+| **Symptom** | During pointer guidance, the green response bubble crossed over the widget lens and could hide it. Bubble width also looked unnaturally long because short text still occupied a fixed max-width container. |
+| **Root Cause** | Bubble layout used a fixed-width text modifier (`width(260.dp)`) and anchored vertical position directly to the widget top (`lp.y = params.y`), which made the bubble overlap the pointer whenever horizontal placement clamped near center. The pointer-target gap was also tuned too large after DL-039, making the helper feel farther from the control than intended. |
+| **Fix** | Reduced pointer landing gap from 12dp to 8dp, switched bubble text to `widthIn(max = 240.dp)` with two-line ellipsis so containers hug content, and reworked overlay bubble placement to side-align by default and auto-fallback above/below when horizontal overlap would cross the lens. |
+| **Prevention Rule** | Overlay guidance bubbles must be measured with `widthIn` (not fixed width) and positioned with explicit non-overlap logic against the widget rect before applying screen-edge clamps. |

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -259,23 +260,20 @@ fun WidgetBubbleChip(bubble: BuddyBubble) {
     if (text.isBlank()) return
     Box(
         modifier = Modifier
-            .background(backgroundColor, RoundedCornerShape(10.dp))
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .background(backgroundColor, RoundedCornerShape(8.dp))
+            .padding(horizontal = 10.dp, vertical = 5.dp),
     ) {
         Text(
             text = text,
             color = textColor,
-            fontSize = 11.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.widthSafe(260.dp),
+            modifier = Modifier.widthIn(max = 240.dp),
         )
     }
 }
-
-private fun Modifier.widthSafe(max: androidx.compose.ui.unit.Dp): Modifier =
-    this.then(Modifier.width(max))
 
 private fun tintFor(state: BuddyState): LensRenderer.Tint = when (state) {
     BuddyState.DOCKED, BuddyState.DRAGGING -> LensRenderer.Tint.Amber
