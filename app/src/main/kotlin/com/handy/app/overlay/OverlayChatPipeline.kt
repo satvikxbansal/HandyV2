@@ -12,10 +12,8 @@ import com.handy.core.orchestrator.OrchestrationRequest
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.overlay.PanelContent
 import com.handy.core.overlay.PanelSnapshot
+import com.handy.core.overlay.toScreenTextSnapshot
 import com.handy.core.parsing.AssistantMarkupParser
-import com.handy.core.screen.IntRect
-import com.handy.core.screen.ScreenTextSnapshot
-import com.handy.core.screen.UiNode
 import com.handy.core.tool.ToolContext
 import com.handy.runtime.di.ApplicationScope
 import com.handy.runtime.storage.DataStoreSettings
@@ -125,7 +123,7 @@ class OverlayChatPipeline @Inject constructor(
         presenter.onStreamingStart()
         startVerbRotation()
 
-        val screenText = panelSnapshot.toScreenTextSnapshot()
+        val screenText = panelSnapshot?.toScreenTextSnapshot()
         Timber.d(
             "OverlayChatPipeline.runTurn: app=%s marks=%d screenText=%s query=\"%s\"",
             toolContext.packageName,
@@ -276,30 +274,6 @@ class OverlayChatPipeline @Inject constructor(
         val (spoken, _) = AssistantMarkupParser.extractSpokenPart(cleaned)
         return AssistantMarkupParser.clampVoiceSpokenForOverlay(spoken)
     }
-
-    private fun PanelSnapshot?.toScreenTextSnapshot(): ScreenTextSnapshot? {
-        val snapshot = this ?: return null
-        val marks = snapshot.marks.takeIf { it.isNotEmpty() } ?: return null
-        return ScreenTextSnapshot(
-            packageName = snapshot.toolContext.packageName,
-            timestampEpochMs = snapshot.capturedAtEpochMs,
-            root = UiNode(
-                role = "Screen",
-                children = marks.map { it.toUiNode() },
-            ),
-        )
-    }
-
-    private fun AccessibilityMark.toUiNode(): UiNode = UiNode(
-        role = role,
-        text = text,
-        contentDescription = contentDescription,
-        viewIdResourceName = viewIdSuffix,
-        boundsInScreen = IntRect(left, top, right, bottom),
-        clickable = clickable,
-        scrollable = scrollable,
-        enabled = true,
-    )
 
     private fun inferSemanticPoint(
         userText: String,

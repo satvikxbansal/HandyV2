@@ -55,7 +55,7 @@ class OverlayPresenter @Inject constructor(
         marksProvider: () -> List<AccessibilityMark> = { emptyList() },
         clock: () -> Long = { System.currentTimeMillis() },
     ) {
-        val snapshot = buildSnapshotNow(marksProvider, clock)
+        val snapshot = captureSnapshot(marksProvider, clock)
         val category = QuickPromptCatalog.categorize(snapshot?.toolContext?.packageName)
         val prompts = QuickPromptCatalog.promptsFor(category)
         val greeting = QuickPromptCatalog.greetingFor(
@@ -90,7 +90,7 @@ class OverlayPresenter @Inject constructor(
         marksProvider: () -> List<AccessibilityMark> = { emptyList() },
         clock: () -> Long = { System.currentTimeMillis() },
     ) {
-        val snapshot = buildSnapshotNow(marksProvider, clock)
+        val snapshot = captureSnapshot(marksProvider, clock)
         _state.value = _state.value.copy(
             buddyState = BuddyState.LISTENING,
             bubble = BuddyBubble.Transcript(""),
@@ -299,9 +299,9 @@ class OverlayPresenter @Inject constructor(
 
     // ---- helpers ------------------------------------------------------------
 
-    private fun buildSnapshotNow(
-        marksProvider: () -> List<AccessibilityMark>,
-        clock: () -> Long,
+    fun captureSnapshot(
+        marksProvider: () -> List<AccessibilityMark> = { emptyList() },
+        clock: () -> Long = { System.currentTimeMillis() },
     ): PanelSnapshot? {
         val fg: ForegroundAppSnapshot? = runCatching { foregroundAppMonitor.refreshNow() }
             .onFailure { Timber.w(it, "OverlayPresenter: foreground refresh failed") }

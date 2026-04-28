@@ -75,7 +75,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.handy.app.R
-import com.handy.app.overlay.OverlayPresenter
 import com.handy.app.settings.SettingsActivity
 import com.handy.app.theme.HandMarkIcon
 import com.handy.app.theme.HandyColors
@@ -85,7 +84,6 @@ import com.handy.app.theme.HandyType
 import com.handy.app.theme.ListeningWaveformBars
 import com.handy.core.model.ChatMessage
 import com.handy.core.model.MessageRole
-import com.handy.runtime.accessibility.AccessibilityMarksProvider
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import java.text.SimpleDateFormat
@@ -98,11 +96,8 @@ class ChatActivity : ComponentActivity() {
 
     private val viewModel: ChatViewModel by viewModels()
 
-    // V2: minimise button reopens the overlay chat panel instead of
-    // launching another instance of ChatActivity. Both injected as
-    // singletons through the standard app graph.
-    @Inject lateinit var overlayPresenter: OverlayPresenter
-    @Inject lateinit var marksProvider: AccessibilityMarksProvider
+    // V2: minimise / show-me hand back to the overlay buddy path.
+    @Inject lateinit var fullChatActionLauncher: FullChatActionLauncher
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // targetSdk 35 renders edge-to-edge by default on Android 15+;
@@ -110,6 +105,7 @@ class ChatActivity : ComponentActivity() {
         // lets the status bar scrim stay transparent. DL-015.
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        bindTargetHandoff(intent)
         consumeVoiceExtra(intent)
         setContent {
             HandyTheme(darkTheme = true) {
@@ -127,6 +123,7 @@ class ChatActivity : ComponentActivity() {
                     onConfirmationResult = viewModel::respondToConfirmation,
                     onOpenAccessibilitySettings = ::openAccessibilitySettings,
                     onMinimiseToOverlay = ::minimiseToOverlay,
+                    onShowInApp = ::showInApp,
                 )
             }
         }
@@ -139,11 +136,13 @@ class ChatActivity : ComponentActivity() {
      * again once we finish) and closes this activity.
      */
     private fun minimiseToOverlay() {
-        runCatching {
-            overlayPresenter.onWidgetTap(
-                marksProvider = { marksProvider.collect() },
-            )
-        }.onFailure { /* presenter failure shouldn't block finish */ }
+        fullChatActionLauncher.reopenOverlayPanelAfterChat()
+        finish()
+    }
+
+    private fun showInApp(action: FullChatShowInAppAction) {
+        val consumed = viewModel.consumeShowInAppAction(action.id) ?: return
+        fullChatActionLauncher.launch(consumed)
         finish()
     }
 
@@ -153,7 +152,12 @@ class ChatActivity : ComponentActivity() {
         // — as issued by the widget after a voice session — ends up here
         // instead of onCreate. Route the extra the same way.
         setIntent(intent)
+        bindTargetHandoff(intent)
         consumeVoiceExtra(intent)
+    }
+
+    private fun bindTargetHandoff(intent: Intent?) {
+        viewModel.bindTargetHandoff(intent?.getStringExtra(EXTRA_TARGET_HANDOFF_ID))
     }
 
     /**
@@ -193,6 +197,7 @@ class ChatActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_VOICE_MESSAGE: String = "handy.voice.message"
+        const val EXTRA_TARGET_HANDOFF_ID: String = "handy.target.handoff_id"
     }
 }
 
@@ -208,6 +213,7 @@ internal fun ChatScreen(
     onConfirmationResult: (Long, Boolean) -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
     onMinimiseToOverlay: () -> Unit = {},
+    onShowInApp: (FullChatShowInAppAction) -> Unit = {},
 ) {
     val pending = state.pendingConfirmation
     if (pending != null) {
@@ -271,6 +277,7 @@ internal fun ChatScreen(
                 state = state,
                 modifier = Modifier.weight(1f),
                 onSuggestion = onSend,
+                onShowInApp = onShowInApp,
             )
 
             ChatComposer(
@@ -560,22 +567,25 @@ private fun MessageList(
     state: ChatUiState,
     modifier: Modifier = Modifier,
     onSuggestion: (String) -> Unit,
+    onShowInApp: (FullChatShowInAppAction) -> Unit,
 ) {
     val listState = rememberLazyListState()
     // Scroll to bottom on every new message or streaming tick. Mirrors
     // `ChatInterfaceView.messageList.onChange(of: manager.messages.count / isProcessing)`.
     LaunchedEffect(listState) {
         snapshotFlow {
-            Triple(
+            listOf(
                 state.messages.size + state.localOverlay.size,
                 state.streamingDelta.length,
                 state.isStreaming,
+                state.pendingShowInAppAction?.id,
             )
         }.distinctUntilChanged().collect {
             val total = state.messages.size +
                 state.localOverlay.size +
                 (if (state.streamingDelta.isNotEmpty()) 1 else 0) +
-                (if (state.loadingVerb.isNotEmpty()) 1 else 0)
+                (if (state.loadingVerb.isNotEmpty()) 1 else 0) +
+                (if (state.pendingShowInAppAction != null) 1 else 0)
             if (total > 0) listState.animateScrollToItem(total - 1)
         }
     }
@@ -635,6 +645,48 @@ private fun MessageList(
         }
         if (state.loadingVerb.isNotEmpty()) {
             item(key = "loading-verb") { LoadingVerbChip(state.loadingVerb) }
+        }
+        state.pendingShowInAppAction?.let { action ->
+            item(key = "show-in-app-${action.id}") {
+                ShowInAppCard(action = action, onShowInApp = onShowInApp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShowInAppCard(
+    action: FullChatShowInAppAction,
+    onShowInApp: (FullChatShowInAppAction) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Spacer(Modifier.width(36.dp))
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(HandyDimens.RadiusLg))
+                .background(HandyColors.ChipBg)
+                .border(0.5.dp, HandyColors.ChipBorder, RoundedCornerShape(HandyDimens.RadiusLg))
+                .clickable { onShowInApp(action) }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_bolt),
+                contentDescription = null,
+                tint = HandyColors.Accent,
+                modifier = Modifier.size(14.dp),
+            )
+            Text(
+                text = "Show me in ${action.snapshot.toolContext.displayLabel}",
+                color = HandyColors.TextPrimary,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.Medium,
+            )
         }
     }
 }

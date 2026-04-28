@@ -21,7 +21,7 @@ import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.handy.app.HandyApplication
 import com.handy.app.chat.ChatActivity
-import com.handy.app.foreground.HandyForegroundAppMonitor
+import com.handy.app.chat.ChatTargetHandoffStore
 import com.handy.app.voice.VoiceController
 import com.handy.app.widget.BezierFlightController
 import com.handy.app.widget.WidgetContent
@@ -59,7 +59,6 @@ import timber.log.Timber
 class FloatingWidgetOverlayService : LifecycleService() {
 
     @Inject lateinit var voiceController: VoiceController
-    @Inject lateinit var foregroundAppMonitor: HandyForegroundAppMonitor
 
     // V2: presenter owns the panel state machine; bridge is the panel→chat
     // submission channel; pipeline drives orchestrator turns for panel
@@ -71,6 +70,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
     @Inject lateinit var settings: DataStoreSettings
     @Inject lateinit var pointerResolver: SemanticPointerResolver
     @Inject lateinit var flightDriver: BuddyFlightDriver
+    @Inject lateinit var chatTargetHandoffStore: ChatTargetHandoffStore
 
     private var host: OverlayComposeHost? = null
     private var bubbleHost: OverlayComposeHost? = null
@@ -497,6 +497,12 @@ class FloatingWidgetOverlayService : LifecycleService() {
         return (v.width.takeIf { it > 0 } ?: 0) to (v.height.takeIf { it > 0 } ?: 0)
     }
 
+    internal fun isWidgetReadyForFlight(): Boolean {
+        val v = view ?: return false
+        val (w, h) = widgetSize()
+        return v.visibility == android.view.View.VISIBLE && w > 0 && h > 0
+    }
+
     internal fun flightControllerInstance(): BezierFlightController = flightController
 
     private fun openChat(voiceMessage: String? = null) {
@@ -507,11 +513,17 @@ class FloatingWidgetOverlayService : LifecycleService() {
         // not later. Mirrors macOS `HandyManager.resolveToolNameWithAutoSwitch`
         // which snapshots the frontmost app at the moment Handy is
         // activated. DL-015.
-        runCatching { foregroundAppMonitor.refreshNow() }
-            .onFailure { Timber.w(it, "refreshNow failed before openChat") }
+        val targetHandoffId = runCatching {
+            presenter.captureSnapshot(marksProvider = { marksProvider.collect() })
+        }.onFailure {
+            Timber.w(it, "snapshot failed before openChat")
+        }.getOrNull()?.let(chatTargetHandoffStore::put)
 
         val intent = Intent(this, ChatActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        targetHandoffId?.let {
+            intent.putExtra(ChatActivity.EXTRA_TARGET_HANDOFF_ID, it)
+        }
         if (!voiceMessage.isNullOrBlank()) {
             intent.putExtra(ChatActivity.EXTRA_VOICE_MESSAGE, voiceMessage)
         }

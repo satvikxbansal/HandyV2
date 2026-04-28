@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.handy.app.chat.ChatActivity
+import com.handy.app.chat.ChatTargetHandoffStore
 import com.handy.app.voice.VoiceController
 import com.handy.core.overlay.OverlayMode
 import com.handy.core.overlay.PanelContent
@@ -41,6 +42,7 @@ class OverlayChatPanelService : LifecycleService() {
     @Inject lateinit var presenter: OverlayPresenter
     @Inject lateinit var voiceController: VoiceController
     @Inject lateinit var panelBridge: OverlayPanelBridge
+    @Inject lateinit var chatTargetHandoffStore: ChatTargetHandoffStore
 
     private var host: OverlayComposeHost? = null
     private var view: android.view.View? = null
@@ -152,8 +154,13 @@ class OverlayChatPanelService : LifecycleService() {
         },
         onExpand = {
             panelBridge.cancelVoiceFromPanel()
+            val targetHandoffId = presenter.state.value.panel.snapshot
+                ?.let(chatTargetHandoffStore::put)
             val intent = Intent(this, ChatActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            targetHandoffId?.let {
+                intent.putExtra(ChatActivity.EXTRA_TARGET_HANDOFF_ID, it)
+            }
             startActivity(intent)
             presenter.dismissPanel()
         },

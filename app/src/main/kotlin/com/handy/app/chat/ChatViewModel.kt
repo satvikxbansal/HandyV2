@@ -13,9 +13,12 @@ import com.handy.core.model.ChatMessage
 import com.handy.core.model.HandySettings
 import com.handy.core.model.LoadingVerbs
 import com.handy.core.model.MessageRole
+import com.handy.core.overlay.PanelSnapshot
+import com.handy.core.overlay.toScreenTextSnapshot
 import com.handy.core.orchestrator.ConversationOrchestrator
 import com.handy.core.orchestrator.OrchestrationEvent
 import com.handy.core.orchestrator.OrchestrationRequest
+import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.tool.ToolContext
 import com.handy.runtime.storage.DataStoreSettings
 import com.handy.runtime.storage.KeyStore
@@ -59,6 +62,7 @@ class ChatViewModel @Inject constructor(
     private val keyStore: KeyStore,
     private val confirmationBroker: ChatConfirmationBroker,
     private val accessibilityStateMonitor: AccessibilityStateMonitor,
+    private val chatTargetHandoffStore: ChatTargetHandoffStore,
 ) : ViewModel() {
 
     private val orchestrator = ConversationOrchestrator(
@@ -78,9 +82,12 @@ class ChatViewModel @Inject constructor(
      * and starts a fresh one on the new key.
      */
     private val toolContextFlow = MutableStateFlow(DEFAULT_TOOL)
+    private var targetSnapshot: PanelSnapshot? = null
+    private var boundTargetHandoffId: String? = null
 
     private var sendJob: Job? = null
     private var verbRotationJob: Job? = null
+    private var showInAppActionCounter: Long = 0L
 
     init {
         viewModelScope.launch {
@@ -123,6 +130,10 @@ class ChatViewModel @Inject constructor(
         }
         viewModelScope.launch {
             foregroundAppMonitor.flow.collectLatest { snapshot ->
+                if (targetSnapshot != null) {
+                    Timber.d("ChatViewModel: ignoring foreground swap while target handoff is bound")
+                    return@collectLatest
+                }
                 val ctx = ToolContext(
                     packageName = snapshot.packageName,
                     appLabel = snapshot.appLabel,
@@ -157,13 +168,42 @@ class ChatViewModel @Inject constructor(
             var lastSeen: Boolean? = null
             accessibilityStateMonitor.isEnabled.collectLatest { enabled ->
                 _state.value = _state.value.copy(accessibilityServiceEnabled = enabled)
-                if (enabled && lastSeen == false) {
+                if (enabled && lastSeen == false && targetSnapshot == null) {
                     Timber.d("ChatViewModel: a11y flipped on — refreshing foreground app")
                     foregroundAppMonitor.refreshNow()
                 }
                 lastSeen = enabled
             }
         }
+    }
+
+    fun bindTargetHandoff(id: String?) {
+        val normalized = id?.takeIf { it.isNotBlank() }
+        if (normalized == null) {
+            boundTargetHandoffId = null
+            targetSnapshot = null
+            return
+        }
+        if (normalized == boundTargetHandoffId) return
+        val snapshot = chatTargetHandoffStore.get(normalized) ?: run {
+            boundTargetHandoffId = normalized
+            targetSnapshot = null
+            return
+        }
+        boundTargetHandoffId = normalized
+        targetSnapshot = snapshot
+        val ctx = snapshot.toolContext
+        Timber.d(
+            "ChatViewModel: bound target handoff → %s (pkg=%s marks=%d)",
+            ctx.displayLabel,
+            ctx.packageName,
+            snapshot.marks.size,
+        )
+        toolContextFlow.value = ctx
+        _state.value = _state.value.copy(
+            currentToolName = ctx.displayLabel,
+            toolDetectionState = ToolDetectionState.DETECTED,
+        )
     }
 
     /**
@@ -302,7 +342,7 @@ class ChatViewModel @Inject constructor(
                 settings = current,
                 fromVoice = fromVoice,
                 capture = null, // Phase 4 hooks capture pipeline here.
-                screenText = null,
+                screenText = targetSnapshot?.toScreenTextSnapshot(),
                 hasBraveKey = hasBraveKey,
                 tools = tools,
             )
@@ -317,6 +357,7 @@ class ChatViewModel @Inject constructor(
                 loadingVerb = LoadingVerbs.random(),
                 loadingVerbFrozen = false,
                 voiceState = if (fromVoice) VoiceUiState.PROCESSING else VoiceUiState.IDLE,
+                pendingShowInAppAction = null,
             )
             startVerbRotation()
 
@@ -343,6 +384,10 @@ class ChatViewModel @Inject constructor(
                             loadingVerbFrozen = false,
                             voiceState = VoiceUiState.IDLE,
                             pendingUserTurn = null,
+                            pendingShowInAppAction = buildShowInAppAction(
+                                pointing = event.pointing,
+                                chatText = event.chatText,
+                            ),
                         )
                         if (tagged.isNotEmpty()) stampSearchToolsOnLastAssistant(tagged)
                     }
@@ -368,6 +413,7 @@ class ChatViewModel @Inject constructor(
                             localOverlay = overlay,
                             voiceState = VoiceUiState.IDLE,
                             pendingUserTurn = null,
+                            pendingShowInAppAction = null,
                         )
                     }
                     is OrchestrationEvent.ToolCall -> {
@@ -432,8 +478,49 @@ class ChatViewModel @Inject constructor(
         confirmationBroker.respond(requestId, approved)
     }
 
+    fun consumeShowInAppAction(actionId: Long): FullChatShowInAppAction? {
+        val action = _state.value.pendingShowInAppAction
+            ?.takeIf { it.id == actionId }
+            ?: return null
+        _state.value = _state.value.copy(pendingShowInAppAction = null)
+        return action
+    }
+
     fun dismissError() {
         _state.value = _state.value.copy(errorBanner = null)
+    }
+
+    private fun buildShowInAppAction(
+        pointing: AssistantMarkupParser.PointingResult,
+        chatText: String,
+    ): FullChatShowInAppAction? {
+        val snapshot = targetSnapshot ?: return null
+        if (!pointing.hasPointer) return null
+        val targetLabel = pointing.targetLabel()
+        return FullChatShowInAppAction(
+            id = ++showInAppActionCounter,
+            targetLabel = targetLabel,
+            bubbleLabel = chatText.takeForBubble().ifBlank { targetLabel },
+            pointing = pointing,
+            snapshot = snapshot,
+        )
+    }
+
+    private fun AssistantMarkupParser.PointingResult.targetLabel(): String {
+        semantic?.let { spec ->
+            return spec.text
+                ?: spec.contentDescription
+                ?: spec.viewId
+                ?: spec.role
+                ?: "this"
+        }
+        pixel?.let { point -> return point.label ?: "this" }
+        return "this"
+    }
+
+    private fun String.takeForBubble(max: Int = 90): String {
+        val cleaned = replace('\n', ' ').trim()
+        return if (cleaned.length <= max) cleaned else cleaned.take(max).trimEnd() + "…"
     }
 
     /**
@@ -548,6 +635,11 @@ data class ChatUiState(
      * alongside the failed response).
      */
     val pendingUserTurn: ChatMessage? = null,
+    /**
+     * Non-null when the latest assistant turn emitted a pointer grounded
+     * in the handoff snapshot captured before full chat covered the app.
+     */
+    val pendingShowInAppAction: FullChatShowInAppAction? = null,
     /**
      * True when Handy's `AccessibilityService` is enabled for our
      * package in Android Settings. Drives the "Enable accessibility to

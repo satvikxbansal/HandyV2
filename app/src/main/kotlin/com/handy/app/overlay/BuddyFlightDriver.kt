@@ -12,10 +12,12 @@ import com.handy.runtime.storage.DataStoreSettings
 import java.lang.ref.WeakReference
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.min
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 
@@ -47,6 +49,9 @@ class BuddyFlightDriver @Inject constructor(
     fun detachService(service: FloatingWidgetOverlayService) {
         if (serviceRef?.get() === service) serviceRef = null
     }
+
+    fun isReadyForFlight(): Boolean =
+        serviceRef?.get()?.isWidgetReadyForFlight() == true
 
     /**
      * Resolve [spec] against the live accessibility tree; if that fails,
@@ -120,13 +125,16 @@ class BuddyFlightDriver @Inject constructor(
         }
     }
 
-    private fun flyToBounds(
+    private suspend fun flyToBounds(
         service: FloatingWidgetOverlayService,
         bounds: IntRect,
         label: String?,
-    ): Boolean {
+    ): Boolean = suspendCancellableCoroutine { cont ->
         val (widgetW, widgetH) = service.widgetSize().takeIf { it.first > 0 && it.second > 0 }
-            ?: return false
+            ?: run {
+                cont.resume(false)
+                return@suspendCancellableCoroutine
+            }
         val (fromX, fromY) = service.currentWindowPosition()
         val (dockX, dockY) = service.currentDockPosition()
         val landing = chooseLandingPosition(service, bounds, widgetW, widgetH)
@@ -170,6 +178,7 @@ class BuddyFlightDriver @Inject constructor(
                         scale = 1.0f,
                     )
                     presenter.onPointingArrived(label)
+                    if (cont.isActive) cont.resume(true)
                 }
 
                 // tap-for-me escalation is handled by the pipeline via
@@ -191,11 +200,13 @@ class BuddyFlightDriver @Inject constructor(
                     Timber.d("BuddyFlightDriver.flyToBounds: flight cancelled")
                     service.resetPointerPose()
                     presenter.onPointingReturned()
+                    if (cont.isActive) cont.resume(false)
                 }
             },
         )
-
-        return true
+        cont.invokeOnCancellation {
+            service.flightControllerInstance().cancelAll()
+        }
     }
     /**
      * Cross-cutting: fly to [spec], dwell, fly back, and — if the user
