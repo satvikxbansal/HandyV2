@@ -76,8 +76,13 @@ class BuddyFlightDriver @Inject constructor(
             Timber.d("BuddyFlightDriver.flyTo: no service attached")
             return false
         }
-        if (presenter.state.value.isFlying) {
-            Timber.d("BuddyFlightDriver.flyTo: flight already in progress")
+        val state = presenter.state.value
+        if (state.buddyState == BuddyState.FLYING) {
+            Timber.d(
+                "BuddyFlightDriver.flyTo: flight already in progress buddy=%s isFlying=%s",
+                state.buddyState,
+                state.isFlying,
+            )
             return false
         }
 
@@ -115,8 +120,13 @@ class BuddyFlightDriver @Inject constructor(
             Timber.d("BuddyFlightDriver.flyToPoint: no service attached")
             return false
         }
-        if (presenter.state.value.isFlying) {
-            Timber.d("BuddyFlightDriver.flyToPoint: flight already in progress")
+        val state = presenter.state.value
+        if (state.buddyState == BuddyState.FLYING) {
+            Timber.d(
+                "BuddyFlightDriver.flyToPoint: flight already in progress buddy=%s isFlying=%s",
+                state.buddyState,
+                state.isFlying,
+            )
             return false
         }
         Timber.d("BuddyFlightDriver.flyToPoint: x=%d y=%d label=\"%s\"", x, y, bubbleLabel?.logSnippet())

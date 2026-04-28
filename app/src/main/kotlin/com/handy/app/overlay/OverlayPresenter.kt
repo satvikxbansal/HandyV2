@@ -65,6 +65,7 @@ class OverlayPresenter @Inject constructor(
         _state.value = _state.value.copy(
             mode = OverlayMode.ChatPanel,
             buddyState = BuddyState.DOCKED,
+            isFlying = false,
             panel = PanelContent(
                 snapshot = snapshot,
                 quickPrompts = prompts,
@@ -93,6 +94,7 @@ class OverlayPresenter @Inject constructor(
         val snapshot = captureSnapshot(marksProvider, clock)
         _state.value = _state.value.copy(
             buddyState = BuddyState.LISTENING,
+            isFlying = false,
             bubble = BuddyBubble.Transcript(""),
             panel = _state.value.panel.copy(
                 snapshot = snapshot ?: _state.value.panel.snapshot,
@@ -105,6 +107,7 @@ class OverlayPresenter @Inject constructor(
     fun onWidgetDragStart() {
         _state.value = _state.value.copy(
             buddyState = BuddyState.DRAGGING,
+            isFlying = false,
             bubble = null,
         )
     }
@@ -113,6 +116,7 @@ class OverlayPresenter @Inject constructor(
         _state.value = _state.value.copy(
             mode = OverlayMode.IdleWidget,
             buddyState = BuddyState.DOCKED,
+            isFlying = false,
             bubble = null,
             panel = PanelContent(),
         )
@@ -121,6 +125,7 @@ class OverlayPresenter @Inject constructor(
     fun onWidgetThinking() {
         _state.value = _state.value.copy(
             buddyState = BuddyState.THINKING,
+            isFlying = false,
             bubble = null,
         )
     }
@@ -131,6 +136,7 @@ class OverlayPresenter @Inject constructor(
         _state.value = snapshot.copy(
             mode = OverlayMode.IdleWidget,
             buddyState = BuddyState.DOCKED,
+            isFlying = false,
             panel = PanelContent(),
             bubble = snapshot.bubble,
         )
@@ -163,6 +169,7 @@ class OverlayPresenter @Inject constructor(
         val snapshot = _state.value
         _state.value = snapshot.copy(
             buddyState = if (transcript.isNullOrBlank()) BuddyState.DOCKED else BuddyState.THINKING,
+            isFlying = false,
             panel = snapshot.panel.copy(
                 isListening = false,
                 partialTranscript = transcript.orEmpty(),
@@ -176,6 +183,7 @@ class OverlayPresenter @Inject constructor(
         val snapshot = _state.value
         _state.value = snapshot.copy(
             buddyState = BuddyState.STREAMING,
+            isFlying = false,
             panel = snapshot.panel.copy(
                 isStreaming = true,
                 streamingDelta = "",
@@ -203,6 +211,7 @@ class OverlayPresenter @Inject constructor(
             ?.let(BuddyBubble::Response)
         _state.value = snapshot.copy(
             buddyState = if (bubble != null) BuddyState.SPEAKING else BuddyState.DOCKED,
+            isFlying = false,
             bubble = bubble,
             panel = snapshot.panel.copy(
                 isStreaming = false,
@@ -225,6 +234,7 @@ class OverlayPresenter @Inject constructor(
         val snapshot = _state.value
         _state.value = snapshot.copy(
             buddyState = BuddyState.DOCKED,
+            isFlying = false,
             bubble = null,
             panel = snapshot.panel.copy(
                 isStreaming = false,
@@ -286,6 +296,7 @@ class OverlayPresenter @Inject constructor(
         _state.value = _state.value.copy(
             mode = OverlayMode.IdleWidget,
             buddyState = BuddyState.DOCKED,
+            isFlying = false,
             bubble = null,
         )
     }

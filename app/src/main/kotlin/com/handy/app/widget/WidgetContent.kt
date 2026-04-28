@@ -89,6 +89,11 @@ fun WidgetContent(
             WidgetState.FLYING, WidgetState.POINTING -> HandyColors.BubbleResponse
         }
         val isPointer = state == WidgetState.FLYING || state == WidgetState.POINTING
+        val lensFill = if (isPointer) {
+            HandyColors.GlassTint.copy(alpha = 1f)
+        } else {
+            HandyColors.GlassTint
+        }
         Box(
             modifier = Modifier
                 .size(HandyDimens.WidgetLensSize)
@@ -99,7 +104,7 @@ fun WidgetContent(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(CircleShape)
-                    .background(HandyColors.GlassTint)
+                    .background(lensFill)
                     .border(HandyDimens.WidgetBorder, borderColor, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
@@ -260,7 +265,7 @@ fun WidgetBubbleChip(bubble: BuddyBubble) {
     if (text.isBlank()) return
     Box(
         modifier = Modifier
-            .background(backgroundColor, RoundedCornerShape(8.dp))
+            .background(backgroundColor.copy(alpha = 1f), RoundedCornerShape(8.dp))
             .padding(horizontal = 10.dp, vertical = 5.dp),
     ) {
         Text(

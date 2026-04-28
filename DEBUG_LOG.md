@@ -735,3 +735,17 @@ cross-references the one being superseded.
 | **Root Cause** | The sticky pointer cancellation path only ran from the widget's own touch listener. Taps on the underlying app do not pass through the small `TYPE_APPLICATION_OVERLAY` widget window, and the non-touchable bubble overlay intentionally cannot receive input, so app clicks had no owner that cleared pointing state. |
 | **Fix** | Forwarded app click/touch accessibility events from `HandyAccessibilityService` to `BuddyFlightDriver` while the buddy is in `POINTING`, filtering out Handy's own package. The driver now cancels the sticky pulse, moves the widget back to its stored dock coordinates, resets pointer pose, and clears the presenter bubble/state. The direct widget cancel path now uses the same dock-reset cleanup. |
 | **Prevention Rule** | Sticky overlay states that should dismiss on outside app interaction must listen to an outside-interaction owner such as Accessibility events; a small overlay view only receives touches inside its own bounds. All pointer cleanup paths must reset animation, pose, presenter state, and window position together. |
+
+---
+
+### DL-044 — Stale sticky-flight flag blocked the next pointer flight
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-04-28 |
+| **Severity** | Logic Bug |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt`, `app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt` |
+| **Symptom** | A later overlay answer showed the green response bubble beside the normal docked hand widget, with no visible flight, no pointer illustration, and no green pointer outline. |
+| **Root Cause** | Sticky pointing intentionally kept `OverlayPanelState.isFlying=true` while the buddy was parked at the target. New overlay turns (`onStreamingStart`, `onResponseFinalized`, widget/panel reopen paths) changed `buddyState` back to streaming/speaking/docked but did not clear `isFlying`. The next `BuddyFlightDriver.flyTo()` saw the stale flag and refused to start, so the UI stayed in normal hand rendering with only the response bubble. |
+| **Fix** | Reset `isFlying=false` at new overlay-session, stream, thinking, error, and non-flight response boundaries. Tightened the flight driver's "already in progress" guard to block only while `buddyState == FLYING`, and log both `buddyState` and `isFlying` when it blocks. |
+| **Prevention Rule** | For sticky UI modes, keep lifecycle flags and render states in sync. Any transition out of a sticky mode must clear both the visual state (`buddyState`) and the lifecycle flag (`isFlying`), and guards should key off the narrow active state they actually mean. |
