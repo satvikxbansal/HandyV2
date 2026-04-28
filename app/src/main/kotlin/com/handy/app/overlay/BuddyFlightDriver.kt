@@ -1,10 +1,13 @@
 package com.handy.app.overlay
 
+import android.os.Handler
+import android.os.Looper
 import com.handy.app.widget.BezierFlightController
 import com.handy.app.widget.LensRenderer
 import com.handy.core.action.ActionPerformer
 import com.handy.core.action.TapTarget
 import com.handy.core.overlay.AccessibilityMark
+import com.handy.core.overlay.BuddyState
 import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.screen.IntRect
 import com.handy.runtime.accessibility.SemanticPointerResolver
@@ -41,6 +44,7 @@ class BuddyFlightDriver @Inject constructor(
 ) {
 
     private var serviceRef: WeakReference<FloatingWidgetOverlayService>? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     fun attachService(service: FloatingWidgetOverlayService) {
         serviceRef = WeakReference(service)
@@ -246,8 +250,30 @@ class BuddyFlightDriver @Inject constructor(
 
     /** Cancel any in-flight animation (e.g. user tapped widget mid-flight). */
     fun cancel() {
-        serviceRef?.get()?.flightControllerInstance()?.cancelAll()
-        presenter.onPointingReturned()
+        mainHandler.post {
+            val service = serviceRef?.get()
+            service?.flightControllerInstance()?.cancelAll()
+            service?.moveBuddyToDock()
+            service?.resetPointerPose()
+            presenter.onPointingReturned()
+        }
+    }
+
+    /**
+     * The sticky pointer is intentionally persistent after arrival, but
+     * should clear once the user acts on the guided app.
+     */
+    fun dismissPointingAfterUserInteraction(source: String?): Boolean {
+        if (presenter.state.value.buddyState != BuddyState.POINTING) return false
+        Timber.d("BuddyFlightDriver: dismissing sticky pointer after user interaction source=%s", source)
+        mainHandler.post {
+            val service = serviceRef?.get()
+            service?.flightControllerInstance()?.cancelAll()
+            service?.moveBuddyToDock()
+            service?.resetPointerPose()
+            presenter.onPointingReturned()
+        }
+        return true
     }
 
     private fun maxXFor(service: FloatingWidgetOverlayService, widgetW: Int): Int =

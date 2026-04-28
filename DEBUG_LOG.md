@@ -721,3 +721,17 @@ cross-references the one being superseded.
 | **Root Cause** | The first implementation treated the feature as a data handoff plus CTA UI, but did not trace the whole cross-surface lifecycle after the CTA: `ChatActivity.finish()`, `HandyApplication.handyActivityForeground`, widget service attachment/layout, foreground monitor replay, and `BuddyFlightDriver` animation callbacks. It also assumed `AccessibilityMarksProvider.collect()` would still describe the target app while `ChatActivity` had focus, and assumed `flyTo()` meant "arrived" when it only meant "animation started". |
 | **Fix** | Locked handoff context in `ChatViewModel` while a target snapshot is bound, so later foreground emissions do not swap the history/tool key. Moved full-chat minimize reopening into `FullChatActionLauncher.reopenOverlayPanelAfterChat()`, which waits until Handy is no longer foreground before collecting marks. Added widget-surface readiness checks before full-chat buddy flight, and changed `BuddyFlightDriver.flyToBounds()` to suspend until `onArrived` before returning so tap-for-me happens after arrival. Added shared `PanelSnapshot.toScreenTextSnapshot()` plus focused tests for handoff storage and snapshot conversion. |
 | **Prevention Rule** | For any feature crossing Activity, overlay Service, Accessibility, and animation boundaries, write the complete event timeline before coding and verify every transition has an owner: foreground app context owner, accessibility-root owner, service attachment/layout readiness, animation completion semantics, and cancellation/reset path. Never assume a method named `flyTo` or `openOverlay` is synchronous; inspect callbacks and lifecycle signals before using its return value as readiness. |
+
+---
+
+### DL-043 — Sticky pointer ignored app taps after guidance
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-04-28 |
+| **Severity** | Logic Bug |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/accessibility/HandyAccessibilityService.kt`, `app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt`, `app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt` |
+| **Symptom** | After Handy pointed at a target and the user tapped the underlying app, the pointer and green response bubble stayed on screen instead of returning to the original docked widget state. |
+| **Root Cause** | The sticky pointer cancellation path only ran from the widget's own touch listener. Taps on the underlying app do not pass through the small `TYPE_APPLICATION_OVERLAY` widget window, and the non-touchable bubble overlay intentionally cannot receive input, so app clicks had no owner that cleared pointing state. |
+| **Fix** | Forwarded app click/touch accessibility events from `HandyAccessibilityService` to `BuddyFlightDriver` while the buddy is in `POINTING`, filtering out Handy's own package. The driver now cancels the sticky pulse, moves the widget back to its stored dock coordinates, resets pointer pose, and clears the presenter bubble/state. The direct widget cancel path now uses the same dock-reset cleanup. |
+| **Prevention Rule** | Sticky overlay states that should dismiss on outside app interaction must listen to an outside-interaction owner such as Accessibility events; a small overlay view only receives touches inside its own bounds. All pointer cleanup paths must reset animation, pose, presenter state, and window position together. |

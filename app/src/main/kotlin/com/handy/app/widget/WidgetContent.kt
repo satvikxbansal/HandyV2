@@ -86,7 +86,7 @@ fun WidgetContent(
             WidgetState.TOUCHED -> HandyColors.Accent
             WidgetState.LISTENING -> HandyColors.GlassBorder
             WidgetState.THINKING -> HandyColors.GlassBorder
-            WidgetState.FLYING, WidgetState.POINTING -> HandyColors.Accent
+            WidgetState.FLYING, WidgetState.POINTING -> HandyColors.BubbleResponse
         }
         val isPointer = state == WidgetState.FLYING || state == WidgetState.POINTING
         Box(
@@ -127,7 +127,7 @@ fun WidgetContent(
                         if (pointer) {
                             PointerHandIcon(
                                 size = HandIconSize,
-                                tint = HandyColors.TextPrimary,
+                                tint = HandyColors.BubbleResponse,
                                 modifier = Modifier
                                     .rotate(pointerRotationRadians.toDegrees() + 90f)
                                     .scale(pointerScale.coerceIn(0.90f, 1.18f)),
@@ -279,7 +279,7 @@ private fun tintFor(state: BuddyState): LensRenderer.Tint = when (state) {
     BuddyState.DOCKED, BuddyState.DRAGGING -> LensRenderer.Tint.Amber
     BuddyState.LISTENING -> LensRenderer.Tint.Amber
     BuddyState.THINKING, BuddyState.STREAMING -> LensRenderer.Tint.Amber
-    BuddyState.FLYING, BuddyState.POINTING -> LensRenderer.Tint.Blue
+    BuddyState.FLYING, BuddyState.POINTING -> LensRenderer.Tint.Green
     BuddyState.ACTING -> LensRenderer.Tint.Teal
     BuddyState.SPEAKING -> LensRenderer.Tint.Green
 }

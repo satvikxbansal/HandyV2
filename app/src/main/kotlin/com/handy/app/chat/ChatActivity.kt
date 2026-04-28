@@ -298,7 +298,7 @@ internal fun ChatScreen(
  * Custom header bar — mirrors `ChatInterfaceView.headerBar`
  * (`ChatInterfaceView.swift` lines 50–77). The macOS hover-roster is
  * dropped (no hover on mobile); everything else (bold "Handy", status
- * dot with halo, listening bars, settings gear) is preserved.
+ * live dot with halo, listening bars, settings gear) is preserved.
  */
 @Composable
 private fun HandyHeaderBar(
@@ -309,8 +309,7 @@ private fun HandyHeaderBar(
     // Spec (`handy-fullapp.jsx`): padding `18dp 20dp 14dp`, gap 14dp,
     // bottom border 0.5dp Divider.
     //   - HandMark 32dp Accent (no circle).
-    //   - Title block stacked (gap 3dp): "Handy" 20sp/700/-0.4 +
-    //     status row (6dp Success dot + "Ready" 12sp TextSecondary).
+    //   - Title row: "Handy" 20sp/700/-0.4 + live Success dot.
     //   - Trailing 32dp bare icon btns (0.72 opacity, 18dp icons) —
     //     we render minimise + settings (history omitted per product
     //     decision; see plan + DL-030).
@@ -322,39 +321,17 @@ private fun HandyHeaderBar(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         HandMarkIcon(size = 32.dp, tint = HandyColors.Accent)
-        Column(modifier = Modifier.weight(1f)) {
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             Text(
                 text = "Handy",
                 style = HandyType.TitleLarge,
                 color = HandyColors.TextPrimary,
             )
-            Spacer(Modifier.height(3.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(
-                            when (voiceState) {
-                                VoiceUiState.IDLE -> HandyColors.Success
-                                else -> HandyColors.Accent
-                            },
-                        ),
-                )
-                Text(
-                    text = when (voiceState) {
-                        VoiceUiState.IDLE -> "Ready"
-                        VoiceUiState.LISTENING -> "Listening…"
-                        VoiceUiState.PROCESSING -> "Thinking…"
-                        VoiceUiState.RESPONDING -> "Responding…"
-                    },
-                    style = HandyType.CaptionSmall,
-                    color = HandyColors.TextSecondary,
-                )
-            }
+            LiveStatusDot()
         }
         AnimatedVisibility(visible = voiceState == VoiceUiState.LISTENING) {
             ListeningWaveformBars(
@@ -373,6 +350,47 @@ private fun HandyHeaderBar(
             iconRes = R.drawable.ic_settings,
             description = "Open settings",
             onClick = onOpenSettings,
+        )
+    }
+}
+
+@Composable
+private fun LiveStatusDot() {
+    val transition = rememberInfiniteTransition(label = "live-dot")
+    val glowScale by transition.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.35f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1400, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "live-dot-scale",
+    )
+    val glowAlpha by transition.animateFloat(
+        initialValue = 0.18f,
+        targetValue = 0.42f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1400, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "live-dot-alpha",
+    )
+    Box(
+        modifier = Modifier.size(16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(12.dp)
+                .scale(glowScale)
+                .clip(CircleShape)
+                .background(HandyColors.Success.copy(alpha = glowAlpha)),
+        )
+        Box(
+            modifier = Modifier
+                .size(7.dp)
+                .clip(CircleShape)
+                .background(HandyColors.Success),
         )
     }
 }

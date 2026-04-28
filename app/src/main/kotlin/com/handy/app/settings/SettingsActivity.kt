@@ -149,7 +149,6 @@ private fun SettingsScreen(
                 SectionHeaderWithIcon(
                     iconRes = R.drawable.ic_brain,
                     title = "Brain",
-                    caption = "Pick the model that powers Handy. Your key unlocks it.",
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     BrainModelCard(
@@ -208,7 +207,6 @@ private fun SettingsScreen(
                 SectionHeaderWithIcon(
                     iconRes = R.drawable.ic_modes,
                     title = "Modes",
-                    caption = "How Handy behaves in different situations",
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ToggleCard(
@@ -231,7 +229,6 @@ private fun SettingsScreen(
                 SectionHeaderWithIcon(
                     iconRes = R.drawable.ic_bolt,
                     title = "Triggers",
-                    caption = "When Handy wakes up",
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ToggleCard(
@@ -263,7 +260,6 @@ private fun SettingsScreen(
                 SectionHeaderWithIcon(
                     iconRes = R.drawable.ic_globe,
                     title = "Web Tools",
-                    caption = "Let Handy search and fetch the open web",
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ToggleCard(
@@ -409,13 +405,11 @@ private fun SettingsTopBar(onBack: () -> Unit) {
 private fun SectionHeaderWithIcon(
     @DrawableRes iconRes: Int,
     title: String,
-    caption: String,
 ) {
     // Spec (`handy-settings.jsx` `Section`): padding `22dp 20dp 4dp`,
     // header row gap 10dp, icon bubble 28dp radius 8 AccentSoft (no
-    // border), icon 18dp Accent. Title 16sp/600/-0.2. Subtitle 12sp
-    // TextSecondary, `marginLeft 38dp` so it aligns with the title
-    // start past the icon bubble. marginBottom 12dp before children.
+    // border), icon 18dp Accent. Title 16sp/600/-0.2. marginBottom 12dp
+    // before children.
     Column {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -441,13 +435,6 @@ private fun SectionHeaderWithIcon(
                 color = HandyColors.TextPrimary,
             )
         }
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = caption,
-            style = HandyType.CaptionSmall.copy(lineHeight = 17.sp),
-            color = HandyColors.TextSecondary,
-            modifier = Modifier.padding(start = 38.dp),
-        )
         Spacer(Modifier.height(12.dp))
     }
 }

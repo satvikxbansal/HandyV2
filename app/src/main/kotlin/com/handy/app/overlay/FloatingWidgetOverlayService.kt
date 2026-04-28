@@ -491,6 +491,10 @@ class FloatingWidgetOverlayService : LifecycleService() {
     /** Current widget window position (top-left). */
     internal fun currentWindowPosition(): Pair<Int, Int> = params.x to params.y
 
+    internal fun moveBuddyToDock() {
+        moveBuddyTo(dockX, dockY)
+    }
+
     /** Widget view width/height (0 when unattached). */
     internal fun widgetSize(): Pair<Int, Int> {
         val v = view ?: return 0 to 0

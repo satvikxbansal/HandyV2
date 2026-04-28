@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.view.accessibility.AccessibilityEvent
 import com.handy.app.foreground.HandyForegroundAppMonitor
+import com.handy.app.overlay.BuddyFlightDriver
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
@@ -36,6 +37,7 @@ class HandyAccessibilityService : AccessibilityService() {
 
     @Inject lateinit var foregroundAppMonitor: HandyForegroundAppMonitor
     @Inject lateinit var stateMonitor: AccessibilityStateMonitor
+    @Inject lateinit var flightDriver: BuddyFlightDriver
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -55,6 +57,7 @@ class HandyAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
+        maybeDismissStickyPointer(event)
         // Only WINDOW_STATE_CHANGED matters for tool detection. The
         // monitor itself re-checks but bailing here keeps the log quiet
         // and avoids an unnecessary rootInActiveWindow call on every
@@ -66,6 +69,15 @@ class HandyAccessibilityService : AccessibilityService() {
         } finally {
             runCatching { root?.recycle() }
         }
+    }
+
+    private fun maybeDismissStickyPointer(event: AccessibilityEvent) {
+        if (event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED &&
+            event.eventType != AccessibilityEvent.TYPE_TOUCH_INTERACTION_START
+        ) return
+        val sourcePackage = event.packageName?.toString()
+        if (sourcePackage == packageName) return
+        flightDriver.dismissPointingAfterUserInteraction(sourcePackage)
     }
 
     override fun onInterrupt() { /* no-op */ }
