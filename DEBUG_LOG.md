@@ -763,3 +763,17 @@ cross-references the one being superseded.
 | **Root Cause** | The landing algorithm optimized for nearest non-overlap with the target bounds. That avoids covering the button, but in compact nav rows it can choose a side/corner slot whose center drifts toward an adjacent control. Bubble placement also defaulted to side anchoring, which visually stretched the callout across neighboring labels. |
 | **Fix** | Replaced nearest-only landing with named target-affinity candidates. Bottom-edge targets now prefer above-and-center placement over the intended control; top-edge targets prefer below-and-center; side/corner fallbacks remain available with hard non-overlap against expanded target bounds. Added landing diagnostics for preferred band, chosen candidate, target/avoid bounds, final position, and pointer angle. Bubble placement now receives the chosen landing kind and prefers above/below anchoring for top/bottom nav targets. |
 | **Prevention Rule** | Pointer landing should optimize for target affinity, not only non-overlap distance. For dense nav rows, preserve horizontal alignment with the intended item and score candidate drift toward neighboring controls as a defect. |
+
+---
+
+### DL-046 — Pointer snapped to final angle after landing
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-04-28 |
+| **Severity** | Logic Bug |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/widget/BezierFlightController.kt`, `app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt` |
+| **Symptom** | Handy flew to the correct landing spot, paused briefly, and only then rotated the pointer hand toward the actual target, making the pointing feel late. |
+| **Root Cause** | Flight ticks exposed only the Bezier tangent, so the widget followed the path direction until `ValueAnimator.onAnimationEnd`. The target-facing arrival angle was applied only in `onArrived()`, after the window had already reached its final position. |
+| **Fix** | Added flight progress to `BezierFlightController.Callback.onFlightTick` and passed the animator progress from `buildFlight`. `BuddyFlightDriver` now blends from the path tangent toward the final target-facing angle during the last 22% of flight using shortest-angle interpolation, while keeping `onArrived()` as an exact final-angle guard. |
+| **Prevention Rule** | When a flight has a distinct final pointing pose, start blending toward that pose before arrival. Do not wait until the animation-end callback to apply orientation that the user should perceive as part of landing. |

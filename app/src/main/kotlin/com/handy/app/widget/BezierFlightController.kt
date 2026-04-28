@@ -34,7 +34,13 @@ class BezierFlightController(
 
     interface Callback {
         /** Fires once per frame during flight. Tangent in radians. */
-        fun onFlightTick(x: Float, y: Float, tangentRadians: Float, scale: Float)
+        fun onFlightTick(
+            x: Float,
+            y: Float,
+            tangentRadians: Float,
+            scale: Float,
+            progress: Float,
+        )
 
         /** Buddy has arrived at the target. */
         fun onArrived()
@@ -181,7 +187,7 @@ class BezierFlightController(
         controlX: Float,
         controlY: Float,
         durationMs: Long,
-        onTick: (Float, Float, Float, Float) -> Unit,
+        onTick: (Float, Float, Float, Float, Float) -> Unit,
         onEnd: () -> Unit,
     ): ValueAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
         duration = durationMs
@@ -207,7 +213,7 @@ class BezierFlightController(
             // Slight scale pulse mid-flight.
             val flightScale = 1f + kotlin.math.sin((linear * Math.PI).toFloat()) * 0.2f
 
-            onTick(x, y, tangent, flightScale)
+            onTick(x, y, tangent, flightScale, linear)
         }
         addListener(object : AnimatorListenerAdapter() {
             override fun onAnimationEnd(animation: Animator) = onEnd()

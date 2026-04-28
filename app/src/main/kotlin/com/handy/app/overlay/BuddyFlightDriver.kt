@@ -16,6 +16,7 @@ import java.lang.ref.WeakReference
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
+import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.min
@@ -154,13 +155,14 @@ class BuddyFlightDriver @Inject constructor(
         val landing = chooseLandingPosition(service, bounds, widgetW, widgetH)
         val arrivalAngle = angleFromWidgetToTarget(landing, widgetW, widgetH, bounds)
         Timber.d(
-            "BuddyFlightDriver.flyToBounds: from=%d,%d target=%d,%d kind=%s angle=%.2f dock=%d,%d bounds=%s label=\"%s\"",
+            "BuddyFlightDriver.flyToBounds: from=%d,%d target=%d,%d kind=%s angle=%.2f blendStart=%.2f dock=%d,%d bounds=%s label=\"%s\"",
             fromX,
             fromY,
             landing.x,
             landing.y,
             landing.kind,
             arrivalAngle,
+            POINTER_ROTATION_BLEND_START,
             dockX,
             dockY,
             bounds.logSummary(),
@@ -184,9 +186,17 @@ class BuddyFlightDriver @Inject constructor(
                     y: Float,
                     tangentRadians: Float,
                     scale: Float,
+                    progress: Float,
                 ) {
                     service.moveBuddyTo(x.toInt(), y.toInt())
-                    service.updatePointerPose(tangentRadians, scale)
+                    service.updatePointerPose(
+                        tangentRadians = blendPointerAngle(
+                            tangentRadians = tangentRadians,
+                            arrivalAngle = arrivalAngle,
+                            progress = progress,
+                        ),
+                        scale = scale,
+                    )
                 }
 
                 override fun onArrived() {
@@ -449,6 +459,22 @@ class BuddyFlightDriver @Inject constructor(
         )
     }
 
+    private fun blendPointerAngle(
+        tangentRadians: Float,
+        arrivalAngle: Float,
+        progress: Float,
+    ): Float {
+        if (progress <= POINTER_ROTATION_BLEND_START) return tangentRadians
+        val t = ((progress - POINTER_ROTATION_BLEND_START) / (1f - POINTER_ROTATION_BLEND_START))
+            .coerceIn(0f, 1f)
+        return lerpAngleShortest(tangentRadians, arrivalAngle, t * t * (3f - 2f * t))
+    }
+
+    private fun lerpAngleShortest(start: Float, end: Float, t: Float): Float {
+        val delta = ((end - start + PI.toFloat()) % TWO_PI + TWO_PI) % TWO_PI - PI.toFloat()
+        return start + delta * t
+    }
+
     private data class FlightTarget(
         val bounds: IntRect,
         val node: android.view.accessibility.AccessibilityNodeInfo?,
@@ -556,6 +582,8 @@ class BuddyFlightDriver @Inject constructor(
 
     private companion object {
         const val POINT_TARGET_RADIUS: Int = 20
+        const val POINTER_ROTATION_BLEND_START: Float = 0.78f
+        const val TWO_PI: Float = (Math.PI * 2.0).toFloat()
     }
 }
 
