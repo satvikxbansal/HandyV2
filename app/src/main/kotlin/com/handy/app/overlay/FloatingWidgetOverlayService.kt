@@ -84,6 +84,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private lateinit var windowManager: WindowManager
     private lateinit var params: WindowManager.LayoutParams
     private var bubbleParams: WindowManager.LayoutParams? = null
+    private var bubblePlacementHint: BubblePlacementHint = BubblePlacementHint.Side
 
     private val state = MutableStateFlow(WidgetState.IDLE)
     private val pointerRotationRadians = MutableStateFlow(0f)
@@ -483,6 +484,16 @@ class FloatingWidgetOverlayService : LifecycleService() {
     internal fun resetPointerPose() {
         pointerRotationRadians.value = 0f
         pointerScale.value = 1f
+        bubblePlacementHint = BubblePlacementHint.Side
+    }
+
+    internal fun updateBubblePlacementHint(kind: String) {
+        bubblePlacementHint = when {
+            kind.startsWith("bottom-") -> BubblePlacementHint.Above
+            kind.startsWith("top-") -> BubblePlacementHint.Below
+            else -> BubblePlacementHint.Side
+        }
+        updateBubblePosition()
     }
 
     /** Current buddy dock coordinates (top-left of widget window). */
@@ -557,7 +568,11 @@ class FloatingWidgetOverlayService : LifecycleService() {
         val maxBubbleX = (screenW - bubbleW).coerceAtLeast(0)
         val maxBubbleY = (screenH - bubbleH).coerceAtLeast(0)
 
-        val preferredX = if (widgetCenterX > screenW / 2) {
+        val preferredX = if (bubblePlacementHint == BubblePlacementHint.Above ||
+            bubblePlacementHint == BubblePlacementHint.Below
+        ) {
+            widgetCenterX - bubbleW / 2
+        } else if (widgetCenterX > screenW / 2) {
             params.x - bubbleW - gap
         } else {
             params.x + widgetW + gap
@@ -577,7 +592,12 @@ class FloatingWidgetOverlayService : LifecycleService() {
         val belowY = (widgetBottom + gap).coerceIn(0, maxBubbleY)
         val roomAbove = widgetTop
         val roomBelow = screenH - widgetBottom
-        val adjacentY = if (overlapsHorizontally) {
+        val hintedY = when (bubblePlacementHint) {
+            BubblePlacementHint.Above -> aboveY
+            BubblePlacementHint.Below -> belowY
+            BubblePlacementHint.Side -> null
+        }
+        val adjacentY = hintedY ?: if (overlapsHorizontally) {
             if (roomBelow >= roomAbove) belowY else aboveY
         } else {
             centeredY
@@ -620,6 +640,12 @@ class FloatingWidgetOverlayService : LifecycleService() {
         const val LONG_PRESS_MS: Long = 400L
         /** Cursorbuddy recipe #6 — grace before auto-submitting a voice transcript. */
         const val VOICE_AUTOSUBMIT_GRACE_MS: Long = 300L
+    }
+
+    private enum class BubblePlacementHint {
+        Side,
+        Above,
+        Below,
     }
 }
 

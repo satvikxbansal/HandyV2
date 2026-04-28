@@ -152,18 +152,22 @@ class BuddyFlightDriver @Inject constructor(
         val (fromX, fromY) = service.currentWindowPosition()
         val (dockX, dockY) = service.currentDockPosition()
         val landing = chooseLandingPosition(service, bounds, widgetW, widgetH)
+        val arrivalAngle = angleFromWidgetToTarget(landing, widgetW, widgetH, bounds)
         Timber.d(
-            "BuddyFlightDriver.flyToBounds: from=%d,%d target=%d,%d dock=%d,%d bounds=%s label=\"%s\"",
+            "BuddyFlightDriver.flyToBounds: from=%d,%d target=%d,%d kind=%s angle=%.2f dock=%d,%d bounds=%s label=\"%s\"",
             fromX,
             fromY,
             landing.x,
             landing.y,
+            landing.kind,
+            arrivalAngle,
             dockX,
             dockY,
             bounds.logSummary(),
             label?.logSnippet(),
         )
 
+        service.updateBubblePlacementHint(landing.kind)
         presenter.onFlyingStart(label = label)
 
         service.flightControllerInstance().flyThere(
@@ -188,7 +192,7 @@ class BuddyFlightDriver @Inject constructor(
                 override fun onArrived() {
                     Timber.d("BuddyFlightDriver.flyToBounds: arrived label=\"%s\"", label?.logSnippet())
                     service.updatePointerPose(
-                        tangentRadians = angleFromWidgetToTarget(landing, widgetW, widgetH, bounds),
+                        tangentRadians = arrivalAngle,
                         scale = 1.0f,
                     )
                     presenter.onPointingArrived(label)
@@ -286,13 +290,18 @@ class BuddyFlightDriver @Inject constructor(
         return true
     }
 
-    private fun maxXFor(service: FloatingWidgetOverlayService, widgetW: Int): Int =
-        service.resources.displayMetrics.widthPixels - widgetW
+    private data class LandingPosition(
+        val x: Int,
+        val y: Int,
+        val kind: String,
+    )
 
-    private fun maxYFor(service: FloatingWidgetOverlayService, widgetH: Int): Int =
-        service.resources.displayMetrics.heightPixels - widgetH
-
-    private data class LandingPosition(val x: Int, val y: Int)
+    private data class LandingCandidate(
+        val kind: String,
+        val x: Int,
+        val y: Int,
+        val priority: Int,
+    )
 
     private fun chooseLandingPosition(
         service: FloatingWidgetOverlayService,
@@ -304,55 +313,127 @@ class BuddyFlightDriver @Inject constructor(
         // Keep the buddy visibly close to the target while still avoiding
         // overlap with the tappable bounds.
         val gap = (8f * density).toInt()
-        val edgeMargin = (72f * density).toInt()
+        val avoidMargin = (6f * density).toInt()
+        val edgeBand = (96f * density).toInt()
         val screenW = service.resources.displayMetrics.widthPixels
         val screenH = service.resources.displayMetrics.heightPixels
         val maxX = (screenW - widgetW).coerceAtLeast(0)
         val maxY = (screenH - widgetH).coerceAtLeast(0)
 
-        fun clamp(x: Int, y: Int): LandingPosition =
-            LandingPosition(x.coerceIn(0, maxX), y.coerceIn(0, maxY))
+        fun candidate(kind: String, x: Int, y: Int, priority: Int): LandingCandidate =
+            LandingCandidate(
+                kind = kind,
+                x = x.coerceIn(0, maxX),
+                y = y.coerceIn(0, maxY),
+                priority = priority,
+            )
 
         fun centeredY(): Int = bounds.centerY - widgetH / 2
         fun centeredX(): Int = bounds.centerX - widgetW / 2
 
-        val preferred = when {
-            bounds.left <= edgeMargin -> clamp(bounds.right + gap, centeredY())
-            bounds.right >= screenW - edgeMargin -> clamp(bounds.left - widgetW - gap, centeredY())
-            bounds.top <= edgeMargin -> clamp(centeredX(), bounds.bottom + gap)
-            bounds.bottom >= screenH - edgeMargin -> clamp(centeredX(), bounds.top - widgetH - gap)
-            else -> null
+        val avoidBounds = bounds.expand(avoidMargin, screenW, screenH)
+        val nearBottom = bounds.centerY >= screenH - edgeBand
+        val nearTop = bounds.centerY <= edgeBand
+        val nearLeft = bounds.centerX <= edgeBand
+        val nearRight = bounds.centerX >= screenW - edgeBand
+        val preferredBand = when {
+            nearBottom -> "bottom"
+            nearTop -> "top"
+            nearLeft -> "left"
+            nearRight -> "right"
+            else -> "middle"
         }
-        if (preferred != null && !preferred.overlaps(bounds, widgetW, widgetH)) return preferred
 
-        val candidates = listOf(
-            clamp(bounds.right + gap, centeredY()),
-            clamp(bounds.left - widgetW - gap, centeredY()),
-            clamp(centeredX(), bounds.bottom + gap),
-            clamp(centeredX(), bounds.top - widgetH - gap),
-            clamp(bounds.right + gap, bounds.bottom + gap),
-            clamp(bounds.left - widgetW - gap, bounds.bottom + gap),
-            clamp(bounds.right + gap, bounds.top - widgetH - gap),
-            clamp(bounds.left - widgetW - gap, bounds.top - widgetH - gap),
-        )
-        return candidates.minBy { candidate ->
-            val overlapPenalty = if (candidate.overlaps(bounds, widgetW, widgetH)) 1_000_000 else 0
-            val dx = abs((candidate.x + widgetW / 2) - bounds.centerX)
-            val dy = abs((candidate.y + widgetH / 2) - bounds.centerY)
-            overlapPenalty + dx + dy
+        val candidates = buildList {
+            if (nearBottom) {
+                add(candidate("bottom-above-center", centeredX(), bounds.top - widgetH - gap, priority = 0))
+                add(candidate("bottom-above-left", bounds.left, bounds.top - widgetH - gap, priority = 3))
+                add(candidate("bottom-above-right", bounds.right - widgetW, bounds.top - widgetH - gap, priority = 3))
+            }
+            if (nearTop) {
+                add(candidate("top-below-center", centeredX(), bounds.bottom + gap, priority = 0))
+                add(candidate("top-below-left", bounds.left, bounds.bottom + gap, priority = 3))
+                add(candidate("top-below-right", bounds.right - widgetW, bounds.bottom + gap, priority = 3))
+            }
+            if (nearLeft) {
+                add(candidate("left-side-right", bounds.right + gap, centeredY(), priority = 1))
+            }
+            if (nearRight) {
+                add(candidate("right-side-left", bounds.left - widgetW - gap, centeredY(), priority = 1))
+            }
+            add(candidate("side-right", bounds.right + gap, centeredY(), priority = 6))
+            add(candidate("side-left", bounds.left - widgetW - gap, centeredY(), priority = 6))
+            add(candidate("below-center", centeredX(), bounds.bottom + gap, priority = 8))
+            add(candidate("above-center", centeredX(), bounds.top - widgetH - gap, priority = 8))
+            add(candidate("corner-bottom-right", bounds.right + gap, bounds.bottom + gap, priority = 12))
+            add(candidate("corner-bottom-left", bounds.left - widgetW - gap, bounds.bottom + gap, priority = 12))
+            add(candidate("corner-top-right", bounds.right + gap, bounds.top - widgetH - gap, priority = 12))
+            add(candidate("corner-top-left", bounds.left - widgetW - gap, bounds.top - widgetH - gap, priority = 12))
         }
+        val chosen = candidates.minBy { candidate ->
+            candidate.score(
+                avoidBounds = avoidBounds,
+                target = bounds,
+                widgetW = widgetW,
+                widgetH = widgetH,
+                preferredBand = preferredBand,
+            )
+        }
+        Timber.d(
+            "BuddyFlightDriver.chooseLandingPosition: preferred=%s chosen=%s pos=%d,%d target=%s avoid=%s",
+            preferredBand,
+            chosen.kind,
+            chosen.x,
+            chosen.y,
+            bounds.logSummary(),
+            avoidBounds.logSummary(),
+        )
+        return LandingPosition(chosen.x, chosen.y, chosen.kind)
     }
 
-    private fun LandingPosition.overlaps(bounds: IntRect, widgetW: Int, widgetH: Int): Boolean {
-        val left = x
-        val top = y
+    private fun LandingCandidate.score(
+        avoidBounds: IntRect,
+        target: IntRect,
+        widgetW: Int,
+        widgetH: Int,
+        preferredBand: String,
+    ): Int {
+        val overlapPenalty = if (overlaps(avoidBounds, widgetW, widgetH)) 1_000_000 else 0
+        val centerX = x + widgetW / 2
+        val centerY = y + widgetH / 2
+        val horizontalAffinity = abs(centerX - target.centerX)
+        val verticalAffinity = abs(centerY - target.centerY)
+        val bandPenalty = when (preferredBand) {
+            "bottom" -> if (kind.startsWith("bottom-above")) 0 else 30_000
+            "top" -> if (kind.startsWith("top-below")) 0 else 30_000
+            "left" -> if (kind == "left-side-right") 0 else 15_000
+            "right" -> if (kind == "right-side-left") 0 else 15_000
+            else -> 0
+        }
+        val driftPenalty = when (preferredBand) {
+            "bottom", "top" -> horizontalAffinity * 12 + verticalAffinity
+            "left", "right" -> verticalAffinity * 6 + horizontalAffinity
+            else -> horizontalAffinity + verticalAffinity
+        }
+        return overlapPenalty + bandPenalty + priority * 1_000 + driftPenalty
+    }
+
+    private fun LandingCandidate.overlaps(bounds: IntRect, widgetW: Int, widgetH: Int): Boolean {
         val right = x + widgetW
         val bottom = y + widgetH
-        return left < bounds.right &&
+        return x < bounds.right &&
             right > bounds.left &&
-            top < bounds.bottom &&
+            y < bounds.bottom &&
             bottom > bounds.top
     }
+
+    private fun IntRect.expand(margin: Int, screenW: Int, screenH: Int): IntRect =
+        IntRect(
+            left = (left - margin).coerceAtLeast(0),
+            top = (top - margin).coerceAtLeast(0),
+            right = (right + margin).coerceAtMost(screenW),
+            bottom = (bottom + margin).coerceAtMost(screenH),
+        )
 
     private fun angleFromWidgetToTarget(
         landing: LandingPosition,

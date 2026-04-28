@@ -749,3 +749,17 @@ cross-references the one being superseded.
 | **Root Cause** | Sticky pointing intentionally kept `OverlayPanelState.isFlying=true` while the buddy was parked at the target. New overlay turns (`onStreamingStart`, `onResponseFinalized`, widget/panel reopen paths) changed `buddyState` back to streaming/speaking/docked but did not clear `isFlying`. The next `BuddyFlightDriver.flyTo()` saw the stale flag and refused to start, so the UI stayed in normal hand rendering with only the response bubble. |
 | **Fix** | Reset `isFlying=false` at new overlay-session, stream, thinking, error, and non-flight response boundaries. Tightened the flight driver's "already in progress" guard to block only while `buddyState == FLYING`, and log both `buddyState` and `isFlying` when it blocks. |
 | **Prevention Rule** | For sticky UI modes, keep lifecycle flags and render states in sync. Any transition out of a sticky mode must clear both the visual state (`buddyState`) and the lifecycle flag (`isFlying`), and guards should key off the narrow active state they actually mean. |
+
+---
+
+### DL-045 — Pointer landed nearer adjacent nav tabs
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-04-28 |
+| **Severity** | Logic Bug |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt`, `app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt` |
+| **Symptom** | For dense bottom navigation, Handy pointed at the correct target semantically but parked the widget between tabs, making it look closer to the neighboring Photos/Contacts tab than the intended Search/Voicemail tab. |
+| **Root Cause** | The landing algorithm optimized for nearest non-overlap with the target bounds. That avoids covering the button, but in compact nav rows it can choose a side/corner slot whose center drifts toward an adjacent control. Bubble placement also defaulted to side anchoring, which visually stretched the callout across neighboring labels. |
+| **Fix** | Replaced nearest-only landing with named target-affinity candidates. Bottom-edge targets now prefer above-and-center placement over the intended control; top-edge targets prefer below-and-center; side/corner fallbacks remain available with hard non-overlap against expanded target bounds. Added landing diagnostics for preferred band, chosen candidate, target/avoid bounds, final position, and pointer angle. Bubble placement now receives the chosen landing kind and prefers above/below anchoring for top/bottom nav targets. |
+| **Prevention Rule** | Pointer landing should optimize for target affinity, not only non-overlap distance. For dense nav rows, preserve horizontal alignment with the intended item and score candidate drift toward neighboring controls as a defect. |
