@@ -12,6 +12,8 @@ import com.handy.runtime.storage.DataStoreSettings
 import java.lang.ref.WeakReference
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.min
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -127,16 +129,13 @@ class BuddyFlightDriver @Inject constructor(
             ?: return false
         val (fromX, fromY) = service.currentWindowPosition()
         val (dockX, dockY) = service.currentDockPosition()
-        // Target centred on the bounds, clamped so the widget stays
-        // fully on-screen during dwell.
-        val targetX = (bounds.centerX - widgetW / 2).coerceIn(0, maxXFor(service, widgetW))
-        val targetY = (bounds.centerY - widgetH / 2).coerceIn(0, maxYFor(service, widgetH))
+        val landing = chooseLandingPosition(service, bounds, widgetW, widgetH)
         Timber.d(
             "BuddyFlightDriver.flyToBounds: from=%d,%d target=%d,%d dock=%d,%d bounds=%s label=\"%s\"",
             fromX,
             fromY,
-            targetX,
-            targetY,
+            landing.x,
+            landing.y,
             dockX,
             dockY,
             bounds.logSummary(),
@@ -148,8 +147,8 @@ class BuddyFlightDriver @Inject constructor(
         service.flightControllerInstance().flyThere(
             fromX = fromX.toFloat(),
             fromY = fromY.toFloat(),
-            toX = targetX.toFloat(),
-            toY = targetY.toFloat(),
+            toX = landing.x.toFloat(),
+            toY = landing.y.toFloat(),
             dockX = dockX.toFloat(),
             dockY = dockY.toFloat(),
             returnToDock = false,
@@ -166,7 +165,10 @@ class BuddyFlightDriver @Inject constructor(
 
                 override fun onArrived() {
                     Timber.d("BuddyFlightDriver.flyToBounds: arrived label=\"%s\"", label?.logSnippet())
-                    service.updatePointerPose(scale = 1.0f)
+                    service.updatePointerPose(
+                        tangentRadians = angleFromWidgetToTarget(landing, widgetW, widgetH, bounds),
+                        scale = 1.0f,
+                    )
                     presenter.onPointingArrived(label)
                 }
 
@@ -242,6 +244,80 @@ class BuddyFlightDriver @Inject constructor(
 
     private fun maxYFor(service: FloatingWidgetOverlayService, widgetH: Int): Int =
         service.resources.displayMetrics.heightPixels - widgetH
+
+    private data class LandingPosition(val x: Int, val y: Int)
+
+    private fun chooseLandingPosition(
+        service: FloatingWidgetOverlayService,
+        bounds: IntRect,
+        widgetW: Int,
+        widgetH: Int,
+    ): LandingPosition {
+        val density = service.resources.displayMetrics.density
+        val gap = (12f * density).toInt()
+        val edgeMargin = (72f * density).toInt()
+        val screenW = service.resources.displayMetrics.widthPixels
+        val screenH = service.resources.displayMetrics.heightPixels
+        val maxX = (screenW - widgetW).coerceAtLeast(0)
+        val maxY = (screenH - widgetH).coerceAtLeast(0)
+
+        fun clamp(x: Int, y: Int): LandingPosition =
+            LandingPosition(x.coerceIn(0, maxX), y.coerceIn(0, maxY))
+
+        fun centeredY(): Int = bounds.centerY - widgetH / 2
+        fun centeredX(): Int = bounds.centerX - widgetW / 2
+
+        val preferred = when {
+            bounds.left <= edgeMargin -> clamp(bounds.right + gap, centeredY())
+            bounds.right >= screenW - edgeMargin -> clamp(bounds.left - widgetW - gap, centeredY())
+            bounds.top <= edgeMargin -> clamp(centeredX(), bounds.bottom + gap)
+            bounds.bottom >= screenH - edgeMargin -> clamp(centeredX(), bounds.top - widgetH - gap)
+            else -> null
+        }
+        if (preferred != null && !preferred.overlaps(bounds, widgetW, widgetH)) return preferred
+
+        val candidates = listOf(
+            clamp(bounds.right + gap, centeredY()),
+            clamp(bounds.left - widgetW - gap, centeredY()),
+            clamp(centeredX(), bounds.bottom + gap),
+            clamp(centeredX(), bounds.top - widgetH - gap),
+            clamp(bounds.right + gap, bounds.bottom + gap),
+            clamp(bounds.left - widgetW - gap, bounds.bottom + gap),
+            clamp(bounds.right + gap, bounds.top - widgetH - gap),
+            clamp(bounds.left - widgetW - gap, bounds.top - widgetH - gap),
+        )
+        return candidates.minBy { candidate ->
+            val overlapPenalty = if (candidate.overlaps(bounds, widgetW, widgetH)) 1_000_000 else 0
+            val dx = abs((candidate.x + widgetW / 2) - bounds.centerX)
+            val dy = abs((candidate.y + widgetH / 2) - bounds.centerY)
+            overlapPenalty + dx + dy
+        }
+    }
+
+    private fun LandingPosition.overlaps(bounds: IntRect, widgetW: Int, widgetH: Int): Boolean {
+        val left = x
+        val top = y
+        val right = x + widgetW
+        val bottom = y + widgetH
+        return left < bounds.right &&
+            right > bounds.left &&
+            top < bounds.bottom &&
+            bottom > bounds.top
+    }
+
+    private fun angleFromWidgetToTarget(
+        landing: LandingPosition,
+        widgetW: Int,
+        widgetH: Int,
+        bounds: IntRect,
+    ): Float {
+        val pointerCenterX = landing.x + widgetW / 2f
+        val pointerCenterY = landing.y + widgetH / 2f
+        return atan2(
+            bounds.centerY.toFloat() - pointerCenterY,
+            bounds.centerX.toFloat() - pointerCenterX,
+        )
+    }
 
     private data class FlightTarget(
         val bounds: IntRect,

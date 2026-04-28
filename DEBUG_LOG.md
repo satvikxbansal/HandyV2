@@ -665,3 +665,17 @@ cross-references the one being superseded.
 | **Root Cause** | `OverlayChatPipeline` invokes the flight driver from an application coroutine that is not guaranteed to be on the main looper. `ValueAnimator.start()` must run on a Looper thread. Separately, the Bezier controller always scheduled a timed return, which contradicted the desired sticky pointer behavior. |
 | **Fix** | Start all flight animations from `Dispatchers.Main.immediate`, added a non-returning Bezier mode with persistent pulse, made the green response bubble travel from takeoff through pointing, kept the pointer/bubble at the target until the user touches Handy again, and refined the pointer into a smaller glowing blue triangle. |
 | **Prevention Rule** | Any Android animation object (`ValueAnimator`, `SpringAnimation`, Compose animation state that drives `WindowManager`) must be started from the main looper. If a service-level pipeline calls animation code from a long-lived application scope, the animation boundary must explicitly switch to `Dispatchers.Main.immediate`. |
+
+---
+
+### DL-039 — Pointer parked on top of the target control
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-04-28 |
+| **Severity** | Logic Bug |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt`, `app/src/main/kotlin/com/handy/app/widget/WidgetContent.kt` |
+| **Symptom** | Handy flew to the correct Google Photos hamburger/profile target but landed centered over the target, so the user tapped Handy instead of the app control. Pointer mode also used a blue widget rim that did not match the existing active/listening/processing chrome. |
+| **Root Cause** | The flight target top-left was computed as `bounds.center - widgetSize / 2`, which intentionally centers the overlay on the target bounds. That is good for visual pointing but wrong for a touchable overlay because it occludes the exact UI the user needs to tap. The pointer state also reused the navigation blue as the rim color rather than the widget accent. |
+| **Fix** | Added edge-aware adjacent landing: left-edge targets park Handy to the right, right-edge targets park to the left, top targets park below, bottom targets park above, with a non-overlap scored fallback for middle targets. At arrival, the pointer hand rotates back toward the actual target center. Pointer mode now keeps the amber accent rim. |
+| **Prevention Rule** | A touchable overlay pointer must never land centered on the target control. Compute a non-overlapping adjacent landing rect first, then aim the inner pointer glyph back toward the target. |

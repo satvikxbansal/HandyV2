@@ -85,7 +85,7 @@ fun WidgetContent(
             WidgetState.TOUCHED -> HandyColors.Accent
             WidgetState.LISTENING -> HandyColors.GlassBorder
             WidgetState.THINKING -> HandyColors.GlassBorder
-            WidgetState.FLYING, WidgetState.POINTING -> HandyColors.BubbleNavigation
+            WidgetState.FLYING, WidgetState.POINTING -> HandyColors.Accent
         }
         val isPointer = state == WidgetState.FLYING || state == WidgetState.POINTING
         Box(
