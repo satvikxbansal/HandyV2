@@ -44,6 +44,7 @@ class PromptCatalogTest {
 
     @Test fun `every prompt teaches the semantic POINT forms`() {
         allPrompts.forEach { prompt ->
+            assertThat(prompt).contains("[POINT:markId=")
             assertThat(prompt).contains("[POINT:role=")
             assertThat(prompt).contains("[POINT:viewId=")
             assertThat(prompt).contains("[POINT:desc=")
@@ -130,7 +131,20 @@ class PromptCatalogTest {
         assertThat(prompt).contains("quick overlay response:")
         assertThat(prompt).contains("[SPOKEN]")
         assertThat(prompt).contains("[POINT:")
-        assertThat(prompt).contains("[POINT:x,y:label]")
+        assertThat(prompt).contains("[POINT:markId=")
+        assertThat(prompt).doesNotContain("[POINT:x,y:label]")
+    }
+
+    @Test fun `buildSystemPrompt appends context failure addendum`() {
+        val prompt = PromptCatalog.buildSystemPrompt(
+            mode = AssistantMode.HELP_ONLY,
+            fromVoice = false,
+            webSearchEnabled = false,
+            hasBraveKey = false,
+            contextFailureReason = "screenshot capture is unsupported",
+        )
+        assertThat(prompt).contains("screen context note:")
+        assertThat(prompt).contains("screenshot capture is unsupported")
     }
 
     @Test fun `intent tool addendum is appended by default`() {

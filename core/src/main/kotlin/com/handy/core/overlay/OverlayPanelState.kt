@@ -40,8 +40,10 @@ enum class BuddyState {
     LISTENING,
     THINKING,
     STREAMING,
+    PREPARING_POINT,
     FLYING,
     POINTING,
+    CANCELLING,
     ACTING,
     SPEAKING,
     DRAGGING,
@@ -108,10 +110,11 @@ data class PanelSnapshot(
  * cursorbuddy `UiTreeSerializer.toCompactJson` (recipe #2) — 50-node
  * cap is enforced by the provider, not the data class.
  *
- * Passwords: `isPassword=true` with `text=null` — never expose field
- * contents.
+ * Passwords: `isPassword=true` with redacted text/description — never expose
+ * field contents.
  */
 data class AccessibilityMark(
+    val markId: String? = null,
     val text: String? = null,
     val contentDescription: String? = null,
     val viewIdSuffix: String? = null,
@@ -120,6 +123,7 @@ data class AccessibilityMark(
     val clickable: Boolean = false,
     val scrollable: Boolean = false,
     val editable: Boolean = false,
+    val enabled: Boolean = true,
     val isPassword: Boolean = false,
     val isChecked: Boolean? = null,
 ) {
@@ -136,7 +140,8 @@ data class AccessibilityMark(
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is AccessibilityMark) return false
-        return text == other.text &&
+        return markId == other.markId &&
+            text == other.text &&
             contentDescription == other.contentDescription &&
             viewIdSuffix == other.viewIdSuffix &&
             role == other.role &&
@@ -144,12 +149,14 @@ data class AccessibilityMark(
             clickable == other.clickable &&
             scrollable == other.scrollable &&
             editable == other.editable &&
+            enabled == other.enabled &&
             isPassword == other.isPassword &&
             isChecked == other.isChecked
     }
 
     override fun hashCode(): Int {
-        var result = text?.hashCode() ?: 0
+        var result = markId?.hashCode() ?: 0
+        result = 31 * result + (text?.hashCode() ?: 0)
         result = 31 * result + (contentDescription?.hashCode() ?: 0)
         result = 31 * result + (viewIdSuffix?.hashCode() ?: 0)
         result = 31 * result + role.hashCode()
@@ -157,6 +164,7 @@ data class AccessibilityMark(
         result = 31 * result + clickable.hashCode()
         result = 31 * result + scrollable.hashCode()
         result = 31 * result + editable.hashCode()
+        result = 31 * result + enabled.hashCode()
         result = 31 * result + isPassword.hashCode()
         result = 31 * result + (isChecked?.hashCode() ?: 0)
         return result

@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.handy.app.accessibility
 
 import android.accessibilityservice.AccessibilityService
@@ -129,13 +131,23 @@ class AccessibilityGestureActionPerformer(
         // Resolve semantic target → AccessibilityNodeInfo.
         val node: AccessibilityNodeInfo? = when (target) {
             is TapTarget.AtNode -> {
-                val spec = AssistantMarkupParser.SemanticPoint(
-                    role = target.role,
-                    text = target.text,
-                    viewId = target.viewId,
-                    contentDescription = target.desc,
-                )
-                runCatching { resolver.resolve(spec) }.getOrNull()?.node
+                val spec = target.toSemanticPointOrNull()
+                    ?: return audited(
+                        action = kind.toAudit(),
+                        targetDescription = target.describe(),
+                        confirmationRequired = false,
+                        userConfirmed = false,
+                        result = AuditResult.NotFound,
+                    ).let { PerformResult.NotFound }
+                val resolved = runCatching { resolver.resolve(spec) }.getOrNull()
+                if (resolved != null &&
+                    (resolved.failureReason != null || resolved.confidence < MIN_ACTION_CONFIDENCE)
+                ) {
+                    resolved.node?.let { runCatching { it.recycle() } }
+                    null
+                } else {
+                    resolved?.node
+                }
             }
             is TapTarget.AtScreenPoint -> null
         }
@@ -260,6 +272,20 @@ class AccessibilityGestureActionPerformer(
         }.trimEnd(';')
     }
 
+    private fun TapTarget.AtNode.toSemanticPointOrNull(): AssistantMarkupParser.SemanticPoint? {
+        val role = role?.takeIf { it.isNotBlank() }
+        val text = text?.takeIf { it.isNotBlank() }
+        val viewId = viewId?.takeIf { it.isNotBlank() }
+        val desc = desc?.takeIf { it.isNotBlank() }
+        if (role == null && text == null && viewId == null && desc == null) return null
+        return AssistantMarkupParser.SemanticPoint(
+            role = role,
+            text = text,
+            viewId = viewId,
+            contentDescription = desc,
+        )
+    }
+
     private enum class GestureKind { TAP, LONG_PRESS }
 
     private fun GestureKind.toAudit(): AuditAction = when (this) {
@@ -271,5 +297,6 @@ class AccessibilityGestureActionPerformer(
         const val TAP_DURATION_MS: Long = 100L
         const val LONG_PRESS_DURATION_MS: Long = 800L
         const val SCROLL_DURATION_MS: Long = 400L
+        const val MIN_ACTION_CONFIDENCE: Float = 0.9f
     }
 }

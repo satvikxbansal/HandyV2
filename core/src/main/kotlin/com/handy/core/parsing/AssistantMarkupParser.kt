@@ -13,6 +13,7 @@ package com.handy.core.parsing
  *  2. The semantic forms are:
  *
  *         [POINT:role=<role>;text=<exact visible text>]
+ *         [POINT:markId=<visible mark id>]
  *         [POINT:viewId=<resource id suffix>]
  *         [POINT:desc=<contentDescription>]
  *         [POINT:none]
@@ -133,13 +134,14 @@ object AssistantMarkupParser {
 
     /** Semantic pointer spec. Exactly one of the identifying fields is non-null. */
     data class SemanticPoint(
+        val markId: String? = null,
         val role: String? = null,
         val text: String? = null,
         val viewId: String? = null,
         val contentDescription: String? = null,
     ) {
         init {
-            require(role != null || text != null || viewId != null || contentDescription != null) {
+            require(markId != null || role != null || text != null || viewId != null || contentDescription != null) {
                 "SemanticPoint must carry at least one identifier"
             }
         }
@@ -161,13 +163,27 @@ object AssistantMarkupParser {
             }
             val inner = match.groupValues[1]
             val pairs = parseKeyValuePairs(inner)
-            val semantic = SemanticPoint(
-                role = pairs["role"]?.trim(),
-                text = pairs["text"]?.trim(),
-                viewId = pairs["viewid"]?.trim() ?: pairs["viewId"]?.trim(),
-                contentDescription = pairs["desc"]?.trim() ?: pairs["description"]?.trim(),
-            ).takeIf { s ->
-                s.role != null || s.text != null || s.viewId != null || s.contentDescription != null
+            val markId = pairs["markid"]?.trim()
+            val role = pairs["role"]?.trim()
+            val targetText = pairs["text"]?.trim()
+            val viewId = pairs["viewid"]?.trim()
+            val desc = pairs["desc"]?.trim() ?: pairs["description"]?.trim()
+            val semantic = if (
+                !markId.isNullOrBlank() ||
+                !role.isNullOrBlank() ||
+                !targetText.isNullOrBlank() ||
+                !viewId.isNullOrBlank() ||
+                !desc.isNullOrBlank()
+            ) {
+                SemanticPoint(
+                    markId = markId,
+                    role = role,
+                    text = targetText,
+                    viewId = viewId,
+                    contentDescription = desc,
+                )
+            } else {
+                null
             }
             if (semantic != null) {
                 return PointingResult(semantic = semantic, cleanedText = cleaned)

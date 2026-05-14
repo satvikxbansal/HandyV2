@@ -59,7 +59,7 @@ The items below were listed here as "deferred to v2 with seams in v1". They are 
 ### Net-new in V2 (no V1 seam — see scope doc for contract)
 
 - **Overlay chat panel** as the primary quick surface (V2 scope §2).
-- **Unified Buddy UX** — the widget *is* the pointer; one overlay, seven-layer Glass Lens render, Bezier flight, 3–5 s dwell, return arc (V2 scope §3).
+- **Unified Buddy UX** — the widget *is* the pointer; one overlay, seven-layer Glass Lens render, Bezier flight, sticky pointing until interaction/cancel/timeout, then return to dock (V2 scope §3).
 - **Four-color bubble taxonomy** — yellow transcript / teal action-in-progress / green response / blue pointer label, with mutual-exclusion rules (V2 scope §3).
 - **`RequestBudgeter` + `AccessibilityMarksProvider`** — smarter capture / grounding (V2 scope §6).
 - **`HandyNotificationListenerService`** — narrow scope, no ambient autonomy (V2 scope §8).

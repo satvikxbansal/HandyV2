@@ -57,11 +57,12 @@ object PromptCatalog {
 
         append a pointer tag at the very end of your response, AFTER your text. use one of these forms:
 
+          [POINT:markId=<visible mark id>]
           [POINT:role=<role>;text=<exact visible text>]
           [POINT:viewId=<resource id suffix>]
           [POINT:desc=<contentDescription>]
 
-        use the attribute you have highest confidence in. role is one of button, link, textfield, image, checkbox, switch, tab, menuitem. the text, viewId, or desc must match what's in the screen_text block you were given (when one is provided) or the visible label in the screenshot.
+        prefer markId whenever the `<screen_ui>` block provides one, for example `[POINT:markId=m3]`. never invent a markId. use viewId/text/desc only as fallback. role is one of button, link, textfield, image, checkbox, switch, tab, menuitem. the text, viewId, or desc must match what's in the screen_text block you were given (when one is provided) or the visible label in the screenshot.
 
         if pointing wouldn't help, append [POINT:none].
 
@@ -97,11 +98,12 @@ object PromptCatalog {
 
         append a pointer tag at the very end (after detail, or after [/SPOKEN] if no detail) using one of:
 
+          [POINT:markId=<visible mark id>]
           [POINT:role=<role>;text=<exact visible text>]
           [POINT:viewId=<resource id suffix>]
           [POINT:desc=<contentDescription>]
 
-        role is one of button, link, textfield, image, checkbox, switch, tab, menuitem. the text, viewId, or desc must match what's in the screen_text block you were given. if pointing wouldn't help, append [POINT:none].
+        prefer markId whenever the `<screen_ui>` block provides one, for example `[POINT:markId=m3]`. never invent a markId. role is one of button, link, textfield, image, checkbox, switch, tab, menuitem. the text, viewId, or desc must match what's in the screen_text block you were given. if pointing wouldn't help, append [POINT:none].
 
         examples:
         - export in figma:
@@ -142,10 +144,11 @@ object PromptCatalog {
         use the semantic pointer format. point at the specific ui element the user should interact with next:
 
           [POINT:role=<role>;text=<exact visible text>]
+          [POINT:markId=<visible mark id>]
           [POINT:viewId=<resource id suffix>]
           [POINT:desc=<contentDescription>]
 
-        role is one of button, link, textfield, image, checkbox, switch, tab, menuitem. text, viewId, or desc must match what's in the screen_text block you were given.
+        prefer markId whenever the `<screen_ui>` block provides one, for example `[POINT:markId=m3]`. never invent a markId. role is one of button, link, textfield, image, checkbox, switch, tab, menuitem. text, viewId, or desc must match what's in the screen_text block you were given.
 
         if pointing wouldn't help, append [POINT:none].
     """.trimIndent()
@@ -183,11 +186,16 @@ object PromptCatalog {
      */
     fun screenTextAddendum(packageName: String, flattenedTree: String): String = """
 
-        screen text (from accessibility): the user is in package $packageName; here is the visible ui tree in flattened form. use this as your primary source — do not hallucinate ui elements that are not listed. when you point at an element, reference its text, contentDescription, or viewId from this block.
+        screen text (from accessibility): the user is in package $packageName; here is the visible ui tree in flattened form. use this as your primary source — do not hallucinate ui elements that are not listed. when you point at an element, prefer its mark id (`m1`, `m2`, etc.) from this block.
 
         <screen_ui>
         $flattenedTree
         </screen_ui>
+    """.trimIndent()
+
+    fun contextFailureAddendum(reason: String): String = """
+
+        screen context note: $reason
     """.trimIndent()
 
     /**
@@ -202,7 +210,7 @@ object PromptCatalog {
         1. SPOKEN part — wrap the short bubble text in [SPOKEN]...[/SPOKEN]. keep it to one sentence, under 110 characters when possible. for navigation questions, say only the primary on-screen action.
         2. DETAIL part — after [/SPOKEN], include any extra context only if it is truly useful. keep it brief.
 
-        always append a [POINT:...] tag at the very end. if your answer names a visible control from the screen_text block, point at that exact element. prefer semantic tags with text, viewId, or desc. if the target is an icon-only element that only has bounds in screen_text, use the center of its bounds as [POINT:x,y:label]. if no pointing would help, append [POINT:none].
+        always append a [POINT:...] tag at the very end. if your answer names a visible control from the screen_text block, point at that exact element. prefer [POINT:markId=...] from screen_text; use viewId, text, or desc only as fallback. never use pixel coordinates in normal responses. if no pointing would help, append [POINT:none].
     """.trimIndent()
 
     /**
@@ -231,6 +239,7 @@ object PromptCatalog {
         screenTextFlattenedTree: String? = null,
         intentToolEnabled: Boolean = true,
         quickOverlayResponse: Boolean = false,
+        contextFailureReason: String? = null,
     ): String {
         val base = when {
             mode == AssistantMode.TUTOR -> TUTOR_MODE_SYSTEM_PROMPT
@@ -248,6 +257,11 @@ object PromptCatalog {
         if (screenTextPackage != null && screenTextFlattenedTree != null) {
             buffer.append("\n\n")
             buffer.append(screenTextAddendum(screenTextPackage, screenTextFlattenedTree))
+        }
+
+        if (!contextFailureReason.isNullOrBlank()) {
+            buffer.append("\n\n")
+            buffer.append(contextFailureAddendum(contextFailureReason))
         }
 
         if (quickOverlayResponse) {

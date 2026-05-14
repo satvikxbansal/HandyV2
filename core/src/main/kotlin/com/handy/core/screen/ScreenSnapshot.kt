@@ -31,6 +31,7 @@ data class ScreenTextSnapshot(
 }
 
 data class UiNode(
+    val markId: String? = null,
     val role: String,
     val text: String? = null,
     val contentDescription: String? = null,

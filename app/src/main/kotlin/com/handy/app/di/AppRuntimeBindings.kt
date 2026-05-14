@@ -67,7 +67,8 @@ object AppRuntimeBindings {
     /**
      * V2 real tap-for-me performer (cursorbuddy recipe #3, scope §4).
      * Resolved through [SwitchingActionPerformer] below based on the
-     * user's `tapForMeEnabled` setting.
+     * user's `tapForMeEnabled` setting plus the future action disclosure
+     * version gate.
      */
     @Provides
     @Singleton
@@ -115,10 +116,10 @@ abstract class AppRuntimeBindsModule {
     ): ConfirmationPrompter
 
     /**
-     * V2 [ActionPerformer] binding — settings-gated switcher between
-     * the real `AccessibilityGestureActionPerformer` and the legacy
-     * `NoopActionPerformer`. Scope §4 confirmation policy applies
-     * upstream (in the tool runner / panel pipeline), not here.
+     * V2 [ActionPerformer] binding — fail-closed switcher between the real
+     * `AccessibilityGestureActionPerformer` and the legacy
+     * `NoopActionPerformer`. Scope §4 confirmation policy applies upstream
+     * (in the tool runner / panel pipeline), not here.
      */
     @Binds
     @Singleton

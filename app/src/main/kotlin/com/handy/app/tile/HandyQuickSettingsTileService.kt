@@ -1,5 +1,6 @@
 package com.handy.app.tile
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
@@ -14,7 +15,12 @@ import com.handy.runtime.accessibility.AccessibilityMarksProvider
 import com.handy.runtime.storage.DataStoreSettings
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 /**
@@ -37,6 +43,8 @@ class HandyQuickSettingsTileService : TileService() {
     @Inject lateinit var presenter: OverlayPresenter
     @Inject lateinit var marksProvider: AccessibilityMarksProvider
 
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
     override fun onStartListening() {
         super.onStartListening()
         refreshTile()
@@ -44,13 +52,21 @@ class HandyQuickSettingsTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        val current = runCatching { runBlocking { settings.current() } }.getOrNull()
-        when (current?.quickTileAction ?: QuickTileAction.OPEN_PANEL) {
-            QuickTileAction.OPEN_PANEL -> openPanel()
-            QuickTileAction.START_VOICE -> startVoice()
-            QuickTileAction.OPEN_CHAT -> openChat()
+        serviceScope.launch {
+            val current = runCatching { withContext(Dispatchers.IO) { settings.current() } }
+                .getOrNull()
+            when (current?.quickTileAction ?: QuickTileAction.OPEN_PANEL) {
+                QuickTileAction.OPEN_PANEL -> openPanel()
+                QuickTileAction.START_VOICE -> startVoice()
+                QuickTileAction.OPEN_CHAT -> openChat()
+            }
+            refreshTile()
         }
-        refreshTile()
+    }
+
+    override fun onDestroy() {
+        serviceScope.cancel()
+        super.onDestroy()
     }
 
     private fun openPanel() {
@@ -73,6 +89,7 @@ class HandyQuickSettingsTileService : TileService() {
         )
     }
 
+    @SuppressLint("StartActivityAndCollapseDeprecated")
     private fun openChat() {
         val intent = Intent(this, ChatActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

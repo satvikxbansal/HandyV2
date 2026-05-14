@@ -1,13 +1,15 @@
 package com.handy.app.assist
 
 import android.content.Intent
+import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.lifecycleScope
 import com.handy.app.chat.ChatActivity
-import com.handy.app.voice.VoiceController
 import com.handy.runtime.storage.DataStoreSettings
 import dagger.hilt.android.AndroidEntryPoint
-import androidx.lifecycle.LifecycleService
 import javax.inject.Inject
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 /**
@@ -31,21 +33,23 @@ import timber.log.Timber
 class HandyAssistIntentService : LifecycleService() {
 
     @Inject lateinit var settings: DataStoreSettings
-    @Inject lateinit var voiceController: VoiceController
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        val enabled = runCatching { runBlocking { settings.current().assistEntryEnabled } }
-            .getOrDefault(false)
-        if (!enabled) {
-            Timber.d("HandyAssistIntentService: assist entry disabled — ignoring")
+        lifecycleScope.launch {
+            val enabled = runCatching {
+                withContext(Dispatchers.IO) { settings.current().assistEntryEnabled }
+            }.getOrDefault(false)
+            if (!enabled) {
+                Timber.d("HandyAssistIntentService: assist entry disabled — ignoring")
+                stopSelf(startId)
+                return@launch
+            }
+            val chat = Intent(this@HandyAssistIntentService, ChatActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            startActivity(chat)
             stopSelf(startId)
-            return START_NOT_STICKY
         }
-        val chat = Intent(this, ChatActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        startActivity(chat)
-        stopSelf(startId)
         return START_NOT_STICKY
     }
 }

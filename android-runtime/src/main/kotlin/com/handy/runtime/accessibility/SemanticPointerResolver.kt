@@ -1,130 +1,399 @@
+@file:Suppress("DEPRECATION")
+
 package com.handy.runtime.accessibility
 
 import android.accessibilityservice.AccessibilityService
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo
+import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.screen.IntRect
 import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Resolves a [AssistantMarkupParser.SemanticPoint] to an
- * on-screen rectangle using the fallback chain from the build plan §8 /
- * guardrails → "Pointing (Strategy B only)":
+ * Candidate-ranking pointer resolver.
  *
- *   1. exact text + role
- *   2. contentDescription
- *   3. viewId suffix
- *   4. fuzzy text (Levenshtein ≤ 2)
- *
- * Strategy A (pixel pointing) is **never** used at runtime.
+ * The model should normally emit `[POINT:markId=m3]` from the prompt's
+ * screen-ui block. Text/viewId/desc and fuzzy matching remain as fallback
+ * grounding, with confidence and ambiguity reported to callers.
  */
 class SemanticPointerResolver(private val service: () -> AccessibilityService?) {
 
-    data class Resolved(val bounds: IntRect, val node: AccessibilityNodeInfo)
+    data class ResolvedPointTarget(
+        val bounds: IntRect,
+        val node: AccessibilityNodeInfo?,
+        val source: ResolutionSource,
+        val confidence: Float,
+        val candidateCount: Int,
+        val failureReason: ResolutionFailureReason? = null,
+        val debugCandidates: List<TargetCandidate> = emptyList(),
+        val markId: String? = null,
+    )
 
-    fun resolve(spec: AssistantMarkupParser.SemanticPoint): Resolved? {
-        val root = service()?.rootInActiveWindow ?: return null
-        try {
-            exactTextAndRole(root, spec)?.let { return it.toResolved() }
-            byContentDescription(root, spec)?.let { return it.toResolved() }
-            byViewIdSuffix(root, spec)?.let { return it.toResolved() }
-            fuzzyText(root, spec, maxDistance = 2)?.let { return it.toResolved() }
+    data class TargetCandidate(
+        val markId: String?,
+        val label: String?,
+        val role: String?,
+        val viewId: String?,
+        val bounds: IntRect,
+        val actionable: Boolean,
+        val enabled: Boolean,
+        val visible: Boolean,
+        val score: Float,
+        val reasons: List<String>,
+    )
+
+    enum class ResolutionSource {
+        MARK_ID,
+        VIEW_ID,
+        TEXT_ROLE,
+        DESCRIPTION_ROLE,
+        BOUNDS_OVERLAP,
+        FUZZY_TEXT,
+        HEURISTIC,
+    }
+
+    enum class ResolutionFailureReason {
+        NO_CANDIDATES,
+        NO_MATCH,
+        LOW_CONFIDENCE,
+        AMBIGUOUS,
+    }
+
+    fun resolve(
+        spec: AssistantMarkupParser.SemanticPoint,
+        fallbackMarks: List<AccessibilityMark> = emptyList(),
+    ): ResolvedPointTarget? {
+        val runtimeCandidates = mutableListOf<RuntimeCandidate>()
+        val ownedNodes = mutableListOf<AccessibilityNodeInfo>()
+        val root = runCatching { service()?.rootInActiveWindow }.getOrNull()
+        if (root != null) {
+            collectLiveCandidates(root, runtimeCandidates, ownedNodes)
+        }
+        fallbackMarks.forEach { mark ->
+            runtimeCandidates += RuntimeCandidate.fromMark(mark)
+        }
+
+        if (runtimeCandidates.isEmpty()) {
+            recycleAll(ownedNodes)
             return null
-        } finally {
-            runCatching { root.recycle() }
         }
-    }
 
-    private fun exactTextAndRole(
-        root: AccessibilityNodeInfo,
-        spec: AssistantMarkupParser.SemanticPoint,
-    ): AccessibilityNodeInfo? {
-        val text = spec.text ?: return null
-        val matches = root.findAccessibilityNodeInfosByText(text)
-        val roleHint = spec.role?.lowercase()
-        return matches?.firstOrNull { node ->
-            val nodeRole = node.className?.toString()?.substringAfterLast('.')?.lowercase().orEmpty()
-            roleHint == null || nodeRole.contains(roleHint)
-        } ?: matches?.firstOrNull()
-    }
+        val duplicateLabels = runtimeCandidates
+            .mapNotNull { normalize(it.label.orEmpty()).takeIf(String::isNotBlank) }
+            .groupingBy { it }
+            .eachCount()
 
-    private fun byContentDescription(
-        root: AccessibilityNodeInfo,
-        spec: AssistantMarkupParser.SemanticPoint,
-    ): AccessibilityNodeInfo? {
-        val desc = spec.contentDescription ?: return null
-        return walk(root) { node ->
-            node.contentDescription?.toString()?.equals(desc, ignoreCase = true) == true
-        }
-    }
-
-    private fun byViewIdSuffix(
-        root: AccessibilityNodeInfo,
-        spec: AssistantMarkupParser.SemanticPoint,
-    ): AccessibilityNodeInfo? {
-        val hint = spec.viewId ?: return null
-        return walk(root) { node ->
-            node.viewIdResourceName?.endsWith("/$hint", ignoreCase = true) == true ||
-                node.viewIdResourceName?.endsWith(":$hint", ignoreCase = true) == true
-        }
-    }
-
-    private fun fuzzyText(
-        root: AccessibilityNodeInfo,
-        spec: AssistantMarkupParser.SemanticPoint,
-        maxDistance: Int,
-    ): AccessibilityNodeInfo? {
-        val needle = spec.text?.lowercase() ?: return null
-        var best: AccessibilityNodeInfo? = null
-        var bestDistance = Int.MAX_VALUE
-        walkAll(root) { node ->
-            val candidate = node.text?.toString()?.lowercase()
-            if (candidate != null) {
-                val d = levenshtein(needle, candidate)
-                if (d < bestDistance && d <= maxDistance) {
-                    best = node
-                    bestDistance = d
-                }
+        val scored = runtimeCandidates
+            .mapNotNull { candidate ->
+                score(candidate, spec, fallbackMarks, duplicateLabels)
+                    ?.let { scored -> ScoredCandidate(candidate, scored) }
             }
+            .sortedByDescending { it.debug.score }
+
+        if (scored.isEmpty()) {
+            recycleAll(ownedNodes)
+            return null
         }
-        return best
-    }
 
-    // ---- helpers ----
+        val best = scored.first()
+        val runnerUp = scored.drop(1).firstOrNull()
+        val failure = when {
+            best.debug.score < LOW_CONFIDENCE_SCORE -> ResolutionFailureReason.LOW_CONFIDENCE
+            runnerUp != null &&
+                best.debug.score - runnerUp.debug.score <= AMBIGUITY_SCORE_DELTA &&
+                best.source != ResolutionSource.MARK_ID -> ResolutionFailureReason.AMBIGUOUS
+            else -> null
+        }
+        val nodeToReturn = best.runtime.node
+        recycleAll(ownedNodes.filter { it !== nodeToReturn })
 
-    private fun AccessibilityNodeInfo.toResolved(): Resolved {
-        val r = Rect().also { getBoundsInScreen(it) }
-        return Resolved(
-            bounds = IntRect(r.left, r.top, r.right, r.bottom),
-            node = this,
+        return ResolvedPointTarget(
+            bounds = best.runtime.bounds,
+            node = nodeToReturn,
+            source = best.source,
+            confidence = (best.debug.score / MARK_ID_EXACT_SCORE).coerceIn(0f, 1f),
+            candidateCount = scored.size,
+            failureReason = failure,
+            debugCandidates = scored.take(MAX_DEBUG_CANDIDATES).map { it.debug },
+            markId = best.runtime.markId,
         )
     }
 
-    private fun walk(
+    private fun collectLiveCandidates(
         root: AccessibilityNodeInfo,
-        predicate: (AccessibilityNodeInfo) -> Boolean,
-    ): AccessibilityNodeInfo? {
-        if (predicate(root)) return root
-        for (i in 0 until root.childCount) {
-            val child = root.getChild(i) ?: continue
-            val hit = walk(child, predicate)
-            if (hit != null) return hit
+        out: MutableList<RuntimeCandidate>,
+        ownedNodes: MutableList<AccessibilityNodeInfo>,
+    ) {
+        val queue = ArrayDeque<AccessibilityNodeInfo>()
+        queue.addLast(root)
+        ownedNodes += root
+        var visited = 0
+        while (queue.isNotEmpty() && visited < HARD_VISIT_CAP) {
+            val node = queue.removeFirst()
+            visited++
+            RuntimeCandidate.fromNode(node)?.let(out::add)
+            for (i in 0 until node.childCount) {
+                val child = runCatching { node.getChild(i) }.getOrNull() ?: continue
+                ownedNodes += child
+                queue.addLast(child)
+            }
         }
-        return null
     }
 
-    private fun walkAll(
-        root: AccessibilityNodeInfo,
-        visitor: (AccessibilityNodeInfo) -> Unit,
-    ) {
-        visitor(root)
-        for (i in 0 until root.childCount) {
-            val child = root.getChild(i) ?: continue
-            walkAll(child, visitor)
+    private fun score(
+        candidate: RuntimeCandidate,
+        spec: AssistantMarkupParser.SemanticPoint,
+        fallbackMarks: List<AccessibilityMark>,
+        duplicateLabels: Map<String, Int>,
+    ): CandidateScore? {
+        var score = 0f
+        var source = ResolutionSource.HEURISTIC
+        var matchedIdentifier = false
+        val reasons = mutableListOf<String>()
+
+        if (!spec.markId.isNullOrBlank() && spec.markId.equals(candidate.markId, ignoreCase = true)) {
+            score += MARK_ID_EXACT_SCORE
+            source = ResolutionSource.MARK_ID
+            matchedIdentifier = true
+            reasons += "markId exact"
+        }
+
+        spec.viewId?.takeIf { it.isNotBlank() }?.let { targetViewId ->
+            val candidateViewId = candidate.viewId.orEmpty()
+            when {
+                candidateViewId.equals(targetViewId, ignoreCase = true) -> {
+                    score += 80f
+                    source = ResolutionSource.VIEW_ID
+                    matchedIdentifier = true
+                    reasons += "viewId exact"
+                }
+                candidateViewId.endsWith("/$targetViewId", ignoreCase = true) ||
+                    candidateViewId.endsWith(":$targetViewId", ignoreCase = true) ||
+                    candidateViewId.substringAfterLast('/').equals(targetViewId, ignoreCase = true) -> {
+                    score += 70f
+                    source = ResolutionSource.VIEW_ID
+                    matchedIdentifier = true
+                    reasons += "viewId suffix"
+                }
+            }
+        }
+
+        spec.text?.takeIf { it.isNotBlank() }?.let { targetText ->
+            val candidateText = candidate.text.orEmpty()
+            if (candidateText.equals(targetText, ignoreCase = true)) {
+                val roleBonus = if (roleMatches(candidate.role, spec.role)) 20f else 0f
+                score += 50f + roleBonus
+                source = ResolutionSource.TEXT_ROLE
+                matchedIdentifier = true
+                reasons += if (roleBonus > 0f) "text+role exact" else "text exact"
+            } else {
+                fuzzyScore(targetText, candidateText)?.let { fuzzy ->
+                    score += fuzzy
+                    source = ResolutionSource.FUZZY_TEXT
+                    matchedIdentifier = true
+                    reasons += "fuzzy text"
+                }
+            }
+        }
+
+        spec.contentDescription?.takeIf { it.isNotBlank() }?.let { targetDesc ->
+            val candidateDesc = candidate.contentDescription.orEmpty()
+            if (candidateDesc.equals(targetDesc, ignoreCase = true)) {
+                val roleBonus = if (roleMatches(candidate.role, spec.role)) 15f else 0f
+                score += 50f + roleBonus
+                source = ResolutionSource.DESCRIPTION_ROLE
+                matchedIdentifier = true
+                reasons += if (roleBonus > 0f) "desc+role exact" else "desc exact"
+            }
+        }
+
+        if (overlapsMatchedMark(candidate, spec, fallbackMarks)) {
+            score += 15f
+            if (source == ResolutionSource.HEURISTIC) source = ResolutionSource.BOUNDS_OVERLAP
+            matchedIdentifier = true
+            reasons += "cached bounds overlap"
+        }
+
+        if (!matchedIdentifier) return null
+
+        if (candidate.actionable) {
+            score += 20f
+            reasons += "actionable"
+        }
+        if (candidate.enabled) {
+            score += 15f
+            reasons += "enabled"
+        } else {
+            score -= 40f
+            reasons += "disabled"
+        }
+        if (candidate.visible && candidate.bounds.width > 0 && candidate.bounds.height > 0) {
+            score += 15f
+            reasons += "visible"
+        } else {
+            score -= 50f
+            reasons += "offscreen"
+        }
+        if (candidate.bounds.width < MIN_TARGET_PX || candidate.bounds.height < MIN_TARGET_PX) {
+            score -= 20f
+            reasons += "tiny"
+        }
+
+        normalize(candidate.label.orEmpty()).takeIf { it.isNotBlank() }?.let { label ->
+            if ((duplicateLabels[label] ?: 0) > 1) {
+                score -= 20f
+                reasons += "duplicate label"
+            }
+        }
+
+        if (score <= 0f) return null
+        return CandidateScore(
+            source = source,
+            debug = TargetCandidate(
+                markId = candidate.markId,
+                label = candidate.label,
+                role = candidate.role,
+                viewId = candidate.viewId?.substringAfterLast('/'),
+                bounds = candidate.bounds,
+                actionable = candidate.actionable,
+                enabled = candidate.enabled,
+                visible = candidate.visible,
+                score = score,
+                reasons = reasons,
+            ),
+        )
+    }
+
+    private fun overlapsMatchedMark(
+        candidate: RuntimeCandidate,
+        spec: AssistantMarkupParser.SemanticPoint,
+        fallbackMarks: List<AccessibilityMark>,
+    ): Boolean {
+        if (fallbackMarks.isEmpty()) return false
+        return fallbackMarks.any { mark ->
+            val markMatchesSpec =
+                (!spec.markId.isNullOrBlank() && spec.markId.equals(mark.markId, ignoreCase = true)) ||
+                    (!spec.viewId.isNullOrBlank() && spec.viewId.equals(mark.viewIdSuffix, ignoreCase = true)) ||
+                    (!spec.text.isNullOrBlank() && spec.text.equals(mark.text, ignoreCase = true)) ||
+                    (!spec.contentDescription.isNullOrBlank() &&
+                        spec.contentDescription.equals(mark.contentDescription, ignoreCase = true))
+            markMatchesSpec && candidate.bounds.overlapRatio(mark.boundsRect()) >= 0.5f
         }
     }
+
+    private fun roleMatches(role: String?, roleHint: String?): Boolean {
+        val hint = normalize(roleHint.orEmpty())
+        if (hint.isBlank()) return true
+        val normalizedRole = normalize(role.orEmpty())
+        return normalizedRole.contains(hint) ||
+            (hint == "textfield" && normalizedRole.contains("edittext")) ||
+            (hint == "button" && normalizedRole.contains("button"))
+    }
+
+    private fun fuzzyScore(target: String, candidate: String): Float? {
+        val a = normalize(target)
+        val b = normalize(candidate)
+        if (a.length < 3 || b.length < 3) return null
+        val distance = levenshtein(a, b)
+        val maxDistance = max(2, a.length / 4)
+        if (distance > maxDistance) return null
+        val ratio = 1f - (distance.toFloat() / max(a.length, b.length).toFloat())
+        return (ratio * 40f).coerceIn(0f, 40f)
+    }
+
+    private fun recycleAll(nodes: List<AccessibilityNodeInfo>) {
+        nodes.forEach { node -> runCatching { node.recycle() } }
+    }
+
+    private data class RuntimeCandidate(
+        val markId: String?,
+        val text: String?,
+        val contentDescription: String?,
+        val label: String?,
+        val viewId: String?,
+        val role: String?,
+        val bounds: IntRect,
+        val actionable: Boolean,
+        val enabled: Boolean,
+        val visible: Boolean,
+        val node: AccessibilityNodeInfo?,
+    ) {
+        companion object {
+            fun fromNode(node: AccessibilityNodeInfo): RuntimeCandidate? {
+                val rect = Rect().also { node.getBoundsInScreen(it) }
+                if (rect.width() <= 0 || rect.height() <= 0) return null
+                val text = node.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+                val desc = node.contentDescription?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+                val role = node.className?.toString()?.substringAfterLast('.').orEmpty()
+                    .ifBlank { if (node.isClickable) "Button" else "Node" }
+                return RuntimeCandidate(
+                    markId = null,
+                    text = text,
+                    contentDescription = desc,
+                    label = text ?: desc,
+                    viewId = node.viewIdResourceName,
+                    role = role,
+                    bounds = IntRect(rect.left, rect.top, rect.right, rect.bottom),
+                    actionable = node.isClickable || node.isScrollable || node.isLongClickable || node.isEditable,
+                    enabled = node.isEnabled,
+                    visible = node.isVisibleToUser,
+                    node = node,
+                )
+            }
+
+            fun fromMark(mark: AccessibilityMark): RuntimeCandidate =
+                RuntimeCandidate(
+                    markId = mark.markId,
+                    text = mark.text,
+                    contentDescription = mark.contentDescription,
+                    label = mark.text ?: mark.contentDescription ?: mark.viewIdSuffix,
+                    viewId = mark.viewIdSuffix,
+                    role = mark.role,
+                    bounds = IntRect(mark.left, mark.top, mark.right, mark.bottom),
+                    actionable = mark.clickable || mark.scrollable || mark.editable,
+                    enabled = mark.enabled,
+                    visible = mark.right > mark.left && mark.bottom > mark.top,
+                    node = null,
+                )
+        }
+    }
+
+    private data class CandidateScore(
+        val source: ResolutionSource,
+        val debug: TargetCandidate,
+    )
+
+    private data class ScoredCandidate(
+        val runtime: RuntimeCandidate,
+        val result: CandidateScore,
+    ) {
+        val source: ResolutionSource get() = result.source
+        val debug: TargetCandidate get() = result.debug
+    }
+
+    private fun AccessibilityMark.boundsRect(): IntRect =
+        IntRect(left, top, right, bottom)
+
+    private fun IntRect.overlapRatio(other: IntRect): Float {
+        val left = max(left, other.left)
+        val top = max(top, other.top)
+        val right = min(right, other.right)
+        val bottom = min(bottom, other.bottom)
+        val overlapW = (right - left).coerceAtLeast(0)
+        val overlapH = (bottom - top).coerceAtLeast(0)
+        val overlapArea = overlapW * overlapH
+        val minArea = min(width * height, other.width * other.height).coerceAtLeast(1)
+        return overlapArea.toFloat() / minArea.toFloat()
+    }
+
+    private fun normalize(value: String): String =
+        value.lowercase()
+            .replace('-', ' ')
+            .replace('_', ' ')
+            .replace(Regex("""\s+"""), " ")
+            .trim()
 
     private fun levenshtein(a: String, b: String): Int {
         if (a == b) return 0
@@ -141,12 +410,19 @@ class SemanticPointerResolver(private val service: () -> AccessibilityService?) 
                     prev[j - 1] + cost,
                 )
             }
-            val tmp = prev; prev = curr; curr = tmp
+            val tmp = prev
+            prev = curr
+            curr = tmp
         }
         return prev[b.length]
     }
 
-    // unused `max` kept intentionally — left as a hint that the distance
-    // threshold might graduate to a ratio-based measure in v2.
-    private fun maxDistanceRoom(): Int = max(0, 0)
+    private companion object {
+        const val MARK_ID_EXACT_SCORE = 100f
+        const val LOW_CONFIDENCE_SCORE = 45f
+        const val AMBIGUITY_SCORE_DELTA = 8f
+        const val MAX_DEBUG_CANDIDATES = 5
+        const val HARD_VISIT_CAP = 1200
+        const val MIN_TARGET_PX = 12
+    }
 }

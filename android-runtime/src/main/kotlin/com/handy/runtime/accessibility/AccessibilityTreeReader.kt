@@ -1,9 +1,12 @@
+@file:Suppress("DEPRECATION")
+
 package com.handy.runtime.accessibility
 
 import android.accessibilityservice.AccessibilityService
 import android.graphics.Rect
 import android.os.Build
 import android.view.accessibility.AccessibilityNodeInfo
+import com.handy.core.privacy.ScreenRedactor
 import com.handy.core.screen.IntRect
 import com.handy.core.screen.ScreenTextSnapshot
 import com.handy.core.screen.UiNode
@@ -29,12 +32,19 @@ class AccessibilityTreeReader(
         maxNodes: Int = 400,
     ): ScreenTextSnapshot? {
         val svc = service() ?: return null
-        val root = svc.rootInActiveWindow ?: return null
+        val root = runCatching { svc.rootInActiveWindow }.getOrNull() ?: return null
         return try {
             val pkg = root.packageName?.toString() ?: "unknown"
             val title = windowTitle(svc, root)
             val counter = intArrayOf(0)
-            val uiRoot = walk(root, depth = 0, maxDepth = maxDepth, counter = counter, maxNodes = maxNodes)
+            val uiRoot = walk(
+                node = root,
+                depth = 0,
+                maxDepth = maxDepth,
+                counter = counter,
+                maxNodes = maxNodes,
+                inheritedContext = "",
+            )
             ScreenTextSnapshot(
                 packageName = pkg,
                 windowTitle = title,
@@ -52,17 +62,42 @@ class AccessibilityTreeReader(
         maxDepth: Int,
         counter: IntArray,
         maxNodes: Int,
+        inheritedContext: String,
     ): UiNode? {
         if (counter[0] >= maxNodes) return null
         counter[0]++
 
         val bounds = Rect().also { node.getBoundsInScreen(it) }
+        val role = roleFor(node)
+        val context = listOfNotNull(
+            inheritedContext,
+            role,
+            node.viewIdResourceName,
+            node.contentDescription?.toString(),
+        ).joinToString(" ")
+        val text = ScreenRedactor.redactText(
+            value = node.text?.toString(),
+            context = context,
+            isPassword = node.isPassword,
+        )
+        val desc = ScreenRedactor.redactText(
+            value = node.contentDescription?.toString(),
+            context = "$context ${text.orEmpty()}",
+            isPassword = node.isPassword,
+        )
         val children = mutableListOf<UiNode>()
         if (depth < maxDepth) {
             for (i in 0 until node.childCount) {
-                val child = node.getChild(i) ?: continue
+                val child = runCatching { node.getChild(i) }.getOrNull() ?: continue
                 try {
-                    walk(child, depth + 1, maxDepth, counter, maxNodes)?.let { children += it }
+                    walk(
+                        node = child,
+                        depth = depth + 1,
+                        maxDepth = maxDepth,
+                        counter = counter,
+                        maxNodes = maxNodes,
+                        inheritedContext = "$context ${text.orEmpty()} ${desc.orEmpty()}",
+                    )?.let { children += it }
                 } finally {
                     runCatching { child.recycle() }
                 }
@@ -71,9 +106,9 @@ class AccessibilityTreeReader(
         }
 
         return UiNode(
-            role = roleFor(node),
-            text = node.text?.toString()?.trim()?.takeIf { it.isNotEmpty() },
-            contentDescription = node.contentDescription?.toString()?.trim()?.takeIf { it.isNotEmpty() },
+            role = role,
+            text = text,
+            contentDescription = desc,
             viewIdResourceName = node.viewIdResourceName?.takeIf { it.isNotBlank() },
             boundsInScreen = IntRect(bounds.left, bounds.top, bounds.right, bounds.bottom),
             children = children,

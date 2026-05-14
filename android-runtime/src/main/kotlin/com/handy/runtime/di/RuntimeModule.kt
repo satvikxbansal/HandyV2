@@ -14,6 +14,7 @@ import com.handy.runtime.llm.ClaudeLlmClient
 import com.handy.runtime.llm.GeminiCloudLlmClient
 import com.handy.runtime.llm.GeminiNanoLocalGenAiClient
 import com.handy.runtime.llm.HandyToolRunner
+import com.handy.runtime.llm.NetworkDiagnostics
 import com.handy.runtime.llm.SwitchingCloudLlmClient
 import com.handy.runtime.speech.AndroidSttClient
 import com.handy.runtime.speech.AndroidTtsClient
@@ -100,6 +101,7 @@ object RuntimeModule {
     @Provides
     @Singleton
     fun provideClaudeClient(
+        @ApplicationContext context: Context,
         keyStore: KeyStore,
         httpClient: OkHttpClient,
         json: Json,
@@ -107,6 +109,7 @@ object RuntimeModule {
         keyStore = keyStore,
         httpClient = httpClient,
         json = json,
+        networkDiagnostics = NetworkDiagnostics.from(context),
     )
 
     @Provides

@@ -147,8 +147,19 @@ data class HandySettings(
      * V2 §4: enables the real `AccessibilityGestureActionPerformer`
      * binding. When `false`, `NoopActionPerformer` remains bound — V1
      * behaviour. Confirmation policy still gates destructive actions.
+     *
+     * Phase 0 hardening: this preference alone is no longer enough to
+     * execute gestures. A future action disclosure must also set
+     * [actionDisclosureVersionAccepted].
      */
     val tapForMeEnabled: Boolean = false,
+
+    /**
+     * Versioned acceptance of the tap/scroll/gesture disclosure. Kept at
+     * zero until the action phase deliberately ships the new capability and
+     * updates Play/onboarding copy.
+     */
+    val actionDisclosureVersionAccepted: Int = 0,
 
     /**
      * V2 §5: cloud provider pick. `ClaudeCloud` is the default; the

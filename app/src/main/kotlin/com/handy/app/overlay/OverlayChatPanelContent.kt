@@ -56,6 +56,7 @@ import com.handy.app.theme.HandyColors
 import com.handy.app.theme.HandyDimens
 import com.handy.app.theme.HandyGlassBottomSheet
 import com.handy.app.theme.HandyType
+import com.handy.app.theme.noRippleClickable
 
 /**
  * Overlay chat panel Compose tree. Glassmorphism per cursorbuddy
@@ -297,7 +298,7 @@ private fun BareIconButton(
         modifier = Modifier
             .size(28.dp)
             .clip(RoundedCornerShape(HandyDimens.RadiusSm))
-            .clickable(onClick = onClick),
+            .noRippleClickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -332,7 +333,7 @@ private fun InputRow(
                 .size(40.dp)
                 .background(HandyColors.ChipBg, CircleShape)
                 .border(0.5.dp, HandyColors.ChipBorder, CircleShape)
-                .clickable(onClick = onVoiceStart),
+                .noRippleClickable(onClick = onVoiceStart),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -390,7 +391,7 @@ private fun InputRow(
             modifier = Modifier
                 .size(40.dp)
                 .then(sendBg)
-                .clickable(enabled = sendEnabled, onClick = onSubmit),
+                .noRippleClickable(enabled = sendEnabled, onClick = onSubmit),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -465,7 +466,7 @@ private fun ListeningRow(
             modifier = Modifier
                 .size(32.dp)
                 .background(HandyColors.Danger.copy(alpha = 0.18f), CircleShape)
-                .clickable(onClick = onStop),
+                .noRippleClickable(onClick = onStop),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -589,7 +590,7 @@ private fun ErrorChip(message: String, onDismiss: () -> Unit) {
             modifier = Modifier
                 .size(22.dp)
                 .background(HandyColors.Danger.copy(alpha = 0.2f), CircleShape)
-                .clickable(onClick = onDismiss),
+                .noRippleClickable(onClick = onDismiss),
             contentAlignment = Alignment.Center,
         ) {
             Icon(

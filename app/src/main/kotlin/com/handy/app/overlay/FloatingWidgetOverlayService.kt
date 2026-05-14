@@ -190,9 +190,11 @@ class FloatingWidgetOverlayService : LifecycleService() {
                         BuddyState.LISTENING -> WidgetState.LISTENING
                         BuddyState.THINKING,
                         BuddyState.STREAMING,
+                        BuddyState.PREPARING_POINT,
                         BuddyState.ACTING -> WidgetState.THINKING
                         BuddyState.FLYING -> WidgetState.FLYING
                         BuddyState.POINTING -> WidgetState.POINTING
+                        BuddyState.CANCELLING,
                         BuddyState.DOCKED,
                         BuddyState.SPEAKING,
                         BuddyState.DRAGGING -> WidgetState.IDLE
@@ -648,4 +650,3 @@ class FloatingWidgetOverlayService : LifecycleService() {
         Below,
     }
 }
-

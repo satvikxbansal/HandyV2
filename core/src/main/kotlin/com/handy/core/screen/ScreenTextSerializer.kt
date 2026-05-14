@@ -32,6 +32,10 @@ object ScreenTextSerializer {
 
     private fun walk(node: UiNode, out: StringBuilder) {
         if (shouldEmit(node)) {
+            node.markId?.takeIf { it.isNotBlank() }?.let { id ->
+                out.append(id)
+                out.append(' ')
+            }
             out.append('[')
             out.append(node.role)
             out.append(']')
@@ -63,9 +67,9 @@ object ScreenTextSerializer {
                 out.append(b.bottom)
             }
 
-            if (node.clickable) out.append(" [clickable]")
-            if (node.scrollable) out.append(" [scrollable]")
-            if (!node.enabled) out.append(" [disabled]")
+            if (node.clickable) out.append(" clickable")
+            if (node.scrollable) out.append(" scrollable")
+            if (node.enabled) out.append(" enabled") else out.append(" disabled")
             out.append('\n')
         }
         node.children.forEach { walk(it, out) }

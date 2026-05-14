@@ -151,8 +151,9 @@ this file records *why* and *what was considered and rejected*.
 (`FloatingAccessWidgetController` + `CompanionCursorManager`) into a
 single overlay on Android. The floating widget itself is the pointer.
 On a `[POINT]` the widget flies from its snapped-edge dock via Bezier
-arc to the resolved `AccessibilityNodeInfo` bounds, dwells 3–5 s with
-a label bubble, flies back, settles at the dock. No separate
+arc to the resolved target bounds, then stays as a sticky pointer until
+the user/app interacts, a new request starts, the service disconnects, or
+a safety timeout returns it to the dock. No separate
 `PointerOverlayController` overlay ships in V2.
 
 **Rationale.** The macOS companion anchors to `NSEvent.mouseLocation`;

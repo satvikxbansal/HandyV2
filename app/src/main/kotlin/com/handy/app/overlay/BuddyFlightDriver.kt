@@ -1,15 +1,21 @@
+@file:Suppress("DEPRECATION")
+
 package com.handy.app.overlay
 
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import com.handy.app.widget.BezierFlightController
 import com.handy.app.widget.LensRenderer
+import com.handy.core.action.ActionExecutionGate
 import com.handy.core.action.ActionPerformer
 import com.handy.core.action.TapTarget
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.overlay.BuddyState
 import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.screen.IntRect
+import com.handy.runtime.accessibility.SemanticPointerResolver.ResolutionFailureReason
+import com.handy.runtime.accessibility.SemanticPointerResolver.ResolvedPointTarget
 import com.handy.runtime.accessibility.SemanticPointerResolver
 import com.handy.runtime.storage.DataStoreSettings
 import java.lang.ref.WeakReference
@@ -19,7 +25,6 @@ import kotlin.coroutines.resume
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
-import kotlin.math.min
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -46,13 +51,17 @@ class BuddyFlightDriver @Inject constructor(
 
     private var serviceRef: WeakReference<FloatingWidgetOverlayService>? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var safetyTimeoutRunnable: Runnable? = null
 
     fun attachService(service: FloatingWidgetOverlayService) {
         serviceRef = WeakReference(service)
     }
 
     fun detachService(service: FloatingWidgetOverlayService) {
-        if (serviceRef?.get() === service) serviceRef = null
+        if (serviceRef?.get() === service) {
+            clearStickySafetyTimeout()
+            serviceRef = null
+        }
     }
 
     fun isReadyForFlight(): Boolean =
@@ -61,7 +70,7 @@ class BuddyFlightDriver @Inject constructor(
     /**
      * Resolve [spec] against the live accessibility tree; if that fails,
      * use cached pre-panel marks. Shows the blue navigation bubble with
-     * [label] during dwell (scope §3).
+     * [label] while pointing (scope §3).
      *
      * No-ops when:
      *  - no service attached,
@@ -92,27 +101,41 @@ class BuddyFlightDriver @Inject constructor(
             spec.logSummary(),
             fallbackMarks.size,
         )
-        val liveResolved = withContext(Dispatchers.Main.immediate) {
-            runCatching { pointerResolver.resolve(spec) }.getOrNull()
+        presenter.onPreparingPoint(label)
+        val resolved = withContext(Dispatchers.Main.immediate) {
+            runCatching { pointerResolver.resolve(spec, fallbackMarks) }.getOrNull()
         }
-        val target = if (liveResolved != null) {
-            Timber.d("BuddyFlightDriver.flyTo: live resolver hit bounds=%s", liveResolved.bounds.logSummary())
-            FlightTarget(bounds = liveResolved.bounds, node = liveResolved.node)
-        } else {
-            fallbackMarks.resolveCached(spec)?.let { bounds ->
-                Timber.d("BuddyFlightDriver.flyTo: cached resolver hit bounds=%s", bounds.logSummary())
-                FlightTarget(bounds = bounds, node = null)
-            }
-        }
-        if (target == null) {
+        if (resolved == null) {
             Timber.d("BuddyFlightDriver.flyTo: resolver returned null")
+            presenter.onPointingReturned()
+            return false
+        }
+        Timber.d(
+            "BuddyFlightDriver.flyTo: resolved markId=%s source=%s confidence=%.2f failure=%s candidates=%d bounds=%s",
+            resolved.markId,
+            resolved.source,
+            resolved.confidence,
+            resolved.failureReason,
+            resolved.candidateCount,
+            resolved.bounds.logSummary(),
+        )
+        if (resolved.failureReason == ResolutionFailureReason.AMBIGUOUS ||
+            resolved.confidence < MIN_FLY_CONFIDENCE
+        ) {
+            Timber.d(
+                "BuddyFlightDriver.flyTo: refusing low/ambiguous pointer confidence=%.2f failure=%s",
+                resolved.confidence,
+                resolved.failureReason,
+            )
+            resolved.node?.let { node -> runCatching { node.recycle() } }
+            presenter.onPointingReturned()
             return false
         }
 
         return withContext(Dispatchers.Main.immediate) {
-            flyToBounds(service, target.bounds, label)
+            flyToBounds(service, resolved.bounds, label, resolved)
         }.also {
-            target.node?.let { node -> runCatching { node.recycle() } }
+            resolved.node?.let { node -> runCatching { node.recycle() } }
         }
     }
 
@@ -144,6 +167,7 @@ class BuddyFlightDriver @Inject constructor(
         service: FloatingWidgetOverlayService,
         bounds: IntRect,
         label: String?,
+        resolved: ResolvedPointTarget? = null,
     ): Boolean = suspendCancellableCoroutine { cont ->
         val (widgetW, widgetH) = service.widgetSize().takeIf { it.first > 0 && it.second > 0 }
             ?: run {
@@ -154,12 +178,18 @@ class BuddyFlightDriver @Inject constructor(
         val (dockX, dockY) = service.currentDockPosition()
         val landing = chooseLandingPosition(service, bounds, widgetW, widgetH)
         val arrivalAngle = angleFromWidgetToTarget(landing, widgetW, widgetH, bounds)
+        val startedAtMs = SystemClock.uptimeMillis()
         Timber.d(
-            "BuddyFlightDriver.flyToBounds: from=%d,%d target=%d,%d kind=%s angle=%.2f blendStart=%.2f dock=%d,%d bounds=%s label=\"%s\"",
+            "BuddyFlightDriver.flyToBounds: markId=%s confidence=%.2f source=%s from=%d,%d target=%d,%d widget=%dx%d kind=%s angle=%.2f blendStart=%.2f dock=%d,%d bounds=%s label=\"%s\"",
+            resolved?.markId,
+            resolved?.confidence ?: 0f,
+            resolved?.source,
             fromX,
             fromY,
             landing.x,
             landing.y,
+            widgetW,
+            widgetH,
             landing.kind,
             arrivalAngle,
             POINTER_ROTATION_BLEND_START,
@@ -200,19 +230,26 @@ class BuddyFlightDriver @Inject constructor(
                 }
 
                 override fun onArrived() {
-                    Timber.d("BuddyFlightDriver.flyToBounds: arrived label=\"%s\"", label?.logSnippet())
+                    Timber.d(
+                        "BuddyFlightDriver.flyToBounds: arrived durationMs=%d finalWidget=%d,%d-%d,%d label=\"%s\"",
+                        SystemClock.uptimeMillis() - startedAtMs,
+                        landing.x,
+                        landing.y,
+                        landing.x + widgetW,
+                        landing.y + widgetH,
+                        label?.logSnippet(),
+                    )
                     service.updatePointerPose(
                         tangentRadians = arrivalAngle,
                         scale = 1.0f,
                     )
                     presenter.onPointingArrived(label)
+                    scheduleStickySafetyTimeout()
                     if (cont.isActive) cont.resume(true)
                 }
 
-                // tap-for-me escalation is handled by the pipeline via
-                // [tapAt]; keeping the arrival callback pure lets the
-                // dwell + return flight run regardless of whether we
-                // tapped or not.
+                // Tap-for-me stays fail-closed in this batch; arrival
+                // only owns sticky pointing.
 
                 override fun onPulse(scale: Float) {
                     service.updatePointerPose(scale = scale)
@@ -220,12 +257,17 @@ class BuddyFlightDriver @Inject constructor(
 
                 override fun onReturned() {
                     Timber.d("BuddyFlightDriver.flyToBounds: returned to dock")
+                    clearStickySafetyTimeout()
                     service.resetPointerPose()
                     presenter.onPointingReturned()
                 }
 
                 override fun onFlightCancelled() {
-                    Timber.d("BuddyFlightDriver.flyToBounds: flight cancelled")
+                    Timber.d(
+                        "BuddyFlightDriver.flyToBounds: flight cancelled reason=controller_cancel durationMs=%d",
+                        SystemClock.uptimeMillis() - startedAtMs,
+                    )
+                    clearStickySafetyTimeout()
                     service.resetPointerPose()
                     presenter.onPointingReturned()
                     if (cont.isActive) cont.resume(false)
@@ -237,10 +279,8 @@ class BuddyFlightDriver @Inject constructor(
         }
     }
     /**
-     * Cross-cutting: fly to [spec], dwell, fly back, and — if the user
-     * has `tapForMeEnabled` — also perform a tap on the resolved node.
-     * The tap fires mid-dwell so the user sees the teal action bubble
-     * before the return flight starts.
+     * Cross-cutting: fly to [spec] and, only after the future action
+     * disclosure gate is accepted, perform a tap on the resolved node.
      *
      * Returns true when the buddy actually tapped. Scope §4 / recipe #3.
      */
@@ -250,7 +290,8 @@ class BuddyFlightDriver @Inject constructor(
         targetLabel: String?,
         fallbackMarks: List<AccessibilityMark> = emptyList(),
     ): Boolean {
-        val enabled = runCatching { settings.current().tapForMeEnabled }.getOrDefault(false)
+        val enabled = runCatching { ActionExecutionGate.gesturesAllowed(settings.current()) }
+            .getOrDefault(false)
         val landed = flyTo(spec, bubbleLabel, fallbackMarks)
         if (!landed) return false
         if (!enabled) return false
@@ -275,6 +316,7 @@ class BuddyFlightDriver @Inject constructor(
     /** Cancel any in-flight animation (e.g. user tapped widget mid-flight). */
     fun cancel() {
         mainHandler.post {
+            clearStickySafetyTimeout()
             val service = serviceRef?.get()
             service?.flightControllerInstance()?.cancelAll()
             service?.moveBuddyToDock()
@@ -291,6 +333,7 @@ class BuddyFlightDriver @Inject constructor(
         if (presenter.state.value.buddyState != BuddyState.POINTING) return false
         Timber.d("BuddyFlightDriver: dismissing sticky pointer after user interaction source=%s", source)
         mainHandler.post {
+            clearStickySafetyTimeout()
             val service = serviceRef?.get()
             service?.flightControllerInstance()?.cancelAll()
             service?.moveBuddyToDock()
@@ -298,6 +341,19 @@ class BuddyFlightDriver @Inject constructor(
             presenter.onPointingReturned()
         }
         return true
+    }
+
+    private fun scheduleStickySafetyTimeout() {
+        clearStickySafetyTimeout()
+        safetyTimeoutRunnable = Runnable {
+            Timber.d("BuddyFlightDriver: sticky pointer safety timeout")
+            dismissPointingAfterUserInteraction("safety_timeout")
+        }.also { mainHandler.postDelayed(it, STICKY_POINTER_TIMEOUT_MS) }
+    }
+
+    private fun clearStickySafetyTimeout() {
+        safetyTimeoutRunnable?.let(mainHandler::removeCallbacks)
+        safetyTimeoutRunnable = null
     }
 
     private data class LandingPosition(
@@ -327,23 +383,27 @@ class BuddyFlightDriver @Inject constructor(
         val edgeBand = (96f * density).toInt()
         val screenW = service.resources.displayMetrics.widthPixels
         val screenH = service.resources.displayMetrics.heightPixels
+        val safeTop = service.systemBarSize("status_bar_height")
+        val safeBottom = screenH - service.systemBarSize("navigation_bar_height")
+        val minX = 0
+        val minY = safeTop.coerceAtLeast(0)
         val maxX = (screenW - widgetW).coerceAtLeast(0)
-        val maxY = (screenH - widgetH).coerceAtLeast(0)
+        val maxY = (safeBottom - widgetH).coerceAtLeast(minY)
 
         fun candidate(kind: String, x: Int, y: Int, priority: Int): LandingCandidate =
             LandingCandidate(
                 kind = kind,
-                x = x.coerceIn(0, maxX),
-                y = y.coerceIn(0, maxY),
+                x = x.coerceIn(minX, maxX),
+                y = y.coerceIn(minY, maxY),
                 priority = priority,
             )
 
         fun centeredY(): Int = bounds.centerY - widgetH / 2
         fun centeredX(): Int = bounds.centerX - widgetW / 2
 
-        val avoidBounds = bounds.expand(avoidMargin, screenW, screenH)
-        val nearBottom = bounds.centerY >= screenH - edgeBand
-        val nearTop = bounds.centerY <= edgeBand
+        val avoidBounds = bounds.expand(avoidMargin, screenW, safeBottom)
+        val nearBottom = bounds.centerY >= safeBottom - edgeBand
+        val nearTop = bounds.centerY <= safeTop + edgeBand
         val nearLeft = bounds.centerX <= edgeBand
         val nearRight = bounds.centerX >= screenW - edgeBand
         val preferredBand = when {
@@ -475,70 +535,8 @@ class BuddyFlightDriver @Inject constructor(
         return start + delta * t
     }
 
-    private data class FlightTarget(
-        val bounds: IntRect,
-        val node: android.view.accessibility.AccessibilityNodeInfo?,
-    )
-
-    private fun List<AccessibilityMark>.resolveCached(
-        spec: AssistantMarkupParser.SemanticPoint,
-    ): IntRect? {
-        firstMatchingTextAndRole(spec)?.let { return it.boundsRect() }
-        spec.contentDescription?.let { desc ->
-            firstOrNull { mark ->
-                mark.contentDescription.equals(desc, ignoreCase = true) ||
-                    looseContains(mark.contentDescription, desc)
-            }
-                ?.let { return it.boundsRect() }
-        }
-        spec.viewId?.let { viewId ->
-            firstOrNull { mark ->
-                mark.viewIdSuffix.equals(viewId, ignoreCase = true) ||
-                    looseContains(mark.viewIdSuffix, viewId)
-            }?.let { return it.boundsRect() }
-        }
-        return fuzzyText(spec, maxDistance = 2)?.boundsRect()
-    }
-
-    private fun List<AccessibilityMark>.firstMatchingTextAndRole(
-        spec: AssistantMarkupParser.SemanticPoint,
-    ): AccessibilityMark? {
-        val text = spec.text ?: return null
-        val roleHint = spec.role?.lowercase()
-        val normalizedText = normalize(text)
-        return firstOrNull { mark ->
-            mark.text.equals(text, ignoreCase = true) &&
-                (roleHint == null || mark.role.lowercase().contains(roleHint))
-        } ?: firstOrNull { mark ->
-            looseContains(mark.text, normalizedText)
-        }
-    }
-
-    private fun List<AccessibilityMark>.fuzzyText(
-        spec: AssistantMarkupParser.SemanticPoint,
-        maxDistance: Int,
-    ): AccessibilityMark? {
-        val needle = spec.text?.lowercase() ?: return null
-        var best: AccessibilityMark? = null
-        var bestDistance = Int.MAX_VALUE
-        forEach { mark ->
-            val candidate = mark.text?.lowercase()
-            if (candidate != null) {
-                val d = levenshtein(needle, candidate)
-                if (d < bestDistance && d <= maxDistance) {
-                    best = mark
-                    bestDistance = d
-                }
-            }
-        }
-        return best
-    }
-
-    private fun AccessibilityMark.boundsRect(): IntRect =
-        IntRect(left, top, right, bottom)
-
     private fun AssistantMarkupParser.SemanticPoint.logSummary(): String =
-        "role=$role text=${text?.logSnippet()} viewId=$viewId desc=${contentDescription?.logSnippet()}"
+        "markId=$markId role=$role text=${text?.logSnippet()} viewId=$viewId desc=${contentDescription?.logSnippet()}"
 
     private fun IntRect.logSummary(): String =
         "$left,$top-$right,$bottom"
@@ -546,45 +544,18 @@ class BuddyFlightDriver @Inject constructor(
     private fun String.logSnippet(max: Int = 80): String =
         replace('\n', ' ').take(max)
 
-    private fun normalize(value: String): String =
-        value.lowercase()
-            .replace('-', ' ')
-            .replace(Regex("""\s+"""), " ")
-            .trim()
-
-    private fun looseContains(candidate: String?, needle: String): Boolean {
-        val a = normalize(candidate.orEmpty())
-        val b = normalize(needle)
-        return a.isNotBlank() && b.isNotBlank() && (a.contains(b) || b.contains(a))
-    }
-
-    private fun levenshtein(a: String, b: String): Int {
-        if (a == b) return 0
-        if (a.isEmpty()) return b.length
-        if (b.isEmpty()) return a.length
-        var prev = IntArray(b.length + 1) { it }
-        var curr = IntArray(b.length + 1)
-        for (i in 1..a.length) {
-            curr[0] = i
-            for (j in 1..b.length) {
-                val cost = if (a[i - 1] == b[j - 1]) 0 else 1
-                curr[j] = min(
-                    min(curr[j - 1] + 1, prev[j] + 1),
-                    prev[j - 1] + cost,
-                )
-            }
-            val tmp = prev
-            prev = curr
-            curr = tmp
-        }
-        return prev[b.length]
-    }
-
     private companion object {
         const val POINT_TARGET_RADIUS: Int = 20
+        const val MIN_FLY_CONFIDENCE: Float = 0.68f
+        const val STICKY_POINTER_TIMEOUT_MS: Long = 30_000L
         const val POINTER_ROTATION_BLEND_START: Float = 0.78f
         const val TWO_PI: Float = (Math.PI * 2.0).toFloat()
     }
+}
+
+private fun android.content.Context.systemBarSize(name: String): Int {
+    val id = resources.getIdentifier(name, "dimen", "android")
+    return if (id > 0) runCatching { resources.getDimensionPixelSize(id) }.getOrDefault(0) else 0
 }
 
 // Keep the LensRenderer import live for the commented-out direct path.

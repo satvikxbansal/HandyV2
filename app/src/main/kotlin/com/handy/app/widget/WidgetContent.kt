@@ -2,7 +2,6 @@ package com.handy.app.widget
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -72,14 +71,6 @@ fun WidgetContent(
     pointerScale: Float = 1f,
 ) {
     HandyTheme(darkTheme = true) {
-        val scale by animateFloatAsState(
-            targetValue = when (state) {
-                WidgetState.TOUCHED, WidgetState.LISTENING -> 1.05f
-                else -> 1f
-            },
-            animationSpec = tween(durationMillis = HandyMotion.DefaultMs),
-            label = "widget-scale",
-        )
         val borderColor = when (state) {
             WidgetState.IDLE, WidgetState.DRAGGING ->
                 HandyColors.Accent.copy(alpha = 0.60f)
@@ -96,8 +87,7 @@ fun WidgetContent(
         }
         Box(
             modifier = Modifier
-                .size(HandyDimens.WidgetLensSize)
-                .scale(scale),
+                .size(HandyDimens.WidgetLensSize),
             contentAlignment = Alignment.Center,
         ) {
             Box(
@@ -283,8 +273,9 @@ fun WidgetBubbleChip(bubble: BuddyBubble) {
 private fun tintFor(state: BuddyState): LensRenderer.Tint = when (state) {
     BuddyState.DOCKED, BuddyState.DRAGGING -> LensRenderer.Tint.Amber
     BuddyState.LISTENING -> LensRenderer.Tint.Amber
-    BuddyState.THINKING, BuddyState.STREAMING -> LensRenderer.Tint.Amber
+    BuddyState.THINKING, BuddyState.STREAMING, BuddyState.PREPARING_POINT -> LensRenderer.Tint.Amber
     BuddyState.FLYING, BuddyState.POINTING -> LensRenderer.Tint.Green
+    BuddyState.CANCELLING -> LensRenderer.Tint.Amber
     BuddyState.ACTING -> LensRenderer.Tint.Teal
     BuddyState.SPEAKING -> LensRenderer.Tint.Green
 }

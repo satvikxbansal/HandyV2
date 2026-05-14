@@ -1,6 +1,7 @@
 package com.handy.app.overlay
 
 import com.handy.app.chat.ChatConfirmationBroker
+import com.handy.app.screen.ScreenContextBuilder
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.LlmClient
 import com.handy.core.llm.ToolRunner
@@ -12,8 +13,8 @@ import com.handy.core.orchestrator.OrchestrationRequest
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.overlay.PanelContent
 import com.handy.core.overlay.PanelSnapshot
-import com.handy.core.overlay.toScreenTextSnapshot
 import com.handy.core.parsing.AssistantMarkupParser
+import com.handy.core.screen.TurnSource
 import com.handy.core.tool.ToolContext
 import com.handy.runtime.di.ApplicationScope
 import com.handy.runtime.storage.DataStoreSettings
@@ -63,6 +64,7 @@ class OverlayChatPipeline @Inject constructor(
     private val keyStore: KeyStore,
     private val confirmationBroker: ChatConfirmationBroker,
     private val flightDriver: BuddyFlightDriver,
+    private val screenContextBuilder: ScreenContextBuilder,
     @ApplicationScope private val appScope: CoroutineScope,
 ) {
 
@@ -123,24 +125,35 @@ class OverlayChatPipeline @Inject constructor(
         presenter.onStreamingStart()
         startVerbRotation()
 
-        val screenText = panelSnapshot?.toScreenTextSnapshot()
+        val turnContext = screenContextBuilder.build(
+            userMessage = userText,
+            source = if (fromVoice) TurnSource.OVERLAY_VOICE else TurnSource.OVERLAY_PANEL,
+            toolContext = toolContext,
+            panelSnapshot = panelSnapshot,
+            preferFocusedWindow = panelSnapshot != null,
+        )
+        val groundedSnapshot = turnContext.panelSnapshot
         Timber.d(
-            "OverlayChatPipeline.runTurn: app=%s marks=%d screenText=%s query=\"%s\"",
+            "OverlayChatPipeline.runTurn: request=%s app=%s marks=%d screenText=%s captureMode=%s failure=%s query=\"%s\"",
+            turnContext.requestId,
             toolContext.packageName,
-            panelSnapshot?.marks?.size ?: 0,
-            screenText != null,
+            groundedSnapshot?.marks?.size ?: 0,
+            turnContext.screenText != null,
+            turnContext.captureMode,
+            turnContext.failureReason,
             userText.logSnippet(),
         )
         val request = OrchestrationRequest(
             userMessage = userText,
-            toolContext = toolContext,
+            toolContext = turnContext.toolContext,
             settings = current,
             fromVoice = fromVoice,
-            capture = null, // Phase 2 hooks RequestBudgeter + capture
-            screenText = screenText,
+            capture = turnContext.capture,
+            screenText = turnContext.screenText,
             hasBraveKey = hasBraveKey,
             tools = tools,
             quickOverlayResponse = true,
+            contextFailureReason = turnContext.failureReason,
         )
 
         sendJob?.cancel()
@@ -174,8 +187,11 @@ class OverlayChatPipeline @Inject constructor(
                         }
                         is OrchestrationEvent.ToolCall,
                         is OrchestrationEvent.WebSearchStatus,
-                        is OrchestrationEvent.UserTurnPersisted,
-                        is OrchestrationEvent.SystemMessageInjected -> Unit
+                        is OrchestrationEvent.UserTurnPersisted -> Unit
+                        is OrchestrationEvent.SystemMessageInjected -> {
+                            finalChatText = event.message.content
+                            finalOverlaySpoken = fallbackOverlayClamp(event.message.content)
+                        }
                     }
                 }
             }.onFailure { t ->
@@ -189,15 +205,13 @@ class OverlayChatPipeline @Inject constructor(
                 presenter.onResponseFinalized(finalOverlaySpoken, finalChatText)
             }
             // V2: buddy flight — fire after the response is in the
-            // green bubble. Green suppresses blue per scope §3
-            // mutual-exclusion, and the bubble taxonomy flips to
-            // Navigation during dwell. If `tapForMeEnabled`, the
-            // driver also taps the resolved node (scope §4 + recipe
-            // #3), flipping the bubble to teal (Action) mid-dwell.
+            // green bubble. The bubble taxonomy flips to Navigation
+            // while the sticky pointer is active. Tap-for-me remains
+            // fail-closed until the future action disclosure gate ships.
             val semanticSpec = pointing?.semantic ?: inferSemanticPoint(
                 userText = userText,
                 assistantText = finalChatText,
-                marks = panelSnapshot?.marks.orEmpty(),
+                marks = groundedSnapshot?.marks.orEmpty(),
             ).also { inferred ->
                 if (inferred != null) {
                     Timber.d("OverlayChatPipeline: inferred fallback point=%s", inferred.logSummary())
@@ -206,12 +220,12 @@ class OverlayChatPipeline @Inject constructor(
             val pixelPoint = pointing?.pixel
             if (semanticSpec != null) {
                 val spec = semanticSpec
-                val targetLabel = spec.text ?: spec.contentDescription ?: spec.viewId ?: "here"
+                val targetLabel = spec.text ?: spec.contentDescription ?: spec.viewId ?: spec.markId ?: "here"
                 val bubbleLabel = finalOverlaySpoken?.takeIf { it.isNotBlank() } ?: targetLabel
                 Timber.d(
                     "OverlayChatPipeline: dismissing panel before semantic flight target=%s fallbackMarks=%d",
                     spec.logSummary(),
-                    panelSnapshot?.marks?.size ?: 0,
+                    groundedSnapshot?.marks?.size ?: 0,
                 )
                 presenter.dismissPanel()
                 delay(PANEL_DISMISS_BEFORE_FLIGHT_MS)
@@ -220,32 +234,19 @@ class OverlayChatPipeline @Inject constructor(
                         spec = spec,
                         bubbleLabel = bubbleLabel,
                         targetLabel = targetLabel,
-                        fallbackMarks = panelSnapshot?.marks.orEmpty(),
+                        fallbackMarks = groundedSnapshot?.marks.orEmpty(),
                     )
                 }
                     .onFailure { Timber.w(it, "buddy flight failed") }
                     .getOrDefault(false)
                 Timber.d("OverlayChatPipeline: semantic flight landed=%s", landed)
             } else if (pixelPoint != null) {
-                val targetLabel = pixelPoint.label ?: "here"
-                val bubbleLabel = finalOverlaySpoken?.takeIf { it.isNotBlank() } ?: targetLabel
                 Timber.d(
-                    "OverlayChatPipeline: dismissing panel before pixel flight target=%d,%d label=%s",
+                    "OverlayChatPipeline: ignoring pixel pointer in normal mode target=%d,%d label=%s",
                     pixelPoint.x,
                     pixelPoint.y,
-                    targetLabel.logSnippet(),
+                    pixelPoint.label?.logSnippet(),
                 )
-                presenter.dismissPanel()
-                delay(PANEL_DISMISS_BEFORE_FLIGHT_MS)
-                val landed = runCatching {
-                    flightDriver.flyToPoint(
-                        x = pixelPoint.x,
-                        y = pixelPoint.y,
-                        bubbleLabel = bubbleLabel,
-                    )
-                }.onFailure { Timber.w(it, "buddy pixel flight failed") }
-                    .getOrDefault(false)
-                Timber.d("OverlayChatPipeline: pixel flight landed=%s", landed)
             } else {
                 Timber.d("OverlayChatPipeline: no point emitted or inferred")
             }
@@ -310,6 +311,13 @@ class OverlayChatPipeline @Inject constructor(
 
     private fun AccessibilityMark.toSemanticPoint(): AssistantMarkupParser.SemanticPoint =
         when {
+            !markId.isNullOrBlank() -> AssistantMarkupParser.SemanticPoint(
+                markId = markId,
+                role = semanticRole(),
+                text = text,
+                contentDescription = contentDescription,
+                viewId = viewIdSuffix,
+            )
             !text.isNullOrBlank() -> AssistantMarkupParser.SemanticPoint(
                 role = semanticRole(),
                 text = text,

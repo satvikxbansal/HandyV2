@@ -64,6 +64,20 @@ class AssistantMarkupParserTest {
         assertThat(result.isNone).isFalse()
     }
 
+    @Test fun `parsePoint reads markId`() {
+        val result = AssistantMarkupParser.parsePoint("tap this [POINT:markId=m3]")
+        assertThat(result.semantic?.markId).isEqualTo("m3")
+        assertThat(result.semantic?.text).isNull()
+        assertThat(result.isNone).isFalse()
+    }
+
+    @Test fun `parsePoint ignores unknown semantic keys without throwing`() {
+        val result = AssistantMarkupParser.parsePoint("tap this [POINT:foo=bar]")
+        assertThat(result.semantic).isNull()
+        assertThat(result.pixel).isNull()
+        assertThat(result.isNone).isFalse()
+    }
+
     @Test fun `parsePoint reads viewId`() {
         val result = AssistantMarkupParser.parsePoint("here: [POINT:viewId=send_btn]")
         assertThat(result.semantic?.viewId).isEqualTo("send_btn")

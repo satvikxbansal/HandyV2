@@ -3,6 +3,8 @@ package com.handy.app.widget
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
+import android.os.Handler
+import android.os.Looper
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import kotlin.math.atan2
@@ -18,7 +20,7 @@ import kotlin.random.Random
  *  - smoothstep easing: t' = t² · (3 − 2t)
  *  - `DecelerateInterpolator(2f)` for the flight-in curve (cursorbuddy)
  *
- * Dwell + pulse (scope §3):
+ * Dwell/persistent pulse (scope §3):
  *  - dwell duration uniform random in [3.0, 5.0] s
  *  - landed pulse: OvershootInterpolator(1.5f) 1.0 → 1.14 → 1.0 loop,
  *    600 ms reverse, cancelled on return flight
@@ -58,12 +60,12 @@ class BezierFlightController(
     private var moveAnimator: ValueAnimator? = null
     private var pulseAnimator: ValueAnimator? = null
     private var dwellRunnable: Runnable? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     /**
      * Fly from ([fromX], [fromY]) to ([toX], [toY]) along a quadratic
-     * Bezier curve. On arrival, start the dwell pulse; after a random
-     * 3–5 s dwell, fly back to ([dockX], [dockY]) and call
-     * [Callback.onReturned].
+     * Bezier curve. On arrival, start either the timed dwell+return path
+     * or the sticky persistent pulse path, depending on [returnToDock].
      */
     fun flyThere(
         fromX: Float,
@@ -109,6 +111,7 @@ class BezierFlightController(
                     startPersistentPulse(callback)
                 }
             },
+            onCancel = callback::onFlightCancelled,
         ).also { it.start() }
     }
 
@@ -172,10 +175,10 @@ class BezierFlightController(
                 durationMs = durationMs,
                 onTick = callback::onFlightTick,
                 onEnd = { callback.onReturned() },
+                onCancel = callback::onFlightCancelled,
             ).also { it.start() }
         }.also { r ->
-            android.os.Handler(android.os.Looper.getMainLooper())
-                .postDelayed(r, dwellMs)
+            mainHandler.postDelayed(r, dwellMs)
         }
     }
 
@@ -189,7 +192,9 @@ class BezierFlightController(
         durationMs: Long,
         onTick: (Float, Float, Float, Float, Float) -> Unit,
         onEnd: () -> Unit,
+        onCancel: () -> Unit,
     ): ValueAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+        var cancelled = false
         duration = durationMs
         interpolator = DecelerateInterpolator(2f)
         addUpdateListener { a ->
@@ -216,7 +221,14 @@ class BezierFlightController(
             onTick(x, y, tangent, flightScale, linear)
         }
         addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) = onEnd()
+            override fun onAnimationCancel(animation: Animator) {
+                cancelled = true
+            }
+
+            override fun onAnimationEnd(animation: Animator) {
+                if (moveAnimator === animation) moveAnimator = null
+                if (cancelled) onCancel() else onEnd()
+            }
         })
     }
 
@@ -227,7 +239,7 @@ class BezierFlightController(
         pulseAnimator?.cancel()
         pulseAnimator = null
         dwellRunnable?.let {
-            android.os.Handler(android.os.Looper.getMainLooper()).removeCallbacks(it)
+            mainHandler.removeCallbacks(it)
         }
         dwellRunnable = null
     }

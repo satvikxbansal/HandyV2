@@ -82,6 +82,7 @@ import com.handy.app.theme.HandyDimens
 import com.handy.app.theme.HandyTheme
 import com.handy.app.theme.HandyType
 import com.handy.app.theme.ListeningWaveformBars
+import com.handy.app.theme.noRippleClickable
 import com.handy.core.model.ChatMessage
 import com.handy.core.model.MessageRole
 import dagger.hilt.android.AndroidEntryPoint
@@ -410,7 +411,7 @@ private fun HeaderIconButton(
         modifier = Modifier
             .size(32.dp)
             .clip(RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick),
+            .noRippleClickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -1204,7 +1205,7 @@ private fun MicButton(
                     Modifier
                 },
             )
-            .clickable(enabled = enabled) {
+            .noRippleClickable(enabled = enabled) {
                 if (listening) onStop() else onStart()
             },
         contentAlignment = Alignment.Center,
@@ -1232,7 +1233,7 @@ private fun SendButton(
             .then(
                 if (enabled) Modifier else Modifier.border(0.5.dp, HandyColors.ChipBorder, CircleShape),
             )
-            .clickable(enabled = enabled, onClick = onClick),
+            .noRippleClickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(

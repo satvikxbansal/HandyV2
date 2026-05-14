@@ -9,7 +9,7 @@ import com.handy.core.screen.UiNode
  * text shape consumed by the orchestrator prompt builder.
  */
 fun PanelSnapshot.toScreenTextSnapshot(): ScreenTextSnapshot? {
-    val usableMarks = marks.takeIf { it.isNotEmpty() } ?: return null
+    val usableMarks = marks.takeIf { it.isNotEmpty() }?.withStableMarkIds() ?: return null
     return ScreenTextSnapshot(
         packageName = toolContext.packageName,
         timestampEpochMs = capturedAtEpochMs,
@@ -21,6 +21,7 @@ fun PanelSnapshot.toScreenTextSnapshot(): ScreenTextSnapshot? {
 }
 
 private fun AccessibilityMark.toUiNode(): UiNode = UiNode(
+    markId = markId,
     role = role,
     text = text,
     contentDescription = contentDescription,
@@ -28,5 +29,5 @@ private fun AccessibilityMark.toUiNode(): UiNode = UiNode(
     boundsInScreen = IntRect(left, top, right, bottom),
     clickable = clickable,
     scrollable = scrollable,
-    enabled = true,
+    enabled = enabled,
 )

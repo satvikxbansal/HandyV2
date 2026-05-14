@@ -4,6 +4,8 @@ import android.accessibilityservice.AccessibilityService
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo
 import com.handy.core.overlay.AccessibilityMark
+import com.handy.core.overlay.withStableMarkIds
+import com.handy.core.privacy.ScreenRedactor
 
 /**
  * Compact, bounded list of visible actionable UI elements.
@@ -15,11 +17,10 @@ import com.handy.core.overlay.AccessibilityMark
  *  - the semantic pointer resolver as a "known viewId" hint source.
  *
  * Secure content handling:
- *  - Password fields (`isPassword = true`) have `text = null` — never
- *    expose raw field values.
- *  - Ambient sensitive patterns (OTPs, card numbers) are not special-
- *    cased here; the provider is a structural extractor only. The
- *    orchestrator's OS-5 gate rejects secure windows upstream.
+ *  - Password fields (`isPassword = true`) have text/description replaced
+ *    with a redaction token — never expose raw field values.
+ *  - Ambient sensitive patterns (OTPs, card numbers) are redacted before
+ *    marks cross into prompt/log code.
  *
  * Pure extractor — no coroutines, no I/O, single-pass BFS. Must be
  * safe to call on the main thread because the widget service calls
@@ -34,9 +35,9 @@ class AccessibilityMarksProvider(
     fun collect(): List<AccessibilityMark> {
         val root = runCatching { service()?.rootInActiveWindow }.getOrNull()
             ?: return emptyList()
+        val queue = ArrayDeque<AccessibilityNodeInfo>()
         return try {
             val out = ArrayList<AccessibilityMark>(maxNodes)
-            val queue = ArrayDeque<AccessibilityNodeInfo>()
             queue.addLast(root)
             var visited = 0
             // BFS with a budget — avoids deep recursion on heavy UIs.
@@ -44,18 +45,26 @@ class AccessibilityMarksProvider(
             // the cap bounds the work.
             while (queue.isNotEmpty() && out.size < maxNodes && visited < HARD_VISIT_CAP) {
                 val node = queue.removeFirst()
-                visited++
-                if (isInteresting(node)) {
-                    buildMark(node)?.let(out::add)
-                }
-                if (out.size >= maxNodes) break
-                for (i in 0 until node.childCount) {
-                    val child = runCatching { node.getChild(i) }.getOrNull() ?: continue
-                    queue.addLast(child)
+                try {
+                    visited++
+                    if (isInteresting(node)) {
+                        buildMark(node)?.let(out::add)
+                    }
+                    if (out.size >= maxNodes) break
+                    for (i in 0 until node.childCount) {
+                        val child = runCatching { node.getChild(i) }.getOrNull() ?: continue
+                        queue.addLast(child)
+                    }
+                } finally {
+                    if (node !== root) runCatching { node.recycle() }
                 }
             }
-            out
+            out.withStableMarkIds()
         } finally {
+            while (queue.isNotEmpty()) {
+                val pending = queue.removeFirst()
+                if (pending !== root) runCatching { pending.recycle() }
+            }
             runCatching { root.recycle() }
         }
     }
@@ -81,18 +90,31 @@ class AccessibilityMarksProvider(
         val role = node.className?.toString()?.substringAfterLast('.').orEmpty()
             .ifBlank { if (node.isClickable) "Button" else "Node" }
         val isPassword = node.isPassword
-        val rawText = if (isPassword) null else node.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+        val context = listOfNotNull(
+            node.className?.toString(),
+            node.viewIdResourceName,
+            node.contentDescription?.toString(),
+        ).joinToString(" ")
+        val rawText = ScreenRedactor.redactText(
+            value = node.text?.toString(),
+            context = context,
+            isPassword = isPassword,
+        )
+        val rawDesc = ScreenRedactor.redactText(
+            value = node.contentDescription?.toString(),
+            context = "$context ${rawText.orEmpty()}",
+            isPassword = isPassword,
+        )
         return AccessibilityMark(
             text = rawText,
-            contentDescription = node.contentDescription?.toString()
-                ?.trim()
-                ?.takeIf { it.isNotEmpty() },
+            contentDescription = rawDesc,
             viewIdSuffix = node.viewIdResourceName?.substringAfterLast('/')?.takeIf { it.isNotBlank() },
             role = role,
             bounds = intArrayOf(bounds.left, bounds.top, bounds.right, bounds.bottom),
             clickable = node.isClickable,
             scrollable = node.isScrollable,
             editable = node.isEditable,
+            enabled = node.isEnabled,
             isPassword = isPassword,
             isChecked = if (node.isCheckable) node.isChecked else null,
         )

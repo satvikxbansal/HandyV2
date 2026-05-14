@@ -1,26 +1,24 @@
 package com.handy.app.accessibility
 
 import com.handy.core.action.ActionCapability
+import com.handy.core.action.ActionExecutionGate
 import com.handy.core.action.ActionPerformer
 import com.handy.core.action.PerformResult
 import com.handy.core.action.ScrollDirection
 import com.handy.core.action.TapTarget
+import com.handy.runtime.di.ApplicationScope
 import com.handy.runtime.action.NoopActionPerformer
 import com.handy.runtime.storage.DataStoreSettings
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 /**
- * Settings-gated [ActionPerformer] binding. Resolves to the real
- * [AccessibilityGestureActionPerformer] when
- * [com.handy.core.model.HandySettings.tapForMeEnabled] is `true`;
- * otherwise falls back to [NoopActionPerformer] — V1 behaviour.
- *
- * `runBlocking` is acceptable here because:
- *  - DataStore's `first()` is cheap when the value is already cached,
- *  - ActionPerformer calls are already off the main thread (gesture
- *    dispatch is a short async hop).
+ * Settings-gated [ActionPerformer] binding. Resolves to the real performer
+ * only when both the tap-for-me toggle and the future action-disclosure
+ * version are present; otherwise it stays at [NoopActionPerformer].
  *
  * The gate check runs per-call — flipping the setting in-process takes
  * effect on the next call.
@@ -30,7 +28,19 @@ class SwitchingActionPerformer @Inject constructor(
     private val real: AccessibilityGestureActionPerformer,
     private val noop: NoopActionPerformer,
     private val settings: DataStoreSettings,
+    @ApplicationScope appScope: CoroutineScope,
 ) : ActionPerformer {
+
+    @Volatile
+    private var gesturesEnabled: Boolean = false
+
+    init {
+        appScope.launch {
+            settings.flow.collectLatest { snapshot ->
+                gesturesEnabled = ActionExecutionGate.gesturesAllowed(snapshot)
+            }
+        }
+    }
 
     override val capabilities: Set<ActionCapability>
         get() = if (enabled()) real.capabilities else noop.capabilities
@@ -44,7 +54,5 @@ class SwitchingActionPerformer @Inject constructor(
     override suspend fun scroll(direction: ScrollDirection, target: TapTarget?): PerformResult =
         if (enabled()) real.scroll(direction, target) else noop.scroll(direction, target)
 
-    private fun enabled(): Boolean =
-        runCatching { runBlocking { settings.current().tapForMeEnabled } }
-            .getOrElse { false }
+    private fun enabled(): Boolean = gesturesEnabled
 }

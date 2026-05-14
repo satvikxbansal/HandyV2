@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.handy.core.model.AppTheme
@@ -60,6 +61,7 @@ class DataStoreSettings(private val context: Context) {
             // V2 keys
             p[USE_OVERLAY_CHAT_PANEL] = next.useOverlayChatPanel
             p[TAP_FOR_ME_ENABLED] = next.tapForMeEnabled
+            p[ACTION_DISCLOSURE_VERSION_ACCEPTED] = next.actionDisclosureVersionAccepted
             p[CLOUD_PROVIDER] = next.cloudProvider.name
             p[PREFER_LOCAL_WHEN_POSSIBLE] = next.preferLocalWhenPossible
             p[LOCAL_AI_ENABLED] = next.localAiEnabled
@@ -99,6 +101,7 @@ class DataStoreSettings(private val context: Context) {
             reducedModeAcknowledged = this[REDUCED_MODE_ACK] ?: false,
             useOverlayChatPanel = this[USE_OVERLAY_CHAT_PANEL] ?: true,
             tapForMeEnabled = this[TAP_FOR_ME_ENABLED] ?: false,
+            actionDisclosureVersionAccepted = this[ACTION_DISCLOSURE_VERSION_ACCEPTED] ?: 0,
             cloudProvider = this[CLOUD_PROVIDER]
                 ?.let { runCatching { CloudProvider.valueOf(it) }.getOrNull() }
                 ?: CloudProvider.CLAUDE,
@@ -130,6 +133,7 @@ class DataStoreSettings(private val context: Context) {
         // V2 keys (appended; schema is additive)
         val USE_OVERLAY_CHAT_PANEL = booleanPreferencesKey("use_overlay_chat_panel")
         val TAP_FOR_ME_ENABLED = booleanPreferencesKey("tap_for_me_enabled")
+        val ACTION_DISCLOSURE_VERSION_ACCEPTED = intPreferencesKey("action_disclosure_version_accepted")
         val CLOUD_PROVIDER = stringPreferencesKey("cloud_provider")
         val PREFER_LOCAL_WHEN_POSSIBLE = booleanPreferencesKey("prefer_local_when_possible")
         val LOCAL_AI_ENABLED = booleanPreferencesKey("local_ai_enabled")
@@ -140,4 +144,3 @@ class DataStoreSettings(private val context: Context) {
         val ASSIST_ENTRY_ENABLED = booleanPreferencesKey("assist_entry_enabled")
     }
 }
-

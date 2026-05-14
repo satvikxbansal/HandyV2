@@ -254,12 +254,21 @@ class OverlayPresenter @Inject constructor(
 
     // ---- buddy flight (populated in Phase 2) --------------------------------
 
+    fun onPreparingPoint(label: String?) {
+        _state.value = _state.value.copy(
+            mode = OverlayMode.Flying,
+            buddyState = BuddyState.PREPARING_POINT,
+            isFlying = true,
+            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Navigation),
+        )
+    }
+
     fun onFlyingStart(label: String?) {
         _state.value = _state.value.copy(
             mode = OverlayMode.Flying,
             buddyState = BuddyState.FLYING,
             isFlying = true,
-            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Response),
+            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Navigation),
         )
     }
 
@@ -268,7 +277,7 @@ class OverlayPresenter @Inject constructor(
             mode = OverlayMode.Pointing,
             buddyState = BuddyState.POINTING,
             isFlying = true,
-            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Response)
+            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Navigation)
                 ?: _state.value.bubble,
         )
     }

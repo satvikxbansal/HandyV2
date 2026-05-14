@@ -1,5 +1,8 @@
 package com.handy.runtime.llm
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.util.Base64
 import com.handy.core.llm.LlmChunk
 import com.handy.core.llm.LlmClient
@@ -27,6 +30,7 @@ import okhttp3.sse.EventSource
 import okhttp3.sse.EventSourceListener
 import okhttp3.sse.EventSources
 import timber.log.Timber
+import java.net.UnknownHostException
 
 /**
  * Claude client for the Anthropic Messages API with SSE streaming.
@@ -41,6 +45,7 @@ class ClaudeLlmClient(
     private val keyStore: KeyStore,
     private val httpClient: OkHttpClient,
     private val json: Json = DEFAULT_JSON,
+    private val networkDiagnostics: NetworkDiagnostics = NetworkDiagnostics.Noop,
     private val baseUrl: String = "https://api.anthropic.com",
     private val defaultModel: String = HandySettings.DEFAULT_CLAUDE_MODEL,
     private val anthropicVersion: String = "2023-06-01",
@@ -60,9 +65,12 @@ class ClaudeLlmClient(
         val tools = toClaudeTools(request)
         val payload = buildRequestBody(request, messages, tools)
         val httpRequest = buildHttpRequest(apiKey, payload)
+        logStreamStart(httpRequest, request, tools)
 
         val listener = ClaudeEventSourceListener(
             json = json,
+            host = httpRequest.url.host,
+            failureMapper = ::mapTransportFailure,
             onChunk = { trySend(it) },
             onIterationEnd = { close() },
         )
@@ -84,6 +92,7 @@ class ClaudeLlmClient(
         while (iteration++ < MAX_TOOL_ITERATIONS) {
             val payload = buildRequestBody(request, messages, tools)
             val httpRequest = buildHttpRequest(apiKey, payload)
+            logStreamStart(httpRequest, request, tools, iteration)
 
             val outcome = runSingleSse(httpRequest) { chunk -> trySend(chunk) }
             if (outcome.error != null) {
@@ -148,6 +157,8 @@ class ClaudeLlmClient(
         val done = CompletableDeferred<IterationOutcome>()
         val listener = ClaudeEventSourceListener(
             json = json,
+            host = httpRequest.url.host,
+            failureMapper = ::mapTransportFailure,
             onChunk = { chunk ->
                 when (chunk) {
                     is LlmChunk.Done -> {
@@ -179,6 +190,49 @@ class ClaudeLlmClient(
             .addHeader("content-type", "application/json")
             .post(payload.toRequestBody("application/json".toMediaType()))
             .build()
+
+    private fun logStreamStart(
+        httpRequest: Request,
+        request: LlmRequest,
+        tools: List<ClaudeTool>?,
+        iteration: Int? = null,
+    ) {
+        val model = request.modelOverride ?: defaultModel
+        Timber.d(
+            "ClaudeLlmClient: opening SSE host=%s model=%s iteration=%s images=%d tools=%d network={%s}",
+            httpRequest.url.host,
+            model,
+            iteration?.toString() ?: "single",
+            request.images.size,
+            tools?.size ?: 0,
+            networkDiagnostics.snapshot(),
+        )
+    }
+
+    private fun mapTransportFailure(host: String, throwable: Throwable?, response: Response?): Throwable {
+        val err = throwable
+            ?: IllegalStateException("Claude SSE failed: ${response?.code} ${response?.message}")
+        val unknownHost = err.findCause<UnknownHostException>()
+        if (unknownHost != null) {
+            val message = "Android could not resolve $host. Check emulator/device DNS or internet; your Anthropic API key was not checked."
+            Timber.w(
+                err,
+                "ClaudeLlmClient: DNS failure host=%s responseCode=%s network={%s}",
+                host,
+                response?.code,
+                networkDiagnostics.snapshot(),
+            )
+            return IllegalStateException(message, err)
+        }
+        Timber.w(
+            err,
+            "ClaudeLlmClient: transport failure host=%s responseCode=%s network={%s}",
+            host,
+            response?.code,
+            networkDiagnostics.snapshot(),
+        )
+        return err
+    }
 
     private fun toClaudeTools(request: LlmRequest): List<ClaudeTool>? =
         request.tools.takeIf { it.isNotEmpty() }?.map { tool ->
@@ -257,6 +311,62 @@ class ClaudeLlmClient(
     }
 }
 
+class NetworkDiagnostics private constructor(
+    private val snapshotProvider: () -> String,
+) {
+    fun snapshot(): String = snapshotProvider()
+
+    companion object {
+        val Noop: NetworkDiagnostics = NetworkDiagnostics { "unavailable" }
+
+        fun from(context: Context): NetworkDiagnostics {
+            val appContext = context.applicationContext
+            return NetworkDiagnostics {
+                val connectivity = appContext.getSystemService(ConnectivityManager::class.java)
+                    ?: return@NetworkDiagnostics "connectivityManager=null"
+                val active = connectivity.activeNetwork
+                    ?: return@NetworkDiagnostics "activeNetwork=null"
+                val capabilities = connectivity.getNetworkCapabilities(active)
+                val linkProperties = connectivity.getLinkProperties(active)
+                buildString {
+                    append("activeNetwork=").append(active)
+                    append(" transports=").append(capabilities.transportNames())
+                    append(" internet=").append(capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true)
+                    append(" validated=").append(capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true)
+                    append(" notSuspended=").append(capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED) == true)
+                    append(" dns=").append(
+                        linkProperties
+                            ?.dnsServers
+                            ?.joinToString(prefix = "[", postfix = "]") { it.hostAddress.orEmpty() }
+                            ?: "[]",
+                    )
+                }
+            }
+        }
+
+        private fun NetworkCapabilities?.transportNames(): String {
+            if (this == null) return "[]"
+            val names = buildList {
+                if (hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) add("WIFI")
+                if (hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) add("CELLULAR")
+                if (hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) add("ETHERNET")
+                if (hasTransport(NetworkCapabilities.TRANSPORT_VPN)) add("VPN")
+                if (hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH)) add("BLUETOOTH")
+            }
+            return names.joinToString(prefix = "[", postfix = "]")
+        }
+    }
+}
+
+private inline fun <reified T : Throwable> Throwable.findCause(): T? {
+    var current: Throwable? = this
+    while (current != null) {
+        if (current is T) return current
+        current = current.cause
+    }
+    return null
+}
+
 /**
  * Records what happened in one SSE iteration: the ordered list of
  * assistant content blocks (text + tool_use), all `ToolUse`s promoted
@@ -285,6 +395,8 @@ internal sealed class CollectedBlock {
  */
 private class ClaudeEventSourceListener(
     private val json: Json,
+    private val host: String,
+    private val failureMapper: (String, Throwable?, Response?) -> Throwable,
     private val onChunk: (LlmChunk) -> Unit,
     private val onIterationEnd: (IterationOutcome) -> Unit,
 ) : EventSourceListener() {
@@ -379,7 +491,7 @@ private class ClaudeEventSourceListener(
     }
 
     override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
-        val err = t ?: IllegalStateException("Claude SSE failed: ${response?.code} ${response?.message}")
+        val err = failureMapper(host, t, response)
         if (error == null) error = err
         onChunk(LlmChunk.Error(err))
         finish()

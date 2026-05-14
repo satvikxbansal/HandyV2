@@ -24,7 +24,7 @@
 
 6. **No local multi-step workflow runner in V2.** Do not sneak the macOS `WorkflowRunner` back in under any name. See §16 and §17.
 
-7. **Unified Buddy UX (V2's visual identity).** The floating widget *is* the pointer. On a `[POINT]` the widget itself flies from its snapped-edge dock via Bezier arc to the resolved `AccessibilityNodeInfo` bounds, dwells 3–5 s with a label bubble, flies back, settles at the dock. **No separate `PointerOverlayController` overlay ships.** Rationale in §3.
+7. **Unified Buddy UX (V2's visual identity).** The floating widget *is* the pointer. On a `[POINT]` the widget itself flies from its snapped-edge dock via Bezier arc to the resolved target bounds, then stays as a sticky pointer until user/app interaction, a new request, service disconnect, or a safety timeout returns it to dock. **No separate `PointerOverlayController` overlay ships.** Rationale in §3.
 
 8. **SDK targets.** `minSdk 26`, `targetSdk 36`, `compileSdk 36` (per DL-017 / Play April-2026 mandate). API 37 may be a compatibility smoke lane later. See the SDK Divergence entry in `DESIGN_NOTES.md`.
 
@@ -79,7 +79,7 @@ stateDiagram-v2
     Thinking --> Streaming: first token
     Streaming --> Flying: POINT emitted
     Flying --> Pointing: arrive + highlight + blue bubble
-    Pointing --> ReturnFlight: dwell 3 to 5s
+    Pointing --> ReturnFlight: user/app interaction, new request, disconnect, or timeout
     ReturnFlight --> Docked
     Streaming --> Acting: dispatch_action or tap-for-me
     Acting --> Docked: success/failure + teal fade
@@ -797,10 +797,10 @@ Each phase ends with named acceptance checks and a green build.
 - `LaunchableAppIndex` hardening (refresh on `PACKAGE_ADDED / REMOVED / REPLACED`, no `QUERY_ALL_PACKAGES`).
 - Diagnostics plumbing foundations (§10 read-only hooks).
 - Glass Lens render per recipe #1.
-- Bezier flight + return arc + dwell + four-color bubble renderer per §3.
+- Bezier flight + sticky pointing + four-color bubble renderer per §3.
 - `StateFlow<AccessibilityConnectionState>` per recipe #10 (replaces V1 polling).
 
-**Acceptance:** a `[POINT]` emitted from a pure-text request flies the Unified Buddy to the resolved semantic node; arrives inside 1.4 s; dwells 3–5 s with the blue bubble; returns to dock. Screen-text-only request to Claude omits the image. Capture pipeline classifies a `FLAG_SECURE` test window as `SecureWindow` and the orchestrator injects the "can't see this screen" system message without calling `LlmClient` with an image.
+**Acceptance:** a `[POINT]` emitted from a pure-text request flies the Unified Buddy to the resolved semantic target; arrives inside 1.4 s; stays as a sticky blue navigation pointer until interaction/cancel/timeout; then returns to dock. Screen-text-only request to Claude omits the image. Capture pipeline classifies a `FLAG_SECURE` test window as `SecureWindow` and the orchestrator injects the "can't see this screen" system message without calling `LlmClient` with an image.
 
 ### Phase 3 — tap-for-me
 

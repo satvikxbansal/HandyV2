@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.handy.runtime.capture
 
 import android.accessibilityservice.AccessibilityService
@@ -52,8 +54,15 @@ class ScreenCapturePipeline(
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     private suspend fun takeByWindow(activeWindowIdHint: Int?): CaptureResult {
         val svc = accessibilityService() ?: return CaptureResult.NotPermitted
-        val windowId = activeWindowIdHint ?: svc.rootInActiveWindow?.windowId
-        ?: return CaptureResult.Failed("no active window")
+        val windowId = activeWindowIdHint ?: run {
+            val root = runCatching { svc.rootInActiveWindow }.getOrNull()
+                ?: return CaptureResult.Failed("no active window")
+            try {
+                root.windowId
+            } finally {
+                runCatching { root.recycle() }
+            }
+        }
         return suspendCancellableCoroutine { cont ->
             svc.takeScreenshotOfWindow(
                 windowId,

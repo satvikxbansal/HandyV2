@@ -3,6 +3,7 @@ package com.handy.app.chat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.handy.app.accessibility.AccessibilityStateMonitor
+import com.handy.app.screen.ScreenContextBuilder
 import com.handy.app.voice.VoiceController
 import com.handy.core.foreground.ForegroundAppMonitor
 import com.handy.core.history.ChatHistoryStore
@@ -14,11 +15,11 @@ import com.handy.core.model.HandySettings
 import com.handy.core.model.LoadingVerbs
 import com.handy.core.model.MessageRole
 import com.handy.core.overlay.PanelSnapshot
-import com.handy.core.overlay.toScreenTextSnapshot
 import com.handy.core.orchestrator.ConversationOrchestrator
 import com.handy.core.orchestrator.OrchestrationEvent
 import com.handy.core.orchestrator.OrchestrationRequest
 import com.handy.core.parsing.AssistantMarkupParser
+import com.handy.core.screen.TurnSource
 import com.handy.core.tool.ToolContext
 import com.handy.runtime.storage.DataStoreSettings
 import com.handy.runtime.storage.KeyStore
@@ -63,6 +64,7 @@ class ChatViewModel @Inject constructor(
     private val confirmationBroker: ChatConfirmationBroker,
     private val accessibilityStateMonitor: AccessibilityStateMonitor,
     private val chatTargetHandoffStore: ChatTargetHandoffStore,
+    private val screenContextBuilder: ScreenContextBuilder,
 ) : ViewModel() {
 
     private val orchestrator = ConversationOrchestrator(
@@ -336,15 +338,32 @@ class ChatViewModel @Inject constructor(
                 intentDispatchEnabled = true,
             )
 
+            val turnContext = screenContextBuilder.build(
+                userMessage = trimmed,
+                source = TurnSource.FULL_CHAT,
+                toolContext = toolContextFlow.value,
+                panelSnapshot = targetSnapshot,
+                preferFocusedWindow = targetSnapshot != null,
+            )
+            Timber.d(
+                "ChatViewModel.send: request=%s app=%s screenText=%s captureMode=%s failure=%s",
+                turnContext.requestId,
+                turnContext.toolContext.packageName,
+                turnContext.screenText != null,
+                turnContext.captureMode,
+                turnContext.failureReason,
+            )
+
             val request = OrchestrationRequest(
                 userMessage = trimmed,
-                toolContext = toolContextFlow.value,
+                toolContext = turnContext.toolContext,
                 settings = current,
                 fromVoice = fromVoice,
-                capture = null, // Phase 4 hooks capture pipeline here.
-                screenText = targetSnapshot?.toScreenTextSnapshot(),
+                capture = turnContext.capture,
+                screenText = turnContext.screenText,
                 hasBraveKey = hasBraveKey,
                 tools = tools,
+                contextFailureReason = turnContext.failureReason,
             )
 
             // Reset the per-turn search-tools buffer before the new stream.
@@ -387,6 +406,7 @@ class ChatViewModel @Inject constructor(
                             pendingShowInAppAction = buildShowInAppAction(
                                 pointing = event.pointing,
                                 chatText = event.chatText,
+                                snapshotOverride = turnContext.panelSnapshot,
                             ),
                         )
                         if (tagged.isNotEmpty()) stampSearchToolsOnLastAssistant(tagged)
@@ -444,8 +464,16 @@ class ChatViewModel @Inject constructor(
                         )
                     }
                     is OrchestrationEvent.SystemMessageInjected -> {
-                        // historyStore observer already surfaces these;
-                        // nothing extra to do.
+                        stopVerbRotation()
+                        _state.value = _state.value.copy(
+                            isStreaming = false,
+                            streamingDelta = "",
+                            loadingVerb = "",
+                            loadingVerbFrozen = false,
+                            voiceState = VoiceUiState.IDLE,
+                            pendingUserTurn = null,
+                            pendingShowInAppAction = null,
+                        )
                     }
                 }
             }
@@ -493,8 +521,9 @@ class ChatViewModel @Inject constructor(
     private fun buildShowInAppAction(
         pointing: AssistantMarkupParser.PointingResult,
         chatText: String,
+        snapshotOverride: PanelSnapshot? = null,
     ): FullChatShowInAppAction? {
-        val snapshot = targetSnapshot ?: return null
+        val snapshot = snapshotOverride ?: targetSnapshot ?: return null
         if (!pointing.hasPointer) return null
         val targetLabel = pointing.targetLabel()
         return FullChatShowInAppAction(
@@ -511,6 +540,7 @@ class ChatViewModel @Inject constructor(
             return spec.text
                 ?: spec.contentDescription
                 ?: spec.viewId
+                ?: spec.markId
                 ?: spec.role
                 ?: "this"
         }

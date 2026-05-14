@@ -45,6 +45,7 @@ import com.handy.app.theme.HandyDimens
 import com.handy.app.theme.HandyTheme
 import com.handy.app.theme.HandyType
 import com.handy.core.accessibility.AccessibilityConnectionState
+import com.handy.core.action.ActionExecutionGate
 import com.handy.core.audit.AuditEvent
 import com.handy.core.audit.AuditStore
 import com.handy.core.llm.LocalAvailability
@@ -187,6 +188,7 @@ private fun DiagnosticsScreen(state: DiagnosticsUi) {
                 state.settings?.let { s ->
                     item { DiagRow("Cloud provider", s.cloudProvider.displayName) }
                     item { DiagRow("Tap-for-me", s.tapForMeEnabled.onOff()) }
+                    item { DiagRow("Gesture action gate", ActionExecutionGate.gesturesAllowed(s).onOff()) }
                     item { DiagRow("Overlay panel", s.useOverlayChatPanel.onOff()) }
                     item { DiagRow("Web search", s.webSearchEnabled.onOff()) }
                     item { DiagRow("Notifications", s.notificationListenerEnabled.onOff()) }

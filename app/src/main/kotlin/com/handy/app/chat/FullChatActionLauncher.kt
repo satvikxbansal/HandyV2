@@ -59,12 +59,11 @@ class FullChatActionLauncher @Inject constructor(
                     Timber.d("FullChatActionLauncher: semantic flight landed=%s", landed)
                 }
                 pixel != null -> {
-                    val landed = flightDriver.flyToPoint(
-                        x = pixel.x,
-                        y = pixel.y,
-                        bubbleLabel = action.bubbleLabel,
+                    Timber.d(
+                        "FullChatActionLauncher: ignoring pixel pointer in normal mode x=%d y=%d",
+                        pixel.x,
+                        pixel.y,
                     )
-                    Timber.d("FullChatActionLauncher: pixel flight landed=%s", landed)
                 }
                 else -> Timber.d("FullChatActionLauncher: no pointer to launch")
             }

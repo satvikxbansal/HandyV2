@@ -15,6 +15,7 @@ import com.handy.core.model.MessageRole
 import com.handy.core.model.WebSearchStatusText
 import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.screen.CaptureResult
+import com.handy.core.screen.ContextFailureReason
 import com.handy.core.screen.SECURE_WINDOW_SYSTEM_MESSAGE
 import com.handy.core.screen.ScreenInputRouter
 import com.handy.core.screen.ScreenTextSerializer
@@ -59,7 +60,9 @@ class ConversationOrchestrator(
         emit(OrchestrationEvent.UserTurnPersisted(userMessage))
 
         // --- OS-5: secure-window short circuit ----------------------------------
-        if (request.capture is CaptureResult.SecureWindow) {
+        if (request.capture is CaptureResult.SecureWindow ||
+            request.contextFailureReason == ContextFailureReason.SECURE_WINDOW
+        ) {
             val sysMessage = ChatMessage.new(
                 role = MessageRole.SYSTEM,
                 content = SECURE_WINDOW_SYSTEM_MESSAGE,
@@ -102,6 +105,7 @@ class ConversationOrchestrator(
                 ?.let { ScreenTextSerializer.flatten(it) },
             intentToolEnabled = request.tools.any { it.name == "dispatch_action" },
             quickOverlayResponse = request.quickOverlayResponse,
+            contextFailureReason = request.contextFailureReason?.promptText,
         )
 
         val sendImages = when (mode) {
@@ -255,6 +259,7 @@ data class OrchestrationRequest(
     val hasBraveKey: Boolean,
     val tools: List<ToolDefinition>,
     val quickOverlayResponse: Boolean = false,
+    val contextFailureReason: ContextFailureReason? = null,
 )
 
 sealed class OrchestrationEvent {

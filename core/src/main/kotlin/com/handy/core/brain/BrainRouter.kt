@@ -22,18 +22,18 @@ class BrainRouter(
 ) {
 
     fun route(task: AssistantTask, settings: HandySettings): BrainDecision {
+        // Task requires full-capability cloud (tools, vision, long context,
+        // multi-turn history) — never local.
+        if (task.requiresCloud) {
+            return pickCloud(settings) ?: failOffline("No cloud provider reachable.")
+        }
+
         // Privacy-mode: eligible local tasks go local first.
         if (settings.preferLocalWhenPossible && task.localTask != null && settings.localAiEnabled) {
             val local = localGenAi
             if (local != null) {
                 return BrainDecision.UseLocal(local, task.localTask)
             }
-        }
-
-        // Task requires full-capability cloud (tools, vision, long context,
-        // multi-turn history) — never local.
-        if (task.requiresCloud) {
-            return pickCloud(settings) ?: failOffline("No cloud provider reachable.")
         }
 
         // Text-only task: default is still cloud, but local is a viable

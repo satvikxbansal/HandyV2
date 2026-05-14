@@ -30,6 +30,7 @@ class PanelSnapshotScreenTextTest {
         assertThat(screenText!!.packageName).isEqualTo("com.google.android.apps.photos")
         assertThat(screenText.timestampEpochMs).isEqualTo(42L)
         val child = screenText.root.children.single()
+        assertThat(child.markId).isEqualTo("m1")
         assertThat(child.text).isEqualTo("Albums")
         assertThat(child.boundsInScreen.left).isEqualTo(10)
         assertThat(child.boundsInScreen.top).isEqualTo(20)
