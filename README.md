@@ -37,17 +37,29 @@ experience is implemented, and policy documentation is actively maintained.
 - Voice input/output path integrated (widget and chat composer flows).
 - Overlay widget + overlay chat panel ("Unified Buddy" direction).
 - Accessibility service integration, semantic pointer resolver, and diagnostics.
+- Full chat and overlay turns now build a per-turn `TurnScreenContext` through
+  `ScreenContextBuilder`: `ChatViewModel.send(...)` and
+  `OverlayChatPipeline.runTurn(...)` both pass the resulting `capture` and
+  `screenText` into the core orchestrator instead of using empty context.
 - Intent dispatch with confirmation gating for destructive actions.
 - Settings, onboarding, Play policy disclosure docs, and debug-log discipline.
 
 ### Known active gaps (important)
 
-- Main chat send paths still pass `capture = null` and `screenText = null` in
-  orchestration requests; full screen-context wiring is not complete yet.
+- `markId` is still not preserved into `TapTarget`; pointer prompting can emit
+  mark ids, but action execution has to fall back to role/text/viewId/desc
+  fields.
+- `MediaProjection` is still unwired as a live capture source for the API 26-29
+  fallback path.
+- Action consent UI for app-control/tap-for-me flows is still missing beyond
+  the current destructive-intent confirmation broker.
+- Debug candidate output is still not fully redacted; resolver/candidate logs
+  need the same privacy treatment as user-visible screen text.
+- Capture is still effectively window-blind on paths that cannot bind a reliable
+  active-window id, so screenshot evidence must not be treated as a precise
+  per-window source of truth yet.
 - `BrainRouter` and local-gen routing seams exist but are not the primary
   production path today.
-- `MediaProjection` fallback is not fully wired into the capture pipeline DI on
-  all paths yet.
 - Some UI polish assets remain placeholder-level (for example default system
   icons in manifest entries).
 
