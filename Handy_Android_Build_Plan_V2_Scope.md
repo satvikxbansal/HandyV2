@@ -1,3 +1,5 @@
+# Lane: A — general screen-aware AI copilot
+
 # Handy Android — V2 Scope & Architecture
 
 **Status:** authoritative V2 source of truth. Supersedes the V1-scoped sections of `Handy_Android_Build_Plan_v2.md` for everything below. The V1 plan stays valid as the baseline architecture; this document names exactly what changes or extends in V2 and what is explicitly fenced to V3.
