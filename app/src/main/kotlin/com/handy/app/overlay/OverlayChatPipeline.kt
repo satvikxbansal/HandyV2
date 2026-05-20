@@ -154,6 +154,7 @@ class OverlayChatPipeline @Inject constructor(
             tools = tools,
             quickOverlayResponse = true,
             contextFailureReason = turnContext.failureReason,
+            grounding = turnContext,
         )
 
         sendJob?.cancel()

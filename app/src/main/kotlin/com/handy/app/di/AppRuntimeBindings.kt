@@ -12,6 +12,7 @@ import com.handy.core.llm.ConfirmationPrompter
 import com.handy.runtime.accessibility.AccessibilityMarksProvider
 import com.handy.runtime.accessibility.AccessibilityTreeReader
 import com.handy.runtime.accessibility.SemanticPointerResolver
+import com.handy.runtime.capture.MediaProjectionCaptureSourceImpl
 import com.handy.runtime.capture.ScreenCapturePipeline
 import com.handy.runtime.di.AccessibilityServiceProvider
 import com.handy.runtime.storage.DataStoreSettings
@@ -42,8 +43,10 @@ object AppRuntimeBindings {
     @Singleton
     fun provideScreenCapturePipeline(
         provider: AccessibilityServiceProvider,
+        mediaProjectionSource: MediaProjectionCaptureSourceImpl,
     ): ScreenCapturePipeline = ScreenCapturePipeline(
         accessibilityService = { provider() },
+        mediaProjectionSource = mediaProjectionSource,
     )
 
     @Provides

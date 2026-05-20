@@ -22,7 +22,8 @@ import timber.log.Timber
  * Three-tier capture pipeline (OS-3).
  *
  *  1. API 34+ → `AccessibilityService.takeScreenshotOfWindow(activeWindowId, …)`.
- *  2. API 30–33 → `AccessibilityService.takeScreenshot(Display.DEFAULT_DISPLAY, …)`.
+ *  2. API 30–33 → `AccessibilityService.takeScreenshot(displayId, …)`,
+ *     resolving `displayId` from `activeWindowIdHint` when available.
  *  3. API 26–29 → [MediaProjectionCaptureSource] fallback (owned by the
  *     app's `MediaProjectionCaptureService`).
  *
@@ -200,9 +201,8 @@ class ScreenCapturePipeline(
 }
 
 /**
- * MediaProjection capture surface — Phase 3 wires this to the
- * `MediaProjectionCaptureService` in `:app` and feeds frames here. The
- * interface stays in `:android-runtime` so `:core` sees none of it.
+ * MediaProjection capture surface. `:app` owns the foreground service
+ * and user-consented projection; `:android-runtime` owns frame capture.
  *
  * Implementations MUST register a `MediaProjection.Callback`, release the
  * `VirtualDisplay` in `onStop()`, and clear capture state so no further

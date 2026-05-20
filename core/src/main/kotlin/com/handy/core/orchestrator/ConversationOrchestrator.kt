@@ -16,10 +16,12 @@ import com.handy.core.model.WebSearchStatusText
 import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.screen.CaptureResult
 import com.handy.core.screen.ContextFailureReason
+import com.handy.core.screen.GroundingSnapshot
 import com.handy.core.screen.SECURE_WINDOW_SYSTEM_MESSAGE
 import com.handy.core.screen.ScreenInputRouter
 import com.handy.core.screen.ScreenTextSerializer
 import com.handy.core.screen.ScreenTextSnapshot
+import com.handy.core.screen.TurnSource
 import com.handy.core.prompts.PromptCatalog
 import com.handy.core.tool.ToolContext
 import kotlin.random.Random
@@ -60,8 +62,13 @@ class ConversationOrchestrator(
         emit(OrchestrationEvent.UserTurnPersisted(userMessage))
 
         // --- OS-5: secure-window short circuit ----------------------------------
-        if (request.capture is CaptureResult.SecureWindow ||
-            request.contextFailureReason == ContextFailureReason.SECURE_WINDOW
+        val grounding = request.grounding
+        val capture = grounding.capture ?: request.capture
+        val screenText = grounding.screenText ?: request.screenText
+        val contextFailureReason = grounding.failureReason ?: request.contextFailureReason
+
+        if (capture is CaptureResult.SecureWindow ||
+            contextFailureReason == ContextFailureReason.SECURE_WINDOW
         ) {
             val sysMessage = ChatMessage.new(
                 role = MessageRole.SYSTEM,
@@ -84,8 +91,8 @@ class ConversationOrchestrator(
         }
 
         // --- Screen-input routing -----------------------------------------------
-        val treeQuality = request.screenText?.qualityScore() ?: 0
-        val screenTextPresent = request.screenText != null
+        val treeQuality = screenText?.qualityScore() ?: 0
+        val screenTextPresent = screenText != null
         val mode = ScreenInputRouter.choose(
             userMessage = request.userMessage,
             treeQualityScore = treeQuality,
@@ -97,23 +104,23 @@ class ConversationOrchestrator(
             fromVoice = request.fromVoice,
             webSearchEnabled = request.settings.webSearchEnabled,
             hasBraveKey = request.hasBraveKey,
-            screenTextPackage = request.screenText
+            screenTextPackage = screenText
                 ?.takeIf { mode != ScreenInputRouter.Mode.VisionOnly }
                 ?.packageName,
-            screenTextFlattenedTree = request.screenText
+            screenTextFlattenedTree = screenText
                 ?.takeIf { mode != ScreenInputRouter.Mode.VisionOnly }
                 ?.let { ScreenTextSerializer.flatten(it) },
             intentToolEnabled = request.tools.any { it.name == "dispatch_action" },
             quickOverlayResponse = request.quickOverlayResponse,
-            contextFailureReason = request.contextFailureReason?.promptText,
+            contextFailureReason = contextFailureReason?.promptText,
         )
 
         val sendImages = when (mode) {
             ScreenInputRouter.Mode.VisionOnly, ScreenInputRouter.Mode.Both -> true
             ScreenInputRouter.Mode.TextOnly -> false
         }
-        val imageParts = if (sendImages && request.capture is CaptureResult.Image) {
-            listOf(request.capture.image)
+        val imageParts = if (sendImages && capture is CaptureResult.Image) {
+            listOf(capture.image)
         } else {
             emptyList()
         }
@@ -122,7 +129,7 @@ class ConversationOrchestrator(
             systemPrompt = systemPrompt,
             messages = priorHistory + userMessage,
             images = imageParts,
-            screenText = request.screenText.takeIf { mode != ScreenInputRouter.Mode.VisionOnly },
+            screenText = screenText.takeIf { mode != ScreenInputRouter.Mode.VisionOnly },
             tools = request.tools,
             modelOverride = request.settings.claudeModelOverride,
         )
@@ -260,6 +267,15 @@ data class OrchestrationRequest(
     val tools: List<ToolDefinition>,
     val quickOverlayResponse: Boolean = false,
     val contextFailureReason: ContextFailureReason? = null,
+    val grounding: GroundingSnapshot = GroundingSnapshot(
+        requestId = "legacy",
+        source = TurnSource.TEST,
+        toolContext = toolContext,
+        screenText = screenText,
+        capture = capture,
+        failureReason = contextFailureReason,
+        capturedAtMs = System.currentTimeMillis(),
+    ),
 )
 
 sealed class OrchestrationEvent {

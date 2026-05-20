@@ -10,17 +10,18 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import com.handy.app.HandyApplication
 import com.handy.app.R
+import com.handy.runtime.capture.MediaProjectionCaptureSourceImpl
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import timber.log.Timber
 
 /**
  * API 26–29 MediaProjection fallback for [ScreenCapturePipeline]
  * (OS-3 tier 3).
  *
- * Phase 3 wires the foreground-service shell so the manifest is
- * accurate and the API 34+ / API 30–33 paths compile; a live
- * `MediaProjection` session is threaded through in Phase 4 when the
- * full voice + capture round-trip comes together.
+ * The foreground service owns user-consented `MediaProjection` lifetime;
+ * the runtime capture source owns transient VirtualDisplay/ImageReader
+ * frame capture.
  *
  * MediaProjection lifecycle discipline (OS-3):
  *  - Register a `MediaProjection.Callback`.
@@ -30,7 +31,10 @@ import timber.log.Timber
 @AndroidEntryPoint
 class MediaProjectionCaptureService : LifecycleService() {
 
+    @Inject lateinit var captureSource: MediaProjectionCaptureSourceImpl
+
     private var projection: MediaProjection? = null
+    private var releasing: Boolean = false
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
             Timber.d("MediaProjection onStop — releasing")
@@ -72,8 +76,14 @@ class MediaProjectionCaptureService : LifecycleService() {
             // Kotlin 2.2+ treats `getMediaProjection` as returning
             // `MediaProjection?` (platform type narrowed). `.apply` now
             // requires a safe call on nullable receivers.
-            projection = manager.getMediaProjection(resultCode, resultData)?.apply {
+            projection = manager.getMediaProjection(resultCode, resultData)?.also { mediaProjection ->
+                captureSource.setProjection(mediaProjection)
+            }?.apply {
                 registerCallback(projectionCallback, null)
+            }
+            if (projection == null) {
+                Timber.w("MediaProjectionCaptureService could not create projection — stopping")
+                stopSelf()
             }
         } else {
             Timber.w("MediaProjectionCaptureService started without result data — stopping")
@@ -89,9 +99,13 @@ class MediaProjectionCaptureService : LifecycleService() {
     }
 
     private fun release() {
-        runCatching { projection?.unregisterCallback(projectionCallback) }
-        runCatching { projection?.stop() }
+        if (releasing) return
+        releasing = true
+        val current = projection
         projection = null
+        runCatching { current?.unregisterCallback(projectionCallback) }
+        captureSource.release()
+        releasing = false
     }
 
     private fun buildNotification(): Notification {

@@ -364,6 +364,7 @@ class ChatViewModel @Inject constructor(
                 hasBraveKey = hasBraveKey,
                 tools = tools,
                 contextFailureReason = turnContext.failureReason,
+                grounding = turnContext,
             )
 
             // Reset the per-turn search-tools buffer before the new stream.
