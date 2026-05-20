@@ -807,3 +807,35 @@ cross-references the one being superseded.
 | **Fix** | Added sanitized network diagnostics to `ClaudeLlmClient` at Anthropic SSE open/failure boundaries: host, model id, image/tool counts, active network id, transport, `NET_CAPABILITY_INTERNET`, `NET_CAPABILITY_VALIDATED`, `NET_CAPABILITY_NOT_SUSPENDED`, and DNS server list. Wrapped `UnknownHostException` into a clear user-facing message: `Android could not resolve api.anthropic.com. Check emulator/device DNS or internet; your Anthropic API key was not checked.` Transport failures are logged with the same network snapshot, and no secret values are logged. Installed the patched debug APK on the connected AVD. |
 | **Validation** | `JAVA_HOME=$HOME/.gradle/jdks/eclipse_adoptium-17-aarch64-os_x.2/jdk-17.0.18+8/Contents/Home ./gradlew :android-runtime:compileDebugKotlin :app:compileDebugKotlin` passed. `./gradlew :app:installDebug` passed and installed to `Pixel_9_Pro(AVD) - 15`. Device-side DNS remained broken after airplane-mode refresh, mobile-data refresh, and a normal AVD guest reboot, so the app-side fix is diagnostic/error-classification rather than pretending to repair Android's resolver from app code. |
 | **Prevention Rule** | For any cloud API failure that surfaces as `UnknownHostException`, first distinguish DNS from auth before asking for credentials: verify manifest/network permissions, host DNS, device DNS, and raw-IP reachability. In client code, never forward raw transport exceptions directly to chat UI; classify DNS/connectivity/auth separately and log a sanitized `ConnectivityManager` snapshot at the provider boundary. **Why:** a bad API key yields an HTTP auth response after DNS/TLS succeeds, while `Unable to resolve host` means the key was never checked. |
+
+---
+
+### DL-049 — Phase 0 docs and CI baseline drifted behind screen-context wiring
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-05-20 |
+| **Tags** | `#docs #ci #device-matrix #screen-context` |
+| **Severity** | Process / Baseline Drift |
+| **File(s)** | `README.md`, `docs/DEVICE_MATRIX.md`, `.github/workflows/ci.yml`, `DEBUG_LOG.md` |
+| **Symptom** | README still claimed the main chat send paths passed `capture = null` and `screenText = null`, even though both `ChatViewModel` and `OverlayChatPipeline` now build `TurnScreenContext` via `ScreenContextBuilder`. CI and the device matrix also had no checked-in scaffold for the Phase 0 baseline. |
+| **Root Cause** | The code moved faster than the source-of-truth docs and release scaffolding. The screen-context builder was wired into both chat surfaces, but README kept the older gap list; the remaining real gaps are narrower and more specific: `markId` loss before `TapTarget`, unwired `MediaProjection`, missing action consent UI, unredacted debug candidates, and window-blind capture paths. |
+| **Fix** | Rewrote the README current-state section, added `docs/DEVICE_MATRIX.md` with the required Pixel/Samsung/OEM API matrix and two locally verified Pixel API 35 smoke cells, and added PR-triggered GitHub Actions CI for Gradle tests, Android lint, release build, dependency review, Detekt scaffolding, and a regex guard that fails crash/error logs containing screenshot or encoded image payloads. No production code or LLM prompts changed. |
+| **Validation** | Screenshot crash-log regex guard passed locally. `JAVA_HOME=$HOME/.gradle/jdks/eclipse_adoptium-17-aarch64-os_x.2/jdk-17.0.18+8/Contents/Home ./gradlew test --stacktrace` passed. `JAVA_HOME=$HOME/.gradle/jdks/eclipse_adoptium-17-aarch64-os_x.2/jdk-17.0.18+8/Contents/Home ./gradlew check --stacktrace` was attempted and failed in existing runtime lint before reaching any docs/CI-specific issue: `ClaudeLlmClient.kt` has `MissingPermission` errors around `ConnectivityManager.getActiveNetwork/getNetworkCapabilities/getLinkProperties`, and `ScreenCapturePipeline.kt` has unannotated `NewApi` errors. `JAVA_HOME=$HOME/.gradle/jdks/eclipse_adoptium-17-aarch64-os_x.2/jdk-17.0.18+8/Contents/Home ./gradlew :app:assembleRelease --stacktrace` was also attempted and failed in existing R8 shrinker setup because Tink references missing `com.google.errorprone.annotations.*` classes. Production code was left untouched per this change's constraints. |
+| **Prevention Rule** | Whenever a core capability is promoted from "planned" to "wired" in code, update README/current-state docs in the same change or append a DL entry explaining why the docs intentionally lag. CI scaffolding may contain conditional gates for tools not yet installed, but the workflow must make the expected future gate explicit and keep already-enforceable privacy checks active. |
+
+---
+
+### DL-050 — Lane A policy spine added before action prompts
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-05-20 |
+| **Tags** | `#docs #play-policy #security #privacy #lane-a` |
+| **Severity** | Process / Policy Risk |
+| **File(s)** | `docs/PLAY_POLICY_MATRIX.md`, `docs/SECURITY_MODEL.md`, `docs/PRIVACY_MODEL.md`, `docs/ACTION_POLICY.md`, `Handy_Android_Build_Plan_V2_Scope.md`, `DEBUG_LOG.md` |
+| **Symptom** | Later V2 prompts need a stable Lane A policy/security/privacy reference before adding tap-for-me, typing, RemoteInput, recipes, and Play-sensitive action behavior. |
+| **Root Cause** | The next-level plan intentionally reframed Handy away from raw LLM-executed automation, but the repo did not yet contain the policy matrix, threat model, privacy taxonomy, or typed action-policy reference that implementation prompts can cite. |
+| **Fix** | Added the four Phase 0A docs with cross-links to `HANDY_NEXT_LEVEL_PLAN.md`, each other, and the V2 scope. Prepended the V2 scope with `Lane: A — general screen-aware AI copilot` so any future Lane B proposal must flip the header in the same change. Kept `PLAYSTORE_SUBMISSION.md` untouched for the later PLAY1 pass. |
+| **Validation** | Docs-only validation: the four new docs exist, cross-link each other, and `Handy_Android_Build_Plan_V2_Scope.md` now begins with the Lane A header. |
+| **Prevention Rule** | Policy-sensitive implementation prompts should cite the Lane A docs before changing action, accessibility, notification, clipboard, or Play submission behavior. If a future change argues for Lane B, it must update the scope header and all four policy docs in the same change. |
