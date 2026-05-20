@@ -5,6 +5,7 @@ package com.handy.runtime.capture
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityService.ScreenshotResult
 import android.accessibilityservice.AccessibilityService.TakeScreenshotCallback
+import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.ColorSpace
 import android.hardware.HardwareBuffer
@@ -42,6 +43,7 @@ class ScreenCapturePipeline(
 ) {
 
     /** Entry point used by the orchestrator. */
+    @SuppressLint("NewApi")
     suspend fun capture(activeWindowIdHint: Int? = null): CaptureResult {
         return when {
             sdkInt >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> takeByWindow(activeWindowIdHint)
@@ -161,6 +163,7 @@ class ScreenCapturePipeline(
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.R)
     private fun hardwareBufferToBitmap(result: ScreenshotResult): Bitmap? {
         return try {
             val colorSpace = result.colorSpace ?: ColorSpace.get(ColorSpace.Named.SRGB)

@@ -29,6 +29,7 @@ data class OverlayPanelState(
     val panel: PanelContent = PanelContent(),
 ) {
     val isPanelVisible: Boolean get() = mode == OverlayMode.ChatPanel
+    val isManualTargetSelection: Boolean get() = mode == OverlayMode.ManualTargetSelection
 }
 
 /**

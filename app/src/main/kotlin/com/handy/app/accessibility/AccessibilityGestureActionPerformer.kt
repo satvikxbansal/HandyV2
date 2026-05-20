@@ -16,6 +16,8 @@ import com.handy.core.audit.AuditEvent
 import com.handy.core.audit.AuditResult
 import com.handy.core.audit.AuditStore
 import com.handy.core.parsing.AssistantMarkupParser
+import com.handy.core.privacy.ScreenRedactor
+import com.handy.runtime.accessibility.LiveScreenGuard
 import com.handy.runtime.accessibility.SemanticPointerResolver
 import com.handy.runtime.di.AccessibilityServiceProvider
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -41,6 +43,7 @@ import timber.log.Timber
 class AccessibilityGestureActionPerformer(
     private val service: AccessibilityServiceProvider,
     private val resolver: SemanticPointerResolver,
+    private val liveScreenGuard: LiveScreenGuard,
     private val auditStore: AuditStore,
     private val foregroundPackageProvider: () -> String?,
     private val clock: () -> Long = { System.currentTimeMillis() },
@@ -128,6 +131,17 @@ class AccessibilityGestureActionPerformer(
             result = AuditResult.NotPermitted,
         ).let { PerformResult.Unsupported("accessibility not connected") }
 
+        if (target is TapTarget.AtNode && target.screenChanged(liveScreenGuard.snapshot())) {
+            audited(
+                action = kind.toAudit(),
+                targetDescription = target.describe(),
+                confirmationRequired = false,
+                userConfirmed = false,
+                result = AuditResult.Failed(SCREEN_CHANGED_REASON),
+            )
+            return PerformResult.Failed(SCREEN_CHANGED_REASON)
+        }
+
         // Resolve semantic target → AccessibilityNodeInfo.
         val node: AccessibilityNodeInfo? = when (target) {
             is TapTarget.AtNode -> {
@@ -139,7 +153,13 @@ class AccessibilityGestureActionPerformer(
                         userConfirmed = false,
                         result = AuditResult.NotFound,
                     ).let { PerformResult.NotFound }
-                val resolved = runCatching { resolver.resolve(spec) }.getOrNull()
+                val resolved = runCatching {
+                    resolver.resolve(
+                        spec = spec,
+                        expectedPackage = target.expectedPackage,
+                        expectedWindowId = target.expectedWindowId,
+                    )
+                }.getOrNull()
                 if (resolved != null &&
                     (resolved.failureReason != null || resolved.confidence < MIN_ACTION_CONFIDENCE)
                 ) {
@@ -265,25 +285,70 @@ class AccessibilityGestureActionPerformer(
     private fun TapTarget.describe(): String = when (this) {
         is TapTarget.AtScreenPoint -> "point($x,$y)"
         is TapTarget.AtNode -> buildString {
-            role?.let { append("role=$it;") }
-            text?.let { append("text=$it;") }
-            viewId?.let { append("viewId=$it;") }
-            desc?.let { append("desc=$it;") }
+            val context = listOfNotNull(role, text, viewId, desc, expectedPackage, snapshotHash)
+                .joinToString(" ")
+            val passwordContext = context.containsPasswordContext()
+            appendTargetPart("markId", markId, context)
+            appendTargetPart("role", role, context)
+            appendTargetPart("text", text, context, isPassword = passwordContext)
+            appendTargetPart("viewId", viewId, context)
+            appendTargetPart("desc", desc, context, isPassword = passwordContext)
+            appendTargetPart("expectedPackage", expectedPackage, context)
+            expectedWindowId?.let { append("expectedWindowId=$it;") }
+            appendTargetPart("snapshotHash", snapshotHash, context)
         }.trimEnd(';')
     }
 
+    private fun StringBuilder.appendTargetPart(
+        name: String,
+        value: String?,
+        context: String,
+        isPassword: Boolean = false,
+    ) {
+        val redacted = ScreenRedactor.redactText(
+            value = value,
+            context = context,
+            isPassword = isPassword,
+            diagnostics = true,
+        ) ?: return
+        append(name).append('=').append(redacted).append(';')
+    }
+
+    private fun String.containsPasswordContext(): Boolean =
+        contains("password", ignoreCase = true) ||
+            contains("passcode", ignoreCase = true) ||
+            Regex("""\bpwd\b""", RegexOption.IGNORE_CASE).containsMatchIn(this)
+
     private fun TapTarget.AtNode.toSemanticPointOrNull(): AssistantMarkupParser.SemanticPoint? {
+        val markId = markId?.takeIf { it.isNotBlank() }
         val role = role?.takeIf { it.isNotBlank() }
         val text = text?.takeIf { it.isNotBlank() }
         val viewId = viewId?.takeIf { it.isNotBlank() }
         val desc = desc?.takeIf { it.isNotBlank() }
-        if (role == null && text == null && viewId == null && desc == null) return null
+        if (markId == null && role == null && text == null && viewId == null && desc == null) return null
+        if (markId != null) {
+            return AssistantMarkupParser.SemanticPoint(markId = markId)
+        }
         return AssistantMarkupParser.SemanticPoint(
             role = role,
             text = text,
             viewId = viewId,
             contentDescription = desc,
         )
+    }
+
+    private fun TapTarget.AtNode.screenChanged(live: LiveScreenGuard.LiveScreen?): Boolean {
+        val expectedPackage = expectedPackage?.takeIf { it.isNotBlank() }
+        val expectedWindowId = expectedWindowId
+        if (expectedPackage == null && expectedWindowId == null) return false
+        if (live == null) return true
+        if (expectedPackage != null &&
+            !live.packageName.equals(expectedPackage, ignoreCase = true)
+        ) {
+            return true
+        }
+        if (expectedWindowId != null && live.windowId != expectedWindowId) return true
+        return false
     }
 
     private enum class GestureKind { TAP, LONG_PRESS }
@@ -298,5 +363,6 @@ class AccessibilityGestureActionPerformer(
         const val LONG_PRESS_DURATION_MS: Long = 800L
         const val SCROLL_DURATION_MS: Long = 400L
         const val MIN_ACTION_CONFIDENCE: Float = 0.9f
+        const val SCREEN_CHANGED_REASON: String = "screen-changed"
     }
 }

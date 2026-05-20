@@ -19,6 +19,7 @@ import com.handy.core.orchestrator.ConversationOrchestrator
 import com.handy.core.orchestrator.OrchestrationEvent
 import com.handy.core.orchestrator.OrchestrationRequest
 import com.handy.core.parsing.AssistantMarkupParser
+import com.handy.core.screen.GroundingSnapshot
 import com.handy.core.screen.TurnSource
 import com.handy.core.tool.ToolContext
 import com.handy.runtime.storage.DataStoreSettings
@@ -408,6 +409,7 @@ class ChatViewModel @Inject constructor(
                                 pointing = event.pointing,
                                 chatText = event.chatText,
                                 snapshotOverride = turnContext.panelSnapshot,
+                                groundingSnapshot = turnContext,
                             ),
                         )
                         if (tagged.isNotEmpty()) stampSearchToolsOnLastAssistant(tagged)
@@ -523,6 +525,7 @@ class ChatViewModel @Inject constructor(
         pointing: AssistantMarkupParser.PointingResult,
         chatText: String,
         snapshotOverride: PanelSnapshot? = null,
+        groundingSnapshot: GroundingSnapshot? = null,
     ): FullChatShowInAppAction? {
         val snapshot = snapshotOverride ?: targetSnapshot ?: return null
         if (!pointing.hasPointer) return null
@@ -533,6 +536,7 @@ class ChatViewModel @Inject constructor(
             bubbleLabel = chatText.takeForBubble().ifBlank { targetLabel },
             pointing = pointing,
             snapshot = snapshot,
+            groundingSnapshot = groundingSnapshot,
         )
     }
 

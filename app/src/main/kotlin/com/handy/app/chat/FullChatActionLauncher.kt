@@ -8,6 +8,7 @@ import com.handy.app.overlay.FloatingWidgetOverlayService
 import com.handy.app.overlay.OverlayPresenter
 import com.handy.core.overlay.PanelSnapshot
 import com.handy.core.parsing.AssistantMarkupParser
+import com.handy.core.screen.GroundingSnapshot
 import com.handy.runtime.accessibility.AccessibilityMarksProvider
 import com.handy.runtime.di.ApplicationScope
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -24,6 +25,7 @@ data class FullChatShowInAppAction(
     val bubbleLabel: String,
     val pointing: AssistantMarkupParser.PointingResult,
     val snapshot: PanelSnapshot,
+    val groundingSnapshot: GroundingSnapshot?,
 )
 
 /**
@@ -55,6 +57,7 @@ class FullChatActionLauncher @Inject constructor(
                         bubbleLabel = action.bubbleLabel,
                         targetLabel = action.targetLabel,
                         fallbackMarks = action.snapshot.marks,
+                        groundingSnapshot = action.groundingSnapshot,
                     )
                     Timber.d("FullChatActionLauncher: semantic flight landed=%s", landed)
                 }

@@ -51,6 +51,7 @@ import com.handy.core.audit.AuditStore
 import com.handy.core.llm.LocalAvailability
 import com.handy.core.llm.LocalGenAiClient
 import com.handy.core.model.HandySettings
+import com.handy.core.privacy.ScreenRedactor
 import com.handy.runtime.storage.DataStoreSettings
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -162,7 +163,7 @@ data class DiagnosticsUi(
 /* ----------------------------- UI ----------------------------- */
 
 @Composable
-private fun DiagnosticsScreen(state: DiagnosticsUi) {
+fun DiagnosticsScreen(state: DiagnosticsUi) {
     Surface(
         color = HandyColors.Background,
         contentColor = HandyColors.TextPrimary,
@@ -259,7 +260,7 @@ private fun AuditRow(event: AuditEvent) {
                 fontWeight = FontWeight.Medium,
             )
             Text(
-                text = "${event.targetApp} — ${event.semanticTarget}",
+                text = event.redactedTargetLine(),
                 style = HandyType.Overline,
                 color = HandyColors.TextSecondary,
             )
@@ -271,3 +272,45 @@ private fun AuditRow(event: AuditEvent) {
 }
 
 private fun Boolean.onOff(): String = if (this) "on" else "off"
+
+private fun AuditEvent.redactedTargetLine(): String {
+    val context = "${action::class.simpleName.orEmpty()} $targetApp $semanticTarget"
+    val redactedApp = ScreenRedactor.redactText(
+        value = targetApp,
+        context = context,
+        diagnostics = true,
+    ) ?: targetApp
+    return "$redactedApp — ${semanticTarget.redactAuditTarget(context)}"
+}
+
+private fun String.redactAuditTarget(context: String): String {
+    if (!contains("=")) {
+        return ScreenRedactor.redactText(
+            value = this,
+            context = context,
+            isPassword = context.containsPasswordContext(),
+            diagnostics = true,
+        ) ?: this
+    }
+    return split(';')
+        .filter { it.isNotBlank() }
+        .joinToString(";") { part ->
+            val name = part.substringBefore('=').trim()
+            val value = part.substringAfter('=', missingDelimiterValue = "").trim()
+            val isPassword = name in passwordRedactedAuditFields && context.containsPasswordContext()
+            val redacted = ScreenRedactor.redactText(
+                value = value,
+                context = context,
+                isPassword = isPassword,
+                diagnostics = true,
+            ) ?: value
+            "$name=$redacted"
+        }
+}
+
+private fun String.containsPasswordContext(): Boolean =
+    contains("password", ignoreCase = true) ||
+        contains("passcode", ignoreCase = true) ||
+        Regex("""\bpwd\b""", RegexOption.IGNORE_CASE).containsMatchIn(this)
+
+private val passwordRedactedAuditFields = setOf("text", "desc")

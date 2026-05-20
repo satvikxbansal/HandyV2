@@ -12,13 +12,14 @@ package com.handy.core.overlay
  *  - `IdleWidget` keeps `FLAG_NOT_FOCUSABLE` — never steals touches.
  *  - `ChatPanel` drops `FLAG_NOT_FOCUSABLE` so the IME can focus the
  *    input field. Restored on dismiss.
- *  - `Flying`, `Pointing`, `Acting` keep the idle flag set (no user
- *    input required).
+ *  - `Flying`, `Pointing`, `ManualTargetSelection`, `Acting` keep the
+ *    idle flag set (no focus or IME input required).
  */
 enum class OverlayMode {
     IdleWidget,
     ChatPanel,
     Flying,
     Pointing,
+    ManualTargetSelection,
     Acting,
 }

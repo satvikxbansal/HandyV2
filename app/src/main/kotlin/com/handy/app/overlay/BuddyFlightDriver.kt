@@ -2,17 +2,26 @@
 
 package com.handy.app.overlay
 
+import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.view.accessibility.AccessibilityNodeInfo
 import com.handy.app.widget.BezierFlightController
 import com.handy.app.widget.LensRenderer
 import com.handy.core.action.ActionExecutionGate
 import com.handy.core.action.ActionPerformer
 import com.handy.core.action.TapTarget
+import com.handy.core.audit.AuditAction
+import com.handy.core.audit.AuditEvent
+import com.handy.core.audit.AuditResult
+import com.handy.core.audit.AuditStore
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.overlay.BuddyState
+import com.handy.core.overlay.OverlayMode
 import com.handy.core.parsing.AssistantMarkupParser
+import com.handy.core.privacy.ScreenRedactor
+import com.handy.core.screen.GroundingSnapshot
 import com.handy.core.screen.IntRect
 import com.handy.runtime.accessibility.SemanticPointerResolver.ResolutionFailureReason
 import com.handy.runtime.accessibility.SemanticPointerResolver.ResolvedPointTarget
@@ -47,6 +56,7 @@ class BuddyFlightDriver @Inject constructor(
     private val pointerResolver: SemanticPointerResolver,
     private val actionPerformer: ActionPerformer,
     private val settings: DataStoreSettings,
+    private val auditStore: AuditStore,
 ) {
 
     private var serviceRef: WeakReference<FloatingWidgetOverlayService>? = null
@@ -82,59 +92,19 @@ class BuddyFlightDriver @Inject constructor(
         label: String?,
         fallbackMarks: List<AccessibilityMark> = emptyList(),
     ): Boolean {
-        val service = serviceRef?.get() ?: run {
-            Timber.d("BuddyFlightDriver.flyTo: no service attached")
-            return false
-        }
-        val state = presenter.state.value
-        if (state.buddyState == BuddyState.FLYING) {
-            Timber.d(
-                "BuddyFlightDriver.flyTo: flight already in progress buddy=%s isFlying=%s",
-                state.buddyState,
-                state.isFlying,
-            )
-            return false
-        }
-
-        Timber.d(
-            "BuddyFlightDriver.flyTo: spec=%s fallbackMarks=%d",
-            spec.logSummary(),
-            fallbackMarks.size,
-        )
-        presenter.onPreparingPoint(label)
-        val resolved = withContext(Dispatchers.Main.immediate) {
-            runCatching { pointerResolver.resolve(spec, fallbackMarks) }.getOrNull()
-        }
-        if (resolved == null) {
-            Timber.d("BuddyFlightDriver.flyTo: resolver returned null")
-            presenter.onPointingReturned()
-            return false
-        }
-        Timber.d(
-            "BuddyFlightDriver.flyTo: resolved markId=%s source=%s confidence=%.2f failure=%s candidates=%d bounds=%s",
-            resolved.markId,
-            resolved.source,
-            resolved.confidence,
-            resolved.failureReason,
-            resolved.candidateCount,
-            resolved.bounds.logSummary(),
-        )
-        if (resolved.failureReason == ResolutionFailureReason.AMBIGUOUS ||
-            resolved.confidence < MIN_FLY_CONFIDENCE
-        ) {
-            Timber.d(
-                "BuddyFlightDriver.flyTo: refusing low/ambiguous pointer confidence=%.2f failure=%s",
-                resolved.confidence,
-                resolved.failureReason,
-            )
-            resolved.node?.let { node -> runCatching { node.recycle() } }
-            presenter.onPointingReturned()
-            return false
-        }
-
-        return withContext(Dispatchers.Main.immediate) {
-            flyToBounds(service, resolved.bounds, label, resolved)
-        }.also {
+        val flight = resolveForFlight(
+            spec = spec,
+            label = label,
+            fallbackMarks = fallbackMarks,
+            expectedPackage = null,
+            expectedWindowId = null,
+        ) ?: return false
+        val resolved = flight.resolved
+        return try {
+            withContext(Dispatchers.Main.immediate) {
+                flyToBounds(flight.service, resolved.bounds, label, resolved)
+            }
+        } finally {
             resolved.node?.let { node -> runCatching { node.recycle() } }
         }
     }
@@ -161,6 +131,51 @@ class BuddyFlightDriver @Inject constructor(
                 label = bubbleLabel,
             )
         }
+    }
+
+    suspend fun resumeWithManualTarget(
+        node: AccessibilityNodeInfo,
+        sourcePackage: String?,
+        selectedAtEpochMs: Long = System.currentTimeMillis(),
+    ): Boolean {
+        val target = ManualTargetSnapshot.fromNode(node, sourcePackage)
+        var auditResult: AuditResult = AuditResult.Failed("manual-fallback-not-run")
+        val landed = runCatching {
+            val service = serviceRef?.get() ?: run {
+                Timber.d("BuddyFlightDriver.resumeWithManualTarget: no service attached")
+                auditResult = AuditResult.NotPermitted
+                return@runCatching false
+            }
+            if (target.bounds.width <= 0 || target.bounds.height <= 0) {
+                auditResult = AuditResult.NotFound
+                return@runCatching false
+            }
+            withContext(Dispatchers.Main.immediate) {
+                clearStickySafetyTimeout()
+                service.flightControllerInstance().cancelAll()
+                flyToBounds(
+                    service = service,
+                    bounds = target.bounds,
+                    label = target.label ?: "right one",
+                )
+            }.also { success ->
+                auditResult = if (success) {
+                    AuditResult.Dispatched(component = "manual-fallback")
+                } else {
+                    AuditResult.Cancelled
+                }
+            }
+        }.onFailure { t ->
+            auditResult = AuditResult.Failed(t.message ?: "manual-fallback-failed")
+            Timber.w(t, "BuddyFlightDriver.resumeWithManualTarget failed")
+        }.getOrDefault(false)
+        runCatching { node.recycle() }
+        auditManualSelection(
+            target = target,
+            selectedAtEpochMs = selectedAtEpochMs,
+            result = auditResult,
+        )
+        return landed
     }
 
     private suspend fun flyToBounds(
@@ -289,10 +304,25 @@ class BuddyFlightDriver @Inject constructor(
         bubbleLabel: String?,
         targetLabel: String?,
         fallbackMarks: List<AccessibilityMark> = emptyList(),
+        groundingSnapshot: GroundingSnapshot? = null,
     ): Boolean {
         val enabled = runCatching { ActionExecutionGate.gesturesAllowed(settings.current()) }
             .getOrDefault(false)
-        val landed = flyTo(spec, bubbleLabel, fallbackMarks)
+        val flight = resolveForFlight(
+            spec = spec,
+            label = bubbleLabel,
+            fallbackMarks = fallbackMarks,
+            expectedPackage = groundingSnapshot?.toolContext?.packageName,
+            expectedWindowId = groundingSnapshot?.windowId,
+        ) ?: return false
+        val resolved = flight.resolved
+        val landed = try {
+            withContext(Dispatchers.Main.immediate) {
+                flyToBounds(flight.service, resolved.bounds, bubbleLabel, resolved)
+            }
+        } finally {
+            resolved.node?.let { node -> runCatching { node.recycle() } }
+        }
         if (!landed) return false
         if (!enabled) return false
         // Short pause so the user sees the buddy land before it taps.
@@ -301,17 +331,87 @@ class BuddyFlightDriver @Inject constructor(
         presenter.onActionStarted("tapping $displayLabel")
         val result = runCatching {
             actionPerformer.tap(
-                TapTarget.AtNode(
-                    role = spec.role,
-                    text = spec.text,
-                    viewId = spec.viewId,
-                    desc = spec.contentDescription,
-                ),
+                buildTapTargetForResolved(spec, resolved, groundingSnapshot),
             )
         }.onFailure { Timber.w(it, "BuddyFlightDriver tap failed") }.getOrNull()
         presenter.onActionFinished()
         return result is com.handy.core.action.PerformResult.Ok
     }
+
+    private suspend fun resolveForFlight(
+        spec: AssistantMarkupParser.SemanticPoint,
+        label: String?,
+        fallbackMarks: List<AccessibilityMark>,
+        expectedPackage: String?,
+        expectedWindowId: Int?,
+    ): FlightResolution? {
+        val service = serviceRef?.get() ?: run {
+            Timber.d("BuddyFlightDriver.flyTo: no service attached")
+            return null
+        }
+        val state = presenter.state.value
+        if (state.buddyState == BuddyState.FLYING) {
+            Timber.d(
+                "BuddyFlightDriver.flyTo: flight already in progress buddy=%s isFlying=%s",
+                state.buddyState,
+                state.isFlying,
+            )
+            return null
+        }
+
+        Timber.d(
+            "BuddyFlightDriver.flyTo: spec=%s fallbackMarks=%d expectedPackage=%s expectedWindowId=%s",
+            spec.logSummary(),
+            fallbackMarks.size,
+            expectedPackage,
+            expectedWindowId,
+        )
+        presenter.onPreparingPoint(label)
+        val resolved = withContext(Dispatchers.Main.immediate) {
+            runCatching {
+                pointerResolver.resolve(
+                    spec = spec,
+                    fallbackMarks = fallbackMarks,
+                    expectedPackage = expectedPackage,
+                    expectedWindowId = expectedWindowId,
+                )
+            }.getOrNull()
+        }
+        if (resolved == null) {
+            Timber.d("BuddyFlightDriver.flyTo: resolver returned null")
+            presenter.onManualTargetFallbackAvailable(label)
+            scheduleStickySafetyTimeout()
+            return null
+        }
+        Timber.d(
+            "BuddyFlightDriver.flyTo: resolved markId=%s source=%s confidence=%.2f failure=%s candidates=%d bounds=%s",
+            resolved.markId,
+            resolved.source,
+            resolved.confidence,
+            resolved.failureReason,
+            resolved.candidateCount,
+            resolved.bounds.logSummary(),
+        )
+        if (resolved.failureReason == ResolutionFailureReason.AMBIGUOUS ||
+            resolved.confidence < MIN_FLY_CONFIDENCE
+        ) {
+            Timber.d(
+                "BuddyFlightDriver.flyTo: refusing low/ambiguous pointer confidence=%.2f failure=%s",
+                resolved.confidence,
+                resolved.failureReason,
+            )
+            resolved.node?.let { node -> runCatching { node.recycle() } }
+            presenter.onManualTargetFallbackAvailable(label)
+            scheduleStickySafetyTimeout()
+            return null
+        }
+        return FlightResolution(service = service, resolved = resolved)
+    }
+
+    private data class FlightResolution(
+        val service: FloatingWidgetOverlayService,
+        val resolved: ResolvedPointTarget,
+    )
 
     /** Cancel any in-flight animation (e.g. user tapped widget mid-flight). */
     fun cancel() {
@@ -330,7 +430,9 @@ class BuddyFlightDriver @Inject constructor(
      * should clear once the user acts on the guided app.
      */
     fun dismissPointingAfterUserInteraction(source: String?): Boolean {
-        if (presenter.state.value.buddyState != BuddyState.POINTING) return false
+        val state = presenter.state.value
+        if (state.mode == OverlayMode.ManualTargetSelection) return false
+        if (state.buddyState != BuddyState.POINTING) return false
         Timber.d("BuddyFlightDriver: dismissing sticky pointer after user interaction source=%s", source)
         mainHandler.post {
             clearStickySafetyTimeout()
@@ -544,6 +646,27 @@ class BuddyFlightDriver @Inject constructor(
     private fun String.logSnippet(max: Int = 80): String =
         replace('\n', ' ').take(max)
 
+    private suspend fun auditManualSelection(
+        target: ManualTargetSnapshot,
+        selectedAtEpochMs: Long,
+        result: AuditResult,
+    ) {
+        val event = AuditEvent(
+            timestampEpochMs = selectedAtEpochMs,
+            requestId = java.util.UUID.randomUUID().toString(),
+            provider = "manual-fallback",
+            action = AuditAction.ManualSelect,
+            targetApp = target.packageName ?: "unknown",
+            semanticTarget = target.auditDescription(),
+            confirmationRequired = false,
+            userConfirmed = true,
+            result = result,
+            failureReason = (result as? AuditResult.Failed)?.reason,
+        )
+        runCatching { auditStore.append(event) }
+            .onFailure { Timber.w(it, "AuditStore manual selection append failed") }
+    }
+
     private companion object {
         const val POINT_TARGET_RADIUS: Int = 20
         const val MIN_FLY_CONFIDENCE: Float = 0.68f
@@ -552,6 +675,96 @@ class BuddyFlightDriver @Inject constructor(
         const val TWO_PI: Float = (Math.PI * 2.0).toFloat()
     }
 }
+
+private data class ManualTargetSnapshot(
+    val bounds: IntRect,
+    val packageName: String?,
+    val role: String?,
+    val text: String?,
+    val desc: String?,
+    val viewId: String?,
+) {
+    val label: String?
+        get() = text ?: desc ?: viewId?.substringAfterLast('/')
+
+    fun auditDescription(): String = buildString {
+        append("manual-fallback;")
+        appendPart("role", role)
+        appendPart("text", text)
+        appendPart("desc", desc)
+        appendPart("viewId", viewId?.substringAfterLast('/'))
+        append("bounds=")
+        append(bounds.left).append(',').append(bounds.top)
+            .append('-').append(bounds.right).append(',').append(bounds.bottom)
+    }.trimEnd(';')
+
+    private fun StringBuilder.appendPart(name: String, value: String?) {
+        value?.takeIf { it.isNotBlank() }?.let {
+            append(name).append('=').append(it).append(';')
+        }
+    }
+
+    companion object {
+        fun fromNode(node: AccessibilityNodeInfo, sourcePackage: String?): ManualTargetSnapshot {
+            val bounds = Rect().also { node.getBoundsInScreen(it) }
+            val role = node.className?.toString()?.substringAfterLast('.')?.takeIf { it.isNotBlank() }
+            val viewId = node.viewIdResourceName?.takeIf { it.isNotBlank() }
+            val context = listOfNotNull(role, viewId, node.contentDescription?.toString())
+                .joinToString(" ")
+            val isPassword = node.isPassword
+            val text = ScreenRedactor.redactText(
+                value = node.text?.toString(),
+                context = context,
+                isPassword = isPassword,
+                diagnostics = true,
+            )
+            val desc = ScreenRedactor.redactText(
+                value = node.contentDescription?.toString(),
+                context = context,
+                isPassword = isPassword,
+                diagnostics = true,
+            )
+            return ManualTargetSnapshot(
+                bounds = IntRect(bounds.left, bounds.top, bounds.right, bounds.bottom),
+                packageName = sourcePackage
+                    ?: node.packageName?.toString()?.takeIf { it.isNotBlank() },
+                role = ScreenRedactor.redactText(
+                    value = role,
+                    context = context,
+                    diagnostics = true,
+                ),
+                text = text,
+                desc = desc,
+                viewId = ScreenRedactor.redactText(
+                    value = viewId,
+                    context = context,
+                    diagnostics = true,
+                ),
+            )
+        }
+    }
+}
+
+internal fun buildTapTargetForResolved(
+    spec: AssistantMarkupParser.SemanticPoint,
+    resolved: ResolvedPointTarget,
+    groundingSnapshot: GroundingSnapshot?,
+): TapTarget.AtNode =
+    TapTarget.AtNode(
+        markId = resolved.markId?.takeIf { it.isNotBlank() }
+            ?: spec.markId?.takeIf { it.isNotBlank() },
+        role = resolved.role?.takeIf { it.isNotBlank() }
+            ?: spec.role?.takeIf { it.isNotBlank() },
+        text = resolved.text?.takeIf { it.isNotBlank() }
+            ?: spec.text?.takeIf { it.isNotBlank() },
+        viewId = resolved.viewId?.takeIf { it.isNotBlank() }
+            ?: spec.viewId?.takeIf { it.isNotBlank() },
+        desc = resolved.desc?.takeIf { it.isNotBlank() }
+            ?: spec.contentDescription?.takeIf { it.isNotBlank() },
+        expectedPackage = groundingSnapshot?.toolContext?.packageName?.takeIf { it.isNotBlank() },
+        expectedWindowId = groundingSnapshot?.windowId,
+        snapshotHash = groundingSnapshot?.rootBoundsHash?.takeIf { it.isNotBlank() },
+    )
 
 private fun android.content.Context.systemBarSize(name: String): Int {
     val id = resources.getIdentifier(name, "dimen", "android")

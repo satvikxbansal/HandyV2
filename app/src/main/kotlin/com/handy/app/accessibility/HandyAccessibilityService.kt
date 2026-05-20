@@ -5,6 +5,7 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.view.accessibility.AccessibilityEvent
 import com.handy.app.foreground.HandyForegroundAppMonitor
 import com.handy.app.overlay.BuddyFlightDriver
+import com.handy.app.overlay.ManualTargetSelector
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
@@ -38,6 +39,7 @@ class HandyAccessibilityService : AccessibilityService() {
     @Inject lateinit var foregroundAppMonitor: HandyForegroundAppMonitor
     @Inject lateinit var stateMonitor: AccessibilityStateMonitor
     @Inject lateinit var flightDriver: BuddyFlightDriver
+    @Inject lateinit var manualTargetSelector: ManualTargetSelector
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -57,7 +59,10 @@ class HandyAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
-        maybeDismissStickyPointer(event)
+        if (manualTargetSelector.handleAccessibilityEvent(event)) return
+        if (!manualTargetSelector.isActive) {
+            maybeDismissStickyPointer(event)
+        }
         // Only WINDOW_STATE_CHANGED matters for tool detection. The
         // monitor itself re-checks but bailing here keeps the log quiet
         // and avoids an unnecessary rootInActiveWindow call on every

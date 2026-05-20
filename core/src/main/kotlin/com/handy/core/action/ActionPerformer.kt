@@ -22,7 +22,16 @@ interface ActionPerformer {
 
 sealed class TapTarget {
     data class AtScreenPoint(val x: Int, val y: Int) : TapTarget()
-    data class AtNode(val role: String?, val text: String?, val viewId: String?, val desc: String?) : TapTarget()
+    data class AtNode(
+        val markId: String?,
+        val role: String?,
+        val text: String?,
+        val viewId: String?,
+        val desc: String?,
+        val expectedPackage: String?,
+        val expectedWindowId: Int?,
+        val snapshotHash: String?,
+    ) : TapTarget()
 }
 
 enum class ScrollDirection { UP, DOWN, LEFT, RIGHT }

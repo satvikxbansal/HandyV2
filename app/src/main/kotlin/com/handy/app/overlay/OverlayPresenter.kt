@@ -282,6 +282,25 @@ class OverlayPresenter @Inject constructor(
         )
     }
 
+    fun onManualTargetFallbackAvailable(label: String?) {
+        _state.value = _state.value.copy(
+            mode = OverlayMode.Pointing,
+            buddyState = BuddyState.POINTING,
+            isFlying = true,
+            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Navigation)
+                ?: _state.value.bubble,
+        )
+    }
+
+    fun onManualTargetSelectionStarted() {
+        _state.value = _state.value.copy(
+            mode = OverlayMode.ManualTargetSelection,
+            buddyState = BuddyState.POINTING,
+            isFlying = true,
+            bubble = null,
+        )
+    }
+
     fun onPointingReturned() {
         _state.value = _state.value.copy(
             mode = OverlayMode.IdleWidget,

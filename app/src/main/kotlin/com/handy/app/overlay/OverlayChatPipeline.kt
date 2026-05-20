@@ -236,6 +236,7 @@ class OverlayChatPipeline @Inject constructor(
                         bubbleLabel = bubbleLabel,
                         targetLabel = targetLabel,
                         fallbackMarks = groundedSnapshot?.marks.orEmpty(),
+                        groundingSnapshot = turnContext,
                     )
                 }
                     .onFailure { Timber.w(it, "buddy flight failed") }

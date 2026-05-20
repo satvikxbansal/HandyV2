@@ -7,6 +7,7 @@ import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.parsing.AssistantMarkupParser
+import com.handy.core.privacy.ScreenRedactor
 import com.handy.core.screen.IntRect
 import kotlin.math.max
 import kotlin.math.min
@@ -18,7 +19,10 @@ import kotlin.math.min
  * screen-ui block. Text/viewId/desc and fuzzy matching remain as fallback
  * grounding, with confidence and ambiguity reported to callers.
  */
-class SemanticPointerResolver(private val service: () -> AccessibilityService?) {
+class SemanticPointerResolver(
+    private val service: () -> AccessibilityService?,
+    private val applicationPackageName: String? = null,
+) {
 
     data class ResolvedPointTarget(
         val bounds: IntRect,
@@ -29,6 +33,10 @@ class SemanticPointerResolver(private val service: () -> AccessibilityService?) 
         val failureReason: ResolutionFailureReason? = null,
         val debugCandidates: List<TargetCandidate> = emptyList(),
         val markId: String? = null,
+        val role: String? = null,
+        val text: String? = null,
+        val viewId: String? = null,
+        val desc: String? = null,
     )
 
     data class TargetCandidate(
@@ -64,15 +72,24 @@ class SemanticPointerResolver(private val service: () -> AccessibilityService?) 
     fun resolve(
         spec: AssistantMarkupParser.SemanticPoint,
         fallbackMarks: List<AccessibilityMark> = emptyList(),
+        expectedPackage: String? = null,
+        expectedWindowId: Int? = null,
     ): ResolvedPointTarget? {
         val runtimeCandidates = mutableListOf<RuntimeCandidate>()
         val ownedNodes = mutableListOf<AccessibilityNodeInfo>()
         val root = runCatching { service()?.rootInActiveWindow }.getOrNull()
         if (root != null) {
-            collectLiveCandidates(root, runtimeCandidates, ownedNodes)
+            val rootPackage = root.packageName?.toString()
+            if (!applicationPackageName.isNullOrBlank() &&
+                rootPackage.equals(applicationPackageName, ignoreCase = true)
+            ) {
+                ownedNodes += root
+            } else {
+                collectLiveCandidates(root, runtimeCandidates, ownedNodes)
+            }
         }
         fallbackMarks.forEach { mark ->
-            runtimeCandidates += RuntimeCandidate.fromMark(mark)
+            runtimeCandidates += RuntimeCandidate.fromMark(mark, expectedPackage, expectedWindowId)
         }
 
         if (runtimeCandidates.isEmpty()) {
@@ -87,7 +104,7 @@ class SemanticPointerResolver(private val service: () -> AccessibilityService?) 
 
         val scored = runtimeCandidates
             .mapNotNull { candidate ->
-                score(candidate, spec, fallbackMarks, duplicateLabels)
+                score(candidate, spec, fallbackMarks, duplicateLabels, expectedPackage, expectedWindowId)
                     ?.let { scored -> ScoredCandidate(candidate, scored) }
             }
             .sortedByDescending { it.debug.score }
@@ -118,6 +135,10 @@ class SemanticPointerResolver(private val service: () -> AccessibilityService?) 
             failureReason = failure,
             debugCandidates = scored.take(MAX_DEBUG_CANDIDATES).map { it.debug },
             markId = best.runtime.markId,
+            role = best.runtime.role,
+            text = best.runtime.text,
+            viewId = best.runtime.viewId,
+            desc = best.runtime.contentDescription,
         )
     }
 
@@ -130,10 +151,17 @@ class SemanticPointerResolver(private val service: () -> AccessibilityService?) 
         queue.addLast(root)
         ownedNodes += root
         var visited = 0
+        var markIndex = 0
         while (queue.isNotEmpty() && visited < HARD_VISIT_CAP) {
             val node = queue.removeFirst()
             visited++
-            RuntimeCandidate.fromNode(node)?.let(out::add)
+            val markId = if (isMarkableNode(node)) {
+                markIndex += 1
+                "m$markIndex"
+            } else {
+                null
+            }
+            RuntimeCandidate.fromNode(node, markId)?.let(out::add)
             for (i in 0 until node.childCount) {
                 val child = runCatching { node.getChild(i) }.getOrNull() ?: continue
                 ownedNodes += child
@@ -142,11 +170,22 @@ class SemanticPointerResolver(private val service: () -> AccessibilityService?) 
         }
     }
 
+    private fun isMarkableNode(node: AccessibilityNodeInfo): Boolean {
+        val bounds = Rect().also { node.getBoundsInScreen(it) }
+        if (bounds.width() <= 0 || bounds.height() <= 0) return false
+        if (!node.isVisibleToUser) return false
+        if (!node.text.isNullOrBlank()) return true
+        if (!node.contentDescription.isNullOrBlank()) return true
+        return node.isClickable || node.isScrollable || node.isEditable
+    }
+
     private fun score(
         candidate: RuntimeCandidate,
         spec: AssistantMarkupParser.SemanticPoint,
         fallbackMarks: List<AccessibilityMark>,
         duplicateLabels: Map<String, Int>,
+        expectedPackage: String?,
+        expectedWindowId: Int?,
     ): CandidateScore? {
         var score = 0f
         var source = ResolutionSource.HEURISTIC
@@ -241,6 +280,21 @@ class SemanticPointerResolver(private val service: () -> AccessibilityService?) 
             reasons += "tiny"
         }
 
+        expectedPackage?.takeIf { it.isNotBlank() }?.let { expected ->
+            val actual = candidate.packageName
+            if (!actual.isNullOrBlank() && !actual.equals(expected, ignoreCase = true)) {
+                score -= 80f
+                reasons += "package mismatch"
+            }
+        }
+        expectedWindowId?.let { expected ->
+            val actual = candidate.windowId
+            if (actual != null && actual != expected) {
+                score -= 80f
+                reasons += "window mismatch"
+            }
+        }
+
         normalize(candidate.label.orEmpty()).takeIf { it.isNotBlank() }?.let { label ->
             if ((duplicateLabels[label] ?: 0) > 1) {
                 score -= 20f
@@ -253,9 +307,9 @@ class SemanticPointerResolver(private val service: () -> AccessibilityService?) 
             source = source,
             debug = TargetCandidate(
                 markId = candidate.markId,
-                label = candidate.label,
-                role = candidate.role,
-                viewId = candidate.viewId?.substringAfterLast('/'),
+                label = candidate.redactForDiagnostics(candidate.label, isPassword = candidate.isPassword),
+                role = candidate.redactForDiagnostics(candidate.role),
+                viewId = candidate.redactForDiagnostics(candidate.viewId?.substringAfterLast('/')),
                 bounds = candidate.bounds,
                 actionable = candidate.actionable,
                 enabled = candidate.enabled,
@@ -319,17 +373,46 @@ class SemanticPointerResolver(private val service: () -> AccessibilityService?) 
         val enabled: Boolean,
         val visible: Boolean,
         val node: AccessibilityNodeInfo?,
+        val packageName: String?,
+        val windowId: Int?,
+        val isPassword: Boolean,
     ) {
+        fun redactForDiagnostics(value: String?, isPassword: Boolean = false): String? =
+            ScreenRedactor.redactText(
+                value = value,
+                context = redactionContext,
+                isPassword = isPassword,
+                diagnostics = true,
+            )
+
+        private val redactionContext: String
+            get() = listOfNotNull(role, viewId, contentDescription, label)
+                .joinToString(" ")
+
         companion object {
-            fun fromNode(node: AccessibilityNodeInfo): RuntimeCandidate? {
+            fun fromNode(node: AccessibilityNodeInfo, markId: String?): RuntimeCandidate? {
                 val rect = Rect().also { node.getBoundsInScreen(it) }
                 if (rect.width() <= 0 || rect.height() <= 0) return null
-                val text = node.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }
-                val desc = node.contentDescription?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+                val isPassword = node.isPassword
+                val context = listOfNotNull(
+                    node.className?.toString(),
+                    node.viewIdResourceName,
+                    node.contentDescription?.toString(),
+                ).joinToString(" ")
+                val text = ScreenRedactor.redactText(
+                    value = node.text?.toString(),
+                    context = context,
+                    isPassword = isPassword,
+                )
+                val desc = ScreenRedactor.redactText(
+                    value = node.contentDescription?.toString(),
+                    context = context,
+                    isPassword = isPassword,
+                )
                 val role = node.className?.toString()?.substringAfterLast('.').orEmpty()
                     .ifBlank { if (node.isClickable) "Button" else "Node" }
                 return RuntimeCandidate(
-                    markId = null,
+                    markId = markId,
                     text = text,
                     contentDescription = desc,
                     label = text ?: desc,
@@ -340,23 +423,35 @@ class SemanticPointerResolver(private val service: () -> AccessibilityService?) 
                     enabled = node.isEnabled,
                     visible = node.isVisibleToUser,
                     node = node,
+                    packageName = node.packageName?.toString()?.takeIf { it.isNotBlank() },
+                    windowId = node.windowId,
+                    isPassword = isPassword,
                 )
             }
 
-            fun fromMark(mark: AccessibilityMark): RuntimeCandidate =
-                RuntimeCandidate(
-                    markId = mark.markId,
-                    text = mark.text,
-                    contentDescription = mark.contentDescription,
-                    label = mark.text ?: mark.contentDescription ?: mark.viewIdSuffix,
-                    viewId = mark.viewIdSuffix,
-                    role = mark.role,
-                    bounds = IntRect(mark.left, mark.top, mark.right, mark.bottom),
-                    actionable = mark.clickable || mark.scrollable || mark.editable,
-                    enabled = mark.enabled,
-                    visible = mark.right > mark.left && mark.bottom > mark.top,
+            fun fromMark(
+                mark: AccessibilityMark,
+                expectedPackage: String?,
+                expectedWindowId: Int?,
+            ): RuntimeCandidate {
+                val redactedMark = ScreenRedactor.redactMark(mark)
+                return RuntimeCandidate(
+                    markId = redactedMark.markId,
+                    text = redactedMark.text,
+                    contentDescription = redactedMark.contentDescription,
+                    label = redactedMark.text ?: redactedMark.contentDescription ?: redactedMark.viewIdSuffix,
+                    viewId = redactedMark.viewIdSuffix,
+                    role = redactedMark.role,
+                    bounds = IntRect(redactedMark.left, redactedMark.top, redactedMark.right, redactedMark.bottom),
+                    actionable = redactedMark.clickable || redactedMark.scrollable || redactedMark.editable,
+                    enabled = redactedMark.enabled,
+                    visible = redactedMark.right > redactedMark.left && redactedMark.bottom > redactedMark.top,
                     node = null,
+                    packageName = expectedPackage,
+                    windowId = expectedWindowId,
+                    isPassword = redactedMark.isPassword,
                 )
+            }
         }
     }
 

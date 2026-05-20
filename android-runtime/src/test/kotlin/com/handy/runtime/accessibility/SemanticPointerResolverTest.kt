@@ -48,13 +48,103 @@ class SemanticPointerResolverTest {
         assertThat(result).isNull()
     }
 
-    private fun mark(markId: String, text: String, left: Int): AccessibilityMark =
+    @Test fun `password field never appears in ResolvedPointTarget debugCandidates`() {
+        val result = resolver.resolve(
+            spec = AssistantMarkupParser.SemanticPoint(markId = "m1"),
+            fallbackMarks = listOf(
+                mark(
+                    markId = "m1",
+                    text = "hunter2",
+                    left = 0,
+                    contentDescription = "Password",
+                    role = "EditText",
+                    isPassword = true,
+                ),
+            ),
+        )
+
+        assertThat(result).isNotNull()
+        assertThat(result!!.debugCandidates.toString()).doesNotContain("hunter2")
+        assertThat(result.debugCandidates.single().label).isEqualTo("[redacted]")
+        assertThat(result.text).isEqualTo("[redacted]")
+    }
+
+    @Test fun `OTP-like short code is masked when label context includes OTP`() {
+        val result = resolver.resolve(
+            spec = AssistantMarkupParser.SemanticPoint(markId = "m1"),
+            fallbackMarks = listOf(
+                mark(
+                    markId = "m1",
+                    text = "123456",
+                    left = 0,
+                    contentDescription = "OTP code",
+                    role = "EditText",
+                ),
+            ),
+        )
+
+        assertThat(result).isNotNull()
+        assertThat(result!!.debugCandidates.single().label).isEqualTo("[redacted]")
+        assertThat(result.debugCandidates.toString()).doesNotContain("123456")
+    }
+
+    @Test fun `card-like number passes Luhn then masked`() {
+        val result = resolver.resolve(
+            spec = AssistantMarkupParser.SemanticPoint(markId = "m1"),
+            fallbackMarks = listOf(
+                mark(
+                    markId = "m1",
+                    text = "4111 1111 1111 1111",
+                    left = 0,
+                    contentDescription = "Card number",
+                    role = "EditText",
+                ),
+            ),
+        )
+
+        assertThat(result).isNotNull()
+        assertThat(result!!.debugCandidates.single().label).isEqualTo("[redacted-card]")
+        assertThat(result.debugCandidates.toString()).doesNotContain("4111")
+    }
+
+    @Test fun `debug candidate masks diagnostics-only email and phone`() {
+        val result = resolver.resolve(
+            spec = AssistantMarkupParser.SemanticPoint(markId = "m1"),
+            fallbackMarks = listOf(
+                mark(
+                    markId = "m1",
+                    text = "satvik@example.com",
+                    left = 0,
+                    viewIdSuffix = "call_14155550199",
+                ),
+            ),
+        )
+
+        assertThat(result).isNotNull()
+        assertThat(result!!.debugCandidates.single().label).isEqualTo("[redacted-email]")
+        assertThat(result.debugCandidates.single().viewId).isEqualTo("call_[redacted-phone]")
+        assertThat(result.debugCandidates.toString()).doesNotContain("satvik@example.com")
+        assertThat(result.debugCandidates.toString()).doesNotContain("14155550199")
+    }
+
+    private fun mark(
+        markId: String,
+        text: String,
+        left: Int,
+        contentDescription: String? = null,
+        viewIdSuffix: String? = null,
+        role: String = "Button",
+        isPassword: Boolean = false,
+    ): AccessibilityMark =
         AccessibilityMark(
             markId = markId,
             text = text,
-            role = "Button",
+            contentDescription = contentDescription,
+            viewIdSuffix = viewIdSuffix,
+            role = role,
             bounds = intArrayOf(left, 0, left + 80, 48),
             clickable = true,
             enabled = true,
+            isPassword = isPassword,
         )
 }

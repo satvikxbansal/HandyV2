@@ -47,6 +47,7 @@ import com.handy.app.theme.HandyMotion
 import com.handy.app.theme.HandyTheme
 import com.handy.app.theme.ListeningWaveformBars
 import com.handy.app.theme.PointerHandIcon
+import com.handy.app.theme.noRippleClickable
 import com.handy.core.overlay.BuddyBubble
 import com.handy.core.overlay.BuddyState
 import kotlin.math.PI
@@ -266,6 +267,28 @@ fun WidgetBubbleChip(bubble: BuddyBubble) {
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.widthIn(max = 240.dp),
+        )
+    }
+}
+
+@Composable
+fun ManualTargetFallbackChip(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .background(HandyColors.GlassTint.copy(alpha = 1f), RoundedCornerShape(8.dp))
+            .border(0.5.dp, HandyColors.BubbleNavigation.copy(alpha = 0.72f), RoundedCornerShape(8.dp))
+            .noRippleClickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+    ) {
+        Text(
+            text = "Wrong one?",
+            color = HandyColors.TextPrimary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
         )
     }
 }

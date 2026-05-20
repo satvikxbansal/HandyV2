@@ -839,3 +839,51 @@ cross-references the one being superseded.
 | **Fix** | Added the four Phase 0A docs with cross-links to `HANDY_NEXT_LEVEL_PLAN.md`, each other, and the V2 scope. Prepended the V2 scope with `Lane: A — general screen-aware AI copilot` so any future Lane B proposal must flip the header in the same change. Kept `PLAYSTORE_SUBMISSION.md` untouched for the later PLAY1 pass. |
 | **Validation** | Docs-only validation: the four new docs exist, cross-link each other, and `Handy_Android_Build_Plan_V2_Scope.md` now begins with the Lane A header. |
 | **Prevention Rule** | Policy-sensitive implementation prompts should cite the Lane A docs before changing action, accessibility, notification, clipboard, or Play submission behavior. If a future change argues for Lane B, it must update the scope header and all four policy docs in the same change. |
+
+---
+
+### DL-051 — Full-chat Show-in-app missed M1 grounding guard
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-05-20 |
+| **Tags** | `#android #M1 #Pointer #FullChat #GroundingSnapshot #AuditSweep` |
+| **Severity** | Reliability / Safety Gap |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/chat/ChatViewModel.kt`, `app/src/main/kotlin/com/handy/app/chat/FullChatActionLauncher.kt`, `DEBUG_LOG.md` |
+| **Symptom** | The overlay-panel pointer path passed `GroundingSnapshot` into `BuddyFlightDriver.flyToAndTap`, but the full-chat "Show me in app" CTA still called `flyToAndTap` with only cached marks. That preserved the resolved `markId`, but dropped the new M1 expected package/window/hash guard on this cross-surface path. |
+| **Root Cause** | The M1 implementation updated the primary overlay call site and the shared `flyToAndTap` API, but the older full-chat handoff object still carried only `PanelSnapshot`. This was missed because the new API made `groundingSnapshot` optional for backwards compatibility, so Kotlin compilation did not force every downstream caller to make an explicit safety decision. Context compaction made it easier to focus on the active overlay path and skip the existing "Show me in app" lifecycle from DL-042. |
+| **Fix** | Added `groundingSnapshot` to `FullChatShowInAppAction`, populated it from the per-turn `GroundingSnapshot` in `ChatViewModel.buildShowInAppAction`, and passed it through `FullChatActionLauncher.launch` into `BuddyFlightDriver.flyToAndTap`. Full-chat pointer actions now use the same expected package/window/hash handoff as overlay-panel turns whenever that grounding exists. |
+| **Validation** | `JAVA_HOME=$HOME/.gradle/jdks/eclipse_adoptium-17-aarch64-os_x.2/jdk-17.0.18+8/Contents/Home ./gradlew :core:test :android-runtime:test :app:testDebugUnitTest --stacktrace` passed after the fix. The first Kotlin daemon attempt hit an incremental-cache close error and Gradle automatically retried without the daemon; the fallback compile/test run completed successfully. |
+| **Prevention Rule** | When a safety field is added to a shared action API, avoid optional defaults on internal call paths unless there is a named legacy wrapper. Search every call site and either pass the new guard data or add a comment explaining why the path cannot provide it. Cross-surface handoffs must carry the full per-turn grounding object, not just the UI marks needed for pointer display. |
+
+---
+
+### DL-052 — Diagnostics redaction screenshot test had stale Compose test imports
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-05-20 |
+| **Tags** | `#androidTest #Compose #M2 #Diagnostics #Redaction` |
+| **Severity** | Test Compile Error |
+| **File(s)** | `app/src/androidTest/kotlin/com/handy/app/diagnostics/DiagnosticsActivityRedactionScreenshotTest.kt`, `DEBUG_LOG.md` |
+| **Symptom** | `:app:compileDebugAndroidTestKotlin` failed with unresolved references for `androidx.compose.ui.test.assertExists` and `androidx.compose.ui.test.assertDoesNotExist`. The test body was valid, but those APIs are available as methods on `SemanticsNodeInteraction` in the Compose UI test dependency currently resolved by the app, not as importable top-level functions. |
+| **Root Cause** | The M2 redaction work added a screenshot-style instrumentation test but only the JVM/unit suite was run immediately afterward. Because the app's main and unit-test source sets compiled, the instrumented-test import mismatch stayed hidden until this audit explicitly compiled `debugAndroidTest`. |
+| **Fix** | Removed the two stale top-level imports and kept the existing method calls (`compose.onNodeWithText(...).assertExists()` / `.assertDoesNotExist()`) unchanged. |
+| **Validation** | `JAVA_HOME=$HOME/.gradle/jdks/eclipse_adoptium-17-aarch64-os_x.2/jdk-17.0.18+8/Contents/Home ./gradlew :app:compileDebugAndroidTestKotlin --stacktrace` passed after the import cleanup. |
+| **Prevention Rule** | Any change under `app/src/androidTest` must be validated with at least `:app:compileDebugAndroidTestKotlin`, even when no device is available. JVM unit tests do not compile instrumentation-only imports, runners, or Compose UI test APIs. |
+
+---
+
+### DL-053 — G1/D1 lint annotations were left unwired
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-05-20 |
+| **Tags** | `#lint #G1 #D1 #Connectivity #Capture #CI` |
+| **Severity** | CI Blocker |
+| **File(s)** | `android-runtime/src/main/kotlin/com/handy/runtime/llm/ClaudeLlmClient.kt`, `android-runtime/src/main/kotlin/com/handy/runtime/capture/ScreenCapturePipeline.kt`, `DEBUG_LOG.md` |
+| **Symptom** | `./gradlew check` still failed in `:android-runtime:lintDebug`: `NetworkDiagnostics` called `ConnectivityManager.activeNetwork/getNetworkCapabilities/getLinkProperties` without a library-level permission suppression, and `ScreenCapturePipeline` called API 30/34 screenshot paths through a test-injectable `sdkInt` gate that lint could not prove. |
+| **Root Cause** | DL-049 documented these lint failures during the docs-only D1 pass but production code was intentionally left untouched there. G1 then added more screenshot API wiring, but the lint proof was not added in the same commit. The runtime behavior was guarded, but CI needs explicit annotations because `:android-runtime` has no manifest of its own and because `sdkInt` is an injectable constructor value rather than a direct `Build.VERSION.SDK_INT` branch lint can infer. |
+| **Fix** | Added a focused `@SuppressLint("MissingPermission")` to `NetworkDiagnostics.from(...)`, wrapped connectivity reads in `runCatching`, guarded `NET_CAPABILITY_NOT_SUSPENDED` behind API 28, added `@SuppressLint("NewApi")` at the capture dispatch boundary, and marked `hardwareBufferToBitmap` as API 30+. |
+| **Validation** | `JAVA_HOME=$HOME/.gradle/jdks/eclipse_adoptium-17-aarch64-os_x.2/jdk-17.0.18+8/Contents/Home ./gradlew check --stacktrace` passed after the patch. |
+| **Prevention Rule** | When a phase adds code specifically to support CI, run the CI-representative task before closing the phase. For Android libraries, manifest permissions in the app module do not satisfy lint proof inside the library module; add narrow suppressions with runtime guards where the app-owned manifest is the real contract. |

@@ -31,6 +31,7 @@ data class AuditEvent(
 sealed class AuditAction {
     @Serializable @SerialName("tap") data object Tap : AuditAction()
     @Serializable @SerialName("long_press") data object LongPress : AuditAction()
+    @Serializable @SerialName("manual_select") data object ManualSelect : AuditAction()
     @Serializable @SerialName("scroll") data class Scroll(val direction: String) : AuditAction()
     @Serializable @SerialName("swipe") data class Swipe(val direction: String) : AuditAction()
     @Serializable @SerialName("intent") data class Intent(val name: String) : AuditAction()

@@ -24,11 +24,12 @@ import com.handy.app.chat.ChatActivity
 import com.handy.app.chat.ChatTargetHandoffStore
 import com.handy.app.voice.VoiceController
 import com.handy.app.widget.BezierFlightController
+import com.handy.app.widget.ManualTargetFallbackChip
 import com.handy.app.widget.WidgetContent
 import com.handy.app.widget.WidgetBubbleChip
 import com.handy.app.widget.WidgetState
-import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.overlay.BuddyState
+import com.handy.core.overlay.OverlayMode
 import com.handy.runtime.accessibility.AccessibilityMarksProvider
 import com.handy.runtime.accessibility.SemanticPointerResolver
 import com.handy.runtime.storage.DataStoreSettings
@@ -71,9 +72,11 @@ class FloatingWidgetOverlayService : LifecycleService() {
     @Inject lateinit var pointerResolver: SemanticPointerResolver
     @Inject lateinit var flightDriver: BuddyFlightDriver
     @Inject lateinit var chatTargetHandoffStore: ChatTargetHandoffStore
+    @Inject lateinit var manualTargetSelector: ManualTargetSelector
 
     private var host: OverlayComposeHost? = null
     private var bubbleHost: OverlayComposeHost? = null
+    private var manualChipHost: OverlayComposeHost? = null
     private val flightController = BezierFlightController()
     // Dock coordinates captured whenever the buddy enters DOCKED — flight
     // returns here regardless of where it took off from.
@@ -81,9 +84,11 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private var dockY: Int = 0
     private var view: android.view.View? = null
     private var bubbleView: android.view.View? = null
+    private var manualChipView: android.view.View? = null
     private lateinit var windowManager: WindowManager
     private lateinit var params: WindowManager.LayoutParams
     private var bubbleParams: WindowManager.LayoutParams? = null
+    private var manualChipParams: WindowManager.LayoutParams? = null
     private var bubblePlacementHint: BubblePlacementHint = BubblePlacementHint.Side
 
     private val state = MutableStateFlow(WidgetState.IDLE)
@@ -100,6 +105,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private var windowStartY = 0
     private var dragging = false
     private var longPressFired = false
+    private var manualTargetLongPressFired = false
     private val longPressRunnable = Runnable {
         longPressFired = true
         view?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
@@ -124,6 +130,11 @@ class FloatingWidgetOverlayService : LifecycleService() {
             Timber.d("Widget: voice start refused — check RECORD_AUDIO")
         }
     }
+    private val manualTargetLongPressRunnable = Runnable {
+        manualTargetLongPressFired = true
+        view?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        manualTargetSelector.begin(ManualTargetSelector.Trigger.WidgetLongPress)
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -147,7 +158,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
         // WindowManager view lifecycle.
         lifecycleScope.launch {
             presenter.state
-                .map { it.mode == com.handy.core.overlay.OverlayMode.ChatPanel }
+                .map { it.mode == OverlayMode.ChatPanel }
                 .distinctUntilChanged()
                 .collectLatest { panelVisible ->
                     if (panelVisible) {
@@ -211,6 +222,19 @@ class FloatingWidgetOverlayService : LifecycleService() {
                         detachBubbleOverlay()
                     } else {
                         attachBubbleOverlayIfNeeded()
+                    }
+                }
+        }
+
+        lifecycleScope.launch {
+            presenter.state
+                .map { it.mode == OverlayMode.Pointing && it.buddyState == BuddyState.POINTING }
+                .distinctUntilChanged()
+                .collectLatest { showManualChip ->
+                    if (showManualChip) {
+                        attachManualFallbackChipIfNeeded()
+                    } else {
+                        detachManualFallbackChip()
                     }
                 }
         }
@@ -283,6 +307,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
 
     private fun detachOverlay() {
         detachBubbleOverlay()
+        detachManualFallbackChip()
         val v = view
         val h = host
         view = null
@@ -337,11 +362,62 @@ class FloatingWidgetOverlayService : LifecycleService() {
         h?.release()
     }
 
+    private fun attachManualFallbackChipIfNeeded() {
+        if (manualChipView != null) {
+            updateManualChipPosition()
+            return
+        }
+        val host = OverlayComposeHost(this).also { manualChipHost = it }
+        val composeView = host.createView {
+            ManualTargetFallbackChip(
+                onClick = {
+                    manualTargetSelector.begin(ManualTargetSelector.Trigger.Chip)
+                },
+            )
+        }
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            manualChipFlags(),
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = params.x
+            y = params.y
+        }
+        manualChipParams = lp
+        runCatching { windowManager.addView(composeView, lp) }
+            .onSuccess {
+                manualChipView = composeView
+                applyOverlayVisibility()
+                composeView.post { updateManualChipPosition() }
+            }
+            .onFailure {
+                Timber.e(it, "Manual target chip attach failed")
+                manualChipHost = null
+                manualChipParams = null
+                host.release()
+            }
+    }
+
+    private fun detachManualFallbackChip() {
+        val v = manualChipView
+        val h = manualChipHost
+        manualChipView = null
+        manualChipHost = null
+        manualChipParams = null
+        if (v != null) runCatching { windowManager.removeView(v) }
+        h?.release()
+    }
+
     private fun onTouch(v: android.view.View, event: MotionEvent): Boolean {
         val slop = ViewConfiguration.get(this).scaledTouchSlop
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                if (presenter.state.value.isFlying) {
+                val overlayState = presenter.state.value
+                val isStickyPointing = overlayState.buddyState == BuddyState.POINTING
+                if (overlayState.isFlying && !isStickyPointing) {
                     flightDriver.cancel()
                     resetPointerPose()
                 }
@@ -351,8 +427,12 @@ class FloatingWidgetOverlayService : LifecycleService() {
                 windowStartY = params.y
                 dragging = false
                 longPressFired = false
+                manualTargetLongPressFired = false
                 state.value = WidgetState.TOUCHED
-                mainHandler.postDelayed(longPressRunnable, LONG_PRESS_MS)
+                mainHandler.postDelayed(
+                    if (isStickyPointing) manualTargetLongPressRunnable else longPressRunnable,
+                    LONG_PRESS_MS,
+                )
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
@@ -361,6 +441,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
                 if (!dragging && hypot(dx, dy) > slop) {
                     dragging = true
                     mainHandler.removeCallbacks(longPressRunnable)
+                    mainHandler.removeCallbacks(manualTargetLongPressRunnable)
                     if (longPressFired) {
                         // Widget dragged while listening — abort the voice
                         // session without submitting anything.
@@ -376,15 +457,22 @@ class FloatingWidgetOverlayService : LifecycleService() {
                     params.x = (windowStartX + dx.toInt()).coerceIn(0, screenW - (v.width.takeIf { it > 0 } ?: 1))
                     params.y = (windowStartY + dy.toInt()).coerceIn(0, screenH - (v.height.takeIf { it > 0 } ?: 1))
                     runCatching { windowManager.updateViewLayout(v, params) }
+                    updateBubblePosition()
+                    updateManualChipPosition()
                 }
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 mainHandler.removeCallbacks(longPressRunnable)
+                mainHandler.removeCallbacks(manualTargetLongPressRunnable)
                 when {
                     dragging -> {
                         snapToNearestEdge(v)
                         state.value = WidgetState.IDLE
+                    }
+                    manualTargetLongPressFired -> {
+                        manualTargetLongPressFired = false
+                        state.value = WidgetState.POINTING
                     }
                     longPressFired -> {
                         longPressFired = false
@@ -423,7 +511,9 @@ class FloatingWidgetOverlayService : LifecycleService() {
                         }
                     }
                     else -> {
-                        state.value = WidgetState.IDLE
+                        val isStickyPointing = presenter.state.value.buddyState == BuddyState.POINTING
+                        state.value = if (isStickyPointing) WidgetState.POINTING else WidgetState.IDLE
+                        if (isStickyPointing) return true
                         lifecycleScope.launch {
                             val snapshot = settings.current()
                             if (snapshot.useOverlayChatPanel) {
@@ -456,6 +546,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
                 params.x = value.toInt()
                 runCatching { windowManager.updateViewLayout(v, params) }
                 updateBubblePosition()
+                updateManualChipPosition()
             }
             start()
         }
@@ -473,6 +564,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
         params.y = y
         runCatching { windowManager.updateViewLayout(v, params) }
         updateBubblePosition()
+        updateManualChipPosition()
     }
 
     internal fun updatePointerPose(
@@ -555,6 +647,9 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private fun bubbleFlags(): Int =
         idleFlags() or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
 
+    private fun manualChipFlags(): Int =
+        idleFlags()
+
     private fun updateBubblePosition() {
         val widget = view ?: return
         val bubble = bubbleView ?: return
@@ -610,6 +705,27 @@ class FloatingWidgetOverlayService : LifecycleService() {
         runCatching { windowManager.updateViewLayout(bubble, lp) }
     }
 
+    private fun updateManualChipPosition() {
+        val widget = view ?: return
+        val chip = manualChipView ?: return
+        val lp = manualChipParams ?: return
+        val gap = (resources.displayMetrics.density * 8f).toInt()
+        val screenW = resources.displayMetrics.widthPixels
+        val screenH = resources.displayMetrics.heightPixels
+        val widgetW = widget.width.takeIf { it > 0 } ?: 1
+        val widgetH = widget.height.takeIf { it > 0 } ?: 1
+        val chipW = chip.width.takeIf { it > 0 } ?: 1
+        val chipH = chip.height.takeIf { it > 0 } ?: 1
+        val maxX = (screenW - chipW).coerceAtLeast(0)
+        val maxY = (screenH - chipH).coerceAtLeast(0)
+        val centeredX = (params.x + widgetW / 2 - chipW / 2).coerceIn(0, maxX)
+        val belowY = params.y + widgetH + gap
+        val aboveY = params.y - chipH - gap
+        lp.x = centeredX
+        lp.y = if (belowY <= maxY) belowY else aboveY.coerceIn(0, maxY)
+        runCatching { windowManager.updateViewLayout(chip, lp) }
+    }
+
     private fun canDrawOverlays(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
 
@@ -636,6 +752,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
         val visibility = if (isHandyActivityForeground) android.view.View.GONE else android.view.View.VISIBLE
         view?.visibility = visibility
         bubbleView?.visibility = visibility
+        manualChipView?.visibility = visibility
     }
 
     companion object {

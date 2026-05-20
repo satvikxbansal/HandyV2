@@ -5,6 +5,7 @@ import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.LlmChunk
 import com.handy.core.llm.LlmClient
 import com.handy.core.llm.LlmRequest
+import com.handy.core.llm.ToolRunner
 import com.handy.core.model.ChatMessage
 import com.handy.core.model.ConversationTurn
 import com.handy.core.model.HandySettings
@@ -35,6 +36,9 @@ class Os5SecureWindowTest {
         val llm = object : LlmClient {
             override val modelId: String = "forbidden"
             override fun streamChat(request: LlmRequest): Flow<LlmChunk> {
+                throw AssertionError("LlmClient must not be called on SecureWindow")
+            }
+            override fun streamToolAwareChat(request: LlmRequest, runner: ToolRunner): Flow<LlmChunk> {
                 throw AssertionError("LlmClient must not be called on SecureWindow")
             }
         }

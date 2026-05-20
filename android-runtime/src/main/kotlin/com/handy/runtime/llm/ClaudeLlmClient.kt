@@ -1,8 +1,10 @@
 package com.handy.runtime.llm
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.os.Build
 import android.util.Base64
 import com.handy.core.llm.LlmChunk
 import com.handy.core.llm.LlmClient
@@ -319,21 +321,27 @@ class NetworkDiagnostics private constructor(
     companion object {
         val Noop: NetworkDiagnostics = NetworkDiagnostics { "unavailable" }
 
+        @SuppressLint("MissingPermission")
         fun from(context: Context): NetworkDiagnostics {
             val appContext = context.applicationContext
             return NetworkDiagnostics {
                 val connectivity = appContext.getSystemService(ConnectivityManager::class.java)
                     ?: return@NetworkDiagnostics "connectivityManager=null"
-                val active = connectivity.activeNetwork
+                val active = runCatching { connectivity.activeNetwork }.getOrNull()
                     ?: return@NetworkDiagnostics "activeNetwork=null"
-                val capabilities = connectivity.getNetworkCapabilities(active)
-                val linkProperties = connectivity.getLinkProperties(active)
+                val capabilities = runCatching { connectivity.getNetworkCapabilities(active) }.getOrNull()
+                val linkProperties = runCatching { connectivity.getLinkProperties(active) }.getOrNull()
+                val notSuspended = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED) == true
+                } else {
+                    null
+                }
                 buildString {
                     append("activeNetwork=").append(active)
                     append(" transports=").append(capabilities.transportNames())
                     append(" internet=").append(capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true)
                     append(" validated=").append(capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true)
-                    append(" notSuspended=").append(capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED) == true)
+                    if (notSuspended != null) append(" notSuspended=").append(notSuspended)
                     append(" dns=").append(
                         linkProperties
                             ?.dnsServers

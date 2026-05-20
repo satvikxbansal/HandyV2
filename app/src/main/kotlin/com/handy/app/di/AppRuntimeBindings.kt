@@ -1,5 +1,6 @@
 package com.handy.app.di
 
+import android.content.Context
 import com.handy.app.accessibility.AccessibilityGestureActionPerformer
 import com.handy.app.accessibility.HandyAccessibilityService
 import com.handy.app.accessibility.SwitchingActionPerformer
@@ -11,6 +12,7 @@ import com.handy.core.foreground.ForegroundAppMonitor
 import com.handy.core.llm.ConfirmationPrompter
 import com.handy.runtime.accessibility.AccessibilityMarksProvider
 import com.handy.runtime.accessibility.AccessibilityTreeReader
+import com.handy.runtime.accessibility.LiveScreenGuard
 import com.handy.runtime.accessibility.SemanticPointerResolver
 import com.handy.runtime.capture.MediaProjectionCaptureSourceImpl
 import com.handy.runtime.capture.ScreenCapturePipeline
@@ -19,6 +21,7 @@ import com.handy.runtime.storage.DataStoreSettings
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
@@ -59,7 +62,11 @@ object AppRuntimeBindings {
     @Singleton
     fun provideSemanticPointerResolver(
         provider: AccessibilityServiceProvider,
-    ): SemanticPointerResolver = SemanticPointerResolver(service = { provider() })
+        @ApplicationContext context: Context,
+    ): SemanticPointerResolver = SemanticPointerResolver(
+        service = { provider() },
+        applicationPackageName = context.packageName,
+    )
 
     @Provides
     @Singleton
@@ -78,11 +85,13 @@ object AppRuntimeBindings {
     fun provideAccessibilityGestureActionPerformer(
         accessibilityProvider: AccessibilityServiceProvider,
         resolver: SemanticPointerResolver,
+        liveScreenGuard: LiveScreenGuard,
         auditStore: AuditStore,
         foregroundMonitor: HandyForegroundAppMonitor,
     ): AccessibilityGestureActionPerformer = AccessibilityGestureActionPerformer(
         service = accessibilityProvider,
         resolver = resolver,
+        liveScreenGuard = liveScreenGuard,
         auditStore = auditStore,
         foregroundPackageProvider = {
             foregroundMonitor.refreshNow()?.packageName
