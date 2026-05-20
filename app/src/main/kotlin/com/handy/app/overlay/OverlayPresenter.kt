@@ -5,6 +5,7 @@ import com.handy.core.foreground.ForegroundAppSnapshot
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.overlay.BuddyBubble
 import com.handy.core.overlay.BuddyState
+import com.handy.core.overlay.FlightFsm
 import com.handy.core.overlay.OverlayMode
 import com.handy.core.overlay.OverlayPanelState
 import com.handy.core.overlay.PanelContent
@@ -44,6 +45,32 @@ class OverlayPresenter @Inject constructor(
     private val _state = MutableStateFlow(OverlayPanelState())
     val state: StateFlow<OverlayPanelState> = _state.asStateFlow()
 
+    private fun setState(
+        event: String,
+        target: FlightFsm? = null,
+        reducer: (OverlayPanelState) -> OverlayPanelState,
+    ) {
+        val snapshot = _state.value
+        val nextFsm = target ?: snapshot.flightFsm
+        if (nextFsm != snapshot.flightFsm) {
+            require(isLegalTransition(snapshot.flightFsm, nextFsm)) {
+                "Illegal flight FSM transition ${snapshot.flightFsm} -> $nextFsm via $event"
+            }
+        }
+        _state.value = reducer(snapshot).copy(flightFsm = nextFsm)
+    }
+
+    private fun forceDocked(
+        event: String,
+        reducer: (OverlayPanelState) -> OverlayPanelState,
+    ) {
+        val snapshot = _state.value
+        require(snapshot.flightFsm.canResetToDocked()) {
+            "Illegal flight FSM transition ${snapshot.flightFsm} -> ${FlightFsm.Docked} via $event"
+        }
+        _state.value = reducer(snapshot).copy(flightFsm = FlightFsm.Docked)
+    }
+
     // ---- widget-side entry points ------------------------------------------
 
     /**
@@ -62,7 +89,7 @@ class OverlayPresenter @Inject constructor(
             snapshot?.toolContext?.appLabel,
             category,
         )
-        _state.value = _state.value.copy(
+        setState(event = "onWidgetTap") { it.copy(
             mode = OverlayMode.ChatPanel,
             buddyState = BuddyState.DOCKED,
             isFlying = false,
@@ -72,7 +99,7 @@ class OverlayPresenter @Inject constructor(
                 greeting = greeting,
             ),
             bubble = null,
-        )
+        ) }
         Timber.d(
             "OverlayPresenter: panel open, pkg=%s category=%s marks=%d",
             snapshot?.toolContext?.packageName,
@@ -92,54 +119,60 @@ class OverlayPresenter @Inject constructor(
         clock: () -> Long = { System.currentTimeMillis() },
     ) {
         val snapshot = captureSnapshot(marksProvider, clock)
-        _state.value = _state.value.copy(
+        setState(
+            event = "onWidgetLongPressArmed",
+            target = FlightFsm.Listening,
+        ) { current -> current.copy(
             buddyState = BuddyState.LISTENING,
             isFlying = false,
             bubble = BuddyBubble.Transcript(""),
-            panel = _state.value.panel.copy(
-                snapshot = snapshot ?: _state.value.panel.snapshot,
+            panel = current.panel.copy(
+                snapshot = snapshot ?: current.panel.snapshot,
                 isListening = true,
                 partialTranscript = "",
             ),
-        )
+        ) }
     }
 
     fun onWidgetDragStart() {
-        _state.value = _state.value.copy(
+        setState(event = "onWidgetDragStart") { it.copy(
             buddyState = BuddyState.DRAGGING,
             isFlying = false,
             bubble = null,
-        )
+        ) }
     }
 
     fun onWidgetIdle() {
-        _state.value = _state.value.copy(
+        forceDocked(event = "onWidgetIdle") { it.copy(
             mode = OverlayMode.IdleWidget,
             buddyState = BuddyState.DOCKED,
             isFlying = false,
             bubble = null,
             panel = PanelContent(),
-        )
+        ) }
     }
 
     fun onWidgetThinking() {
-        _state.value = _state.value.copy(
+        setState(
+            event = "onWidgetThinking",
+            target = FlightFsm.Thinking,
+        ) { it.copy(
             buddyState = BuddyState.THINKING,
             isFlying = false,
             bubble = null,
-        )
+        ) }
     }
 
     fun dismissPanel() {
         val snapshot = _state.value
         if (snapshot.mode != OverlayMode.ChatPanel) return
-        _state.value = snapshot.copy(
+        forceDocked(event = "dismissPanel") { snapshot.copy(
             mode = OverlayMode.IdleWidget,
             buddyState = BuddyState.DOCKED,
             isFlying = false,
             panel = PanelContent(),
             bubble = snapshot.bubble,
-        )
+        ) }
     }
 
     // ---- voice + chat wiring ------------------------------------------------
@@ -147,27 +180,32 @@ class OverlayPresenter @Inject constructor(
     fun updatePartialTranscript(partial: String) {
         val snapshot = _state.value
         if (!snapshot.panel.isListening && snapshot.buddyState != BuddyState.LISTENING) return
-        _state.value = snapshot.copy(
+        setState(event = "updatePartialTranscript") { snapshot.copy(
             panel = snapshot.panel.copy(partialTranscript = partial),
             bubble = if (partial.isNotBlank()) BuddyBubble.Transcript(partial) else snapshot.bubble,
-        )
+        ) }
     }
 
     fun onPanelVoiceStarted() {
-        val snapshot = _state.value
-        _state.value = snapshot.copy(
+        setState(
+            event = "onPanelVoiceStarted",
+            target = FlightFsm.Listening,
+        ) { snapshot -> snapshot.copy(
             buddyState = BuddyState.LISTENING,
             panel = snapshot.panel.copy(
                 isListening = true,
                 partialTranscript = "",
             ),
             bubble = BuddyBubble.Transcript(""),
-        )
+        ) }
     }
 
     fun onVoiceFinalized(transcript: String?) {
-        val snapshot = _state.value
-        _state.value = snapshot.copy(
+        val target = if (transcript.isNullOrBlank()) FlightFsm.Docked else FlightFsm.Thinking
+        setState(
+            event = "onVoiceFinalized",
+            target = target,
+        ) { snapshot -> snapshot.copy(
             buddyState = if (transcript.isNullOrBlank()) BuddyState.DOCKED else BuddyState.THINKING,
             isFlying = false,
             panel = snapshot.panel.copy(
@@ -176,12 +214,14 @@ class OverlayPresenter @Inject constructor(
                 isStreaming = !transcript.isNullOrBlank(),
             ),
             bubble = if (transcript.isNullOrBlank()) null else snapshot.bubble,
-        )
+        ) }
     }
 
     fun onStreamingStart() {
-        val snapshot = _state.value
-        _state.value = snapshot.copy(
+        setState(
+            event = "onStreamingStart",
+            target = FlightFsm.Answering,
+        ) { snapshot -> snapshot.copy(
             buddyState = BuddyState.STREAMING,
             isFlying = false,
             panel = snapshot.panel.copy(
@@ -189,14 +229,13 @@ class OverlayPresenter @Inject constructor(
                 streamingDelta = "",
             ),
             bubble = null,
-        )
+        ) }
     }
 
     fun onStreamingDelta(accumulated: String) {
-        val snapshot = _state.value
-        _state.value = snapshot.copy(
+        setState(event = "onStreamingDelta") { snapshot -> snapshot.copy(
             panel = snapshot.panel.copy(streamingDelta = accumulated),
-        )
+        ) }
     }
 
     /**
@@ -205,11 +244,14 @@ class OverlayPresenter @Inject constructor(
      * `AssistantMarkupParser.clampVoiceSpokenForOverlay`).
      */
     fun onResponseFinalized(overlayClamped: String?, chatText: String) {
-        val snapshot = _state.value
         val bubble = overlayClamped
             ?.takeIf { it.isNotBlank() }
             ?.let(BuddyBubble::Response)
-        _state.value = snapshot.copy(
+        val target = if (bubble != null) FlightFsm.ActionResult else FlightFsm.Docked
+        setState(
+            event = "onResponseFinalized",
+            target = target,
+        ) { snapshot -> snapshot.copy(
             buddyState = if (bubble != null) BuddyState.SPEAKING else BuddyState.DOCKED,
             isFlying = false,
             bubble = bubble,
@@ -219,20 +261,22 @@ class OverlayPresenter @Inject constructor(
                 recentResponsePreview = chatText.takeTrimmed(180),
                 loadingVerb = "",
             ),
-        )
+        ) }
     }
 
     fun setLoadingVerb(verb: String) {
         val snapshot = _state.value
         if (!snapshot.panel.isStreaming && snapshot.buddyState != BuddyState.THINKING) return
-        _state.value = snapshot.copy(
+        setState(event = "setLoadingVerb") { snapshot.copy(
             panel = snapshot.panel.copy(loadingVerb = verb),
-        )
+        ) }
     }
 
     fun onError(message: String) {
-        val snapshot = _state.value
-        _state.value = snapshot.copy(
+        setState(
+            event = "onError",
+            target = FlightFsm.Error,
+        ) { snapshot -> snapshot.copy(
             buddyState = BuddyState.DOCKED,
             isFlying = false,
             bubble = null,
@@ -242,68 +286,110 @@ class OverlayPresenter @Inject constructor(
                 loadingVerb = "",
                 errorBanner = message,
             ),
-        )
+        ) }
     }
 
     fun dismissError() {
         val snapshot = _state.value
-        _state.value = snapshot.copy(
+        val target = if (snapshot.flightFsm == FlightFsm.Error) FlightFsm.Docked else snapshot.flightFsm
+        setState(
+            event = "dismissError",
+            target = target,
+        ) { snapshot.copy(
             panel = snapshot.panel.copy(errorBanner = null),
-        )
+        ) }
     }
 
     // ---- buddy flight (populated in Phase 2) --------------------------------
 
     fun onPreparingPoint(label: String?) {
-        _state.value = _state.value.copy(
+        setState(
+            event = "onPreparingPoint",
+            target = FlightFsm.PreparingPoint,
+        ) { it.copy(
             mode = OverlayMode.Flying,
             buddyState = BuddyState.PREPARING_POINT,
             isFlying = true,
             bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Navigation),
-        )
+        ) }
     }
 
     fun onFlyingStart(label: String?) {
-        _state.value = _state.value.copy(
+        setState(
+            event = "onFlyingStart",
+            target = FlightFsm.Flying,
+        ) { it.copy(
             mode = OverlayMode.Flying,
             buddyState = BuddyState.FLYING,
             isFlying = true,
             bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Navigation),
-        )
+        ) }
     }
 
     fun onPointingArrived(label: String?) {
-        _state.value = _state.value.copy(
+        setState(
+            event = "onPointingArrived",
+            target = FlightFsm.Pointing,
+        ) { current -> current.copy(
             mode = OverlayMode.Pointing,
             buddyState = BuddyState.POINTING,
             isFlying = true,
             bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Navigation)
-                ?: _state.value.bubble,
-        )
+                ?: current.bubble,
+        ) }
     }
 
     fun onManualTargetFallbackAvailable(label: String?) {
-        _state.value = _state.value.copy(
+        setState(
+            event = "onManualTargetFallbackAvailable",
+            target = FlightFsm.Pointing,
+        ) { current -> current.copy(
             mode = OverlayMode.Pointing,
             buddyState = BuddyState.POINTING,
             isFlying = true,
             bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Navigation)
-                ?: _state.value.bubble,
-        )
+                ?: current.bubble,
+        ) }
     }
 
     fun onManualTargetSelectionStarted() {
-        _state.value = _state.value.copy(
+        setState(
+            event = "onManualTargetSelectionStarted",
+            target = FlightFsm.Pointing,
+        ) { it.copy(
             mode = OverlayMode.ManualTargetSelection,
             buddyState = BuddyState.POINTING,
             isFlying = true,
             bubble = null,
-        )
+        ) }
+    }
+
+    fun onReturningToDock(reason: String? = null) {
+        setState(
+            event = "onReturningToDock",
+            target = FlightFsm.Returning,
+        ) { it.copy(
+            mode = OverlayMode.Flying,
+            buddyState = BuddyState.CANCELLING,
+            isFlying = true,
+            bubble = null,
+            lastFlightCancellationReason = reason ?: it.lastFlightCancellationReason,
+        ) }
     }
 
     fun onPointingReturned() {
-        _state.value = _state.value.copy(
+        val snapshot = _state.value
+        require(
+            snapshot.flightFsm == FlightFsm.Returning ||
+                snapshot.flightFsm == FlightFsm.Pointing ||
+                snapshot.flightFsm == FlightFsm.Flying ||
+                snapshot.flightFsm == FlightFsm.PreparingPoint,
+        ) {
+            "Illegal flight FSM transition ${snapshot.flightFsm} -> ${FlightFsm.Docked} via onPointingReturned"
+        }
+        _state.value = snapshot.copy(
             mode = OverlayMode.IdleWidget,
+            flightFsm = FlightFsm.Docked,
             buddyState = BuddyState.DOCKED,
             isFlying = false,
             bubble = null,
@@ -313,30 +399,117 @@ class OverlayPresenter @Inject constructor(
     // ---- action bubble (Phase 3) --------------------------------------------
 
     fun onActionStarted(label: String) {
-        _state.value = _state.value.copy(
+        setState(
+            event = "onActionStarted",
+            target = FlightFsm.Acting,
+        ) { it.copy(
             mode = OverlayMode.Acting,
             buddyState = BuddyState.ACTING,
             bubble = BuddyBubble.Action(label),
-        )
+        ) }
     }
 
     fun onActionFinished() {
-        _state.value = _state.value.copy(
+        setState(
+            event = "onActionFinished",
+            target = FlightFsm.ActionResult,
+        ) { it.copy(
             mode = OverlayMode.IdleWidget,
             buddyState = BuddyState.DOCKED,
             isFlying = false,
             bubble = null,
-        )
+        ) }
     }
 
     fun setPendingConfirmation(req: PanelContent.PendingConfirmation?) {
         val snapshot = _state.value
-        _state.value = snapshot.copy(
+        val target = when {
+            req != null && snapshot.flightFsm != FlightFsm.ActionConfirm -> FlightFsm.ActionConfirm
+            req == null && snapshot.flightFsm == FlightFsm.ActionConfirm -> FlightFsm.Docked
+            else -> snapshot.flightFsm
+        }
+        setState(
+            event = "setPendingConfirmation",
+            target = target,
+        ) { snapshot.copy(
             panel = snapshot.panel.copy(pendingConfirmation = req),
-        )
+        ) }
     }
 
     // ---- helpers ------------------------------------------------------------
+
+    private fun isLegalTransition(from: FlightFsm, to: FlightFsm): Boolean =
+        from == to || when (to) {
+            FlightFsm.Docked -> from.canResetToDocked()
+            FlightFsm.Listening -> from in setOf(FlightFsm.Docked, FlightFsm.ActionResult, FlightFsm.Error)
+            FlightFsm.Thinking -> from in setOf(
+                FlightFsm.Docked,
+                FlightFsm.Listening,
+                FlightFsm.ActionResult,
+                FlightFsm.Error,
+            )
+            FlightFsm.Answering -> from in setOf(
+                FlightFsm.Docked,
+                FlightFsm.Listening,
+                FlightFsm.Thinking,
+                FlightFsm.ActionConfirm,
+                FlightFsm.ActionResult,
+                FlightFsm.Error,
+            )
+            FlightFsm.PreparingPoint -> from in setOf(
+                FlightFsm.Docked,
+                FlightFsm.Thinking,
+                FlightFsm.Answering,
+                FlightFsm.Pointing,
+                FlightFsm.ActionResult,
+            )
+            FlightFsm.Flying -> from == FlightFsm.PreparingPoint
+            FlightFsm.Pointing -> from in setOf(
+                FlightFsm.PreparingPoint,
+                FlightFsm.Flying,
+                FlightFsm.Pointing,
+            )
+            FlightFsm.ActionConfirm -> from in setOf(
+                FlightFsm.Docked,
+                FlightFsm.Thinking,
+                FlightFsm.Answering,
+                FlightFsm.Pointing,
+                FlightFsm.ActionResult,
+            )
+            FlightFsm.Acting -> from in setOf(
+                FlightFsm.Docked,
+                FlightFsm.Pointing,
+                FlightFsm.ActionConfirm,
+                FlightFsm.ActionResult,
+            )
+            FlightFsm.ActionResult -> from in setOf(
+                FlightFsm.Answering,
+                FlightFsm.Acting,
+                FlightFsm.ActionConfirm,
+            )
+            FlightFsm.Returning -> from in setOf(
+                FlightFsm.PreparingPoint,
+                FlightFsm.Flying,
+                FlightFsm.Pointing,
+                FlightFsm.ActionConfirm,
+                FlightFsm.Acting,
+                FlightFsm.ActionResult,
+            )
+            FlightFsm.Error -> from != FlightFsm.Error
+        }
+
+    private fun FlightFsm.canResetToDocked(): Boolean =
+        this in setOf(
+            FlightFsm.Docked,
+            FlightFsm.Listening,
+            FlightFsm.Thinking,
+            FlightFsm.Answering,
+            FlightFsm.ActionConfirm,
+            FlightFsm.Acting,
+            FlightFsm.ActionResult,
+            FlightFsm.Returning,
+            FlightFsm.Error,
+        )
 
     fun captureSnapshot(
         marksProvider: () -> List<AccessibilityMark> = { emptyList() },

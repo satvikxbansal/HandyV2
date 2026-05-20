@@ -3,10 +3,17 @@
 package com.handy.app.overlay
 
 import android.graphics.Rect
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.view.WindowInsets
+import android.view.WindowManager
+import android.view.WindowMetrics
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.lifecycle.lifecycleScope
+import androidx.window.layout.FoldingFeature
+import androidx.window.layout.WindowInfoTracker
 import com.handy.app.widget.BezierFlightController
 import com.handy.app.widget.LensRenderer
 import com.handy.core.action.ActionExecutionGate
@@ -18,6 +25,7 @@ import com.handy.core.audit.AuditResult
 import com.handy.core.audit.AuditStore
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.overlay.BuddyState
+import com.handy.core.overlay.FlightFsm
 import com.handy.core.overlay.OverlayMode
 import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.privacy.ScreenRedactor
@@ -34,7 +42,13 @@ import kotlin.coroutines.resume
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
+import kotlin.math.hypot
+import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -62,14 +76,24 @@ class BuddyFlightDriver @Inject constructor(
     private var serviceRef: WeakReference<FloatingWidgetOverlayService>? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private var safetyTimeoutRunnable: Runnable? = null
+    private var windowLayoutJob: Job? = null
+    private var foldAvoidBounds: List<IntRect> = emptyList()
+    private var activeTarget: ActiveFlightTarget? = null
+    private var activeViewportSignature: String? = null
 
     fun attachService(service: FloatingWidgetOverlayService) {
         serviceRef = WeakReference(service)
+        observeWindowLayout(service)
     }
 
     fun detachService(service: FloatingWidgetOverlayService) {
         if (serviceRef?.get() === service) {
             clearStickySafetyTimeout()
+            windowLayoutJob?.cancel()
+            windowLayoutJob = null
+            foldAvoidBounds = emptyList()
+            activeTarget = null
+            activeViewportSignature = null
             serviceRef = null
         }
     }
@@ -102,7 +126,13 @@ class BuddyFlightDriver @Inject constructor(
         val resolved = flight.resolved
         return try {
             withContext(Dispatchers.Main.immediate) {
-                flyToBounds(flight.service, resolved.bounds, label, resolved)
+                flyToBounds(
+                    service = flight.service,
+                    bounds = resolved.bounds,
+                    label = label,
+                    resolved = resolved,
+                    targetPackage = flight.targetPackage,
+                )
             }
         } finally {
             resolved.node?.let { node -> runCatching { node.recycle() } }
@@ -125,10 +155,12 @@ class BuddyFlightDriver @Inject constructor(
         }
         Timber.d("BuddyFlightDriver.flyToPoint: x=%d y=%d label=\"%s\"", x, y, bubbleLabel?.logSnippet())
         return withContext(Dispatchers.Main.immediate) {
+            presenter.onPreparingPoint(bubbleLabel)
             flyToBounds(
                 service = service,
                 bounds = IntRect(x - POINT_TARGET_RADIUS, y - POINT_TARGET_RADIUS, x + POINT_TARGET_RADIUS, y + POINT_TARGET_RADIUS),
                 label = bubbleLabel,
+                targetPackage = null,
             )
         }
     }
@@ -153,10 +185,13 @@ class BuddyFlightDriver @Inject constructor(
             withContext(Dispatchers.Main.immediate) {
                 clearStickySafetyTimeout()
                 service.flightControllerInstance().cancelAll()
+                val label = target.label ?: "right one"
+                presenter.onPreparingPoint(label)
                 flyToBounds(
                     service = service,
                     bounds = target.bounds,
-                    label = target.label ?: "right one",
+                    label = label,
+                    targetPackage = target.packageName,
                 )
             }.also { success ->
                 auditResult = if (success) {
@@ -183,6 +218,7 @@ class BuddyFlightDriver @Inject constructor(
         bounds: IntRect,
         label: String?,
         resolved: ResolvedPointTarget? = null,
+        targetPackage: String? = null,
     ): Boolean = suspendCancellableCoroutine { cont ->
         val (widgetW, widgetH) = service.widgetSize().takeIf { it.first > 0 && it.second > 0 }
             ?: run {
@@ -191,11 +227,16 @@ class BuddyFlightDriver @Inject constructor(
             }
         val (fromX, fromY) = service.currentWindowPosition()
         val (dockX, dockY) = service.currentDockPosition()
-        val landing = chooseLandingPosition(service, bounds, widgetW, widgetH)
+        val viewport = currentFlightViewport(service)
+        val landing = chooseLandingPosition(service, bounds, widgetW, widgetH, viewport)
         val arrivalAngle = angleFromWidgetToTarget(landing, widgetW, widgetH, bounds)
+        activeTarget = ActiveFlightTarget(
+            packageName = targetPackage?.takeIf { it.isNotBlank() },
+        )
+        activeViewportSignature = viewport.signature
         val startedAtMs = SystemClock.uptimeMillis()
         Timber.d(
-            "BuddyFlightDriver.flyToBounds: markId=%s confidence=%.2f source=%s from=%d,%d target=%d,%d widget=%dx%d kind=%s angle=%.2f blendStart=%.2f dock=%d,%d bounds=%s label=\"%s\"",
+            "BuddyFlightDriver.flyToBounds: markId=%s confidence=%.2f source=%s from=%d,%d target=%d,%d widget=%dx%d fitScale=%.2f kind=%s angle=%.2f blendStart=%.2f dock=%d,%d bounds=%s safe=%s label=\"%s\"",
             resolved?.markId,
             resolved?.confidence ?: 0f,
             resolved?.source,
@@ -205,16 +246,19 @@ class BuddyFlightDriver @Inject constructor(
             landing.y,
             widgetW,
             widgetH,
+            landing.fitScale,
             landing.kind,
             arrivalAngle,
             POINTER_ROTATION_BLEND_START,
             dockX,
             dockY,
             bounds.logSummary(),
+            viewport.safeBounds.logSummary(),
             label?.logSnippet(),
         )
 
         service.updateBubblePlacementHint(landing.kind)
+        service.announceBuddyFlightStart(label)
         presenter.onFlyingStart(label = label)
 
         service.flightControllerInstance().flyThere(
@@ -240,7 +284,7 @@ class BuddyFlightDriver @Inject constructor(
                             arrivalAngle = arrivalAngle,
                             progress = progress,
                         ),
-                        scale = scale,
+                        scale = scale * landing.fitScale,
                     )
                 }
 
@@ -256,8 +300,9 @@ class BuddyFlightDriver @Inject constructor(
                     )
                     service.updatePointerPose(
                         tangentRadians = arrivalAngle,
-                        scale = 1.0f,
+                        scale = landing.fitScale,
                     )
+                    service.announceBuddyFlightArrived(label)
                     presenter.onPointingArrived(label)
                     scheduleStickySafetyTimeout()
                     if (cont.isActive) cont.resume(true)
@@ -267,12 +312,18 @@ class BuddyFlightDriver @Inject constructor(
                 // only owns sticky pointing.
 
                 override fun onPulse(scale: Float) {
-                    service.updatePointerPose(scale = scale)
+                    service.updatePointerPose(scale = scale * landing.fitScale)
+                }
+
+                override fun onFade(alpha: Float) {
+                    service.updateBuddyAlpha(alpha)
                 }
 
                 override fun onReturned() {
                     Timber.d("BuddyFlightDriver.flyToBounds: returned to dock")
                     clearStickySafetyTimeout()
+                    activeTarget = null
+                    activeViewportSignature = null
                     service.resetPointerPose()
                     presenter.onPointingReturned()
                 }
@@ -283,14 +334,21 @@ class BuddyFlightDriver @Inject constructor(
                         SystemClock.uptimeMillis() - startedAtMs,
                     )
                     clearStickySafetyTimeout()
+                    activeTarget = null
+                    activeViewportSignature = null
                     service.resetPointerPose()
-                    presenter.onPointingReturned()
+                    if (presenter.state.value.flightFsm != FlightFsm.Docked) {
+                        if (presenter.state.value.flightFsm != FlightFsm.Returning) {
+                            presenter.onReturningToDock("controller_cancel")
+                        }
+                        presenter.onPointingReturned()
+                    }
                     if (cont.isActive) cont.resume(false)
                 }
             },
         )
         cont.invokeOnCancellation {
-            service.flightControllerInstance().cancelAll()
+            cancelIfStaleTarget("coroutine_cancelled")
         }
     }
     /**
@@ -318,7 +376,13 @@ class BuddyFlightDriver @Inject constructor(
         val resolved = flight.resolved
         val landed = try {
             withContext(Dispatchers.Main.immediate) {
-                flyToBounds(flight.service, resolved.bounds, bubbleLabel, resolved)
+                flyToBounds(
+                    service = flight.service,
+                    bounds = resolved.bounds,
+                    label = bubbleLabel,
+                    resolved = resolved,
+                    targetPackage = flight.targetPackage,
+                )
             }
         } finally {
             resolved.node?.let { node -> runCatching { node.recycle() } }
@@ -405,24 +469,59 @@ class BuddyFlightDriver @Inject constructor(
             scheduleStickySafetyTimeout()
             return null
         }
-        return FlightResolution(service = service, resolved = resolved)
+        return FlightResolution(
+            service = service,
+            resolved = resolved,
+            targetPackage = expectedPackage
+                ?: resolved.node?.packageName?.toString()?.takeIf { it.isNotBlank() },
+        )
     }
 
     private data class FlightResolution(
         val service: FloatingWidgetOverlayService,
         val resolved: ResolvedPointTarget,
+        val targetPackage: String?,
     )
 
     /** Cancel any in-flight animation (e.g. user tapped widget mid-flight). */
     fun cancel() {
+        cancelIfStaleTarget("user_cancel")
+    }
+
+    /**
+     * Cancel the active target if the screen geometry or foreground
+     * package no longer matches the target that was resolved before
+     * takeoff.
+     */
+    fun cancelIfStaleTarget(reason: String, sourcePackage: String? = null): Boolean {
+        val state = presenter.state.value
+        if (!state.isFlying && state.buddyState != BuddyState.POINTING) return false
+        val active = activeTarget
+        if (!sourcePackage.isNullOrBlank()) {
+            val targetPackage = active?.packageName
+            if (targetPackage != null && sourcePackage == targetPackage) return false
+            if (sourcePackage == serviceRef?.get()?.packageName) return false
+        }
+        Timber.d(
+            "BuddyFlightDriver: cancelling stale target reason=%s sourcePackage=%s targetPackage=%s",
+            reason,
+            sourcePackage,
+            active?.packageName,
+        )
         mainHandler.post {
             clearStickySafetyTimeout()
             val service = serviceRef?.get()
+            presenter.onReturningToDock(reason)
             service?.flightControllerInstance()?.cancelAll()
             service?.moveBuddyToDock()
             service?.resetPointerPose()
-            presenter.onPointingReturned()
+            activeTarget = null
+            activeViewportSignature = null
+            if (presenter.state.value.flightFsm != FlightFsm.Docked) {
+                presenter.onPointingReturned()
+            }
         }
+        return true
     }
 
     /**
@@ -437,10 +536,15 @@ class BuddyFlightDriver @Inject constructor(
         mainHandler.post {
             clearStickySafetyTimeout()
             val service = serviceRef?.get()
+            presenter.onReturningToDock(source?.let { "user_interaction:$it" } ?: "user_interaction")
             service?.flightControllerInstance()?.cancelAll()
             service?.moveBuddyToDock()
             service?.resetPointerPose()
-            presenter.onPointingReturned()
+            activeTarget = null
+            activeViewportSignature = null
+            if (presenter.state.value.flightFsm != FlightFsm.Docked) {
+                presenter.onPointingReturned()
+            }
         }
         return true
     }
@@ -458,154 +562,87 @@ class BuddyFlightDriver @Inject constructor(
         safetyTimeoutRunnable = null
     }
 
-    private data class LandingPosition(
-        val x: Int,
-        val y: Int,
-        val kind: String,
-    )
-
-    private data class LandingCandidate(
-        val kind: String,
-        val x: Int,
-        val y: Int,
-        val priority: Int,
-    )
+    private fun observeWindowLayout(service: FloatingWidgetOverlayService) {
+        windowLayoutJob?.cancel()
+        windowLayoutJob = service.lifecycleScope.launch(Dispatchers.Main.immediate) {
+            val trackingContext = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                service.createWindowContext(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, null)
+            } else {
+                service
+            }
+            val tracker = runCatching { WindowInfoTracker.getOrCreate(trackingContext) }
+                .onFailure { Timber.w(it, "BuddyFlightDriver: WindowInfoTracker unavailable") }
+                .getOrNull() ?: return@launch
+            runCatching {
+                tracker.windowLayoutInfo(trackingContext).collectLatest { info ->
+                    val next = info.displayFeatures.mapNotNull { feature ->
+                        val folding = feature as? FoldingFeature ?: return@mapNotNull null
+                        folding.bounds
+                            .takeIf { it.width() > 0 && it.height() > 0 }
+                            ?.toIntRect()
+                    }
+                    if (next != foldAvoidBounds) {
+                        foldAvoidBounds = next
+                        if (activeViewportSignature != null) {
+                            cancelIfStaleTarget("fold_changed")
+                        }
+                    }
+                }
+            }.onFailure {
+                Timber.w(it, "BuddyFlightDriver: fold layout observation failed")
+            }
+        }
+    }
 
     private fun chooseLandingPosition(
         service: FloatingWidgetOverlayService,
         bounds: IntRect,
         widgetW: Int,
         widgetH: Int,
+        viewport: FlightViewport,
     ): LandingPosition {
         val density = service.resources.displayMetrics.density
-        // Keep the buddy visibly close to the target while still avoiding
-        // overlap with the tappable bounds.
-        val gap = (8f * density).toInt()
-        val avoidMargin = (6f * density).toInt()
-        val edgeBand = (96f * density).toInt()
-        val screenW = service.resources.displayMetrics.widthPixels
-        val screenH = service.resources.displayMetrics.heightPixels
-        val safeTop = service.systemBarSize("status_bar_height")
-        val safeBottom = screenH - service.systemBarSize("navigation_bar_height")
-        val minX = 0
-        val minY = safeTop.coerceAtLeast(0)
-        val maxX = (screenW - widgetW).coerceAtLeast(0)
-        val maxY = (safeBottom - widgetH).coerceAtLeast(minY)
-
-        fun candidate(kind: String, x: Int, y: Int, priority: Int): LandingCandidate =
-            LandingCandidate(
-                kind = kind,
-                x = x.coerceIn(minX, maxX),
-                y = y.coerceIn(minY, maxY),
-                priority = priority,
-            )
-
-        fun centeredY(): Int = bounds.centerY - widgetH / 2
-        fun centeredX(): Int = bounds.centerX - widgetW / 2
-
-        val avoidBounds = bounds.expand(avoidMargin, screenW, safeBottom)
-        val nearBottom = bounds.centerY >= safeBottom - edgeBand
-        val nearTop = bounds.centerY <= safeTop + edgeBand
-        val nearLeft = bounds.centerX <= edgeBand
-        val nearRight = bounds.centerX >= screenW - edgeBand
-        val preferredBand = when {
-            nearBottom -> "bottom"
-            nearTop -> "top"
-            nearLeft -> "left"
-            nearRight -> "right"
-            else -> "middle"
-        }
-
-        val candidates = buildList {
-            if (nearBottom) {
-                add(candidate("bottom-above-center", centeredX(), bounds.top - widgetH - gap, priority = 0))
-                add(candidate("bottom-above-left", bounds.left, bounds.top - widgetH - gap, priority = 3))
-                add(candidate("bottom-above-right", bounds.right - widgetW, bounds.top - widgetH - gap, priority = 3))
-            }
-            if (nearTop) {
-                add(candidate("top-below-center", centeredX(), bounds.bottom + gap, priority = 0))
-                add(candidate("top-below-left", bounds.left, bounds.bottom + gap, priority = 3))
-                add(candidate("top-below-right", bounds.right - widgetW, bounds.bottom + gap, priority = 3))
-            }
-            if (nearLeft) {
-                add(candidate("left-side-right", bounds.right + gap, centeredY(), priority = 1))
-            }
-            if (nearRight) {
-                add(candidate("right-side-left", bounds.left - widgetW - gap, centeredY(), priority = 1))
-            }
-            add(candidate("side-right", bounds.right + gap, centeredY(), priority = 6))
-            add(candidate("side-left", bounds.left - widgetW - gap, centeredY(), priority = 6))
-            add(candidate("below-center", centeredX(), bounds.bottom + gap, priority = 8))
-            add(candidate("above-center", centeredX(), bounds.top - widgetH - gap, priority = 8))
-            add(candidate("corner-bottom-right", bounds.right + gap, bounds.bottom + gap, priority = 12))
-            add(candidate("corner-bottom-left", bounds.left - widgetW - gap, bounds.bottom + gap, priority = 12))
-            add(candidate("corner-top-right", bounds.right + gap, bounds.top - widgetH - gap, priority = 12))
-            add(candidate("corner-top-left", bounds.left - widgetW - gap, bounds.top - widgetH - gap, priority = 12))
-        }
-        val chosen = candidates.minBy { candidate ->
-            candidate.score(
-                avoidBounds = avoidBounds,
-                target = bounds,
-                widgetW = widgetW,
-                widgetH = widgetH,
-                preferredBand = preferredBand,
-            )
-        }
+        val chosen = chooseBuddyLandingPosition(
+            target = bounds,
+            widgetW = widgetW,
+            widgetH = widgetH,
+            density = density,
+            viewport = viewport,
+        )
         Timber.d(
-            "BuddyFlightDriver.chooseLandingPosition: preferred=%s chosen=%s pos=%d,%d target=%s avoid=%s",
-            preferredBand,
+            "BuddyFlightDriver.chooseLandingPosition: chosen=%s pos=%d,%d visual=%s scale=%.2f target=%s safe=%s hinges=%s",
             chosen.kind,
             chosen.x,
             chosen.y,
+            chosen.visualBounds.logSummary(),
+            chosen.fitScale,
             bounds.logSummary(),
-            avoidBounds.logSummary(),
+            viewport.safeBounds.logSummary(),
+            viewport.avoidBounds.joinToString { it.logSummary() },
         )
-        return LandingPosition(chosen.x, chosen.y, chosen.kind)
+        return chosen
     }
 
-    private fun LandingCandidate.score(
-        avoidBounds: IntRect,
-        target: IntRect,
-        widgetW: Int,
-        widgetH: Int,
-        preferredBand: String,
-    ): Int {
-        val overlapPenalty = if (overlaps(avoidBounds, widgetW, widgetH)) 1_000_000 else 0
-        val centerX = x + widgetW / 2
-        val centerY = y + widgetH / 2
-        val horizontalAffinity = abs(centerX - target.centerX)
-        val verticalAffinity = abs(centerY - target.centerY)
-        val bandPenalty = when (preferredBand) {
-            "bottom" -> if (kind.startsWith("bottom-above")) 0 else 30_000
-            "top" -> if (kind.startsWith("top-below")) 0 else 30_000
-            "left" -> if (kind == "left-side-right") 0 else 15_000
-            "right" -> if (kind == "right-side-left") 0 else 15_000
-            else -> 0
+    private fun currentFlightViewport(service: FloatingWidgetOverlayService): FlightViewport {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val metrics = runCatching {
+                service.getSystemService(WindowManager::class.java).currentWindowMetrics
+            }.getOrNull()
+            if (metrics != null) {
+                return metrics.toFlightViewport(foldAvoidBounds)
+            }
         }
-        val driftPenalty = when (preferredBand) {
-            "bottom", "top" -> horizontalAffinity * 12 + verticalAffinity
-            "left", "right" -> verticalAffinity * 6 + horizontalAffinity
-            else -> horizontalAffinity + verticalAffinity
-        }
-        return overlapPenalty + bandPenalty + priority * 1_000 + driftPenalty
-    }
-
-    private fun LandingCandidate.overlaps(bounds: IntRect, widgetW: Int, widgetH: Int): Boolean {
-        val right = x + widgetW
-        val bottom = y + widgetH
-        return x < bounds.right &&
-            right > bounds.left &&
-            y < bounds.bottom &&
-            bottom > bounds.top
-    }
-
-    private fun IntRect.expand(margin: Int, screenW: Int, screenH: Int): IntRect =
-        IntRect(
-            left = (left - margin).coerceAtLeast(0),
-            top = (top - margin).coerceAtLeast(0),
-            right = (right + margin).coerceAtMost(screenW),
-            bottom = (bottom + margin).coerceAtMost(screenH),
+        val screenW = service.resources.displayMetrics.widthPixels
+        val screenH = service.resources.displayMetrics.heightPixels
+        return FlightViewport(
+            bounds = IntRect(0, 0, screenW, screenH),
+            insets = FlightInsets(
+                top = service.systemBarSize("status_bar_height"),
+                bottom = service.systemBarSize("navigation_bar_height"),
+            ),
+            avoidBounds = foldAvoidBounds,
         )
+    }
 
     private fun angleFromWidgetToTarget(
         landing: LandingPosition,
@@ -674,6 +711,248 @@ class BuddyFlightDriver @Inject constructor(
         const val POINTER_ROTATION_BLEND_START: Float = 0.78f
         const val TWO_PI: Float = (Math.PI * 2.0).toFloat()
     }
+}
+
+private data class ActiveFlightTarget(
+    val packageName: String?,
+)
+
+internal data class FlightInsets(
+    val left: Int = 0,
+    val top: Int = 0,
+    val right: Int = 0,
+    val bottom: Int = 0,
+)
+
+internal data class FlightViewport(
+    val bounds: IntRect,
+    val insets: FlightInsets = FlightInsets(),
+    val avoidBounds: List<IntRect> = emptyList(),
+) {
+    val safeBounds: IntRect
+        get() = IntRect(
+            left = (bounds.left + insets.left).coerceAtMost(bounds.right),
+            top = (bounds.top + insets.top).coerceAtMost(bounds.bottom),
+            right = (bounds.right - insets.right).coerceAtLeast(bounds.left),
+            bottom = (bounds.bottom - insets.bottom).coerceAtLeast(bounds.top),
+        ).takeIf { it.width > 0 && it.height > 0 } ?: bounds
+
+    val signature: String
+        get() = buildString {
+            append(bounds.logSummary()).append('|')
+            append(insets.left).append(',')
+                .append(insets.top).append(',')
+                .append(insets.right).append(',')
+                .append(insets.bottom)
+            avoidBounds.forEach { append('|').append(it.logSummary()) }
+        }
+}
+
+internal data class LandingPosition(
+    val x: Int,
+    val y: Int,
+    val kind: String,
+    val fitScale: Float = 1f,
+    val visualWidth: Int,
+    val visualHeight: Int,
+) {
+    val visualBounds: IntRect get() = IntRect(x, y, x + visualWidth, y + visualHeight)
+}
+
+private data class LandingCandidate(
+    val kind: String,
+    val x: Int,
+    val y: Int,
+    val priority: Int,
+    val fitScale: Float,
+    val visualWidth: Int,
+    val visualHeight: Int,
+) {
+    val visualBounds: IntRect get() = IntRect(x, y, x + visualWidth, y + visualHeight)
+}
+
+internal fun chooseBuddyLandingPosition(
+    target: IntRect,
+    widgetW: Int,
+    widgetH: Int,
+    density: Float,
+    viewport: FlightViewport,
+): LandingPosition {
+    val safe = viewport.safeBounds
+    val regions = splitSafeRegions(safe, viewport.avoidBounds)
+        .takeIf { it.isNotEmpty() }
+        ?: listOf(safe)
+    val gap = (8f * density).roundToInt().coerceAtLeast(1)
+    val avoidMargin = (6f * density).roundToInt().coerceAtLeast(1)
+    val edgeBand = (96f * density).roundToInt().coerceAtLeast(1)
+    // Keep Buddy visibly close to the target while avoiding the tappable
+    // bounds. Edge-biased candidates preserve target affinity; overlap with
+    // this expanded rect is scored as a hard fallback-only penalty.
+    val avoidTarget = target.expandWithin(avoidMargin, safe)
+    val preferredBand = when {
+        target.centerY >= safe.bottom - edgeBand -> "bottom"
+        target.centerY <= safe.top + edgeBand -> "top"
+        target.centerX <= safe.left + edgeBand -> "left"
+        target.centerX >= safe.right - edgeBand -> "right"
+        else -> "middle"
+    }
+
+    fun candidatesFor(region: IntRect): List<LandingCandidate> {
+        val fitScale = minOf(
+            1f,
+            region.width.toFloat() / widgetW.coerceAtLeast(1).toFloat(),
+            region.height.toFloat() / widgetH.coerceAtLeast(1).toFloat(),
+        ).coerceIn(0.1f, 1f)
+        val fitW = max(1, (widgetW * fitScale).roundToInt())
+        val fitH = max(1, (widgetH * fitScale).roundToInt())
+        val minX = region.left
+        val minY = region.top
+        val maxX = (region.right - fitW).coerceAtLeast(minX)
+        val maxY = (region.bottom - fitH).coerceAtLeast(minY)
+
+        fun candidate(kind: String, x: Int, y: Int, priority: Int): LandingCandidate =
+            LandingCandidate(
+                kind = kind,
+                x = x.coerceIn(minX, maxX),
+                y = y.coerceIn(minY, maxY),
+                priority = priority,
+                fitScale = fitScale,
+                visualWidth = fitW,
+                visualHeight = fitH,
+            )
+
+        fun centeredY(): Int = target.centerY - fitH / 2
+        fun centeredX(): Int = target.centerX - fitW / 2
+
+        return buildList {
+            if (preferredBand == "bottom") {
+                add(candidate("bottom-above-center", centeredX(), target.top - fitH - gap, priority = 0))
+                add(candidate("bottom-above-left", target.left, target.top - fitH - gap, priority = 3))
+                add(candidate("bottom-above-right", target.right - fitW, target.top - fitH - gap, priority = 3))
+            }
+            if (preferredBand == "top") {
+                add(candidate("top-below-center", centeredX(), target.bottom + gap, priority = 0))
+                add(candidate("top-below-left", target.left, target.bottom + gap, priority = 3))
+                add(candidate("top-below-right", target.right - fitW, target.bottom + gap, priority = 3))
+            }
+            if (preferredBand == "left") {
+                add(candidate("left-side-right", target.right + gap, centeredY(), priority = 1))
+            }
+            if (preferredBand == "right") {
+                add(candidate("right-side-left", target.left - fitW - gap, centeredY(), priority = 1))
+            }
+            add(candidate("side-right", target.right + gap, centeredY(), priority = 6))
+            add(candidate("side-left", target.left - fitW - gap, centeredY(), priority = 6))
+            add(candidate("below-center", centeredX(), target.bottom + gap, priority = 8))
+            add(candidate("above-center", centeredX(), target.top - fitH - gap, priority = 8))
+            add(candidate("corner-bottom-right", target.right + gap, target.bottom + gap, priority = 12))
+            add(candidate("corner-bottom-left", target.left - fitW - gap, target.bottom + gap, priority = 12))
+            add(candidate("corner-top-right", target.right + gap, target.top - fitH - gap, priority = 12))
+            add(candidate("corner-top-left", target.left - fitW - gap, target.top - fitH - gap, priority = 12))
+        }
+    }
+
+    val candidates = regions.flatMap(::candidatesFor)
+    val chosen = candidates.minBy { candidate ->
+        candidate.score(
+            avoidTarget = avoidTarget,
+            hingeBounds = viewport.avoidBounds,
+            target = target,
+            preferredBand = preferredBand,
+        )
+    }
+    return LandingPosition(
+        x = chosen.x,
+        y = chosen.y,
+        kind = chosen.kind,
+        fitScale = chosen.fitScale,
+        visualWidth = chosen.visualWidth,
+        visualHeight = chosen.visualHeight,
+    )
+}
+
+private fun LandingCandidate.score(
+    avoidTarget: IntRect,
+    hingeBounds: List<IntRect>,
+    target: IntRect,
+    preferredBand: String,
+): Int {
+    val overlapPenalty = if (visualBounds.overlaps(avoidTarget)) 1_000_000 else 0
+    val hingePenalty = if (hingeBounds.any { visualBounds.overlaps(it) }) 2_000_000 else 0
+    val centerX = x + visualWidth / 2
+    val centerY = y + visualHeight / 2
+    val horizontalAffinity = abs(centerX - target.centerX)
+    val verticalAffinity = abs(centerY - target.centerY)
+    val centerDistance = hypot(
+        (centerX - target.centerX).toDouble(),
+        (centerY - target.centerY).toDouble(),
+    ).roundToInt()
+    val bandPenalty = when (preferredBand) {
+        "bottom" -> if (kind.startsWith("bottom-above")) 0 else 30_000
+        "top" -> if (kind.startsWith("top-below")) 0 else 30_000
+        "left" -> if (kind == "left-side-right") 0 else 15_000
+        "right" -> if (kind == "right-side-left") 0 else 15_000
+        else -> 0
+    }
+    val driftPenalty = when (preferredBand) {
+        "bottom", "top" -> horizontalAffinity * 12 + verticalAffinity
+        "left", "right" -> verticalAffinity * 6 + horizontalAffinity
+        else -> centerDistance
+    }
+    val shrinkPenalty = ((1f - fitScale) * 10_000f).roundToInt()
+    return overlapPenalty + hingePenalty + bandPenalty + shrinkPenalty + priority * 1_000 + driftPenalty
+}
+
+private fun splitSafeRegions(safe: IntRect, avoidBounds: List<IntRect>): List<IntRect> =
+    avoidBounds.fold(listOf(safe)) { regions, avoid ->
+        regions.flatMap { region -> region.splitAround(avoid) }
+    }.filter { it.width > 0 && it.height > 0 }
+
+private fun IntRect.splitAround(avoid: IntRect): List<IntRect> {
+    if (!overlaps(avoid)) return listOf(this)
+    val pieces = buildList {
+        if (avoid.left > left) add(IntRect(left, top, avoid.left.coerceAtMost(right), bottom))
+        if (avoid.right < right) add(IntRect(avoid.right.coerceAtLeast(left), top, right, bottom))
+        if (avoid.top > top) add(IntRect(left, top, right, avoid.top.coerceAtMost(bottom)))
+        if (avoid.bottom < bottom) add(IntRect(left, avoid.bottom.coerceAtLeast(top), right, bottom))
+    }.filter { it.width > 0 && it.height > 0 }
+    return pieces.ifEmpty { listOf(this) }
+}
+
+private fun IntRect.expandWithin(margin: Int, bounds: IntRect): IntRect =
+    IntRect(
+        left = (left - margin).coerceAtLeast(bounds.left),
+        top = (top - margin).coerceAtLeast(bounds.top),
+        right = (right + margin).coerceAtMost(bounds.right),
+        bottom = (bottom + margin).coerceAtMost(bounds.bottom),
+    )
+
+private fun IntRect.overlaps(other: IntRect): Boolean =
+    left < other.right &&
+        right > other.left &&
+        top < other.bottom &&
+        bottom > other.top
+
+private fun IntRect.logSummary(): String =
+    "$left,$top-$right,$bottom"
+
+private fun Rect.toIntRect(): IntRect = IntRect(left, top, right, bottom)
+
+private fun WindowMetrics.toFlightViewport(avoidBounds: List<IntRect>): FlightViewport {
+    val insetTypes = WindowInsets.Type.systemBars() or
+        WindowInsets.Type.displayCutout() or
+        WindowInsets.Type.ime()
+    val safeInsets = windowInsets.getInsets(insetTypes)
+    return FlightViewport(
+        bounds = bounds.toIntRect(),
+        insets = FlightInsets(
+            left = safeInsets.left,
+            top = safeInsets.top,
+            right = safeInsets.right,
+            bottom = safeInsets.bottom,
+        ),
+        avoidBounds = avoidBounds,
+    )
 }
 
 private data class ManualTargetSnapshot(

@@ -5,6 +5,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import kotlin.math.atan2
@@ -32,6 +33,7 @@ import kotlin.random.Random
  */
 class BezierFlightController(
     private val rng: Random = Random.Default,
+    private val reduceMotionEnabled: () -> Boolean = { !ValueAnimator.areAnimatorsEnabled() },
 ) {
 
     interface Callback {
@@ -50,6 +52,9 @@ class BezierFlightController(
         /** Pulse amplitude during dwell (scope §3). */
         fun onPulse(scale: Float)
 
+        /** Alpha for the reduced-motion fade-out / fade-in path. */
+        fun onFade(alpha: Float) {}
+
         /** Buddy has returned to the dock after dwell. */
         fun onReturned()
 
@@ -60,6 +65,8 @@ class BezierFlightController(
     private var moveAnimator: ValueAnimator? = null
     private var pulseAnimator: ValueAnimator? = null
     private var dwellRunnable: Runnable? = null
+    private var fadeRunnable: Runnable? = null
+    private var fadeCancelCallback: (() -> Unit)? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
     /**
@@ -78,6 +85,20 @@ class BezierFlightController(
         callback: Callback,
     ) {
         cancelAll()
+
+        if (reduceMotionEnabled()) {
+            crossFadeThere(
+                fromX = fromX,
+                fromY = fromY,
+                toX = toX,
+                toY = toY,
+                dockX = dockX,
+                dockY = dockY,
+                returnToDock = returnToDock,
+                callback = callback,
+            )
+            return
+        }
 
         val distance = hypot((toX - fromX).toDouble(), (toY - fromY).toDouble()).toFloat()
         val durationMs = ((distance / 800f).coerceIn(0.6f, 1.4f) * 1000f).toLong()
@@ -113,6 +134,68 @@ class BezierFlightController(
             },
             onCancel = callback::onFlightCancelled,
         ).also { it.start() }
+    }
+
+    private fun crossFadeThere(
+        fromX: Float,
+        fromY: Float,
+        toX: Float,
+        toY: Float,
+        dockX: Float,
+        dockY: Float,
+        returnToDock: Boolean,
+        callback: Callback,
+    ) {
+        val tangent = atan2(toY - fromY, toX - fromX)
+        val startedAtMs = SystemClock.uptimeMillis()
+        var moved = false
+        fun finish() {
+            fadeRunnable = null
+            fadeCancelCallback = null
+            callback.onFade(1f)
+            callback.onFlightTick(toX, toY, tangent, 1f, 1f)
+            callback.onArrived()
+            if (returnToDock) {
+                startDwellAndReturn(
+                    fromX = toX,
+                    fromY = toY,
+                    dockX = dockX,
+                    dockY = dockY,
+                    callback = callback,
+                )
+            } else {
+                startPersistentPulse(callback)
+            }
+        }
+        val runnable = object : Runnable {
+            override fun run() {
+                val progress = (
+                    (SystemClock.uptimeMillis() - startedAtMs).toFloat() /
+                        REDUCED_MOTION_CROSS_FADE_MS.toFloat()
+                    ).coerceIn(0f, 1f)
+                if (progress < 0.5f) {
+                    callback.onFade(1f - progress * 2f)
+                    callback.onFlightTick(fromX, fromY, tangent, 1f, progress)
+                } else {
+                    if (!moved) {
+                        callback.onFlightTick(toX, toY, tangent, 1f, 1f)
+                        moved = true
+                    }
+                    callback.onFade((progress - 0.5f) * 2f)
+                }
+                if (progress >= 1f) {
+                    finish()
+                } else {
+                    mainHandler.postDelayed(this, REDUCED_MOTION_FRAME_MS)
+                }
+            }
+        }
+        fadeRunnable = runnable
+        fadeCancelCallback = {
+            callback.onFade(1f)
+            callback.onFlightCancelled()
+        }
+        mainHandler.post(runnable)
     }
 
     private fun startPersistentPulse(callback: Callback) {
@@ -234,6 +317,10 @@ class BezierFlightController(
 
     /** Cancel any in-flight animation or scheduled dwell. */
     fun cancelAll() {
+        fadeRunnable?.let(mainHandler::removeCallbacks)
+        fadeRunnable = null
+        fadeCancelCallback?.invoke()
+        fadeCancelCallback = null
         moveAnimator?.cancel()
         moveAnimator = null
         pulseAnimator?.cancel()
@@ -242,5 +329,10 @@ class BezierFlightController(
             mainHandler.removeCallbacks(it)
         }
         dwellRunnable = null
+    }
+
+    private companion object {
+        const val REDUCED_MOTION_CROSS_FADE_MS: Long = 200L
+        const val REDUCED_MOTION_FRAME_MS: Long = 16L
     }
 }

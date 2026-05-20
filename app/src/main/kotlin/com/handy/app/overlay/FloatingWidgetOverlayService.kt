@@ -1,7 +1,8 @@
 package com.handy.app.overlay
 
-import android.content.Context
+import android.animation.ValueAnimator
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
@@ -10,6 +11,7 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
+import android.view.WindowInsets
 import android.view.ViewConfiguration
 import android.view.WindowManager
 import androidx.compose.runtime.collectAsState
@@ -77,7 +79,9 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private var host: OverlayComposeHost? = null
     private var bubbleHost: OverlayComposeHost? = null
     private var manualChipHost: OverlayComposeHost? = null
-    private val flightController = BezierFlightController()
+    private val flightController = BezierFlightController(
+        reduceMotionEnabled = { reduceMotionEnabled() },
+    )
     // Dock coordinates captured whenever the buddy enters DOCKED — flight
     // returns here regardless of where it took off from.
     private var dockX: Int = 0
@@ -97,6 +101,8 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var appForegroundJob: Job? = null
     private var isHandyActivityForeground: Boolean = false
+    private var lastConfigurationSignature: String? = null
+    private var lastInsetsSignature: String? = null
 
     // Gesture tracking state.
     private var downX = 0f
@@ -255,6 +261,17 @@ class FloatingWidgetOverlayService : LifecycleService() {
         super.onDestroy()
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        val next = configurationSignature(newConfig)
+        val previous = lastConfigurationSignature
+        lastConfigurationSignature = next
+        if (previous != null && previous != next) {
+            flightDriver.cancelIfStaleTarget("configuration_changed")
+        }
+        view?.let(::requestInsets)
+    }
+
     private fun attachOverlay() {
         val host = OverlayComposeHost(this).also { this.host = it }
 
@@ -297,11 +314,14 @@ class FloatingWidgetOverlayService : LifecycleService() {
         dockY = params.y
 
         composeView.setOnTouchListener(::onTouch)
+        observeWindowInsets(composeView)
+        lastConfigurationSignature = configurationSignature(resources.configuration)
 
         runCatching { windowManager.addView(composeView, params) }
             .onFailure { Timber.e(it, "Widget overlay attach failed") }
 
         view = composeView
+        composeView.post { requestInsets(composeView) }
         applyOverlayVisibility()
     }
 
@@ -567,17 +587,39 @@ class FloatingWidgetOverlayService : LifecycleService() {
         updateManualChipPosition()
     }
 
+    internal fun updateBuddyAlpha(alpha: Float) {
+        view?.alpha = alpha.coerceIn(0f, 1f)
+    }
+
+    internal fun announceBuddyFlightStart(label: String?) {
+        val target = label?.takeIf { it.isNotBlank() } ?: "target"
+        view?.announceForAccessibility("Buddy flying to $target")
+    }
+
+    internal fun announceBuddyFlightArrived(label: String?) {
+        val target = label?.takeIf { it.isNotBlank() } ?: "target"
+        view?.announceForAccessibility("Buddy arrived at $target")
+    }
+
     internal fun updatePointerPose(
         tangentRadians: Float? = null,
         scale: Float? = null,
     ) {
         tangentRadians?.let { pointerRotationRadians.value = it }
-        scale?.let { pointerScale.value = it }
+        scale?.let {
+            val clamped = it.coerceIn(0.1f, 1.3f)
+            pointerScale.value = clamped
+            view?.scaleX = clamped
+            view?.scaleY = clamped
+        }
     }
 
     internal fun resetPointerPose() {
         pointerRotationRadians.value = 0f
         pointerScale.value = 1f
+        view?.scaleX = 1f
+        view?.scaleY = 1f
+        updateBuddyAlpha(1f)
         bubblePlacementHint = BubblePlacementHint.Side
     }
 
@@ -724,6 +766,60 @@ class FloatingWidgetOverlayService : LifecycleService() {
         lp.x = centeredX
         lp.y = if (belowY <= maxY) belowY else aboveY.coerceIn(0, maxY)
         runCatching { windowManager.updateViewLayout(chip, lp) }
+    }
+
+    private fun observeWindowInsets(target: android.view.View) {
+        target.setOnApplyWindowInsetsListener { _, insets ->
+            val next = insetsSignature(insets)
+            val previous = lastInsetsSignature
+            lastInsetsSignature = next
+            if (previous != null && previous != next) {
+                val reason = if (imeVisibleChanged(previous, next)) {
+                    "ime_changed"
+                } else {
+                    "window_insets_changed"
+                }
+                flightDriver.cancelIfStaleTarget(reason)
+            }
+            insets
+        }
+    }
+
+    private fun requestInsets(target: android.view.View) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            target.requestApplyInsets()
+        }
+    }
+
+    private fun insetsSignature(insets: WindowInsets): String =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val types = WindowInsets.Type.systemBars() or
+                WindowInsets.Type.displayCutout() or
+                WindowInsets.Type.ime()
+            val safe = insets.getInsets(types)
+            val ime = insets.isVisible(WindowInsets.Type.ime())
+            "${safe.left},${safe.top},${safe.right},${safe.bottom}|ime=$ime"
+        } else {
+            @Suppress("DEPRECATION")
+            "${insets.systemWindowInsetLeft},${insets.systemWindowInsetTop}," +
+                "${insets.systemWindowInsetRight},${insets.systemWindowInsetBottom}|ime=false"
+        }
+
+    private fun imeVisibleChanged(previous: String, next: String): Boolean =
+        previous.substringAfter("|ime=", "") != next.substringAfter("|ime=", "")
+
+    private fun configurationSignature(config: Configuration): String =
+        "${config.orientation}|${config.screenWidthDp}|${config.screenHeightDp}|${config.smallestScreenWidthDp}"
+
+    private fun reduceMotionEnabled(): Boolean {
+        if (!ValueAnimator.areAnimatorsEnabled()) return true
+        return listOf(
+            Settings.Global.ANIMATOR_DURATION_SCALE,
+            Settings.Global.TRANSITION_ANIMATION_SCALE,
+            Settings.Global.WINDOW_ANIMATION_SCALE,
+        ).any { key ->
+            Settings.Global.getFloat(contentResolver, key, 1f) == 0f
+        }
     }
 
     private fun canDrawOverlays(): Boolean =

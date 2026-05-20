@@ -75,6 +75,7 @@ dependencies {
     implementation(libs.androidx.splashscreen)
     implementation(libs.androidx.startup.runtime)
     implementation(libs.androidx.dynamicanimation)
+    implementation("androidx.window:window:1.5.1")
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

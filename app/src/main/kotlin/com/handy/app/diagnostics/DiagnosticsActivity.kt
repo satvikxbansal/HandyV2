@@ -40,6 +40,7 @@ import androidx.lifecycle.viewModelScope
 import com.handy.app.accessibility.AccessibilityStateMonitor
 import com.handy.app.clipboard.ClipboardAssist
 import com.handy.app.notifications.HandyNotificationListenerService
+import com.handy.app.overlay.OverlayPresenter
 import com.handy.app.theme.HandyColors
 import com.handy.app.theme.HandyDimens
 import com.handy.app.theme.HandyTheme
@@ -103,6 +104,7 @@ class DiagnosticsViewModel @Inject constructor(
     private val auditStore: AuditStore,
     private val localGenAi: LocalGenAiClient,
     private val clipboardAssist: ClipboardAssist,
+    private val overlayPresenter: OverlayPresenter,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DiagnosticsUi())
@@ -127,6 +129,14 @@ class DiagnosticsViewModel @Inject constructor(
         viewModelScope.launch {
             clipboardAssist.state.collectLatest { clip ->
                 _state.value = _state.value.copy(clipState = clip.toLabel())
+            }
+        }
+        viewModelScope.launch {
+            overlayPresenter.state.collectLatest { overlay ->
+                _state.value = _state.value.copy(
+                    flightFsm = overlay.flightFsm.name,
+                    lastFlightCancellationReason = overlay.lastFlightCancellationReason,
+                )
             }
         }
         viewModelScope.launch {
@@ -158,6 +168,8 @@ data class DiagnosticsUi(
     val auditTail: List<AuditEvent> = emptyList(),
     val clipState: String = "idle",
     val localAvailability: String = "loading…",
+    val flightFsm: String = "Docked",
+    val lastFlightCancellationReason: String? = null,
 )
 
 /* ----------------------------- UI ----------------------------- */
@@ -186,6 +198,8 @@ fun DiagnosticsScreen(state: DiagnosticsUi) {
                 item { DiagRow("Accessibility", state.accessibility.name) }
                 item { DiagRow("Local GenAI", state.localAvailability) }
                 item { DiagRow("Clipboard", state.clipState) }
+                item { DiagRow("Buddy flight", state.flightFsm) }
+                item { DiagRow("Last flight cancel", state.lastFlightCancellationReason ?: "none") }
                 state.settings?.let { s ->
                     item { DiagRow("Cloud provider", s.cloudProvider.displayName) }
                     item { DiagRow("Tap-for-me", s.tapForMeEnabled.onOff()) }

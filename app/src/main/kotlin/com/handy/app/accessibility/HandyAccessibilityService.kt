@@ -47,6 +47,9 @@ class HandyAccessibilityService : AccessibilityService() {
         si.flags = si.flags or
             AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
             AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+        si.eventTypes = si.eventTypes or
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
+            AccessibilityEvent.TYPE_VIEW_SCROLLED
         serviceInfo = si
         active.set(this)
         // Push the "service connected" edge immediately so the chat
@@ -60,6 +63,7 @@ class HandyAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
         if (manualTargetSelector.handleAccessibilityEvent(event)) return
+        maybeCancelStaleFlightTarget(event)
         if (!manualTargetSelector.isActive) {
             maybeDismissStickyPointer(event)
         }
@@ -83,6 +87,19 @@ class HandyAccessibilityService : AccessibilityService() {
         val sourcePackage = event.packageName?.toString()
         if (sourcePackage == packageName) return
         flightDriver.dismissPointingAfterUserInteraction(sourcePackage)
+    }
+
+    private fun maybeCancelStaleFlightTarget(event: AccessibilityEvent) {
+        val isRelevant = event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
+            event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED
+        if (!isRelevant) return
+        val sourcePackage = event.packageName?.toString()?.takeIf { it.isNotBlank() } ?: return
+        if (sourcePackage == packageName) return
+        val reason = when (event.eventType) {
+            AccessibilityEvent.TYPE_VIEW_SCROLLED -> "view_scrolled_package_mismatch"
+            else -> "window_content_changed_package_mismatch"
+        }
+        flightDriver.cancelIfStaleTarget(reason, sourcePackage)
     }
 
     override fun onInterrupt() { /* no-op */ }

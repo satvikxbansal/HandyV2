@@ -15,6 +15,7 @@ import com.handy.core.tool.ToolContext
  */
 data class OverlayPanelState(
     val mode: OverlayMode = OverlayMode.IdleWidget,
+    val flightFsm: FlightFsm = FlightFsm.Docked,
     val buddyState: BuddyState = BuddyState.DOCKED,
     val bubble: BuddyBubble? = null,
     /**
@@ -24,12 +25,37 @@ data class OverlayPanelState(
      */
     val isFlying: Boolean = false,
     /**
+     * Most recent reason the flight target was invalidated. Diagnostics
+     * surfaces this so manual rotation / IME / fold cancellation checks
+     * have a visible breadcrumb.
+     */
+    val lastFlightCancellationReason: String? = null,
+    /**
      * Chat panel slice. Ignored when [mode] != [OverlayMode.ChatPanel].
      */
     val panel: PanelContent = PanelContent(),
 ) {
     val isPanelVisible: Boolean get() = mode == OverlayMode.ChatPanel
     val isManualTargetSelection: Boolean get() = mode == OverlayMode.ManualTargetSelection
+}
+
+/**
+ * Strict high-level lifecycle for Buddy. [OverlayPresenter] is the only
+ * mutator and rejects illegal edges before publishing state.
+ */
+enum class FlightFsm {
+    Docked,
+    Listening,
+    Thinking,
+    Answering,
+    PreparingPoint,
+    Flying,
+    Pointing,
+    ActionConfirm,
+    Acting,
+    ActionResult,
+    Returning,
+    Error,
 }
 
 /**
