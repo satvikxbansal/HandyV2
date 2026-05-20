@@ -903,3 +903,51 @@ cross-references the one being superseded.
 | **Fix** | Restored the CTA non-overlap invariant as a comment beside the expanded-target scoring in `chooseBuddyLandingPosition`, added `BuddyFlightLandingGeometryTest.top right cta lands below without covering tappable bounds`, and verified all flight entry paths route through `PreparingPoint` before `Flying` so the strict presenter FSM rejects direct illegal takeoff. Diagnostics surfaces `lastFlightCancellationReason` for rotation / IME / fold / package-mismatch cancellations. |
 | **Validation** | `git diff --check` passed. `JAVA_HOME=/tmp/codex-jdk17/Contents/Home PATH=/tmp/codex-jdk17/Contents/Home/bin:$PATH ./gradlew :app:testDebugUnitTest --tests 'com.handy.app.overlay.BuddyFlightLandingGeometryTest' --stacktrace` passed. `JAVA_HOME=/tmp/codex-jdk17/Contents/Home PATH=/tmp/codex-jdk17/Contents/Home/bin:$PATH ./gradlew :core:test :app:test --stacktrace` passed. Device-only macrobenchmark and manual rotate/fold/IME/TalkBack checks were not run in this shell. |
 | **Prevention Rule** | When replacing a geometry heuristic that protects a user-tappable control, preserve the invariant by name in the new helper and add one fixture for each compound edge class, not just each independent feature. For Buddy landing, any future rewrite must test edge-band affinity plus non-overlap for top-left, top-right, bottom-left, bottom-right, IME-compressed bottom, cutout-compressed top, fold-hinge split regions, and shrink-to-fit constrained bounds before the old implementation can be considered safely replaced. |
+
+---
+
+### DL-055 — README staleness after intra-session phase landings (D1 sync ran before G1/M1/M2)
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-05-20 |
+| **Tags** | `#docs #README #phase-sync #process` |
+| **Severity** | Documentation Staleness |
+| **File(s)** | `README.md`, `DEBUG_LOG.md` |
+| **Symptom** | README.md's "Known active gaps (important)" section still listed gaps that had been closed or narrowed by later same-day G1, M1, and M2 phase landings. |
+| **Root Cause** | D1's README rewrite (commit a8da5bd) ran chronologically earlier in the same session than G1/M1/M2. The "Known active gaps" bullets were correct at commit time but went stale within ~4 hours as later phases shipped. No re-sync was scheduled. |
+| **Fix** | Re-synced the README gap list against HEAD reality: removed the closed markId, debug-redaction, and window-blind capture bullets; rewrote the MediaProjection gap as partially implemented but blocked on the Phase 4 consent flow; and added the current tap-for-me consent/config gap. |
+| **Validation** | Docs-only change. Confirmed with `git diff README.md`. |
+| **Prevention Rule** | Any session that lands multiple phases must end with a "docs reconciliation" pass: README, scope doc, and Play matrix re-checked against the final HEAD. Add to `.cursor/rules` if the team agrees. |
+
+---
+
+### DL-056 — FSM stuck at ActionResult between turns
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-05-20 |
+| **Tags** | `#android #overlay #FSM #Diagnostics #tap-for-me` |
+| **Severity** | Diagnostics / Idle-State Drift |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt`, `app/src/test/kotlin/com/handy/app/overlay/OverlayPresenterFsmTest.kt`, `DEBUG_LOG.md` |
+| **Symptom** | After a successful tap-for-me action, Diagnostics could report the overlay flight FSM as stuck at `ActionResult` even though the action flow itself had completed and the next user turn still worked. |
+| **Root Cause** | F1 added the FSM transition table, but `onActionFinished` used `target = FlightFsm.ActionResult`, which was correct for the instant the action finished, and no subsequent caller forced the reset to `Docked`. Most next-turn paths (`Listening` / `Thinking`) can transition from `ActionResult`, so functional flows worked, but Diagnostics and the idle state were misleading between turns. |
+| **Fix** | Changed `onActionFinished` to drain directly through `forceDocked`, using the existing legal `Acting -> Docked` reset path, and added an FSM unit test covering `onPreparingPoint -> onFlyingStart -> onPointingArrived -> onActionStarted -> onActionFinished`. |
+| **Validation** | `JAVA_HOME=/tmp/codex-jdk17/Contents/Home PATH=/tmp/codex-jdk17/Contents/Home/bin:$PATH ./gradlew :app:testDebugUnitTest --tests "*OverlayPresenterFsmTest*"` passed. |
+| **Prevention Rule** | Every leaf FSM state (`ActionResult`, `Error`, `Returning`) must either auto-transition to a steady state in the same call or have an explicit drainer documented in `OverlayPresenter` Kdoc. |
+
+---
+
+### DL-057 — inferSemanticPoint bypassed M1 markId path
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-05-20 |
+| **Tags** | `#android #overlay #M1 #buddy-flight #tap-for-me` |
+| **Severity** | Action Safety Regression Risk |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt`, `DEBUG_LOG.md` |
+| **Symptom** | `OverlayChatPipeline.inferSemanticPoint` still constructed ad-hoc `SemanticPoint` targets when the LLM omitted a `[POINT:...]` tag. These targets skipped the parser-emitted markId path that M1 relies on for the resolver/performer package and window guard. |
+| **Root Cause** | A v1 heuristic for top-left menus survived M1 because the diff focused on the `flyToAndTap` signature. The heuristic only fired when the LLM omitted a `[POINT:...]`, which is rare with the current prompts, so behavior was silent. |
+| **Fix** | Deleted `inferSemanticPoint`, its top-left menu keyword fallback, the ad-hoc `AccessibilityMark.toSemanticPoint` constructors, and the `TOP_LEFT_MENU_MAX_Y` guard. Overlay buddy flight now only runs when `pointing.semantic` is non-null from the parser. |
+| **Validation** | `./gradlew :app:testDebugUnitTest` could not start until `JAVA_HOME` was set because the shell had no default Java runtime. `JAVA_HOME=/tmp/codex-jdk17/Contents/Home PATH=/tmp/codex-jdk17/Contents/Home/bin:$PATH ./gradlew :app:testDebugUnitTest` passed. |
+| **Prevention Rule** | When refactoring an action-target plumbing contract, grep for every `SemanticPoint(...)` constructor call and audit whether each path threads through the new guard. |

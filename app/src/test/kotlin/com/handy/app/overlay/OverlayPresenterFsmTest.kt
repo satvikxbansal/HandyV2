@@ -39,6 +39,19 @@ class OverlayPresenterFsmTest {
     }
 
     @Test
+    fun `tap action finish drains to docked`() {
+        val presenter = presenter()
+
+        presenter.onPreparingPoint("settings")
+        presenter.onFlyingStart("settings")
+        presenter.onPointingArrived("settings")
+        presenter.onActionStarted("Tap settings")
+        presenter.onActionFinished()
+
+        assertThat(presenter.state.value.flightFsm).isEqualTo(FlightFsm.Docked)
+    }
+
+    @Test
     fun `illegal return from dock throws`() {
         val presenter = presenter()
 

@@ -36,6 +36,11 @@ import timber.log.Timber
  *  - Transcript (yellow) fades on `BuddyState.THINKING`.
  *  - Response (green) suppresses Navigation (blue).
  *  - Action (teal) suppresses Response.
+ *
+ * FSM leaf states:
+ *  - [FlightFsm.ActionResult], [FlightFsm.Error], and [FlightFsm.Returning]
+ *    must either drain to a steady state in the same presenter call or have an
+ *    explicit drainer such as [onPointingReturned].
  */
 @Singleton
 class OverlayPresenter @Inject constructor(
@@ -410,9 +415,8 @@ class OverlayPresenter @Inject constructor(
     }
 
     fun onActionFinished() {
-        setState(
+        forceDocked(
             event = "onActionFinished",
-            target = FlightFsm.ActionResult,
         ) { it.copy(
             mode = OverlayMode.IdleWidget,
             buddyState = BuddyState.DOCKED,

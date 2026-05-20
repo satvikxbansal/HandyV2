@@ -46,18 +46,16 @@ experience is implemented, and policy documentation is actively maintained.
 
 ### Known active gaps (important)
 
-- `markId` is still not preserved into `TapTarget`; pointer prompting can emit
-  mark ids, but action execution has to fall back to role/text/viewId/desc
-  fields.
-- `MediaProjection` is still unwired as a live capture source for the API 26-29
-  fallback path.
+- `MediaProjection` capture (API 26-29) has an implementation
+  (`MediaProjectionCaptureSourceImpl`) and DI wiring, but no Activity yet calls
+  `MediaProjectionManager.createScreenCaptureIntent()` to start the foreground
+  service, so it returns `CaptureResult.Unsupported` on those API levels until
+  Phase 4 lands the consent flow.
 - Action consent UI for app-control/tap-for-me flows is still missing beyond
   the current destructive-intent confirmation broker.
-- Debug candidate output is still not fully redacted; resolver/candidate logs
-  need the same privacy treatment as user-visible screen text.
-- Capture is still effectively window-blind on paths that cannot bind a reliable
-  active-window id, so screenshot evidence must not be treated as a precise
-  per-window source of truth yet.
+- Tap-for-me consent UI is still missing: `ActionExecutionGate` exists and stays
+  closed; `canPerformGestures='true'` has not been added to
+  `accessibility_service_config.xml` yet (deferred to Phase 4 / P1).
 - `BrainRouter` and local-gen routing seams exist but are not the primary
   production path today.
 - Some UI polish assets remain placeholder-level (for example default system

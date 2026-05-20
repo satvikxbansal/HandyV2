@@ -10,7 +10,6 @@ import com.handy.core.model.LoadingVerbs
 import com.handy.core.orchestrator.ConversationOrchestrator
 import com.handy.core.orchestrator.OrchestrationEvent
 import com.handy.core.orchestrator.OrchestrationRequest
-import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.overlay.PanelContent
 import com.handy.core.overlay.PanelSnapshot
 import com.handy.core.parsing.AssistantMarkupParser
@@ -209,15 +208,7 @@ class OverlayChatPipeline @Inject constructor(
             // green bubble. The bubble taxonomy flips to Navigation
             // while the sticky pointer is active. Tap-for-me remains
             // fail-closed until the future action disclosure gate ships.
-            val semanticSpec = pointing?.semantic ?: inferSemanticPoint(
-                userText = userText,
-                assistantText = finalChatText,
-                marks = groundedSnapshot?.marks.orEmpty(),
-            ).also { inferred ->
-                if (inferred != null) {
-                    Timber.d("OverlayChatPipeline: inferred fallback point=%s", inferred.logSummary())
-                }
-            }
+            val semanticSpec = pointing?.semantic
             val pixelPoint = pointing?.pixel
             if (semanticSpec != null) {
                 val spec = semanticSpec
@@ -250,7 +241,7 @@ class OverlayChatPipeline @Inject constructor(
                     pixelPoint.label?.logSnippet(),
                 )
             } else {
-                Timber.d("OverlayChatPipeline: no point emitted or inferred")
+                Timber.d("OverlayChatPipeline: no point emitted")
             }
         }
     }
@@ -278,79 +269,6 @@ class OverlayChatPipeline @Inject constructor(
         return AssistantMarkupParser.clampVoiceSpokenForOverlay(spoken)
     }
 
-    private fun inferSemanticPoint(
-        userText: String,
-        assistantText: String,
-        marks: List<AccessibilityMark>,
-    ): AssistantMarkupParser.SemanticPoint? {
-        if (marks.isEmpty()) return null
-        val haystack = normalize("$userText $assistantText")
-        val mentionsMenu = listOf(
-            "menu",
-            "drawer",
-            "three line",
-            "three-line",
-            "hamburger",
-            "top left",
-            "navigation",
-        ).any { haystack.contains(it) }
-        if (!mentionsMenu) return null
-
-        val menuMark = marks
-            .filter { it.clickable }
-            .minByOrNull { it.top * 10_000 + it.left }
-            ?.takeIf { it.top < TOP_LEFT_MENU_MAX_Y }
-        if (menuMark != null) return menuMark.toSemanticPoint()
-
-        marks.firstOrNull { mark ->
-            mark.preferredLabel()?.let { label ->
-                label.length >= 3 && haystack.contains(normalize(label))
-            } == true
-        }?.let { return it.toSemanticPoint() }
-
-        return null
-    }
-
-    private fun AccessibilityMark.toSemanticPoint(): AssistantMarkupParser.SemanticPoint =
-        when {
-            !markId.isNullOrBlank() -> AssistantMarkupParser.SemanticPoint(
-                markId = markId,
-                role = semanticRole(),
-                text = text,
-                contentDescription = contentDescription,
-                viewId = viewIdSuffix,
-            )
-            !text.isNullOrBlank() -> AssistantMarkupParser.SemanticPoint(
-                role = semanticRole(),
-                text = text,
-            )
-            !contentDescription.isNullOrBlank() -> AssistantMarkupParser.SemanticPoint(
-                contentDescription = contentDescription,
-            )
-            !viewIdSuffix.isNullOrBlank() -> AssistantMarkupParser.SemanticPoint(
-                viewId = viewIdSuffix,
-            )
-            else -> AssistantMarkupParser.SemanticPoint(
-                role = semanticRole(),
-                text = role,
-            )
-        }
-
-    private fun AccessibilityMark.preferredLabel(): String? =
-        text ?: contentDescription ?: viewIdSuffix
-
-    private fun AccessibilityMark.semanticRole(): String? {
-        val lower = role.lowercase()
-        return when {
-            lower.contains("button") -> "button"
-            lower.contains("edit") -> "textfield"
-            lower.contains("checkbox") -> "checkbox"
-            lower.contains("switch") -> "switch"
-            lower.contains("tab") -> "tab"
-            else -> null
-        }
-    }
-
     private fun AssistantMarkupParser.PointingResult.logSummary(): String {
         val semanticPoint = semantic
         val pixelPoint = pixel
@@ -368,15 +286,8 @@ class OverlayChatPipeline @Inject constructor(
     private fun String.logSnippet(max: Int = 80): String =
         replace('\n', ' ').take(max)
 
-    private fun normalize(value: String): String =
-        value.lowercase()
-            .replace('-', ' ')
-            .replace(Regex("""\s+"""), " ")
-            .trim()
-
     private companion object {
         const val VERB_ROTATION_MS: Long = 2500L
         const val PANEL_DISMISS_BEFORE_FLIGHT_MS: Long = 180L
-        const val TOP_LEFT_MENU_MAX_Y: Int = 360
     }
 }
