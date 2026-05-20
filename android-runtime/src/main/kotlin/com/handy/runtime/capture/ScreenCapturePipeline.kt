@@ -44,8 +44,8 @@ class ScreenCapturePipeline(
     suspend fun capture(activeWindowIdHint: Int? = null): CaptureResult {
         return when {
             sdkInt >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> takeByWindow(activeWindowIdHint)
-            sdkInt >= Build.VERSION_CODES.R -> takeByAccessibility()
-            else -> takeByMediaProjection()
+            sdkInt >= Build.VERSION_CODES.R -> takeByAccessibility(activeWindowIdHint)
+            else -> takeByMediaProjection(activeWindowIdHint)
         }
     }
 
@@ -69,11 +69,15 @@ class ScreenCapturePipeline(
                 svc.mainExecutor,
                 object : TakeScreenshotCallback {
                     override fun onSuccess(result: ScreenshotResult) {
-                        cont.resume(bitmapToResult(hardwareBufferToBitmap(result)))
+                        if (cont.isActive) {
+                            cont.resume(bitmapToResult(hardwareBufferToBitmap(result)))
+                        }
                     }
 
                     override fun onFailure(errorCode: Int) {
-                        cont.resume(classifyAccessibilityFailure(errorCode))
+                        if (cont.isActive) {
+                            cont.resume(classifyAccessibilityFailure(errorCode))
+                        }
                     }
                 },
             )
@@ -83,19 +87,24 @@ class ScreenCapturePipeline(
     // ---------------- API 30-33 ----------------
 
     @RequiresApi(Build.VERSION_CODES.R)
-    private suspend fun takeByAccessibility(): CaptureResult {
+    private suspend fun takeByAccessibility(activeWindowIdHint: Int?): CaptureResult {
         val svc = accessibilityService() ?: return CaptureResult.NotPermitted
+        val displayId = displayIdForWindow(svc, activeWindowIdHint) ?: Display.DEFAULT_DISPLAY
         return suspendCancellableCoroutine { cont ->
             svc.takeScreenshot(
-                Display.DEFAULT_DISPLAY,
+                displayId,
                 svc.mainExecutor,
                 object : TakeScreenshotCallback {
                     override fun onSuccess(result: ScreenshotResult) {
-                        cont.resume(bitmapToResult(hardwareBufferToBitmap(result)))
+                        if (cont.isActive) {
+                            cont.resume(bitmapToResult(hardwareBufferToBitmap(result)))
+                        }
                     }
 
                     override fun onFailure(errorCode: Int) {
-                        cont.resume(classifyAccessibilityFailure(errorCode))
+                        if (cont.isActive) {
+                            cont.resume(classifyAccessibilityFailure(errorCode))
+                        }
                     }
                 },
             )
@@ -104,15 +113,37 @@ class ScreenCapturePipeline(
 
     // ---------------- API 26-29 (MediaProjection fallback) ----------------
 
-    private suspend fun takeByMediaProjection(): CaptureResult {
+    private suspend fun takeByMediaProjection(activeWindowIdHint: Int?): CaptureResult {
         val source = mediaProjectionSource ?: return CaptureResult.Unsupported
-        val bitmap = source.captureFrame() ?: return CaptureResult.Failed("MediaProjection frame timeout")
+        if (!source.isReady) return CaptureResult.Unsupported
+        val bitmap = source.captureFrame(activeWindowIdHint)
+            ?: return CaptureResult.Failed("MediaProjection frame timeout")
         if (BlackFrameDetector.isEssentiallyBlack(bitmap)) {
             bitmap.recycle()
             Timber.d("Capture: MediaProjection frame is essentially black → SecureWindow")
             return CaptureResult.SecureWindow
         }
         return bitmapToResult(bitmap, precomputedBitmap = bitmap)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.R)
+    private fun displayIdForWindow(
+        svc: AccessibilityService,
+        activeWindowIdHint: Int?,
+    ): Int? {
+        val hinted = activeWindowIdHint?.let { targetId ->
+            runCatching {
+                svc.windows?.firstOrNull { window -> window.id == targetId }?.displayId
+            }.getOrNull()
+        }
+        if (hinted != null) return hinted
+
+        val root = runCatching { svc.rootInActiveWindow }.getOrNull() ?: return null
+        return try {
+            runCatching { root.window?.displayId }.getOrNull()
+        } finally {
+            runCatching { root.recycle() }
+        }
     }
 
     // ---------------- classification helpers ----------------
@@ -178,7 +209,10 @@ class ScreenCapturePipeline(
  * frames are produced (OS-3 MediaProjection lifecycle discipline).
  */
 interface MediaProjectionCaptureSource {
-    suspend fun captureFrame(): Bitmap?
+    val isReady: Boolean
+        get() = true
+
+    suspend fun captureFrame(activeWindowIdHint: Int? = null): Bitmap?
     fun release()
 }
 

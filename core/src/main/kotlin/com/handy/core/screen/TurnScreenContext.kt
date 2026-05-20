@@ -1,28 +1,10 @@
 package com.handy.core.screen
 
-import com.handy.core.accessibility.AccessibilityConnectionState
-import com.handy.core.capture.CaptureMode
-import com.handy.core.overlay.PanelSnapshot
-import com.handy.core.tool.ToolContext
-
 /**
- * Small per-turn wrapper that composes the existing screen/context models
- * instead of replacing them with a parallel snapshot hierarchy.
+ * Back-compat name for callers not yet renamed to [GroundingSnapshot].
  */
-data class TurnScreenContext(
-    val requestId: String,
-    val source: TurnSource,
-    val toolContext: ToolContext,
-    val panelSnapshot: PanelSnapshot? = null,
-    val screenText: ScreenTextSnapshot? = null,
-    val capture: CaptureResult? = null,
-    val captureMode: CaptureMode = CaptureMode.NONE,
-    val accessibilityState: AccessibilityConnectionState = AccessibilityConnectionState.NeverConnected,
-    val failureReason: ContextFailureReason? = null,
-) {
-    val failurePrompt: String?
-        get() = failureReason?.promptText
-}
+@Deprecated("Use GroundingSnapshot.", ReplaceWith("GroundingSnapshot"))
+typealias TurnScreenContext = GroundingSnapshot
 
 enum class TurnSource {
     OVERLAY_PANEL,
