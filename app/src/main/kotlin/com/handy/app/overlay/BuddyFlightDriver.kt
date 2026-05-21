@@ -128,13 +128,14 @@ class BuddyFlightDriver @Inject constructor(
         spec: AssistantMarkupParser.SemanticPoint,
         label: String?,
         fallbackMarks: List<AccessibilityMark> = emptyList(),
+        groundingSnapshot: GroundingSnapshot? = null,
     ): Boolean {
         val flight = resolveForFlight(
             spec = spec,
             label = label,
             fallbackMarks = fallbackMarks,
-            expectedPackage = null,
-            expectedWindowId = null,
+            expectedPackage = groundingSnapshot?.toolContext?.packageName,
+            expectedWindowId = groundingSnapshot?.windowId,
         ) ?: return false
         val resolved = flight.resolved
         return try {

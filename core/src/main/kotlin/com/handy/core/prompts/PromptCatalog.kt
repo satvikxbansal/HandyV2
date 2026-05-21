@@ -210,6 +210,8 @@ object PromptCatalog {
         1. SPOKEN part — wrap the short bubble text in [SPOKEN]...[/SPOKEN]. keep it to one sentence, under 110 characters when possible. for navigation questions, say only the primary on-screen action.
         2. DETAIL part — after [/SPOKEN], include any extra context only if it is truly useful. keep it brief.
 
+        if a visible button, menu item, or cta directly matches the user's goal, make that visible control the primary action instead of sending them through a hidden menu path.
+
         always append a [POINT:...] tag at the very end. if your answer names a visible control from the screen_text block, point at that exact element. prefer [POINT:markId=...] from screen_text; use viewId, text, or desc only as fallback. never use pixel coordinates in normal responses. if no pointing would help, append [POINT:none].
     """.trimIndent()
 
@@ -232,7 +234,9 @@ object PromptCatalog {
     val AGENT_RECIPE_ADDENDUM: String = """
 
         agent-mode recipes:
-        for multi-step ui work, you may choose ONLY a named deterministic recipe with json arguments. never emit raw executable plans, numbered tap/type/scroll steps, or multiple [POINT] tags for Handy to execute.
+        recipes are only for explicit do-it-for-me requests where the user asks Handy to perform the ui action, such as "tap this for me", "type hello into the field", "search for coffee shops", or "scroll down". do NOT use recipes for guidance questions like "how do i...", "where is...", "what should i tap?", "show me around", or "what can i do here". for guidance questions, answer normally and append exactly one [POINT:...] tag when a visible control would help.
+
+        for explicit executable ui work, you may choose ONLY a named deterministic recipe with json arguments. never emit raw executable plans, numbered tap/type/scroll steps, or multiple [POINT] tags for Handy to execute.
 
         if a recipe fits, write a short user-facing sentence, then include exactly one directive:
         use recipe <recipe_id> with args {"key":"value"}

@@ -11,8 +11,10 @@ import com.handy.core.model.LoadingVerbs
 import com.handy.core.orchestrator.ConversationOrchestrator
 import com.handy.core.orchestrator.OrchestrationEvent
 import com.handy.core.orchestrator.OrchestrationRequest
+import com.handy.core.overlay.FallbackPointInferer
 import com.handy.core.overlay.PanelContent
 import com.handy.core.overlay.PanelSnapshot
+import com.handy.core.overlay.withStableMarkIds
 import com.handy.core.agent.UserGoal
 import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.screen.TurnSource
@@ -212,6 +214,7 @@ class OverlayChatPipeline @Inject constructor(
             if (displayChatText.isNotBlank()) {
                 presenter.onResponseFinalized(displayOverlaySpoken, displayChatText)
             }
+            val fallbackMarks = groundedSnapshot?.marks.orEmpty().withStableMarkIds()
             val recipeHandled = agentSessionController.runIfRecipeRequested(
                 assistantText = finalChatText,
                 userText = userText,
@@ -225,18 +228,30 @@ class OverlayChatPipeline @Inject constructor(
             }
             // V2: buddy flight — fire after the response is in the
             // green bubble. The bubble taxonomy flips to Navigation
-            // while the sticky pointer is active. Tap-for-me now proceeds
-            // only through the versioned disclosure gate and per-action sheet.
-            val semanticSpec = pointing?.semantic
+            // while the sticky pointer is active. Normal guidance remains
+            // point-only; action/typing paths require explicit action markup.
+            val semanticSpec = pointing?.semantic ?: FallbackPointInferer.infer(
+                userText = userText,
+                assistantText = finalChatText,
+                marks = fallbackMarks,
+            ).also { inferred ->
+                if (inferred != null) {
+                    Timber.d(
+                        "OverlayChatPipeline: inferred fallback point=%s explicitPoint=%s",
+                        inferred.logSummary(),
+                        pointing?.logSummary() ?: "missing",
+                    )
+                }
+            }
             val pixelPoint = pointing?.pixel
             if (semanticSpec != null) {
                 val spec = semanticSpec
                 val targetLabel = spec.text ?: spec.contentDescription ?: spec.viewId ?: spec.markId ?: "here"
-                val bubbleLabel = finalOverlaySpoken?.takeIf { it.isNotBlank() } ?: targetLabel
+                val bubbleLabel = displayOverlaySpoken.takeIf { it.isNotBlank() } ?: targetLabel
                 Timber.d(
                     "OverlayChatPipeline: dismissing panel before semantic flight target=%s fallbackMarks=%d",
                     spec.logSummary(),
-                    groundedSnapshot?.marks?.size ?: 0,
+                    fallbackMarks.size,
                 )
                 presenter.dismissPanel()
                 delay(PANEL_DISMISS_BEFORE_FLIGHT_MS)
@@ -248,15 +263,14 @@ class OverlayChatPipeline @Inject constructor(
                             text = typeText,
                             bubbleLabel = bubbleLabel,
                             targetLabel = targetLabel,
-                            fallbackMarks = groundedSnapshot?.marks.orEmpty(),
+                            fallbackMarks = fallbackMarks,
                             groundingSnapshot = turnContext,
                         )
                     } else {
-                        flightDriver.flyToAndTap(
+                        flightDriver.flyTo(
                             spec = spec,
-                            bubbleLabel = bubbleLabel,
-                            targetLabel = targetLabel,
-                            fallbackMarks = groundedSnapshot?.marks.orEmpty(),
+                            label = bubbleLabel,
+                            fallbackMarks = fallbackMarks,
                             groundingSnapshot = turnContext,
                         )
                     }

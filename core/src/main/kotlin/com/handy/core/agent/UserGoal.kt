@@ -30,6 +30,46 @@ data class UserGoal(
                 .replace(Regex("""[ \t]+\n"""), "\n")
                 .replace(Regex("""\n{3,}"""), "\n\n")
                 .trim()
+
+        fun allowsRecipeExecution(userText: String): Boolean {
+            val normalized = normalize(userText)
+            if (normalized.isBlank()) return false
+            val explicitAutomation = EXECUTION_PATTERNS.any { it.containsMatchIn(normalized) }
+            if (!explicitAutomation) return false
+            val helpOnly = HELP_ONLY_PATTERNS.any { it.containsMatchIn(normalized) }
+            return !helpOnly || FORCE_AUTOMATION_PATTERNS.any { it.containsMatchIn(normalized) }
+        }
+
+        private fun normalize(value: String): String =
+            value.lowercase()
+                .replace('-', ' ')
+                .replace('_', ' ')
+                .replace(Regex("""[^a-z0-9\s]+"""), " ")
+                .replace(Regex("""\s+"""), " ")
+                .trim()
+
+        private val HELP_ONLY_PATTERNS = listOf(
+            Regex("""\bhow\s+(do|can|should)\s+i\b"""),
+            Regex("""\bwhere\s+(do|can|should)\s+i\b"""),
+            Regex("""\bwhere\s+is\b"""),
+            Regex("""\bwhich\s+(button|field|menu|option|setting)\b"""),
+            Regex("""\bshow\s+me\s+(where|how)\b"""),
+            Regex("""\bwhat\s+can\s+i\s+do\s+here\b"""),
+            Regex("""\bwhat\s+should\s+i\s+tap\b"""),
+        )
+
+        private val EXECUTION_PATTERNS = listOf(
+            Regex("""^(please\s+)?(tap|click|press|select|choose|open|type|enter|fill|search|scroll|swipe)\b"""),
+            Regex("""\b(can|could|would)\s+you\s+(please\s+)?(tap|click|press|select|choose|open|type|enter|fill|search|scroll|swipe)\b"""),
+            Regex("""\b(go\s+ahead|do\s+it|do\s+this|take\s+over|handle\s+it)\b"""),
+            Regex("""\bfor\s+me\b"""),
+        )
+
+        private val FORCE_AUTOMATION_PATTERNS = listOf(
+            Regex("""\bfor\s+me\b"""),
+            Regex("""\b(go\s+ahead|do\s+it|do\s+this|take\s+over|handle\s+it)\b"""),
+            Regex("""\b(can|could|would)\s+you\s+(please\s+)?(tap|click|press|select|choose|open|type|enter|fill|search|scroll|swipe)\b"""),
+        )
     }
 }
 

@@ -63,10 +63,9 @@ class FullChatActionLauncher @Inject constructor(
                             groundingSnapshot = action.groundingSnapshot,
                         )
                     } else {
-                        flightDriver.flyToAndTap(
+                        flightDriver.flyTo(
                             spec = semantic,
-                            bubbleLabel = action.bubbleLabel,
-                            targetLabel = action.targetLabel,
+                            label = action.bubbleLabel,
                             fallbackMarks = action.snapshot.marks,
                             groundingSnapshot = action.groundingSnapshot,
                         )

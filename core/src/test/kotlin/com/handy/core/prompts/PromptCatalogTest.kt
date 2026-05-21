@@ -134,6 +134,7 @@ class PromptCatalogTest {
         assertThat(prompt).contains("[SPOKEN]")
         assertThat(prompt).contains("[POINT:")
         assertThat(prompt).contains("[POINT:markId=")
+        assertThat(prompt).contains("visible button, menu item, or cta directly matches")
         assertThat(prompt).doesNotContain("[POINT:x,y:label]")
     }
 
@@ -148,6 +149,8 @@ class PromptCatalogTest {
         assertThat(prompt).contains("agent-mode recipes:")
         assertThat(prompt).contains("use recipe <recipe_id> with args")
         assertThat(prompt).contains("never emit raw executable plans")
+        assertThat(prompt).contains("do NOT use recipes for guidance questions")
+        assertThat(prompt).contains("answer normally and append exactly one [POINT:...] tag")
         assertThat(prompt).contains("Handy will re-check policy on a fresh snapshot before every step")
     }
 
