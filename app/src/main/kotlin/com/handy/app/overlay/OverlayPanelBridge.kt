@@ -92,6 +92,9 @@ class OverlayPanelBridge @Inject constructor(
     fun stopVoiceFromPanel() {
         voiceJob = appScope.launch(Dispatchers.Main) {
             val transcript = voiceController.stopAndAwaitFinal()
+            if (voiceController.consumeLastPointingCorrectionHandled()) {
+                return@launch
+            }
             presenter.onVoiceFinalized(transcript)
             if (!transcript.isNullOrBlank()) {
                 submitFromVoice(transcript)

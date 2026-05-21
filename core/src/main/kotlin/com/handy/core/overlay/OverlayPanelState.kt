@@ -4,6 +4,7 @@ import com.handy.core.action.ActionRisk
 import com.handy.core.action.AssistantAction
 import com.handy.core.action.ConfirmationLevel
 import com.handy.core.parsing.AssistantMarkupParser
+import com.handy.core.screen.IntRect
 import com.handy.core.tool.ToolContext
 
 /**
@@ -42,10 +43,38 @@ data class OverlayPanelState(
      * dispatched.
      */
     val tapForMeConfirmation: TapForMeConfirmation? = null,
+    /**
+     * Candidate targets carried from the pointer resolver. The overlay
+     * may render these as chips for ambiguous hits, and voice correction
+     * can reuse them without asking the model to resolve again.
+     */
+    val candidateOptions: CandidateOptions? = null,
 ) {
     val isPanelVisible: Boolean get() = mode == OverlayMode.ChatPanel
     val isManualTargetSelection: Boolean get() = mode == OverlayMode.ManualTargetSelection
 }
+
+data class CandidateOptions(
+    val options: List<CandidateOption>,
+    val activeCandidateId: String? = options.firstOrNull()?.id,
+    val visible: Boolean = false,
+) {
+    val hasAlternatives: Boolean get() = options.size > 1
+    val activeIndex: Int
+        get() = options.indexOfFirst { it.id == activeCandidateId }
+            .takeIf { it >= 0 }
+            ?: 0
+}
+
+data class CandidateOption(
+    val id: String,
+    val label: String,
+    val role: String?,
+    val markId: String?,
+    val viewId: String?,
+    val bounds: IntRect,
+    val confidence: Float,
+)
 
 data class TapForMeConfirmation(
     val id: Long,

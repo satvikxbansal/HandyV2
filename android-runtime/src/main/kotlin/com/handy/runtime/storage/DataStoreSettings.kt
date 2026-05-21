@@ -89,6 +89,33 @@ class DataStoreSettings(private val context: Context) {
         }
     }
 
+    suspend fun addTapForMeUserDenylistedPackage(packageName: String) {
+        val normalized = packageName.normalizedPackageName() ?: return
+        prefs.edit { p ->
+            val current = p[TAP_FOR_ME_USER_DENYLISTED_PACKAGES]
+                .orEmpty()
+                .mapNotNull { it.normalizedPackageName() }
+                .toSet()
+            p[TAP_FOR_ME_USER_DENYLISTED_PACKAGES] = current + normalized
+        }
+    }
+
+    suspend fun removeTapForMeUserDenylistedPackage(packageName: String) {
+        val normalized = packageName.normalizedPackageName() ?: return
+        prefs.edit { p ->
+            val current = p[TAP_FOR_ME_USER_DENYLISTED_PACKAGES]
+                .orEmpty()
+                .mapNotNull { it.normalizedPackageName() }
+                .toSet()
+            val next = current - normalized
+            if (next.isEmpty()) {
+                p.remove(TAP_FOR_ME_USER_DENYLISTED_PACKAGES)
+            } else {
+                p[TAP_FOR_ME_USER_DENYLISTED_PACKAGES] = next
+            }
+        }
+    }
+
     private fun Preferences.toSettings(): HandySettings {
         return HandySettings(
             assistantMode = this[ASSISTANT_MODE]
@@ -137,6 +164,11 @@ class DataStoreSettings(private val context: Context) {
             assistEntryEnabled = this[ASSIST_ENTRY_ENABLED] ?: false,
         )
     }
+
+    private fun String.normalizedPackageName(): String? =
+        trim()
+            .lowercase()
+            .takeIf { it.isNotBlank() && it != "unknown" }
 
     private companion object {
         val ASSISTANT_MODE = stringPreferencesKey("assistant_mode")

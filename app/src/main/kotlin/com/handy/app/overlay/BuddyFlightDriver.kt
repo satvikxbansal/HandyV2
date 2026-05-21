@@ -19,6 +19,7 @@ import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
 import com.handy.app.widget.BezierFlightController
 import com.handy.app.widget.LensRenderer
+import com.handy.core.agent.CorrectionIntent
 import com.handy.core.action.ActionPolicyEngine
 import com.handy.core.action.ActionPerformer
 import com.handy.core.action.AssistantAction
@@ -32,6 +33,8 @@ import com.handy.core.audit.AuditResult
 import com.handy.core.audit.AuditStore
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.overlay.BuddyState
+import com.handy.core.overlay.CandidateOption
+import com.handy.core.overlay.CandidateOptions
 import com.handy.core.overlay.FlightFsm
 import com.handy.core.overlay.OverlayMode
 import com.handy.core.parsing.AssistantMarkupParser
@@ -518,11 +521,25 @@ class BuddyFlightDriver @Inject constructor(
             resolved.candidateCount,
             resolved.bounds.logSummary(),
         )
-        if (resolved.failureReason == ResolutionFailureReason.AMBIGUOUS ||
-            resolved.confidence < MIN_FLY_CONFIDENCE
-        ) {
+        val options = resolved.toCandidateOptions(
+            visible = resolved.shouldOfferCandidateOptions(),
+        )
+        val shouldOfferOptions = resolved.shouldOfferCandidateOptions()
+        if (shouldOfferOptions && options?.hasAlternatives == true) {
             Timber.d(
-                "BuddyFlightDriver.flyTo: refusing low/ambiguous pointer confidence=%.2f failure=%s",
+                "BuddyFlightDriver.flyTo: offering candidate options confidence=%.2f failure=%s options=%d",
+                resolved.confidence,
+                resolved.failureReason,
+                options.options.size,
+            )
+            resolved.node?.let { node -> runCatching { node.recycle() } }
+            presenter.onCandidateOptionsAvailable(label, options)
+            scheduleStickySafetyTimeout()
+            return null
+        }
+        if (shouldOfferOptions) {
+            Timber.d(
+                "BuddyFlightDriver.flyTo: middle/ambiguous confidence without alternatives confidence=%.2f failure=%s",
                 resolved.confidence,
                 resolved.failureReason,
             )
@@ -531,6 +548,18 @@ class BuddyFlightDriver @Inject constructor(
             scheduleStickySafetyTimeout()
             return null
         }
+        if (resolved.confidence < MIN_CANDIDATE_CONFIDENCE) {
+            Timber.d(
+                "BuddyFlightDriver.flyTo: refusing low pointer confidence=%.2f failure=%s",
+                resolved.confidence,
+                resolved.failureReason,
+            )
+            resolved.node?.let { node -> runCatching { node.recycle() } }
+            presenter.onManualTargetFallbackAvailable(label)
+            scheduleStickySafetyTimeout()
+            return null
+        }
+        presenter.setCandidateOptions(options?.copy(visible = false))
         return FlightResolution(
             service = service,
             resolved = resolved,
@@ -544,6 +573,53 @@ class BuddyFlightDriver @Inject constructor(
         val resolved: ResolvedPointTarget,
         val targetPackage: String?,
     )
+
+    suspend fun flyToCandidateOption(candidateId: String): Boolean {
+        val service = serviceRef?.get() ?: run {
+            Timber.d("BuddyFlightDriver.flyToCandidateOption: no service attached")
+            return false
+        }
+        val state = presenter.state.value
+        if (state.buddyState == BuddyState.FLYING) {
+            Timber.d("BuddyFlightDriver.flyToCandidateOption: flight already in progress")
+            return false
+        }
+        val options = state.candidateOptions ?: return false
+        val candidate = options.options.firstOrNull { it.id == candidateId } ?: return false
+        if (candidate.bounds.width <= 0 || candidate.bounds.height <= 0) return false
+
+        Timber.d(
+            "BuddyFlightDriver.flyToCandidateOption: id=%s label=\"%s\" confidence=%.2f bounds=%s",
+            candidate.id,
+            candidate.label.logSnippet(),
+            candidate.confidence,
+            candidate.bounds.logSummary(),
+        )
+        clearStickySafetyTimeout()
+        return withContext(Dispatchers.Main.immediate) {
+            presenter.onCandidateOptionPicked(candidate.id)
+            presenter.onPreparingPoint(candidate.label)
+            flyToBounds(
+                service = service,
+                bounds = candidate.bounds,
+                label = candidate.label,
+                targetPackage = activeTarget?.packageName,
+            )
+        }
+    }
+
+    suspend fun applyCorrectionIntent(intent: CorrectionIntent): Boolean {
+        val options = presenter.state.value.candidateOptions ?: return false
+        if (!options.hasAlternatives) return false
+        val candidate = options.selectFor(intent) ?: return false
+        Timber.d(
+            "BuddyFlightDriver.applyCorrectionIntent: intent=%s candidate=%s label=\"%s\"",
+            intent,
+            candidate.id,
+            candidate.label.logSnippet(),
+        )
+        return flyToCandidateOption(candidate.id)
+    }
 
     /** Cancel any in-flight animation (e.g. user tapped widget mid-flight). */
     fun cancel() {
@@ -752,6 +828,94 @@ class BuddyFlightDriver @Inject constructor(
         return start + delta * t
     }
 
+    private fun ResolvedPointTarget.shouldOfferCandidateOptions(): Boolean =
+        failureReason == ResolutionFailureReason.AMBIGUOUS ||
+            (confidence >= MIN_CANDIDATE_CONFIDENCE && confidence < MIN_FLY_CONFIDENCE)
+
+    private fun ResolvedPointTarget.toCandidateOptions(visible: Boolean): CandidateOptions? {
+        val candidates = debugCandidates
+            .filter { it.bounds.width > 0 && it.bounds.height > 0 && it.visible && it.enabled }
+            .take(MAX_CANDIDATE_OPTIONS)
+        if (candidates.isEmpty()) return null
+
+        val baseLabels = candidates.mapIndexed { index, candidate ->
+            candidate.baseCandidateLabel(index)
+        }
+        val duplicateCounts = baseLabels
+            .map(::normalizeCandidateText)
+            .groupingBy { it }
+            .eachCount()
+        val seen = mutableMapOf<String, Int>()
+        val options = candidates.mapIndexed { index, candidate ->
+            val base = baseLabels[index]
+            val key = normalizeCandidateText(base)
+            val occurrence = (seen[key] ?: 0) + 1
+            seen[key] = occurrence
+            val label = if ((duplicateCounts[key] ?: 0) > 1) {
+                "$base $occurrence"
+            } else {
+                base
+            }
+            CandidateOption(
+                id = "candidate_$index",
+                label = label.take(MAX_CANDIDATE_LABEL_CHARS).trim(),
+                role = candidate.role,
+                markId = candidate.markId,
+                viewId = candidate.viewId,
+                bounds = candidate.bounds,
+                confidence = (candidate.score / 100f).coerceIn(0f, 1f),
+            )
+        }
+        if (options.isEmpty()) return null
+        return CandidateOptions(
+            options = options,
+            activeCandidateId = options.first().id,
+            visible = visible && options.size > 1,
+        )
+    }
+
+    private fun SemanticPointerResolver.TargetCandidate.baseCandidateLabel(index: Int): String =
+        label?.takeIf { it.isNotBlank() }
+            ?: viewId?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+            ?: role?.takeIf { it.isNotBlank() }
+            ?: markId?.takeIf { it.isNotBlank() }
+            ?: "Target ${index + 1}"
+
+    private fun CandidateOptions.selectFor(intent: CorrectionIntent): CandidateOption? {
+        if (options.isEmpty()) return null
+        val current = activeIndex.coerceIn(0, options.lastIndex)
+        return when (intent) {
+            is CorrectionIntent.Other -> selectOther(current, intent.labelHint)
+            CorrectionIntent.Next -> options[(current + 1) % options.size]
+            CorrectionIntent.Previous -> options[(current - 1 + options.size) % options.size]
+            CorrectionIntent.Popup -> options.firstOrNull { it.matchesHint("popup") }
+                ?: selectOther(current, null)
+        }
+    }
+
+    private fun CandidateOptions.selectOther(current: Int, labelHint: String?): CandidateOption? {
+        val ordered = options.indices
+            .filter { it != current }
+            .map { options[it] }
+        if (labelHint.isNullOrBlank()) return ordered.firstOrNull()
+        return ordered.firstOrNull { it.matchesHint(labelHint) } ?: ordered.firstOrNull()
+    }
+
+    private fun CandidateOption.matchesHint(hint: String): Boolean {
+        val normalizedHint = normalizeCandidateText(hint)
+        if (normalizedHint.isBlank()) return false
+        val haystack = normalizeCandidateText(
+            listOfNotNull(label, role, markId, viewId).joinToString(" "),
+        )
+        return haystack.contains(normalizedHint)
+    }
+
+    private fun normalizeCandidateText(value: String): String =
+        value.lowercase()
+            .replace(Regex("""[^a-z0-9]+"""), " ")
+            .replace(Regex("""\s+"""), " ")
+            .trim()
+
     private fun AssistantMarkupParser.SemanticPoint.logSummary(): String =
         "markId=$markId role=$role text=${text?.logSnippet()} viewId=$viewId desc=${contentDescription?.logSnippet()}"
 
@@ -863,7 +1027,10 @@ class BuddyFlightDriver @Inject constructor(
 
     private companion object {
         const val POINT_TARGET_RADIUS: Int = 20
-        const val MIN_FLY_CONFIDENCE: Float = 0.68f
+        const val MIN_CANDIDATE_CONFIDENCE: Float = 0.40f
+        const val MIN_FLY_CONFIDENCE: Float = 0.70f
+        const val MAX_CANDIDATE_OPTIONS: Int = 5
+        const val MAX_CANDIDATE_LABEL_CHARS: Int = 28
         const val STICKY_POINTER_TIMEOUT_MS: Long = 30_000L
         const val TAP_CONFIRMATION_TIMEOUT_MS: Long = 8_000L
         val POINTER_SAFE_DENIAL_REASONS: Set<String> = setOf(

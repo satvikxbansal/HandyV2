@@ -77,7 +77,26 @@ class SettingsViewModel @Inject constructor(
     fun muteTapForMeForOneHour() {
         viewModelScope.launch {
             settings.setTapForMeMutedUntilEpochMs(System.currentTimeMillis() + ONE_HOUR_MS)
-            _messages.tryEmit("Tap-for-me muted for 1 hour")
+            _messages.tryEmit("Tap-for-me stopped for 1 hour")
+        }
+    }
+
+    fun disableTapForMeUntilTurnedBackOn() {
+        viewModelScope.launch {
+            settings.update {
+                it.copy(
+                    tapForMeEnabled = false,
+                    tapForMeMutedUntilEpochMs = 0L,
+                )
+            }
+            _messages.tryEmit("Tap-for-me stopped until you turn it back on")
+        }
+    }
+
+    fun restoreTapForMeForPackage(packageName: String) {
+        viewModelScope.launch {
+            settings.removeTapForMeUserDenylistedPackage(packageName)
+            _messages.tryEmit("Tap-for-me allowed again in $packageName")
         }
     }
 

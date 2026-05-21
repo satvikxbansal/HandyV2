@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -107,7 +108,8 @@ class SettingsActivity : ComponentActivity() {
                     },
                     onTapForMeToggle = viewModel::setTapForMeEnabled,
                     onTapForMePanicMute = viewModel::muteTapForMeForOneHour,
-                    onTapForMeRevoke = viewModel::revokeTapForMeConsent,
+                    onTapForMeStopUntilTurnedBackOn = viewModel::disableTapForMeUntilTurnedBackOn,
+                    onTapForMeRestorePackage = viewModel::restoreTapForMeForPackage,
                     onReviewActionDisclosure = {
                         startActivity(Intent(this, ActionDisclosureActivity::class.java))
                     },
@@ -132,7 +134,8 @@ private fun SettingsScreen(
     onTutorModeToggle: (Boolean) -> Unit,
     onTapForMeToggle: (Boolean) -> Unit,
     onTapForMePanicMute: () -> Unit,
-    onTapForMeRevoke: () -> Unit,
+    onTapForMeStopUntilTurnedBackOn: () -> Unit,
+    onTapForMeRestorePackage: (String) -> Unit,
     onReviewActionDisclosure: () -> Unit,
     onClearHistory: () -> Unit,
     onBack: () -> Unit,
@@ -143,6 +146,11 @@ private fun SettingsScreen(
             ActionExecutionGate.REQUIRED_DISCLOSURE_VERSION
     val tapForMeMuted =
         (state.settings?.tapForMeMutedUntilEpochMs ?: 0L) > System.currentTimeMillis()
+    val revokedPackages = state.settings
+        ?.tapForMeUserDenylistedPackages
+        .orEmpty()
+        .toList()
+        .sorted()
 
     Box(
         modifier = Modifier
@@ -304,7 +312,11 @@ private fun SettingsScreen(
                             subtitle = stringResource(R.string.settings_tap_for_me_revoke_desc),
                             actionLabel = stringResource(R.string.settings_tap_for_me_revoke_action),
                             danger = true,
-                            onClick = onTapForMeRevoke,
+                            onClick = onTapForMeStopUntilTurnedBackOn,
+                        )
+                        RevokedPackageList(
+                            packages = revokedPackages,
+                            onRestorePackage = onTapForMeRestorePackage,
                         )
                     } else {
                         ActionButtonCard(
@@ -702,6 +714,86 @@ private fun ReadyPill() {
             style = HandyType.Overline,
             color = HandyColors.Success,
         )
+    }
+}
+
+@Composable
+private fun RevokedPackageList(
+    packages: List<String>,
+    onRestorePackage: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.settings_tap_for_me_disabled_apps_title),
+            style = HandyType.Caption.copy(fontWeight = FontWeight.Medium),
+            color = HandyColors.TextSecondary,
+            modifier = Modifier.padding(start = 2.dp, top = 4.dp),
+        )
+        if (packages.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(HandyDimens.RadiusLg))
+                    .background(HandyColors.ChipBg)
+                    .border(0.5.dp, HandyColors.ChipBorder, RoundedCornerShape(HandyDimens.RadiusLg))
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_tap_for_me_disabled_apps_empty),
+                    style = HandyType.CaptionSmall,
+                    color = HandyColors.TextMuted,
+                )
+            }
+        } else {
+            packages.forEach { packageName ->
+                RevokedPackageRow(
+                    packageName = packageName,
+                    onRestorePackage = onRestorePackage,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RevokedPackageRow(
+    packageName: String,
+    onRestorePackage: (String) -> Unit,
+) {
+    val shape = RoundedCornerShape(HandyDimens.RadiusLg)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(HandyColors.ChipBg)
+            .border(0.5.dp, HandyColors.ChipBorder, shape)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
+    ) {
+        Text(
+            text = packageName,
+            style = HandyType.Caption,
+            color = HandyColors.TextPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(HandyColors.Accent.copy(alpha = 0.14f))
+                .border(0.5.dp, HandyColors.Accent.copy(alpha = 0.40f), RoundedCornerShape(10.dp))
+                .clickable { onRestorePackage(packageName) }
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = stringResource(R.string.settings_tap_for_me_disabled_apps_restore),
+                style = HandyType.Overline.copy(letterSpacing = 0.sp),
+                color = HandyColors.Accent,
+            )
+        }
     }
 }
 

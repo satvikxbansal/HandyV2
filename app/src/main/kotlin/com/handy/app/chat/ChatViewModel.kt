@@ -267,6 +267,13 @@ class ChatViewModel @Inject constructor(
 
         viewModelScope.launch {
             val transcript = voiceController.stopAndAwaitFinal()
+            if (voiceController.consumeLastPointingCorrectionHandled()) {
+                _state.value = _state.value.copy(
+                    voiceState = VoiceUiState.IDLE,
+                    pendingTranscript = "",
+                )
+                return@launch
+            }
             Timber.d("stopVoice: final transcript=\"%s\"", transcript)
             if (transcript.isNullOrBlank()) {
                 _state.value = _state.value.copy(

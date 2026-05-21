@@ -4,6 +4,10 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
+import com.handy.app.overlay.BuddyFlightDriver
+import com.handy.app.overlay.OverlayPresenter
+import com.handy.core.agent.CorrectionIntent
+import com.handy.core.overlay.BuddyState
 import com.handy.core.speech.SttClient
 import com.handy.core.speech.SttEvent
 import com.handy.runtime.di.ApplicationScope
@@ -17,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 
@@ -34,6 +39,8 @@ import timber.log.Timber
 class VoiceController @Inject constructor(
     @ApplicationContext private val context: Context,
     private val sttClient: SttClient,
+    private val presenter: OverlayPresenter,
+    private val flightDriver: BuddyFlightDriver,
     @ApplicationScope private val appScope: CoroutineScope,
 ) {
 
@@ -49,6 +56,8 @@ class VoiceController @Inject constructor(
 
     @Volatile private var finalTranscript: String = ""
     @Volatile private var lastError: String? = null
+    @Volatile private var startedWhilePointing: Boolean = false
+    @Volatile private var lastPointingCorrectionHandled: Boolean = false
 
     val isOnDeviceAvailable: Boolean
         get() = sttClient.isOnDeviceAvailable
@@ -64,6 +73,11 @@ class VoiceController @Inject constructor(
         }
         finalTranscript = ""
         lastError = null
+        lastPointingCorrectionHandled = false
+        startedWhilePointing = presenter.state.value.let { overlay ->
+            overlay.buddyState == BuddyState.POINTING &&
+                overlay.candidateOptions?.hasAlternatives == true
+        }
         _latestPartial.value = ""
         _state.value = State.LISTENING
 
@@ -142,11 +156,12 @@ class VoiceController @Inject constructor(
         // fall back to null.
         val transcript = finalTranscript.ifBlank { _latestPartial.value }.trim()
         val result = transcript.takeIf { it.isNotBlank() }
+        val correctionHandled = result?.let { routePointingCorrection(it) } == true
 
         Timber.d("VoiceController.stopAndAwaitFinal: returning \"%s\" (err=%s)", result, lastError)
 
         resetBuffers()
-        return result
+        return if (correctionHandled) null else result
     }
 
     fun cancel() {
@@ -154,7 +169,14 @@ class VoiceController @Inject constructor(
         collectJob?.cancel()
         collectJob = null
         sttClient.stopListening()
+        lastPointingCorrectionHandled = false
         resetBuffers()
+    }
+
+    fun consumeLastPointingCorrectionHandled(): Boolean {
+        val handled = lastPointingCorrectionHandled
+        lastPointingCorrectionHandled = false
+        return handled
     }
 
     private fun resetBuffers() {
@@ -162,6 +184,22 @@ class VoiceController @Inject constructor(
         lastError = null
         _latestPartial.value = ""
         _state.value = State.IDLE
+        startedWhilePointing = false
+    }
+
+    private suspend fun routePointingCorrection(transcript: String): Boolean {
+        val mayCorrect = startedWhilePointing ||
+            presenter.state.value.buddyState == BuddyState.POINTING
+        if (!mayCorrect) return false
+        val intent = CorrectionIntent.classify(transcript) ?: return false
+        val handled = withContext(Dispatchers.Main.immediate) {
+            flightDriver.applyCorrectionIntent(intent)
+        }
+        if (handled) {
+            lastPointingCorrectionHandled = true
+            Timber.d("VoiceController: consumed pointing correction \"%s\" as %s", transcript, intent)
+        }
+        return handled
     }
 
     private fun hasMicPermission(): Boolean =

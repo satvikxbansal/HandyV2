@@ -81,11 +81,14 @@ class DefaultActionPolicyEngine(
         val isUiAction = target != null || sourceTrust == SourceTrust.TRUSTED_RECIPE
         if (isUiAction) {
             val settings = settingsProvider()
-            if (settings.tapForMeMutedUntilEpochMs > clock()) {
-                return denied(ActionRisk.HIGH, "muted")
-            }
-            if (!ActionExecutionGate.gesturesAllowed(settings)) {
-                return denied(ActionRisk.HIGH, "gate-closed")
+            val now = clock()
+            if (!ActionExecutionGate.gesturesAllowed(settings, nowEpochMs = now)) {
+                val reason = if (settings.tapForMeMutedUntilEpochMs > now) {
+                    "muted"
+                } else {
+                    "gate-closed"
+                }
+                return denied(ActionRisk.HIGH, reason)
             }
         }
 

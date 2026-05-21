@@ -5,6 +5,7 @@ import com.handy.core.foreground.ForegroundAppSnapshot
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.overlay.BuddyBubble
 import com.handy.core.overlay.BuddyState
+import com.handy.core.overlay.CandidateOptions
 import com.handy.core.overlay.FlightFsm
 import com.handy.core.overlay.OverlayMode
 import com.handy.core.overlay.OverlayPanelState
@@ -112,6 +113,7 @@ class OverlayPresenter @Inject constructor(
                 greeting = greeting,
             ),
             tapForMeConfirmation = null,
+            candidateOptions = null,
             bubble = null,
         ) }
         Timber.d(
@@ -164,6 +166,7 @@ class OverlayPresenter @Inject constructor(
             bubble = null,
             panel = PanelContent(),
             tapForMeConfirmation = null,
+            candidateOptions = null,
         ) }
     }
 
@@ -187,6 +190,7 @@ class OverlayPresenter @Inject constructor(
             isFlying = false,
             panel = PanelContent(),
             tapForMeConfirmation = snapshot.tapForMeConfirmation,
+            candidateOptions = null,
             bubble = snapshot.bubble,
         ) }
     }
@@ -330,6 +334,33 @@ class OverlayPresenter @Inject constructor(
         ) }
     }
 
+    fun onCandidateOptionsAvailable(label: String?, options: CandidateOptions) {
+        setState(
+            event = "onCandidateOptionsAvailable",
+            target = FlightFsm.Pointing,
+        ) { current -> current.copy(
+            mode = OverlayMode.Pointing,
+            buddyState = BuddyState.POINTING,
+            isFlying = true,
+            candidateOptions = options.copy(visible = options.hasAlternatives),
+            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Navigation)
+                ?: current.bubble,
+        ) }
+    }
+
+    fun setCandidateOptions(options: CandidateOptions?) {
+        setState(event = "setCandidateOptions") { current ->
+            current.copy(candidateOptions = options)
+        }
+    }
+
+    fun onCandidateOptionPicked(candidateId: String) {
+        setState(event = "onCandidateOptionPicked") { current ->
+            val options = current.candidateOptions ?: return@setState current
+            current.copy(candidateOptions = options.copy(activeCandidateId = candidateId))
+        }
+    }
+
     fun onFlyingStart(label: String?) {
         setState(
             event = "onFlyingStart",
@@ -363,6 +394,7 @@ class OverlayPresenter @Inject constructor(
             mode = OverlayMode.Pointing,
             buddyState = BuddyState.POINTING,
             isFlying = true,
+            candidateOptions = null,
             bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Navigation)
                 ?: current.bubble,
         ) }
@@ -376,6 +408,7 @@ class OverlayPresenter @Inject constructor(
             mode = OverlayMode.ManualTargetSelection,
             buddyState = BuddyState.POINTING,
             isFlying = true,
+            candidateOptions = null,
             bubble = null,
         ) }
     }
@@ -389,6 +422,7 @@ class OverlayPresenter @Inject constructor(
             buddyState = BuddyState.CANCELLING,
             isFlying = true,
             bubble = null,
+            candidateOptions = null,
             lastFlightCancellationReason = reason ?: it.lastFlightCancellationReason,
         ) }
     }
@@ -410,6 +444,7 @@ class OverlayPresenter @Inject constructor(
             isFlying = false,
             bubble = null,
             tapForMeConfirmation = null,
+            candidateOptions = null,
         )
     }
 
@@ -483,6 +518,7 @@ class OverlayPresenter @Inject constructor(
             isFlying = false,
             bubble = null,
             tapForMeConfirmation = null,
+            candidateOptions = null,
         ) }
     }
 
@@ -506,7 +542,12 @@ class OverlayPresenter @Inject constructor(
     private fun isLegalTransition(from: FlightFsm, to: FlightFsm): Boolean =
         from == to || when (to) {
             FlightFsm.Docked -> from.canResetToDocked()
-            FlightFsm.Listening -> from in setOf(FlightFsm.Docked, FlightFsm.ActionResult, FlightFsm.Error)
+            FlightFsm.Listening -> from in setOf(
+                FlightFsm.Docked,
+                FlightFsm.Pointing,
+                FlightFsm.ActionResult,
+                FlightFsm.Error,
+            )
             FlightFsm.Thinking -> from in setOf(
                 FlightFsm.Docked,
                 FlightFsm.Listening,

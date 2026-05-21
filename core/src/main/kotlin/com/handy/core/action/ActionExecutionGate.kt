@@ -12,7 +12,11 @@ import com.handy.core.model.HandySettings
 object ActionExecutionGate {
     const val REQUIRED_DISCLOSURE_VERSION: Int = 1
 
-    fun gesturesAllowed(settings: HandySettings): Boolean =
+    fun gesturesAllowed(
+        settings: HandySettings,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ): Boolean =
         settings.tapForMeEnabled &&
-            settings.actionDisclosureVersionAccepted >= REQUIRED_DISCLOSURE_VERSION
+            settings.actionDisclosureVersionAccepted >= REQUIRED_DISCLOSURE_VERSION &&
+            settings.tapForMeMutedUntilEpochMs <= nowEpochMs
 }

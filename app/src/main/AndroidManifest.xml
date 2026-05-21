@@ -118,6 +118,11 @@
             android:exported="false"
             android:theme="@style/Theme.Handy" />
 
+        <activity
+            android:name=".diagnostics.AuditReviewActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Handy" />
+
         <!-- ===== Foreground Services (OS-1) ===== -->
 
         <!-- AssistantForegroundService: lifecycle anchor + microphone owner -->

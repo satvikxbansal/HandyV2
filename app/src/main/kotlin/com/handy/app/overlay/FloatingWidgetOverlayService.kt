@@ -79,6 +79,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private var host: OverlayComposeHost? = null
     private var bubbleHost: OverlayComposeHost? = null
     private var manualChipHost: OverlayComposeHost? = null
+    private var candidateChipsHost: OverlayComposeHost? = null
     private var tapConfirmationHost: OverlayComposeHost? = null
     private val flightController = BezierFlightController(
         reduceMotionEnabled = { reduceMotionEnabled() },
@@ -90,11 +91,13 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private var view: android.view.View? = null
     private var bubbleView: android.view.View? = null
     private var manualChipView: android.view.View? = null
+    private var candidateChipsView: android.view.View? = null
     private var tapConfirmationView: android.view.View? = null
     private lateinit var windowManager: WindowManager
     private lateinit var params: WindowManager.LayoutParams
     private var bubbleParams: WindowManager.LayoutParams? = null
     private var manualChipParams: WindowManager.LayoutParams? = null
+    private var candidateChipsParams: WindowManager.LayoutParams? = null
     private var tapConfirmationParams: WindowManager.LayoutParams? = null
     private var bubblePlacementHint: BubblePlacementHint = BubblePlacementHint.Side
 
@@ -240,7 +243,8 @@ class FloatingWidgetOverlayService : LifecycleService() {
                 .map {
                     it.mode == OverlayMode.Pointing &&
                         it.buddyState == BuddyState.POINTING &&
-                        it.tapForMeConfirmation == null
+                        it.tapForMeConfirmation == null &&
+                        it.candidateOptions?.visible != true
                 }
                 .distinctUntilChanged()
                 .collectLatest { showManualChip ->
@@ -248,6 +252,27 @@ class FloatingWidgetOverlayService : LifecycleService() {
                         attachManualFallbackChipIfNeeded()
                     } else {
                         detachManualFallbackChip()
+                    }
+                }
+        }
+
+        lifecycleScope.launch {
+            presenter.state
+                .map { overlay ->
+                    val candidates = overlay.candidateOptions
+                    overlay.mode == OverlayMode.Pointing &&
+                        overlay.buddyState == BuddyState.POINTING &&
+                        overlay.tapForMeConfirmation == null &&
+                        candidates != null &&
+                        candidates.visible &&
+                        candidates.hasAlternatives
+                }
+                .distinctUntilChanged()
+                .collectLatest { showCandidates ->
+                    if (showCandidates) {
+                        attachCandidateChipsIfNeeded()
+                    } else {
+                        detachCandidateChips()
                     }
                 }
         }
@@ -348,6 +373,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private fun detachOverlay() {
         detachBubbleOverlay()
         detachManualFallbackChip()
+        detachCandidateChips()
         detachTapConfirmationOverlay()
         val v = view
         val h = host
@@ -452,6 +478,61 @@ class FloatingWidgetOverlayService : LifecycleService() {
         h?.release()
     }
 
+    private fun attachCandidateChipsIfNeeded() {
+        if (candidateChipsView != null) {
+            updateCandidateChipsPosition()
+            return
+        }
+        val host = OverlayComposeHost(this).also { candidateChipsHost = it }
+        val composeView = host.createView {
+            val overlayState by presenter.state.collectAsState()
+            overlayState.candidateOptions?.let { options ->
+                CandidateChipsBar(
+                    options = options,
+                    onPick = { candidateId ->
+                        lifecycleScope.launch {
+                            flightDriver.flyToCandidateOption(candidateId)
+                        }
+                    },
+                )
+            }
+        }
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            candidateChipsFlags(),
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = params.x
+            y = params.y
+        }
+        candidateChipsParams = lp
+        runCatching { windowManager.addView(composeView, lp) }
+            .onSuccess {
+                candidateChipsView = composeView
+                applyOverlayVisibility()
+                composeView.post { updateCandidateChipsPosition() }
+            }
+            .onFailure {
+                Timber.e(it, "Candidate chips attach failed")
+                candidateChipsHost = null
+                candidateChipsParams = null
+                host.release()
+            }
+    }
+
+    private fun detachCandidateChips() {
+        val v = candidateChipsView
+        val h = candidateChipsHost
+        candidateChipsView = null
+        candidateChipsHost = null
+        candidateChipsParams = null
+        if (v != null) runCatching { windowManager.removeView(v) }
+        h?.release()
+    }
+
     private fun attachTapConfirmationOverlayIfNeeded() {
         if (tapConfirmationView != null) return
         val host = OverlayComposeHost(this).also { tapConfirmationHost = it }
@@ -519,8 +600,13 @@ class FloatingWidgetOverlayService : LifecycleService() {
                 longPressFired = false
                 manualTargetLongPressFired = false
                 state.value = WidgetState.TOUCHED
+                val hasCandidateCorrections = overlayState.candidateOptions?.hasAlternatives == true
                 mainHandler.postDelayed(
-                    if (isStickyPointing) manualTargetLongPressRunnable else longPressRunnable,
+                    if (isStickyPointing && !hasCandidateCorrections) {
+                        manualTargetLongPressRunnable
+                    } else {
+                        longPressRunnable
+                    },
                     LONG_PRESS_MS,
                 )
                 return true
@@ -549,6 +635,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
                     runCatching { windowManager.updateViewLayout(v, params) }
                     updateBubblePosition()
                     updateManualChipPosition()
+                    updateCandidateChipsPosition()
                 }
                 return true
             }
@@ -570,6 +657,9 @@ class FloatingWidgetOverlayService : LifecycleService() {
                         presenter.onWidgetThinking()
                         lifecycleScope.launch {
                             val transcript = voiceController.stopAndAwaitFinal()
+                            if (voiceController.consumeLastPointingCorrectionHandled()) {
+                                return@launch
+                            }
                             state.value = WidgetState.IDLE
                             if (!transcript.isNullOrBlank()) {
                                 // V2 recipe #6: auto-submit through the
@@ -637,6 +727,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
                 runCatching { windowManager.updateViewLayout(v, params) }
                 updateBubblePosition()
                 updateManualChipPosition()
+                updateCandidateChipsPosition()
             }
             start()
         }
@@ -655,6 +746,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
         runCatching { windowManager.updateViewLayout(v, params) }
         updateBubblePosition()
         updateManualChipPosition()
+        updateCandidateChipsPosition()
     }
 
     internal fun updateBuddyAlpha(alpha: Float) {
@@ -763,6 +855,9 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private fun manualChipFlags(): Int =
         idleFlags()
 
+    private fun candidateChipsFlags(): Int =
+        idleFlags()
+
     private fun tapConfirmationFlags(): Int =
         idleFlags()
 
@@ -840,6 +935,27 @@ class FloatingWidgetOverlayService : LifecycleService() {
         lp.x = centeredX
         lp.y = if (belowY <= maxY) belowY else aboveY.coerceIn(0, maxY)
         runCatching { windowManager.updateViewLayout(chip, lp) }
+    }
+
+    private fun updateCandidateChipsPosition() {
+        val widget = view ?: return
+        val chips = candidateChipsView ?: return
+        val lp = candidateChipsParams ?: return
+        val gap = (resources.displayMetrics.density * 8f).toInt()
+        val screenW = resources.displayMetrics.widthPixels
+        val screenH = resources.displayMetrics.heightPixels
+        val widgetW = widget.width.takeIf { it > 0 } ?: 1
+        val widgetH = widget.height.takeIf { it > 0 } ?: 1
+        val chipsW = chips.width.takeIf { it > 0 } ?: 1
+        val chipsH = chips.height.takeIf { it > 0 } ?: 1
+        val maxX = (screenW - chipsW).coerceAtLeast(0)
+        val maxY = (screenH - chipsH).coerceAtLeast(0)
+        val centeredX = (params.x + widgetW / 2 - chipsW / 2).coerceIn(0, maxX)
+        val belowY = params.y + widgetH + gap
+        val aboveY = params.y - chipsH - gap
+        lp.x = centeredX
+        lp.y = if (belowY <= maxY) belowY else aboveY.coerceIn(0, maxY)
+        runCatching { windowManager.updateViewLayout(chips, lp) }
     }
 
     private fun observeWindowInsets(target: android.view.View) {
@@ -923,6 +1039,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
         view?.visibility = visibility
         bubbleView?.visibility = visibility
         manualChipView?.visibility = visibility
+        candidateChipsView?.visibility = visibility
         tapConfirmationView?.visibility = visibility
     }
 

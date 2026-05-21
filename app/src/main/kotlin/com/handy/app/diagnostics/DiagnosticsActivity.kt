@@ -2,15 +2,14 @@ package com.handy.app.diagnostics
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
-import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,7 +38,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.handy.app.accessibility.AccessibilityStateMonitor
 import com.handy.app.clipboard.ClipboardAssist
-import com.handy.app.notifications.HandyNotificationListenerService
 import com.handy.app.overlay.OverlayPresenter
 import com.handy.app.theme.HandyColors
 import com.handy.app.theme.HandyDimens
@@ -85,7 +83,10 @@ class DiagnosticsActivity : ComponentActivity() {
         setContent {
             HandyTheme(darkTheme = true) {
                 val state by viewModel.state.collectAsState()
-                DiagnosticsScreen(state)
+                DiagnosticsScreen(
+                    state = state,
+                    onReviewActions = { AuditReviewActivity.open(this) },
+                )
             }
         }
     }
@@ -184,7 +185,10 @@ data class DiagnosticsUi(
 /* ----------------------------- UI ----------------------------- */
 
 @Composable
-fun DiagnosticsScreen(state: DiagnosticsUi) {
+fun DiagnosticsScreen(
+    state: DiagnosticsUi,
+    onReviewActions: () -> Unit = {},
+) {
     Surface(
         color = HandyColors.Background,
         contentColor = HandyColors.TextPrimary,
@@ -223,11 +227,19 @@ fun DiagnosticsScreen(state: DiagnosticsUi) {
                 if (state.auditTail.isNotEmpty()) {
                     item {
                         Spacer(Modifier.height(12.dp))
-                        Text(
-                            text = "Recent actions",
-                            style = HandyType.SectionHeader,
-                            color = HandyColors.TextPrimary,
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
+                        ) {
+                            Text(
+                                text = "Recent actions",
+                                style = HandyType.SectionHeader,
+                                color = HandyColors.TextPrimary,
+                                modifier = Modifier.weight(1f),
+                            )
+                            ReviewActionsButton(onClick = onReviewActions)
+                        }
                     }
                     items(state.auditTail.reversed()) { event ->
                         AuditRow(event)
@@ -248,6 +260,25 @@ fun DiagnosticsScreen(state: DiagnosticsUi) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ReviewActionsButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(HandyColors.Accent.copy(alpha = 0.14f))
+            .border(0.5.dp, HandyColors.Accent.copy(alpha = 0.40f), RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "Review",
+            style = HandyType.Overline,
+            color = HandyColors.Accent,
+        )
     }
 }
 
@@ -336,7 +367,7 @@ private fun PolicyDecisionRow(decision: PolicyDecision) {
 
 private fun Boolean.onOff(): String = if (this) "on" else "off"
 
-private fun AuditEvent.redactedTargetLine(): String {
+internal fun AuditEvent.redactedTargetLine(): String {
     val context = "${action::class.simpleName.orEmpty()} $targetApp $semanticTarget"
     val redactedApp = ScreenRedactor.redactText(
         value = targetApp,
