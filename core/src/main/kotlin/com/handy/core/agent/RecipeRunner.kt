@@ -2,15 +2,18 @@ package com.handy.core.agent
 
 import com.handy.core.action.ActionPerformer
 import com.handy.core.action.ActionPolicyEngine
+import com.handy.core.action.AssistantAction
 import com.handy.core.action.ConfirmationLevel
 import com.handy.core.action.PerformResult
-import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
+import com.handy.core.intent.IntentResult
 import com.handy.core.screen.GroundingSnapshot
+import kotlinx.coroutines.delay
 
 class RecipeRunner(
     private val performer: ActionPerformer,
     private val policy: ActionPolicyEngine,
+    private val intentDispatcher: RecipeIntentDispatcher = RecipeIntentDispatcher.Unavailable,
     private val snapshotProvider: RecipeSnapshotProvider,
     private val planConfirmer: RecipePlanConfirmer,
     private val sensitiveStepConfirmer: RecipeSensitiveStepConfirmer,
@@ -24,18 +27,24 @@ class RecipeRunner(
 
         observer.onEvent(RecipeRunEvent.Started(plan))
         val initial = snapshotProvider.capture()
-        val expectedPackage = plan.packageName
-            ?.takeIf { it.isNotBlank() }
-            ?: initial.packageNameOrNull()
-        if (expectedPackage != null && initial.packageNameChangedFrom(expectedPackage)) {
+        val expectedPackage = plan.packageName?.takeIf { it.isNotBlank() }
+        if (expectedPackage != null &&
+            initial.packageNameChangedFrom(expectedPackage) &&
+            !plan.steps.first().canEnterPackage()
+        ) {
             return RecipeRunResult.Aborted("package-changed")
                 .also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
         }
 
         val initialChecks = mutableListOf<RecipeStepPolicyCheck>()
+        var deferredScreen = false
         for (step in plan.steps) {
+            if (deferredScreen && step.requiresResolvedTarget()) {
+                initialChecks += RecipeStepPolicyCheck(step, step.deferredInitialDecision())
+                continue
+            }
             val target = step.resolveTarget(initial)
-            if (target == null && step.command !is RecipeCommand.Scroll) {
+            if (target == null && step.requiresResolvedTarget()) {
                 return RecipeRunResult.Failed(step.id, "target-not-found")
                     .also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
             }
@@ -43,8 +52,8 @@ class RecipeRunner(
                 action = step.policyAction(initial),
                 target = target,
                 grounding = initial,
-                sourceTrust = SourceTrust.TRUSTED_RECIPE,
-            )
+                sourceTrust = step.policySourceTrust(),
+            ).let(step::applyConfirmationOverride)
             if (!decision.allowed) {
                 return RecipeRunResult.Refused(
                     stepId = step.id,
@@ -53,6 +62,9 @@ class RecipeRunner(
                 ).also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
             }
             initialChecks += RecipeStepPolicyCheck(step, decision)
+            if (step.canEnterPackage()) {
+                deferredScreen = true
+            }
         }
 
         val planApproved = planConfirmer.confirm(plan, initial, initialChecks)
@@ -65,13 +77,16 @@ class RecipeRunner(
         for ((index, step) in plan.steps.withIndex()) {
             observer.onEvent(RecipeRunEvent.StepStarted(plan, step, index, plan.steps.size))
             val before = snapshotProvider.capture()
-            if (expectedPackage != null && before.packageNameChangedFrom(expectedPackage)) {
+            if (expectedPackage != null &&
+                before.packageNameChangedFrom(expectedPackage) &&
+                !(index == 0 && step.canEnterPackage())
+            ) {
                 return RecipeRunResult.Aborted("package-changed")
                     .also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
             }
 
             val target = step.resolveTarget(before)
-            if (target == null && step.command !is RecipeCommand.Scroll) {
+            if (target == null && step.requiresResolvedTarget()) {
                 return RecipeRunResult.Failed(step.id, "target-not-found")
                     .also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
             }
@@ -79,8 +94,8 @@ class RecipeRunner(
                 action = step.policyAction(before),
                 target = target,
                 grounding = before,
-                sourceTrust = SourceTrust.TRUSTED_RECIPE,
-            )
+                sourceTrust = step.policySourceTrust(),
+            ).let(step::applyConfirmationOverride)
             if (!decision.allowed) {
                 return RecipeRunResult.Refused(
                     stepId = step.id,
@@ -105,8 +120,14 @@ class RecipeRunner(
             }
 
             val performResult = step.perform(target)
+            if (index < plan.steps.lastIndex && step.allowsPackageChangeAfter()) {
+                delay(PACKAGE_SETTLE_DELAY_MS)
+            }
             val after = snapshotProvider.capture()
-            if (expectedPackage != null && after.packageNameChangedFrom(expectedPackage)) {
+            if (expectedPackage != null &&
+                !step.allowsPackageChangeAfter() &&
+                after.packageNameChangedFrom(expectedPackage)
+            ) {
                 return RecipeRunResult.Aborted("package-changed")
                     .also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
             }
@@ -131,8 +152,15 @@ class RecipeRunner(
             is RecipeCommand.LongPress -> performer.longPress(target ?: return PerformResult.NotFound)
             is RecipeCommand.TypeText -> performer.typeText(target ?: return PerformResult.NotFound, c.text)
             is RecipeCommand.Scroll -> performer.scroll(c.direction, target)
+            is RecipeCommand.NativeAction -> intentDispatcher.dispatch(c.action).toPerformResult()
         }
     }
+
+    private fun RecipeStep.allowsPackageChangeAfter(): Boolean =
+        (command as? RecipeCommand.NativeAction)?.allowPackageChangeAfter == true
+
+    private fun RecipeStep.canEnterPackage(): Boolean =
+        command is RecipeCommand.NativeAction && allowsPackageChangeAfter()
 
     private fun RecipeStep.requiresPerStepConfirmation(level: ConfirmationLevel): Boolean =
         sensitive ||
@@ -148,12 +176,23 @@ class RecipeRunner(
     }
 
     companion object {
-        const val MAX_STEPS: Int = 5
+        const val MAX_STEPS: Int = 6
+        private const val PACKAGE_SETTLE_DELAY_MS: Long = 650L
     }
 }
 
 fun interface RecipeSnapshotProvider {
     suspend fun capture(): GroundingSnapshot
+}
+
+fun interface RecipeIntentDispatcher {
+    suspend fun dispatch(action: AssistantAction): IntentResult
+
+    companion object {
+        val Unavailable = RecipeIntentDispatcher {
+            IntentResult.Failed("intent-dispatcher-unavailable")
+        }
+    }
 }
 
 fun interface RecipePlanConfirmer {
@@ -252,4 +291,12 @@ private fun PerformResult.failureReason(): String = when (this) {
     PerformResult.NotFound -> "not-found"
     is PerformResult.Unsupported -> reason
     is PerformResult.Failed -> reason
+}
+
+private fun IntentResult.toPerformResult(): PerformResult = when (this) {
+    is IntentResult.Dispatched,
+    IntentResult.ChooserShown -> PerformResult.Ok
+    IntentResult.NoHandler -> PerformResult.Unsupported("intent-no-handler")
+    is IntentResult.Failed -> PerformResult.Failed(reason)
+    is IntentResult.NeedsConfirmation -> PerformResult.Unsupported("intent-needs-confirmation")
 }

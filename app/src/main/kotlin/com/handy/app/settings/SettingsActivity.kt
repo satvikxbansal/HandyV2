@@ -107,6 +107,9 @@ class SettingsActivity : ComponentActivity() {
                         viewModel.updateSettings { it.copy(tutorModeEnabled = enabled) }
                     },
                     onTapForMeToggle = viewModel::setTapForMeEnabled,
+                    onNoActionsInIncognitoToggle = { enabled ->
+                        viewModel.updateSettings { it.copy(noActionsInIncognito = enabled) }
+                    },
                     onTapForMePanicMute = viewModel::muteTapForMeForOneHour,
                     onTapForMeStopUntilTurnedBackOn = viewModel::disableTapForMeUntilTurnedBackOn,
                     onTapForMeRestorePackage = viewModel::restoreTapForMeForPackage,
@@ -133,6 +136,7 @@ private fun SettingsScreen(
     onClaudeModelVariant: (Boolean) -> Unit,
     onTutorModeToggle: (Boolean) -> Unit,
     onTapForMeToggle: (Boolean) -> Unit,
+    onNoActionsInIncognitoToggle: (Boolean) -> Unit,
     onTapForMePanicMute: () -> Unit,
     onTapForMeStopUntilTurnedBackOn: () -> Unit,
     onTapForMeRestorePackage: (String) -> Unit,
@@ -300,6 +304,13 @@ private fun SettingsScreen(
                             checked = state.settings?.tapForMeEnabled == true,
                             enabled = true,
                             onCheckedChange = onTapForMeToggle,
+                        )
+                        ToggleCard(
+                            title = "Block Chrome Incognito actions",
+                            subtitle = "Prevents recipes, taps, and native actions in Incognito tabs",
+                            checked = state.settings?.noActionsInIncognito != false,
+                            enabled = true,
+                            onCheckedChange = onNoActionsInIncognitoToggle,
                         )
                         ActionButtonCard(
                             title = stringResource(R.string.settings_tap_for_me_panic_title),

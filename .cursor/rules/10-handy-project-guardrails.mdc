@@ -921,7 +921,7 @@ if this section and the scope doc disagree, the scope doc wins.
   5. Overlay chat panel IME choreography.
   6. Voice auto-submit 300 ms grace (`:app/voice/VoiceController.kt`).
   7. `flagIncludeNotImportantViews` on the Accessibility service.
-  8. Glassmorphism palette + no `FLAG_BLUR_BEHIND`.
+  8. Glassmorphism palette + bounded panel snapshot blur.
   9. Per-app quick-prompt chips (`:core/prompts/QuickPromptCatalog.kt`
      backed by `LaunchableAppIndex`).
   10. `StateFlow<AccessibilityConnectionState>` replaces polling.
@@ -976,9 +976,11 @@ In addition to the V1 Forbidden list above, V2 also forbids:
   V1-forbidden; reinforced).
 * Introducing a second overlay window for pointing (no
   `PointerOverlayController`).
-* `RenderEffect.createBlurEffect` on the overlay panel window or
-  `FLAG_BLUR_BEHIND` on any Handy overlay window (glass is a
-  surface property — scope §15 recipe #8).
+* `FLAG_BLUR_BEHIND` on any Handy overlay window. It has been observed
+  to blur the full display behind `TYPE_APPLICATION_OVERLAY`, even when
+  the host view/window was intended to be small. `RenderEffect` /
+  Compose blur is allowed only on Handy-owned bitmap content clipped
+  inside the sheet (scope §15 recipe #8).
 * `QUERY_ALL_PACKAGES` permission (use `LaunchableAppIndex` +
   explicit `<queries>` only).
 * Polling for `AccessibilityService` readiness. Observe

@@ -167,6 +167,10 @@ data class HandySettings(
     /** User-managed per-package denylist for tap-for-me / action dispatch. */
     val tapForMeUserDenylistedPackages: Set<String> = emptySet(),
 
+    /** Blocks tap-for-me, recipes, and native actions while Chrome is in an Incognito tab. */
+    @SerialName("no_actions_in_incognito")
+    val noActionsInIncognito: Boolean = true,
+
     /**
      * V2 §5: cloud provider pick. `ClaudeCloud` is the default; the
      * router still falls back to Claude on Gemini errors until parity

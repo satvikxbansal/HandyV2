@@ -8,12 +8,12 @@ import com.handy.core.action.ActionRisk
 import com.handy.core.action.ActionPerformer
 import com.handy.core.action.ConfirmationLevel
 import com.handy.core.action.PolicyDecision
-import com.handy.core.action.SourceTrust
-import com.handy.core.agent.RecipeCommand
 import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipePlanConfirmer
 import com.handy.core.agent.RecipeProposal
+import com.handy.core.agent.RecipeCommand
 import com.handy.core.agent.RecipeRegistry
+import com.handy.core.agent.RecipeIntentDispatcher
 import com.handy.core.agent.RecipeRunEvent
 import com.handy.core.agent.RecipeRunObserver
 import com.handy.core.agent.RecipeRunResult
@@ -26,6 +26,8 @@ import com.handy.core.agent.UserGoal
 import com.handy.core.screen.GroundingSnapshot
 import com.handy.core.screen.TurnSource
 import com.handy.core.tool.ToolContext
+import com.handy.runtime.agent.recipes.AndroidRuntimeRecipes
+import com.handy.runtime.intent.AndroidIntentDispatcher
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.delay
@@ -41,8 +43,11 @@ class AgentSessionController @Inject constructor(
     private val screenContextBuilder: ScreenContextBuilder,
     private val actionPerformer: ActionPerformer,
     private val policyEngine: ActionPolicyEngine,
+    private val intentDispatcher: AndroidIntentDispatcher,
 ) {
-    private val registry = RecipeRegistry()
+    private val registry = RecipeRegistry(
+        RecipeRegistry.defaultRecipes() + AndroidRuntimeRecipes.defaultRecipes(),
+    )
     private val _progress = MutableStateFlow(AgentProgressBubbleState.Hidden)
     val progress: StateFlow<AgentProgressBubbleState> = _progress.asStateFlow()
 
@@ -98,21 +103,29 @@ class AgentSessionController @Inject constructor(
     private fun preflight(
         plan: RecipePlan,
         grounding: GroundingSnapshot,
-    ): List<RecipeStepPolicyCheck> =
-        plan.steps.map { step ->
+    ): List<RecipeStepPolicyCheck> {
+        var deferredScreen = false
+        return plan.steps.map { step ->
+            if (deferredScreen && step.requiresResolvedTarget()) {
+                return@map RecipeStepPolicyCheck(step, step.deferredInitialDecision())
+            }
             val target = step.resolveTarget(grounding)
-            val decision = if (target == null && step.command !is RecipeCommand.Scroll) {
+            val decision = if (target == null && step.requiresResolvedTarget()) {
                 deniedDecision("target-not-found")
             } else {
                 policyEngine.decide(
                     action = step.policyAction(grounding),
                     target = target,
                     grounding = grounding,
-                    sourceTrust = SourceTrust.TRUSTED_RECIPE,
-                )
+                    sourceTrust = step.policySourceTrust(),
+                ).let(step::applyConfirmationOverride)
+            }
+            if ((step.command as? RecipeCommand.NativeAction)?.allowPackageChangeAfter == true) {
+                deferredScreen = true
             }
             RecipeStepPolicyCheck(step, decision)
         }
+    }
 
     private suspend fun requestPlanApproval(
         plan: RecipePlan,
@@ -147,6 +160,9 @@ class AgentSessionController @Inject constructor(
         val runner = RecipeRunner(
             performer = actionPerformer,
             policy = policyEngine,
+            intentDispatcher = RecipeIntentDispatcher { action ->
+                intentDispatcher.dispatch(action)
+            },
             snapshotProvider = RecipeSnapshotProvider {
                 screenContextBuilder.build(
                     userMessage = userText,

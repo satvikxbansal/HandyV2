@@ -116,8 +116,11 @@ enum class SettingsTarget {
     @SerialName("accessibility") ACCESSIBILITY,
     @SerialName("notifications") NOTIFICATIONS,
     @SerialName("battery_optimization") BATTERY_OPTIMIZATION,
+    @SerialName("dark_mode") DARK_MODE,
     @SerialName("wifi") WIFI,
     @SerialName("bluetooth") BLUETOOTH,
+    @SerialName("security") SECURITY,
+    @SerialName("biometric") BIOMETRIC,
     @SerialName("apps") APPS,
     ;
 }

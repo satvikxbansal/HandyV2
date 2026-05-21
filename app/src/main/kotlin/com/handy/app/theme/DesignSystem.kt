@@ -37,13 +37,13 @@ object HandyColors {
     // Glass surface tokens ---------------------------------------
     // Canonical values from `handy-android-design system/.../README.md`
     // § Design Tokens → Colors. Restored verbatim after DL-031/032
-    // drifted them (see DL-033). The overlay cannot use
-    // `FLAG_BLUR_BEHIND` or `RenderEffect.createBlurEffect` on another
-    // app's surface (guardrail §10-forbidden), so we use the handoff's
-    // explicit fallback clause: `rgba(12,10,14,0.82)` with no blur.
+    // drifted them (see DL-033). This remains the dense fallback when
+    // the bounded screenshot blur is unavailable; API 31+ panel blur
+    // draws a pre-panel screenshot inside the sheet and relaxes only
+    // the sheet-local alpha.
     /**
      * Near-black glass fill — **cool-neutral** undertone (R=12 G=10 B=14).
-     * The 82% alpha below is the handoff's explicit <API 31 fallback.
+     * The 82% alpha below is the handoff's explicit no-blur fallback.
      * Spec reference colour at 58% alpha (`0x940C0A0E`) is kept in a
      * comment so future work with real backdrop blur can swap back.
      */

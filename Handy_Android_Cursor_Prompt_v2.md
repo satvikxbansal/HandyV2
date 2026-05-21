@@ -42,7 +42,7 @@ Every V2 coding turn must open with the "Think Before Coding" block described in
 
 ### Phase 1 — Overlay chat panel (primary quick surface)
 
-**Slice:** new Compose overlay panel, IME-focus choreography per cursorbuddy recipe #5, expand-to-`ChatActivity` path, lifecycle stability (rotation / multi-window / overlay revocation / app switch), quick-prompt chips per cursorbuddy recipe #9, voice auto-submit 300 ms grace per cursorbuddy recipe #6, glassmorphism palette + no-backdrop-blur per cursorbuddy recipe #8.
+**Slice:** new Compose overlay panel, IME-focus choreography per cursorbuddy recipe #5, expand-to-`ChatActivity` path, lifecycle stability (rotation / multi-window / overlay revocation / app switch), quick-prompt chips per cursorbuddy recipe #9, voice auto-submit 300 ms grace per cursorbuddy recipe #6, glassmorphism palette + bounded backdrop-snapshot blur per scope recipe #8.
 
 **Acceptance:**
 
@@ -53,7 +53,7 @@ Every V2 coding turn must open with the "Think Before Coding" block described in
 - Idle widget keeps the OS-2 idle flag set before panel open and after panel dismiss.
 - Voice final result auto-submits after 300 ms grace.
 - Quick-prompt chips render based on cached package from cursorbuddy recipe #4.
-- No `RenderEffect.createBlurEffect` or `FLAG_BLUR_BEHIND` on the panel window.
+- No `FLAG_BLUR_BEHIND` on Handy overlay windows; API 31+ blur, if enabled, is a clipped blur of Handy-owned screenshot pixels inside the sheet.
 - `OverlayComposeHost` reused; no second Compose host class is created.
 
 ### Phase 2 — Smarter capture + grounding + Unified Buddy

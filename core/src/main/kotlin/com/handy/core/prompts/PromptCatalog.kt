@@ -246,8 +246,14 @@ object PromptCatalog {
         - type_visible: args include field or label, plus text.
         - search_visible: args include query, plus optional field and submit.
         - scroll_visible: args include direction as up, down, left, or right.
+        - clock_alarm: args include time such as "7:00 AM" or hour/minute.
+        - android_settings: args include setting such as dark_mode, notifications, apps, app_info, or battery_optimization. never use it for network, biometric, accessibility, security, wifi, or bluetooth changes.
+        - maps: args include query, plus optional mode search or navigation.
+        - gmail_compose: args include to, body, and optional subject. it drafts the email and pauses before Send; Send requires STRONG_HOLD.
+        - whatsapp_reply: args include recipient/contact and message, plus optional phone. it opens the chat, fills the draft, and pauses before Send; Send requires STRONG_HOLD.
+        - chrome: args include url to open via intent, or markId/label/desc/viewId to navigate within the visible page. for summarizing a visible/current page, use fetch_page on the page URL instead of a recipe.
 
-        never use recipes for payment, checkout, buying, deleting, sending money, password/passcode/otp/cvv entry, or anything that submits private or financial data. for those, explain that the user needs to do it themselves. recipes are only proposals; Handy will re-check policy on a fresh snapshot before every step and will ask the user before the plan and every sensitive step.
+        never use recipes for payment, checkout, buying, deleting, sending money, password/passcode/otp/cvv entry, or private/financial data submission. email and whatsapp drafting recipes are the only messaging exception: draft only from the user's own requested text, stop before Send, and rely on the STRONG_HOLD Send step. recipes are only proposals; Handy will re-check policy on a fresh snapshot before every step and will ask the user before the plan and every sensitive step.
     """.trimIndent()
 
     /**

@@ -286,3 +286,17 @@ From build plan §15:
 - APK size ≤ 25 MB.
 
 Baseline profile targets: `ChatActivity`, `FloatingWidgetOverlayService`.
+
+---
+
+## Overlay panel backdrop snapshot blur (May 2026)
+
+**Decision.** The minimized overlay panel may blur a pre-panel
+screenshot on Android API 31+, but only as Handy-owned bitmap content
+clipped inside the rounded bottom sheet. The full-screen panel window
+remains the IME/outside-tap owner and no Handy overlay window gets
+`FLAG_BLUR_BEHIND`.
+
+**Fallback.** When screenshot capture is unavailable, delayed, blocked,
+or disabled by the system, the sheet keeps the dense `GlassTint`
+fallback alpha so underlying app elements do not clash with the text.

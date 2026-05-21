@@ -11,6 +11,7 @@ import com.handy.core.action.PolicyDecision
 import com.handy.core.action.ScrollDirection
 import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
+import com.handy.core.intent.IntentResult
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.overlay.PanelSnapshot
 import com.handy.core.screen.GroundingSnapshot
@@ -75,8 +76,8 @@ class RecipeRunnerTest {
         assertThat(result).isEqualTo(RecipeRunResult.Aborted("package-changed"))
     }
 
-    @Test fun `refuses more than five steps`() = runTest {
-        val steps = (1..6).map { index ->
+    @Test fun `refuses more than six steps`() = runTest {
+        val steps = (1..7).map { index ->
             RecipeStep(
                 id = "tap-$index",
                 title = "Tap Search",
@@ -93,6 +94,83 @@ class RecipeRunnerTest {
         )
 
         assertThat(runner.run(plan)).isEqualTo(RecipeRunResult.Aborted("too-many-steps"))
+    }
+
+    @Test fun `runs native action recipe through intent dispatcher`() = runTest {
+        val snapshots = SnapshotQueue(
+            snapshot("com.handy.android"),
+            snapshot("com.handy.android"),
+            snapshot("com.google.android.deskclock"),
+        )
+        val dispatched = mutableListOf<AssistantAction>()
+        val runner = RecipeRunner(
+            performer = FakePerformer(),
+            policy = FakePolicy(),
+            intentDispatcher = RecipeIntentDispatcher { action ->
+                dispatched += action
+                IntentResult.Dispatched("clock")
+            },
+            snapshotProvider = snapshots,
+            planConfirmer = RecipePlanConfirmer { _, _, _ -> true },
+            sensitiveStepConfirmer = RecipeSensitiveStepConfirmer { _, _, _, _ -> true },
+        )
+
+        val result = runner.run(
+            fakePlan(
+                stepCount = 1,
+                packageName = null,
+                steps = listOf(
+                    RecipeStep(
+                        id = "set-alarm",
+                        title = "Set alarm",
+                        command = RecipeCommand.NativeAction(
+                            AssistantAction.SetAlarm(hour = 7, minute = 0),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        assertThat(result).isEqualTo(RecipeRunResult.Completed(completedSteps = 1))
+        assertThat(dispatched).containsExactly(AssistantAction.SetAlarm(hour = 7, minute = 0))
+    }
+
+    @Test fun `native action no handler fails verification instead of crashing`() = runTest {
+        val runner = RecipeRunner(
+            performer = FakePerformer(),
+            policy = FakePolicy(),
+            intentDispatcher = RecipeIntentDispatcher { IntentResult.NoHandler },
+            snapshotProvider = SnapshotQueue(
+                snapshot("com.handy.android"),
+                snapshot("com.handy.android"),
+                snapshot("com.handy.android"),
+            ),
+            planConfirmer = RecipePlanConfirmer { _, _, _ -> true },
+            sensitiveStepConfirmer = RecipeSensitiveStepConfirmer { _, _, _, _ -> true },
+        )
+
+        val result = runner.run(
+            fakePlan(
+                stepCount = 1,
+                packageName = null,
+                steps = listOf(
+                    RecipeStep(
+                        id = "set-alarm",
+                        title = "Set alarm",
+                        command = RecipeCommand.NativeAction(
+                            AssistantAction.SetAlarm(hour = 7, minute = 0),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        assertThat(result).isEqualTo(
+            RecipeRunResult.VerificationFailed(
+                stepId = "set-alarm",
+                reason = "intent-no-handler",
+            ),
+        )
     }
 
     @Test fun `sensitive step requires per-step confirmation`() = runTest {
@@ -129,6 +207,85 @@ class RecipeRunnerTest {
         assertThat(confirmations).isEqualTo(1)
     }
 
+    @Test fun `confirmation override upgrades sensitive step to strong hold`() = runTest {
+        val snapshots = SnapshotQueue(
+            snapshot("com.example.app", mark("Send", "m1")),
+            snapshot("com.example.app", mark("Send", "m1")),
+        )
+        var confirmation: ConfirmationLevel? = null
+        val runner = RecipeRunner(
+            performer = FakePerformer(),
+            policy = FakePolicy(),
+            snapshotProvider = snapshots,
+            planConfirmer = RecipePlanConfirmer { _, _, _ -> true },
+            sensitiveStepConfirmer = RecipeSensitiveStepConfirmer { _, _, _, decision ->
+                confirmation = decision.confirmation
+                false
+            },
+        )
+
+        val result = runner.run(
+            fakePlan(
+                stepCount = 1,
+                steps = listOf(
+                    RecipeStep(
+                        id = "send",
+                        title = "Send message?",
+                        command = RecipeCommand.Tap(RecipeTarget.Node(text = "Send", role = "button")),
+                        sensitive = true,
+                        confirmationOverride = ConfirmationLevel.STRONG_HOLD,
+                    ),
+                ),
+            ),
+        )
+
+        assertThat(result).isEqualTo(RecipeRunResult.Cancelled("step-declined:send"))
+        assertThat(confirmation).isEqualTo(ConfirmationLevel.STRONG_HOLD)
+    }
+
+    @Test fun `native app entry step can defer targets until after package switch`() = runTest {
+        val snapshots = SnapshotQueue(
+            snapshot("com.handy.android"),
+            snapshot("com.handy.android"),
+            snapshot("com.whatsapp", mark("Search", "m1")),
+            snapshot("com.whatsapp", mark("Search", "m1")),
+            snapshot("com.whatsapp", mark("Search", "m1")),
+        )
+        val performer = FakePerformer()
+        val runner = RecipeRunner(
+            performer = performer,
+            policy = FakePolicy(),
+            intentDispatcher = RecipeIntentDispatcher { IntentResult.Dispatched("whatsapp") },
+            snapshotProvider = snapshots,
+            planConfirmer = RecipePlanConfirmer { _, _, _ -> true },
+            sensitiveStepConfirmer = RecipeSensitiveStepConfirmer { _, _, _, _ -> true },
+        )
+
+        val result = runner.run(
+            fakePlan(
+                packageName = "com.whatsapp",
+                steps = listOf(
+                    RecipeStep(
+                        id = "open-whatsapp",
+                        title = "Open WhatsApp",
+                        command = RecipeCommand.NativeAction(
+                            AssistantAction.OpenApp("WhatsApp"),
+                            allowPackageChangeAfter = true,
+                        ),
+                    ),
+                    RecipeStep(
+                        id = "tap-search",
+                        title = "Tap Search",
+                        command = RecipeCommand.Tap(RecipeTarget.Node(text = "Search", role = "button")),
+                    ),
+                ),
+            ),
+        )
+
+        assertThat(result).isEqualTo(RecipeRunResult.Completed(completedSteps = 2))
+        assertThat(performer.calls).containsExactly("tap:Search")
+    }
+
     @Test fun `trick prompt claiming pay then tap pay is refused by policy`() = runTest {
         val assistantText = """
             i can do that.
@@ -155,6 +312,7 @@ class RecipeRunnerTest {
 
     private fun fakePlan(
         stepCount: Int = 2,
+        packageName: String? = "com.example.app",
         steps: List<RecipeStep> = listOf(
             RecipeStep(
                 id = "focus",
@@ -173,7 +331,7 @@ class RecipeRunnerTest {
     ): RecipePlan = RecipePlan(
         recipeId = "fake",
         displayName = "Fake recipe",
-        packageName = "com.example.app",
+        packageName = packageName,
         appLabel = "Example",
         summary = "Fake two-step plan",
         steps = steps,

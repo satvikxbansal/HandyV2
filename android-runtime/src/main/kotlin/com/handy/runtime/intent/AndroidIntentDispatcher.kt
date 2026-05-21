@@ -116,8 +116,11 @@ class AndroidIntentDispatcher(
             SettingsTarget.ACCESSIBILITY -> Settings.ACTION_ACCESSIBILITY_SETTINGS
             SettingsTarget.NOTIFICATIONS -> Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS
             SettingsTarget.BATTERY_OPTIMIZATION -> Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS
+            SettingsTarget.DARK_MODE -> Settings.ACTION_DISPLAY_SETTINGS
             SettingsTarget.WIFI -> Settings.ACTION_WIFI_SETTINGS
             SettingsTarget.BLUETOOTH -> Settings.ACTION_BLUETOOTH_SETTINGS
+            SettingsTarget.SECURITY -> Settings.ACTION_SECURITY_SETTINGS
+            SettingsTarget.BIOMETRIC -> Settings.ACTION_BIOMETRIC_ENROLL
             SettingsTarget.APPS -> Settings.ACTION_APPLICATION_SETTINGS
         }
         val intent = Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

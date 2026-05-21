@@ -66,6 +66,7 @@ class DataStoreSettings(private val context: Context) {
             p[ACTION_DISCLOSURE_VERSION_ACCEPTED] = next.actionDisclosureVersionAccepted
             p[TAP_FOR_ME_MUTED_UNTIL_EPOCH_MS] = next.tapForMeMutedUntilEpochMs
             p[TAP_FOR_ME_USER_DENYLISTED_PACKAGES] = next.tapForMeUserDenylistedPackages
+            p[NO_ACTIONS_IN_INCOGNITO] = next.noActionsInIncognito
             p[CLOUD_PROVIDER] = next.cloudProvider.name
             p[PREFER_LOCAL_WHEN_POSSIBLE] = next.preferLocalWhenPossible
             p[LOCAL_AI_ENABLED] = next.localAiEnabled
@@ -150,6 +151,7 @@ class DataStoreSettings(private val context: Context) {
                 ?.mapNotNull { it.trim().takeIf(String::isNotBlank) }
                 ?.toSet()
                 ?: emptySet(),
+            noActionsInIncognito = this[NO_ACTIONS_IN_INCOGNITO] ?: true,
             cloudProvider = this[CLOUD_PROVIDER]
                 ?.let { runCatching { CloudProvider.valueOf(it) }.getOrNull() }
                 ?: CloudProvider.CLAUDE,
@@ -189,6 +191,7 @@ class DataStoreSettings(private val context: Context) {
         val ACTION_DISCLOSURE_VERSION_ACCEPTED = intPreferencesKey("action_disclosure_version_accepted")
         val TAP_FOR_ME_MUTED_UNTIL_EPOCH_MS = longPreferencesKey("tap_for_me_muted_until_epoch_ms")
         val TAP_FOR_ME_USER_DENYLISTED_PACKAGES = stringSetPreferencesKey("tap_for_me_user_denylisted_packages")
+        val NO_ACTIONS_IN_INCOGNITO = booleanPreferencesKey("no_actions_in_incognito")
         val CLOUD_PROVIDER = stringPreferencesKey("cloud_provider")
         val PREFER_LOCAL_WHEN_POSSIBLE = booleanPreferencesKey("prefer_local_when_possible")
         val LOCAL_AI_ENABLED = booleanPreferencesKey("local_ai_enabled")

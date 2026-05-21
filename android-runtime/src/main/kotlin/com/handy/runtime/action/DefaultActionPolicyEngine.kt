@@ -7,6 +7,7 @@ import com.handy.core.action.ActionRisk
 import com.handy.core.action.AssistantAction
 import com.handy.core.action.ConfirmationLevel
 import com.handy.core.action.PolicyDecision
+import com.handy.core.action.SettingsTarget
 import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
 import com.handy.core.model.HandySettings
@@ -46,9 +47,14 @@ class DefaultActionPolicyEngine(
         grounding: GroundingSnapshot,
         sourceTrust: SourceTrust,
     ): PolicyDecision {
+        val settings = settingsProvider()
         val targetPackage = targetPackage(action, target, grounding)
         if (appPolicy.isDenylisted(targetPackage)) {
             return denied(ActionRisk.CRITICAL, "denylisted")
+        }
+
+        if (settings.noActionsInIncognito && grounding.isChromeIncognito()) {
+            return denied(ActionRisk.HIGH, "incognito-actions-disabled")
         }
 
         if (grounding.isSecure()) {
@@ -57,6 +63,10 @@ class DefaultActionPolicyEngine(
 
         if (target.screenChanged(grounding)) {
             return denied(ActionRisk.HIGH, "screen-changed")
+        }
+
+        if (action is AssistantAction.OpenSettings && action.target.isTooSensitiveForSettingsRecipe()) {
+            return denied(ActionRisk.HIGH, "settings-too-sensitive")
         }
 
         if (target.resolverConfidenceOrNull()?.let { it < MIN_UI_ACTION_CONFIDENCE } == true) {
@@ -85,7 +95,6 @@ class DefaultActionPolicyEngine(
 
         val isUiAction = target != null || sourceTrust == SourceTrust.TRUSTED_RECIPE
         if (isUiAction) {
-            val settings = settingsProvider()
             val now = clock()
             if (!ActionExecutionGate.gesturesAllowed(settings, nowEpochMs = now)) {
                 val reason = if (settings.tapForMeMutedUntilEpochMs > now) {
@@ -143,6 +152,20 @@ class DefaultActionPolicyEngine(
             capture is CaptureResult.SecureWindow ||
             failureReason == ContextFailureReason.SECURE_WINDOW
 
+    private fun GroundingSnapshot.isChromeIncognito(): Boolean {
+        val packageName = (screenText?.packageName ?: toolContext.packageName).lowercase()
+        if (packageName !in CHROME_PACKAGES) return false
+        val windowTitle = screenText?.windowTitle.orEmpty()
+        if (windowTitle.contains("incognito", ignoreCase = true)) return true
+        val markText = panelSnapshot?.marks.orEmpty().asSequence().flatMap { mark ->
+            sequenceOf(mark.text, mark.contentDescription, mark.viewIdSuffix)
+        }
+        val treeText = screenText?.root?.incognitoLabels().orEmpty().asSequence()
+        return (markText + treeText)
+            .filterNotNull()
+            .any { it.looksLikeChromeIncognitoChrome() }
+    }
+
     private fun targetPackage(
         action: AssistantAction,
         target: TapTarget?,
@@ -158,6 +181,19 @@ class DefaultActionPolicyEngine(
         is AssistantAction.OpenAppInfo -> packageHint
         else -> null
     }?.takeIf { it.isNotBlank() }
+
+    private fun SettingsTarget.isTooSensitiveForSettingsRecipe(): Boolean = when (this) {
+        SettingsTarget.ACCESSIBILITY,
+        SettingsTarget.WIFI,
+        SettingsTarget.BLUETOOTH,
+        SettingsTarget.SECURITY,
+        SettingsTarget.BIOMETRIC -> true
+        SettingsTarget.APP_INFO,
+        SettingsTarget.NOTIFICATIONS,
+        SettingsTarget.BATTERY_OPTIMIZATION,
+        SettingsTarget.DARK_MODE,
+        SettingsTarget.APPS -> false
+    }
 
     private fun AssistantAction.requiresStrongConfirmation(): Boolean =
         isDestructive || this is AssistantAction.StartNavigation
@@ -375,7 +411,26 @@ class DefaultActionPolicyEngine(
         const val NEARBY_LABEL_MAX_GAP_PX: Int = 96
         const val NEARBY_LABEL_MAX_LEFT_GAP_PX: Int = 240
 
+        val CHROME_PACKAGES = setOf(
+            "com.android.chrome",
+            "com.chrome.beta",
+            "com.chrome.dev",
+            "com.chrome.canary",
+        )
+
     }
+}
+
+private fun UiNode.incognitoLabels(): List<String> {
+    val out = mutableListOf<String>()
+    fun walk(node: UiNode) {
+        sequenceOf(node.text, node.contentDescription, node.viewIdResourceName)
+            .filterNotNull()
+            .forEach(out::add)
+        node.children.forEach(::walk)
+    }
+    walk(this)
+    return out
 }
 
 private fun String?.equalsNormalized(other: String): Boolean =
@@ -406,6 +461,15 @@ private fun String.containsPasswordContext(): Boolean =
     contains("password", ignoreCase = true) ||
         contains("passcode", ignoreCase = true) ||
         Regex("""\bpwd\b""", RegexOption.IGNORE_CASE).containsMatchIn(this)
+
+private fun String.looksLikeChromeIncognitoChrome(): Boolean {
+    val normalized = lowercase()
+    return normalized == "incognito" ||
+        normalized.contains("incognito tab") ||
+        normalized.contains("incognito tabs") ||
+        normalized.contains("incognito mode") ||
+        normalized.contains("gone incognito")
+}
 
 private val PERSONAL_DATA_TERMS = listOf(
     "personal data",

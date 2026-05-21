@@ -1,7 +1,11 @@
 package com.handy.core.agent
 
 import com.handy.core.action.AssistantAction
+import com.handy.core.action.ActionRisk
+import com.handy.core.action.ConfirmationLevel
+import com.handy.core.action.PolicyDecision
 import com.handy.core.action.ScrollDirection
+import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.screen.GroundingSnapshot
@@ -12,6 +16,7 @@ data class RecipeStep(
     val title: String,
     val command: RecipeCommand,
     val sensitive: Boolean = command.defaultSensitive,
+    val confirmationOverride: ConfirmationLevel? = null,
 ) {
     init {
         require(id.isNotBlank()) { "RecipeStep.id must not be blank" }
@@ -20,13 +25,51 @@ data class RecipeStep(
 
     fun resolveTarget(grounding: GroundingSnapshot): TapTarget? = command.target?.resolve(grounding)
 
+    fun requiresResolvedTarget(): Boolean =
+        command !is RecipeCommand.Scroll && command !is RecipeCommand.NativeAction
+
     fun policyAction(grounding: GroundingSnapshot): AssistantAction = when (command) {
+        is RecipeCommand.NativeAction -> command.action
         is RecipeCommand.TypeText -> AssistantAction.TypeText(command.text)
         else -> AssistantAction.OpenApp(
             packageHint = grounding.screenText?.packageName
                 ?: grounding.toolContext.packageName,
         )
     }
+
+    fun policySourceTrust(): SourceTrust = when (command) {
+        is RecipeCommand.NativeAction -> SourceTrust.TRUSTED_USER
+        else -> SourceTrust.TRUSTED_RECIPE
+    }
+
+    fun applyConfirmationOverride(decision: PolicyDecision): PolicyDecision {
+        val required = confirmationOverride ?: return decision
+        if (!decision.allowed) return decision
+        val confirmation = maxOf(decision.confirmation, required)
+        return decision.copy(
+            risk = if (confirmation.requiresHighRisk()) {
+                maxOf(decision.risk, ActionRisk.HIGH)
+            } else {
+                decision.risk
+            },
+            confirmation = confirmation,
+            requireFreshSnapshot = decision.requireFreshSnapshot || confirmation.requiresFreshSnapshot(),
+            reason = decision.reason ?: confirmation.defaultReason(),
+        )
+    }
+
+    fun deferredInitialDecision(): PolicyDecision =
+        applyConfirmationOverride(
+            PolicyDecision(
+                allowed = true,
+                risk = if (sensitive) ActionRisk.HIGH else ActionRisk.MEDIUM,
+                confirmation = if (sensitive) ConfirmationLevel.NORMAL else ConfirmationLevel.NONE,
+                requireFreshSnapshot = true,
+                requireNodeActionOnly = true,
+                allowGestureFallback = false,
+                reason = "deferred-recipe-step",
+            ),
+        )
 }
 
 sealed class RecipeCommand {
@@ -57,6 +100,14 @@ sealed class RecipeCommand {
         val direction: ScrollDirection,
         override val target: RecipeTarget? = null,
     ) : RecipeCommand()
+
+    data class NativeAction(
+        val action: AssistantAction,
+        val allowPackageChangeAfter: Boolean = true,
+    ) : RecipeCommand() {
+        override val target: RecipeTarget? = null
+        override val defaultSensitive: Boolean = action.isDestructive
+    }
 }
 
 sealed class RecipeTarget {
@@ -219,3 +270,16 @@ private val SENSITIVE_RECIPE_TERMS = listOf(
 )
 
 private val CARD_LIKE_REGEX = Regex("""\b(?:\d[ -]?){13,19}\b""")
+
+private fun ConfirmationLevel.requiresHighRisk(): Boolean =
+    this == ConfirmationLevel.STRONG_HOLD || this == ConfirmationLevel.TYPED_CONFIRMATION
+
+private fun ConfirmationLevel.requiresFreshSnapshot(): Boolean =
+    this == ConfirmationLevel.STRONG_HOLD || this == ConfirmationLevel.TYPED_CONFIRMATION
+
+private fun ConfirmationLevel.defaultReason(): String? = when (this) {
+    ConfirmationLevel.STRONG_HOLD -> "strong-confirmation-required"
+    ConfirmationLevel.TYPED_CONFIRMATION -> "typed-confirmation-required"
+    ConfirmationLevel.NORMAL,
+    ConfirmationLevel.NONE -> null
+}

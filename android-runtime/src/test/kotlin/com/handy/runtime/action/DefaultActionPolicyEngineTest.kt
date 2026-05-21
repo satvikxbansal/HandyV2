@@ -45,6 +45,37 @@ class DefaultActionPolicyEngineTest {
         assertThat(decision.reason).isEqualTo("secure")
     }
 
+    @Test fun `chrome incognito actions are blocked by default setting`() {
+        val decision = engine().decide(
+            action = AssistantAction.OpenUrl("https://example.com"),
+            target = null,
+            grounding = grounding(
+                packageName = "com.android.chrome",
+                marks = listOf(mark("Incognito tab", intArrayOf(0, 0, 100, 40))),
+            ),
+            sourceTrust = SourceTrust.TRUSTED_USER,
+        )
+
+        assertThat(decision.allowed).isFalse()
+        assertThat(decision.reason).isEqualTo("incognito-actions-disabled")
+    }
+
+    @Test fun `chrome incognito action block can be disabled by setting`() {
+        val decision = engine(
+            settings = openSettings.copy(noActionsInIncognito = false),
+        ).decide(
+            action = AssistantAction.OpenUrl("https://example.com"),
+            target = null,
+            grounding = grounding(
+                packageName = "com.android.chrome",
+                marks = listOf(mark("Incognito tab", intArrayOf(0, 0, 100, 40))),
+            ),
+            sourceTrust = SourceTrust.TRUSTED_USER,
+        )
+
+        assertThat(decision.allowed).isTrue()
+    }
+
     @Test fun `low resolver confidence is blocked`() {
         val decision = engine().decide(
             action = AssistantAction.OpenApp("com.example.app"),
@@ -156,6 +187,29 @@ class DefaultActionPolicyEngineTest {
 
         assertThat(decision.allowed).isTrue()
         assertThat(decision.confirmation).isEqualTo(ConfirmationLevel.NONE)
+    }
+
+    @Test fun `high risk settings deep links are blocked`() {
+        val blockedTargets = listOf(
+            com.handy.core.action.SettingsTarget.WIFI,
+            com.handy.core.action.SettingsTarget.BLUETOOTH,
+            com.handy.core.action.SettingsTarget.ACCESSIBILITY,
+            com.handy.core.action.SettingsTarget.SECURITY,
+            com.handy.core.action.SettingsTarget.BIOMETRIC,
+        )
+
+        blockedTargets.forEach { target ->
+            val decision = engine().decide(
+                action = AssistantAction.OpenSettings(target),
+                target = null,
+                grounding = grounding(packageName = "com.android.settings"),
+                sourceTrust = SourceTrust.TRUSTED_USER,
+            )
+
+            assertThat(decision.allowed).isFalse()
+            assertThat(decision.reason).isEqualTo("settings-too-sensitive")
+            assertThat(decision.risk).isEqualTo(ActionRisk.HIGH)
+        }
     }
 
     @Test fun `otp password and card fields are blocked`() {

@@ -1,5 +1,6 @@
 package com.handy.app.overlay
 
+import android.graphics.Bitmap
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -45,8 +46,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import com.handy.app.R
 import com.handy.core.overlay.BuddyBubble
 import com.handy.core.overlay.OverlayPanelState
@@ -68,6 +69,7 @@ fun OverlayChatPanelContent(
     state: OverlayPanelState,
     callbacks: OverlayPanelCallbacks,
     modifier: Modifier = Modifier,
+    backdropSnapshot: Bitmap? = null,
 ) {
     if (!state.isPanelVisible) return
     val panel: PanelContent = state.panel
@@ -103,6 +105,7 @@ fun OverlayChatPanelContent(
             HandyGlassBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(HandyDimens.StackL),
+                backdropSnapshot = backdropSnapshot,
             ) {
                 PanelHeader(
                     greeting = panel.greeting,

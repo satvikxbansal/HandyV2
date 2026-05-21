@@ -1,12 +1,19 @@
 package com.handy.app.overlay
 
+import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityService.ScreenshotResult
+import android.accessibilityservice.AccessibilityService.TakeScreenshotCallback
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.ColorSpace
 import android.graphics.PixelFormat
+import android.hardware.HardwareBuffer
 import android.os.Build
 import android.provider.Settings
 import android.view.Gravity
-import android.view.View
+import android.view.Display
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import androidx.compose.runtime.collectAsState
@@ -19,10 +26,15 @@ import com.handy.app.chat.ChatTargetHandoffStore
 import com.handy.app.voice.VoiceController
 import com.handy.core.overlay.OverlayMode
 import com.handy.core.overlay.PanelContent
+import com.handy.runtime.di.AccessibilityServiceProvider
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlin.coroutines.resume
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 
 /**
@@ -43,9 +55,11 @@ class OverlayChatPanelService : LifecycleService() {
     @Inject lateinit var voiceController: VoiceController
     @Inject lateinit var panelBridge: OverlayPanelBridge
     @Inject lateinit var chatTargetHandoffStore: ChatTargetHandoffStore
+    @Inject lateinit var accessibilityServiceProvider: AccessibilityServiceProvider
 
     private var host: OverlayComposeHost? = null
     private var view: android.view.View? = null
+    private val panelBackdropSnapshot = MutableStateFlow<Bitmap?>(null)
     private lateinit var windowManager: WindowManager
 
     override fun onCreate() {
@@ -73,13 +87,19 @@ class OverlayChatPanelService : LifecycleService() {
         super.onDestroy()
     }
 
-    private fun attachPanel() {
+    private suspend fun attachPanel() {
+        replacePanelBackdropSnapshot(capturePanelBackdropSnapshot())
         val host = OverlayComposeHost(this).also { this.host = it }
 
         val composeView = host.createView {
             val state by presenter.state.collectAsState()
+            val backdropSnapshot by panelBackdropSnapshot.collectAsState()
             val callbacks = remember { buildCallbacks() }
-            OverlayChatPanelContent(state = state, callbacks = callbacks)
+            OverlayChatPanelContent(
+                state = state,
+                callbacks = callbacks,
+                backdropSnapshot = backdropSnapshot,
+            )
         }
 
         // DL-027: migrated from WRAP_CONTENT bottom-gravity to a
@@ -116,6 +136,7 @@ class OverlayChatPanelService : LifecycleService() {
         runCatching { windowManager.addView(composeView, params) }
             .onFailure {
                 Timber.e(it, "OverlayChatPanelService: addView failed")
+                replacePanelBackdropSnapshot(null)
                 host.release()
                 this.host = null
                 return
@@ -144,6 +165,7 @@ class OverlayChatPanelService : LifecycleService() {
             }
             runCatching { windowManager.removeView(v) }
         }
+        replacePanelBackdropSnapshot(null)
         h?.release()
     }
 
@@ -171,6 +193,60 @@ class OverlayChatPanelService : LifecycleService() {
         onDismissError = { presenter.dismissError() },
     )
 
+    private fun replacePanelBackdropSnapshot(next: Bitmap?) {
+        val previous = panelBackdropSnapshot.value
+        panelBackdropSnapshot.value = next
+        if (previous != null && previous !== next) {
+            runCatching { previous.recycle() }
+        }
+    }
+
+    @SuppressLint("NewApi")
+    private suspend fun capturePanelBackdropSnapshot(): Bitmap? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null
+        val service = accessibilityServiceProvider() ?: return null
+        return withTimeoutOrNull(PANEL_BACKDROP_CAPTURE_TIMEOUT_MS) {
+            takeDisplayScreenshot(service)
+        }
+    }
+
+    @SuppressLint("NewApi")
+    private suspend fun takeDisplayScreenshot(service: AccessibilityService): Bitmap? =
+        suspendCancellableCoroutine { continuation ->
+            service.takeScreenshot(
+                Display.DEFAULT_DISPLAY,
+                service.mainExecutor,
+                object : TakeScreenshotCallback {
+                    override fun onSuccess(result: ScreenshotResult) {
+                        if (continuation.isActive) {
+                            continuation.resume(hardwareBufferToBitmap(result))
+                        }
+                    }
+
+                    override fun onFailure(errorCode: Int) {
+                        Timber.d("OverlayChatPanelService: backdrop screenshot failed code=%d", errorCode)
+                        if (continuation.isActive) continuation.resume(null)
+                    }
+                },
+            )
+        }
+
+    @SuppressLint("NewApi")
+    private fun hardwareBufferToBitmap(result: ScreenshotResult): Bitmap? {
+        return try {
+            val colorSpace = result.colorSpace ?: ColorSpace.get(ColorSpace.Named.SRGB)
+            val buffer: HardwareBuffer = result.hardwareBuffer
+            try {
+                Bitmap.wrapHardwareBuffer(buffer, colorSpace)?.copy(Bitmap.Config.ARGB_8888, false)
+            } finally {
+                buffer.close()
+            }
+        } catch (t: Throwable) {
+            Timber.w(t, "OverlayChatPanelService: backdrop hardware buffer conversion failed")
+            null
+        }
+    }
+
     private fun panelFlags(): Int =
         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
@@ -179,6 +255,8 @@ class OverlayChatPanelService : LifecycleService() {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
 
     companion object {
+        private const val PANEL_BACKDROP_CAPTURE_TIMEOUT_MS = 140L
+
         fun start(context: Context) {
             context.startService(Intent(context, OverlayChatPanelService::class.java))
         }
