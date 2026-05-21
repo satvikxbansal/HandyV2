@@ -2,11 +2,14 @@
 
 package com.handy.app.overlay
 
+import android.content.Context
 import android.graphics.Rect
+import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.view.Display
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.WindowMetrics
@@ -624,11 +627,7 @@ class BuddyFlightDriver @Inject constructor(
     private fun observeWindowLayout(service: FloatingWidgetOverlayService) {
         windowLayoutJob?.cancel()
         windowLayoutJob = service.lifecycleScope.launch(Dispatchers.Main.immediate) {
-            val trackingContext = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                service.createWindowContext(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, null)
-            } else {
-                service
-            }
+            val trackingContext = windowLayoutTrackingContext(service) ?: return@launch
             val tracker = runCatching { WindowInfoTracker.getOrCreate(trackingContext) }
                 .onFailure { Timber.w(it, "BuddyFlightDriver: WindowInfoTracker unavailable") }
                 .getOrNull() ?: return@launch
@@ -651,6 +650,26 @@ class BuddyFlightDriver @Inject constructor(
                 Timber.w(it, "BuddyFlightDriver: fold layout observation failed")
             }
         }
+    }
+
+    private fun windowLayoutTrackingContext(service: FloatingWidgetOverlayService): Context? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return service
+        val display = service.getSystemService(DisplayManager::class.java)
+            ?.getDisplay(Display.DEFAULT_DISPLAY)
+        if (display == null) {
+            Timber.w("BuddyFlightDriver: fold layout observation skipped; default display unavailable")
+            return null
+        }
+        return runCatching {
+            service
+                .createDisplayContext(display)
+                .createWindowContext(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, null)
+        }.onFailure {
+            Timber.w(
+                it,
+                "BuddyFlightDriver: fold layout observation skipped; overlay window context unavailable",
+            )
+        }.getOrNull()
     }
 
     private fun chooseLandingPosition(
