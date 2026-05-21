@@ -33,6 +33,9 @@ import okhttp3.sse.EventSourceListener
 import okhttp3.sse.EventSources
 import timber.log.Timber
 import java.net.UnknownHostException
+import java.security.cert.CertificateException
+import java.security.cert.CertPathValidatorException
+import javax.net.ssl.SSLHandshakeException
 
 /**
  * Claude client for the Anthropic Messages API with SSE streaming.
@@ -212,28 +215,12 @@ class ClaudeLlmClient(
     }
 
     private fun mapTransportFailure(host: String, throwable: Throwable?, response: Response?): Throwable {
-        val err = throwable
-            ?: IllegalStateException("Claude SSE failed: ${response?.code} ${response?.message}")
-        val unknownHost = err.findCause<UnknownHostException>()
-        if (unknownHost != null) {
-            val message = "Android could not resolve $host. Check emulator/device DNS or internet; your Anthropic API key was not checked."
-            Timber.w(
-                err,
-                "ClaudeLlmClient: DNS failure host=%s responseCode=%s network={%s}",
-                host,
-                response?.code,
-                networkDiagnostics.snapshot(),
-            )
-            return IllegalStateException(message, err)
-        }
-        Timber.w(
-            err,
-            "ClaudeLlmClient: transport failure host=%s responseCode=%s network={%s}",
-            host,
-            response?.code,
-            networkDiagnostics.snapshot(),
+        return mapClaudeTransportFailure(
+            host = host,
+            throwable = throwable,
+            response = response,
+            networkSnapshot = networkDiagnostics.snapshot(),
         )
-        return err
     }
 
     private fun toClaudeTools(request: LlmRequest): List<ClaudeTool>? =
@@ -374,6 +361,66 @@ private inline fun <reified T : Throwable> Throwable.findCause(): T? {
     }
     return null
 }
+
+internal fun mapClaudeTransportFailure(
+    host: String,
+    throwable: Throwable?,
+    response: Response?,
+    networkSnapshot: String,
+): Throwable {
+    val err = throwable
+        ?: IllegalStateException("Claude SSE failed: ${response?.code} ${response?.message}")
+    val unknownHost = err.findCause<UnknownHostException>()
+    if (unknownHost != null) {
+        val message = "Android could not resolve $host. Check emulator/device DNS or internet; " +
+            "your Anthropic API key was not checked."
+        Timber.w(
+            err,
+            "ClaudeLlmClient: DNS failure host=%s responseCode=%s network={%s}",
+            host,
+            response?.code,
+            networkSnapshot,
+        )
+        return IllegalStateException(message, err)
+    }
+    if (err.isTrustAnchorFailure()) {
+        val message = "Android could not verify Claude's HTTPS certificate for $host. " +
+            "If this is a debug emulator/device on a VPN, proxy, or corporate network, " +
+            "install that network's CA certificate on the emulator/device or turn off " +
+            "HTTPS inspection. Your Anthropic API key was not checked."
+        Timber.w(
+            err,
+            "ClaudeLlmClient: TLS trust failure host=%s responseCode=%s network={%s}",
+            host,
+            response?.code,
+            networkSnapshot,
+        )
+        return IllegalStateException(message, err)
+    }
+    Timber.w(
+        err,
+        "ClaudeLlmClient: transport failure host=%s responseCode=%s network={%s}",
+        host,
+        response?.code,
+        networkSnapshot,
+    )
+    return err
+}
+
+private fun Throwable.isTrustAnchorFailure(): Boolean =
+    findCause<CertPathValidatorException>() != null ||
+        findCause<SSLHandshakeException>()?.message?.contains(
+            "Trust anchor",
+            ignoreCase = true,
+        ) == true ||
+        findCause<CertificateException>()?.message?.contains(
+            "Trust anchor",
+            ignoreCase = true,
+        ) == true ||
+        message?.contains(
+            "Trust anchor for certification path not found",
+            ignoreCase = true,
+        ) == true
 
 /**
  * Records what happened in one SSE iteration: the ordered list of

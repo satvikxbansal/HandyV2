@@ -16,4 +16,15 @@
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+    <!--
+      Debug builds also trust user-installed CAs. This keeps local/emulator
+      QA working on corporate VPNs or HTTPS-inspection proxies without
+      weakening release builds: Android ignores debug-overrides when the
+      app is not debuggable.
+    -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
 </network-security-config>

@@ -677,16 +677,17 @@ class FloatingWidgetOverlayService : LifecycleService() {
     ) {
         tangentRadians?.let { pointerRotationRadians.value = it }
         scale?.let {
-            val clamped = it.coerceIn(0.1f, 1.3f)
+            val clamped = it.coerceIn(0.1f, 1.2f)
             pointerScale.value = clamped
-            view?.scaleX = clamped
-            view?.scaleY = clamped
         }
     }
 
     internal fun resetPointerPose() {
         pointerRotationRadians.value = 0f
         pointerScale.value = 1f
+        // Older debug builds scaled the whole overlay view during the
+        // pointing pulse. Keep this reset so upgrading from that state
+        // cannot leave the WindowManager view enlarged.
         view?.scaleX = 1f
         view?.scaleY = 1f
         updateBuddyAlpha(1f)

@@ -60,6 +60,8 @@ enum class WidgetState { IDLE, TOUCHED, DRAGGING, LISTENING, THINKING, FLYING, P
  * ring around it reads as a hairline, not a halo.
  */
 private val HandIconSize = 32.dp
+private val WidgetPulseCanvasSize = HandyDimens.WidgetLensSize + 16.dp
+private const val MaxWidgetPulseScale = 1.20f
 
 /**
  * Floating lens — 48dp glass circle, warm amber rim, [HandMark] idle,
@@ -81,6 +83,11 @@ fun WidgetContent(
             WidgetState.FLYING, WidgetState.POINTING -> HandyColors.BubbleResponse
         }
         val isPointer = state == WidgetState.FLYING || state == WidgetState.POINTING
+        val lensScale = if (isPointer) {
+            pointerScale.coerceIn(0.90f, MaxWidgetPulseScale)
+        } else {
+            1f
+        }
         val lensFill = if (isPointer) {
             HandyColors.GlassTint.copy(alpha = 1f)
         } else {
@@ -88,12 +95,13 @@ fun WidgetContent(
         }
         Box(
             modifier = Modifier
-                .size(HandyDimens.WidgetLensSize),
+                .size(WidgetPulseCanvasSize),
             contentAlignment = Alignment.Center,
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .size(HandyDimens.WidgetLensSize)
+                    .scale(lensScale)
                     .clip(CircleShape)
                     .background(lensFill)
                     .border(HandyDimens.WidgetBorder, borderColor, CircleShape),
@@ -125,8 +133,7 @@ fun WidgetContent(
                                 size = HandIconSize,
                                 tint = HandyColors.BubbleResponse,
                                 modifier = Modifier
-                                    .rotate(pointerRotationRadians.toDegrees() + 90f)
-                                    .scale(pointerScale.coerceIn(0.90f, 1.18f)),
+                                    .rotate(pointerRotationRadians.toDegrees() + 90f),
                             )
                         } else {
                             HandMarkIcon(
