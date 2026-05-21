@@ -6,7 +6,9 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.handy.core.model.AppTheme
 import com.handy.core.model.AssistantMode
@@ -62,6 +64,8 @@ class DataStoreSettings(private val context: Context) {
             p[USE_OVERLAY_CHAT_PANEL] = next.useOverlayChatPanel
             p[TAP_FOR_ME_ENABLED] = next.tapForMeEnabled
             p[ACTION_DISCLOSURE_VERSION_ACCEPTED] = next.actionDisclosureVersionAccepted
+            p[TAP_FOR_ME_MUTED_UNTIL_EPOCH_MS] = next.tapForMeMutedUntilEpochMs
+            p[TAP_FOR_ME_USER_DENYLISTED_PACKAGES] = next.tapForMeUserDenylistedPackages
             p[CLOUD_PROVIDER] = next.cloudProvider.name
             p[PREFER_LOCAL_WHEN_POSSIBLE] = next.preferLocalWhenPossible
             p[LOCAL_AI_ENABLED] = next.localAiEnabled
@@ -70,6 +74,18 @@ class DataStoreSettings(private val context: Context) {
             p[TUTOR_MODE_ENABLED] = next.tutorModeEnabled
             p[QUICK_TILE_ACTION] = next.quickTileAction.name
             p[ASSIST_ENTRY_ENABLED] = next.assistEntryEnabled
+        }
+    }
+
+    suspend fun setActionDisclosureVersion(version: Int) {
+        prefs.edit { p ->
+            p[ACTION_DISCLOSURE_VERSION_ACCEPTED] = version
+        }
+    }
+
+    suspend fun setTapForMeMutedUntilEpochMs(epochMs: Long) {
+        prefs.edit { p ->
+            p[TAP_FOR_ME_MUTED_UNTIL_EPOCH_MS] = epochMs
         }
     }
 
@@ -102,6 +118,11 @@ class DataStoreSettings(private val context: Context) {
             useOverlayChatPanel = this[USE_OVERLAY_CHAT_PANEL] ?: true,
             tapForMeEnabled = this[TAP_FOR_ME_ENABLED] ?: false,
             actionDisclosureVersionAccepted = this[ACTION_DISCLOSURE_VERSION_ACCEPTED] ?: 0,
+            tapForMeMutedUntilEpochMs = this[TAP_FOR_ME_MUTED_UNTIL_EPOCH_MS] ?: 0L,
+            tapForMeUserDenylistedPackages = this[TAP_FOR_ME_USER_DENYLISTED_PACKAGES]
+                ?.mapNotNull { it.trim().takeIf(String::isNotBlank) }
+                ?.toSet()
+                ?: emptySet(),
             cloudProvider = this[CLOUD_PROVIDER]
                 ?.let { runCatching { CloudProvider.valueOf(it) }.getOrNull() }
                 ?: CloudProvider.CLAUDE,
@@ -134,6 +155,8 @@ class DataStoreSettings(private val context: Context) {
         val USE_OVERLAY_CHAT_PANEL = booleanPreferencesKey("use_overlay_chat_panel")
         val TAP_FOR_ME_ENABLED = booleanPreferencesKey("tap_for_me_enabled")
         val ACTION_DISCLOSURE_VERSION_ACCEPTED = intPreferencesKey("action_disclosure_version_accepted")
+        val TAP_FOR_ME_MUTED_UNTIL_EPOCH_MS = longPreferencesKey("tap_for_me_muted_until_epoch_ms")
+        val TAP_FOR_ME_USER_DENYLISTED_PACKAGES = stringSetPreferencesKey("tap_for_me_user_denylisted_packages")
         val CLOUD_PROVIDER = stringPreferencesKey("cloud_provider")
         val PREFER_LOCAL_WHEN_POSSIBLE = booleanPreferencesKey("prefer_local_when_possible")
         val LOCAL_AI_ENABLED = booleanPreferencesKey("local_ai_enabled")

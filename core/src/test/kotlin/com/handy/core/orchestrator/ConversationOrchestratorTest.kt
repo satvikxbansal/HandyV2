@@ -267,6 +267,7 @@ class ConversationOrchestratorTest {
 
         assertThat(llm.toolAwareCallCount).isEqualTo(1)
         assertThat(llm.plainCallCount).isEqualTo(0)
+        assertThat(runner.beginTurnCount).isEqualTo(1)
         // The LLM client ran the tool call itself in this fake; we only
         // want to assert the orchestrator surfaced a WebSearchStatus
         // event and a finalisation with the tool recorded.
@@ -396,6 +397,12 @@ class ConversationOrchestratorTest {
 
     private class RecordingToolRunner : ToolRunner {
         val calls: MutableList<Pair<String, String>> = mutableListOf()
+        var beginTurnCount: Int = 0
+
+        override fun beginTurn() {
+            beginTurnCount++
+        }
+
         override suspend fun run(name: String, inputJson: String): ToolResult {
             calls += name to inputJson
             return ToolResult.Ok("stub-result")

@@ -108,8 +108,9 @@ Verbatim from the in-app Accessibility service description
 
 > Handy reads visible on-screen text and the UI tree so the assistant
 > can answer questions about what you see and point at the right
-> button. Handy never taps or types on your behalf in v1. You can turn
-> this off at any time in Settings → Accessibility.
+> button. If you separately enable Tap-for-me, Handy can tap or scroll
+> only after you confirm that exact action on screen. Handy blocks
+> sensitive apps and you can turn this off at any time in Settings.
 
 ### 4.4 User benefit
 
@@ -130,10 +131,19 @@ BEFORE any settings deep-link. Exact copy (string resource
 > and may capture the active window, then sends your message plus
 > that context to Anthropic (Claude) over HTTPS using your own API
 > key. Optional web-search tools send queries to Brave, Jina, and the
-> public GitHub API only when you enable them in Settings. Handy
-> never taps, types, or scrolls on your behalf. No data is sent to
-> our servers — Handy has none. You can decline any permission and
-> Handy will run in a reduced mode.
+> public GitHub API only when you enable them in Settings. Tap-for-me
+> is a separate opt-in after Accessibility is enabled: Handy can tap
+> or scroll only after you confirm that exact action on screen, and
+> sensitive apps are blocked. No data is sent to our servers — Handy
+> has none. You can decline any permission and Handy will run in a
+> reduced mode.
+
+The action disclosure is shown after the Accessibility service is
+enabled. Accepting it records the versioned Tap-for-me consent and
+enables the Settings toggle; declining leaves Handy in read/point-only
+mode. Every Tap-for-me action then shows an overlay confirmation sheet
+with an 8-second auto-cancel, and sensitive confirmation levels require
+a 1-second hold.
 
 ### 4.6 Reduced mode
 
@@ -164,6 +174,7 @@ or that we intentionally attach to a turn**.
 | **Messages** (user-typed or transcribed) | Yes | Yes — Anthropic | No | Yes (HTTPS) | Yes — Settings → Clear all chat history | Core feature: the AI's input. |
 | **Photos / screenshots** | Yes | Yes — Anthropic | No | Yes (HTTPS) | Yes — same action | Optional screen context for visual questions. Tied to a single user-initiated turn. Never captured from secured surfaces (OS-5). |
 | **Other user-generated content** (on-screen text tree) | Yes | Yes — Anthropic | No | Yes (HTTPS) | Yes — same action | Accessibility tree snapshot, attached to the turn in plain text so Claude can answer UI questions. |
+| **App interactions / action audit** (Tap-for-me result, target app, redacted target label, failure reason) | Yes | No | Yes — Tap-for-me opt-in only | N/A — local only | Yes — uninstall or clear app data | Local safety audit so users can review performed, cancelled, and policy-blocked actions such as `denylisted`. |
 | **Search history / queries** | Yes (only when web search is enabled and the user typed a web-related query) | Yes — Brave Search / Jina Reader / GitHub Search | Yes (opt-in toggle) | Yes (HTTPS) | Yes — same action | Optional web-search tools. Off by default. |
 | **Voice / audio recordings** | No | No | N/A | N/A | N/A | Audio is streamed into `android.speech.SpeechRecognizer` and is never stored by Handy. The recognizer may retain under the user's system speech settings. |
 | **Contact info, financial info, health info, personal identifiers, location, browsing history, device IDs** | No | No | N/A | N/A | N/A | Not collected. |
@@ -187,7 +198,9 @@ server-side state.
 ### 5.4 Families policy
 
 Not applicable — Handy targets adults (18+) and is not in the
-Designed For Families programme.
+Designed For Families programme. Tap-for-me is an adult productivity
+feature, remains opt-in, blocks banking/payment/password-manager apps,
+and never runs a gesture without same-action confirmation.
 
 ---
 
@@ -220,7 +233,7 @@ here as the artifacts land.
 - [ ] **In-app disclosure recording** — 30-second screen recording of the
   `OnboardingActivity` flow showing disclosure → mic grant →
   notifications grant → overlay grant → accessibility deep-link and
-  toggle → "Open Handy" becomes enabled.
+  toggle → Tap-for-me action disclosure → "Open Handy" becomes enabled.
 - [ ] **Canonical chat + pointing session** — 30-second recording of:
   widget tap → chat opens with detected tool name → user asks a question →
   response streams → (post-v2: pointer arrow flies to a UI element).

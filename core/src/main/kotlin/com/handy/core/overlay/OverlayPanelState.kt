@@ -1,6 +1,8 @@
 package com.handy.core.overlay
 
+import com.handy.core.action.ActionRisk
 import com.handy.core.action.AssistantAction
+import com.handy.core.action.ConfirmationLevel
 import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.tool.ToolContext
 
@@ -34,10 +36,26 @@ data class OverlayPanelState(
      * Chat panel slice. Ignored when [mode] != [OverlayMode.ChatPanel].
      */
     val panel: PanelContent = PanelContent(),
+    /**
+     * Tap-for-me confirmation rendered by the overlay service after the
+     * buddy lands on a target and before any accessibility gesture is
+     * dispatched.
+     */
+    val tapForMeConfirmation: TapForMeConfirmation? = null,
 ) {
     val isPanelVisible: Boolean get() = mode == OverlayMode.ChatPanel
     val isManualTargetSelection: Boolean get() = mode == OverlayMode.ManualTargetSelection
 }
+
+data class TapForMeConfirmation(
+    val id: Long,
+    val targetLabel: String,
+    val appLabel: String?,
+    val packageName: String?,
+    val confirmationLevel: ConfirmationLevel,
+    val risk: ActionRisk,
+    val reason: String?,
+)
 
 /**
  * Strict high-level lifecycle for Buddy. [OverlayPresenter] is the only

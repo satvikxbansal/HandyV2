@@ -1,13 +1,20 @@
 package com.handy.runtime.llm
 
+import com.handy.core.action.ActionPolicyEngine
 import com.handy.core.action.AssistantAction
+import com.handy.core.action.ConfirmationLevel
+import com.handy.core.action.SourceTrust
 import com.handy.core.intent.IntentResult
 import com.handy.core.llm.ConfirmationPrompter
 import com.handy.core.llm.ToolResult
 import com.handy.core.llm.ToolRunner
+import com.handy.core.screen.GroundingSnapshot
+import com.handy.core.screen.TurnSource
+import com.handy.core.tool.ToolContext
 import com.handy.runtime.intent.AndroidIntentDispatcher
 import com.handy.runtime.websearch.WebSearchError
 import com.handy.runtime.websearch.WebSearchService
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.serialization.SerializationException
@@ -40,18 +47,25 @@ class HandyToolRunner @Inject constructor(
     private val webSearchService: WebSearchService,
     private val intentDispatcher: AndroidIntentDispatcher,
     private val confirmationPrompter: ConfirmationPrompter,
+    private val policyEngine: ActionPolicyEngine,
     private val json: Json = Json { ignoreUnknownKeys = true; classDiscriminator = "type" },
 ) : ToolRunner {
 
+    private val mostRecentToolResultWasUntrusted = AtomicBoolean(false)
+
+    override fun beginTurn() {
+        mostRecentToolResultWasUntrusted.set(false)
+    }
+
     override suspend fun run(name: String, inputJson: String): ToolResult {
         Timber.d("ToolRunner.run name=%s input=%s", name, inputJson.take(300))
-        return try {
+        val result = try {
             val input = parseObject(inputJson)
             when (name) {
                 "web_search" -> runWebSearch(input)
                 "github_search" -> runGithubSearch(input)
                 "fetch_page" -> runFetchPage(input)
-                "dispatch_action" -> runDispatchAction(inputJson)
+                "dispatch_action" -> runDispatchAction(inputJson, dispatchSourceTrust())
                 else -> ToolResult.Failed("unknown tool: $name")
             }
         } catch (t: SerializationException) {
@@ -62,6 +76,8 @@ class HandyToolRunner @Inject constructor(
             Timber.w(t, "ToolRunner.run crashed for %s", name)
             ToolResult.Failed(t.message ?: t::class.simpleName.orEmpty())
         }
+        rememberToolTrust(name, result)
+        return result
     }
 
     private suspend fun runWebSearch(input: JsonObject): ToolResult {
@@ -102,7 +118,7 @@ class HandyToolRunner @Inject constructor(
      * the `type` discriminator Claude produces matches our `@SerialName`
      * values ("start_timer", "dial_number", …).
      */
-    private suspend fun runDispatchAction(inputJson: String): ToolResult {
+    private suspend fun runDispatchAction(inputJson: String, sourceTrust: SourceTrust): ToolResult {
         // AssistantAction uses `type` as its polymorphic discriminator, so
         // we run the input through a JSON configured with the same
         // classDiscriminator as the `@Serializable sealed class`.
@@ -111,24 +127,101 @@ class HandyToolRunner @Inject constructor(
         } catch (t: SerializationException) {
             return ToolResult.Failed("invalid dispatch_action payload: ${t.message}")
         }
+        val decision = policyEngine.decide(
+            action = action,
+            target = null,
+            grounding = dispatchGrounding(action),
+            sourceTrust = sourceTrust,
+        )
+        if (!decision.allowed) {
+            return ToolResult.Failed("policy_denied: ${decision.reason ?: "denied"}")
+        }
+        if (decision.confirmation != ConfirmationLevel.NONE) {
+            val ok = confirmationPrompter.confirm(policyConfirmationReason(action, decision.confirmation))
+            if (!ok) return ToolResult.Ok("user_declined")
+            val confirmed = if (action.isDestructive) {
+                intentDispatcher.dispatchConfirmed(action)
+            } else {
+                intentDispatcher.dispatch(action)
+            }
+            return confirmed.toToolResult(action, confirmedByUser = true)
+        }
+
         val initial = intentDispatcher.dispatch(action)
         return when (initial) {
-            is IntentResult.Dispatched -> ToolResult.Ok("dispatched: ${initial.component ?: action::class.simpleName.orEmpty()}")
-            IntentResult.ChooserShown -> ToolResult.Ok("chooser_shown: waiting for user to pick a handler")
-            IntentResult.NoHandler -> ToolResult.Failed("no_handler: no app on this device can handle that action")
-            is IntentResult.Failed -> ToolResult.Failed("dispatch_failed: ${initial.reason}")
             is IntentResult.NeedsConfirmation -> {
                 val ok = confirmationPrompter.confirm(initial.reason)
                 if (!ok) return ToolResult.Ok("user_declined")
-                when (val confirmed = intentDispatcher.dispatchConfirmed(action)) {
-                    is IntentResult.Dispatched -> ToolResult.Ok("user_confirmed_and_dispatched: ${confirmed.component ?: action::class.simpleName.orEmpty()}")
-                    IntentResult.ChooserShown -> ToolResult.Ok("user_confirmed_chooser_shown")
-                    IntentResult.NoHandler -> ToolResult.Failed("user_confirmed_but_no_handler")
-                    is IntentResult.Failed -> ToolResult.Failed("user_confirmed_but_dispatch_failed: ${confirmed.reason}")
-                    is IntentResult.NeedsConfirmation -> ToolResult.Failed("double_confirmation_required: ${confirmed.reason}")
-                }
+                intentDispatcher.dispatchConfirmed(action).toToolResult(action, confirmedByUser = true)
             }
+            else -> initial.toToolResult(action, confirmedByUser = false)
         }
+    }
+
+    private fun IntentResult.toToolResult(
+        action: AssistantAction,
+        confirmedByUser: Boolean,
+    ): ToolResult {
+        val name = action::class.simpleName.orEmpty()
+        val prefix = if (confirmedByUser) "user_confirmed_" else ""
+        return when (this) {
+            is IntentResult.Dispatched -> {
+                val label = component ?: name
+                ToolResult.Ok(if (confirmedByUser) "${prefix}and_dispatched: $label" else "dispatched: $label")
+            }
+            IntentResult.ChooserShown -> ToolResult.Ok("${prefix}chooser_shown: waiting for user to pick a handler")
+            IntentResult.NoHandler -> ToolResult.Failed("${prefix}no_handler: no app on this device can handle that action")
+            is IntentResult.Failed -> ToolResult.Failed("${prefix}dispatch_failed: $reason")
+            is IntentResult.NeedsConfirmation -> ToolResult.Failed("double_confirmation_required: $reason")
+        }
+    }
+
+    private fun policyConfirmationReason(
+        action: AssistantAction,
+        confirmation: ConfirmationLevel,
+    ): String = when (confirmation) {
+        ConfirmationLevel.NORMAL -> "Confirm ${action.confirmationLabel()}?"
+        ConfirmationLevel.STRONG_HOLD -> "Hold to confirm ${action.confirmationLabel()}."
+        ConfirmationLevel.TYPED_CONFIRMATION -> "Type to confirm ${action.confirmationLabel()}."
+        ConfirmationLevel.NONE -> "Confirm ${action.confirmationLabel()}?"
+    }
+
+    private fun AssistantAction.confirmationLabel(): String = when (this) {
+        is AssistantAction.DialNumber -> "calling $number"
+        is AssistantAction.ComposeEmail -> "opening an email draft"
+        is AssistantAction.ComposeSms -> "opening an SMS draft"
+        is AssistantAction.ShareText -> "sharing text"
+        is AssistantAction.ShareUrl -> "sharing a URL"
+        is AssistantAction.StartNavigation -> "starting navigation"
+        else -> this::class.simpleName.orEmpty()
+    }
+
+    private fun dispatchGrounding(action: AssistantAction): GroundingSnapshot {
+        val packageHint = when (action) {
+            is AssistantAction.OpenApp -> action.packageHint
+            is AssistantAction.OpenAppInfo -> action.packageHint
+            else -> "android.intent"
+        }.takeIf { it.isNotBlank() } ?: "android.intent"
+        return GroundingSnapshot(
+            requestId = "dispatch_action",
+            source = TurnSource.FULL_CHAT,
+            toolContext = ToolContext(
+                packageName = packageHint,
+                appLabel = packageHint,
+            ),
+            capturedAtMs = System.currentTimeMillis(),
+        )
+    }
+
+    private fun dispatchSourceTrust(): SourceTrust =
+        if (mostRecentToolResultWasUntrusted.getAndSet(false)) {
+            SourceTrust.UNTRUSTED_TOOL
+        } else {
+            SourceTrust.TRUSTED_USER
+        }
+
+    private fun rememberToolTrust(name: String, result: ToolResult) {
+        mostRecentToolResultWasUntrusted.set(name in UNTRUSTED_TOOL_NAMES && result is ToolResult.Ok)
     }
 
     private fun parseObject(raw: String): JsonObject = try {
@@ -151,4 +244,8 @@ class HandyToolRunner @Inject constructor(
     @Suppress("unused")
     private fun JsonObject.intOrNull(key: String): Int? =
         (this[key] as? JsonPrimitive)?.jsonPrimitive?.intOrNull
+
+    private companion object {
+        val UNTRUSTED_TOOL_NAMES = setOf("web_search", "github_search", "fetch_page")
+    }
 }

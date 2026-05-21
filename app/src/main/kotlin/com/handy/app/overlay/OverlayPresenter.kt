@@ -10,13 +10,18 @@ import com.handy.core.overlay.OverlayMode
 import com.handy.core.overlay.OverlayPanelState
 import com.handy.core.overlay.PanelContent
 import com.handy.core.overlay.PanelSnapshot
+import com.handy.core.overlay.TapForMeConfirmation
 import com.handy.core.prompts.QuickPromptCatalog
 import com.handy.core.tool.ToolContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 import timber.log.Timber
 
 /**
@@ -49,6 +54,9 @@ class OverlayPresenter @Inject constructor(
 
     private val _state = MutableStateFlow(OverlayPanelState())
     val state: StateFlow<OverlayPanelState> = _state.asStateFlow()
+    private val tapConfirmationIds = AtomicLong(1L)
+    private val tapConfirmationContinuations =
+        mutableMapOf<Long, CancellableContinuation<Boolean>>()
 
     private fun setState(
         event: String,
@@ -103,6 +111,7 @@ class OverlayPresenter @Inject constructor(
                 quickPrompts = prompts,
                 greeting = greeting,
             ),
+            tapForMeConfirmation = null,
             bubble = null,
         ) }
         Timber.d(
@@ -154,6 +163,7 @@ class OverlayPresenter @Inject constructor(
             isFlying = false,
             bubble = null,
             panel = PanelContent(),
+            tapForMeConfirmation = null,
         ) }
     }
 
@@ -176,6 +186,7 @@ class OverlayPresenter @Inject constructor(
             buddyState = BuddyState.DOCKED,
             isFlying = false,
             panel = PanelContent(),
+            tapForMeConfirmation = snapshot.tapForMeConfirmation,
             bubble = snapshot.bubble,
         ) }
     }
@@ -398,10 +409,58 @@ class OverlayPresenter @Inject constructor(
             buddyState = BuddyState.DOCKED,
             isFlying = false,
             bubble = null,
+            tapForMeConfirmation = null,
         )
     }
 
     // ---- action bubble (Phase 3) --------------------------------------------
+
+    suspend fun requestTapForMeConfirmation(
+        targetLabel: String,
+        appLabel: String?,
+        packageName: String?,
+        confirmationLevel: com.handy.core.action.ConfirmationLevel,
+        risk: com.handy.core.action.ActionRisk,
+        reason: String?,
+    ): Boolean {
+        val id = tapConfirmationIds.getAndIncrement()
+        val request = TapForMeConfirmation(
+            id = id,
+            targetLabel = targetLabel,
+            appLabel = appLabel,
+            packageName = packageName,
+            confirmationLevel = confirmationLevel,
+            risk = risk,
+            reason = reason,
+        )
+        return suspendCancellableCoroutine { cont ->
+            tapConfirmationContinuations[id] = cont
+            setState(
+                event = "requestTapForMeConfirmation",
+                target = FlightFsm.ActionConfirm,
+            ) { snapshot -> snapshot.copy(tapForMeConfirmation = request) }
+            cont.invokeOnCancellation {
+                tapConfirmationContinuations.remove(id)
+                clearTapForMeConfirmation(id)
+            }
+        }
+    }
+
+    fun respondTapForMeConfirmation(id: Long, approved: Boolean) {
+        val cont = tapConfirmationContinuations.remove(id) ?: return
+        clearTapForMeConfirmation(id)
+        if (cont.isActive) cont.resume(approved)
+    }
+
+    private fun clearTapForMeConfirmation(id: Long) {
+        setState(event = "clearTapForMeConfirmation") { snapshot ->
+            if (snapshot.tapForMeConfirmation?.id == id) {
+                snapshot.copy(tapForMeConfirmation = null)
+            } else {
+                snapshot
+            }
+        }
+    }
 
     fun onActionStarted(label: String) {
         setState(
@@ -410,6 +469,7 @@ class OverlayPresenter @Inject constructor(
         ) { it.copy(
             mode = OverlayMode.Acting,
             buddyState = BuddyState.ACTING,
+            tapForMeConfirmation = null,
             bubble = BuddyBubble.Action(label),
         ) }
     }
@@ -422,6 +482,7 @@ class OverlayPresenter @Inject constructor(
             buddyState = BuddyState.DOCKED,
             isFlying = false,
             bubble = null,
+            tapForMeConfirmation = null,
         ) }
     }
 

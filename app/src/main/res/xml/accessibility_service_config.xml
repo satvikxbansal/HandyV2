@@ -13,6 +13,11 @@
                                    mark themselves not-important-for-a11y
                                    (some ad-hoc UI in 3p apps does).
 
+  `canPerformGestures` is declared so Android permits tap-for-me after
+  the user accepts the separate action disclosure. Gesture execution is
+  still fail-closed in code until that versioned consent plus the
+  Tap-for-me toggle and per-action sheet approval are present.
+
   Explicitly NOT set:
     flagRequestTouchExplorationMode - this is for TalkBack-style
       services that steal touch input to drive a screen reader.
@@ -27,6 +32,7 @@
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewFocused|typeViewClicked"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
+    android:canPerformGestures="true"
     android:canRequestFilterKeyEvents="false"
     android:canRetrieveWindowContent="true"
     android:canTakeScreenshot="true"

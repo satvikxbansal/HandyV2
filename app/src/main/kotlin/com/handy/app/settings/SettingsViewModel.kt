@@ -2,6 +2,7 @@ package com.handy.app.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.handy.core.action.ActionExecutionGate
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.model.AssistantMode
 import com.handy.core.model.HandySettings
@@ -59,6 +60,38 @@ class SettingsViewModel @Inject constructor(
 
     fun updateSettings(transform: (HandySettings) -> HandySettings) {
         viewModelScope.launch { settings.update(transform) }
+    }
+
+    fun setTapForMeEnabled(enabled: Boolean) {
+        updateSettings { s ->
+            if (enabled &&
+                s.actionDisclosureVersionAccepted >= ActionExecutionGate.REQUIRED_DISCLOSURE_VERSION
+            ) {
+                s.copy(tapForMeEnabled = true, tapForMeMutedUntilEpochMs = 0L)
+            } else {
+                s.copy(tapForMeEnabled = false)
+            }
+        }
+    }
+
+    fun muteTapForMeForOneHour() {
+        viewModelScope.launch {
+            settings.setTapForMeMutedUntilEpochMs(System.currentTimeMillis() + ONE_HOUR_MS)
+            _messages.tryEmit("Tap-for-me muted for 1 hour")
+        }
+    }
+
+    fun revokeTapForMeConsent() {
+        viewModelScope.launch {
+            settings.update {
+                it.copy(
+                    tapForMeEnabled = false,
+                    actionDisclosureVersionAccepted = 0,
+                    tapForMeMutedUntilEpochMs = 0L,
+                )
+            }
+            _messages.tryEmit("Tap-for-me consent revoked")
+        }
     }
 
     /**
@@ -141,6 +174,10 @@ class SettingsViewModel @Inject constructor(
 
     private fun mask(value: String?): String? = value?.takeIf { it.isNotBlank() }?.let {
         "sk-••••${it.takeLast(4)}"
+    }
+
+    private companion object {
+        const val ONE_HOUR_MS: Long = 60L * 60L * 1_000L
     }
 }
 

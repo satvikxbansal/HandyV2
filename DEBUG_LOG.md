@@ -951,3 +951,36 @@ cross-references the one being superseded.
 | **Fix** | Deleted `inferSemanticPoint`, its top-left menu keyword fallback, the ad-hoc `AccessibilityMark.toSemanticPoint` constructors, and the `TOP_LEFT_MENU_MAX_Y` guard. Overlay buddy flight now only runs when `pointing.semantic` is non-null from the parser. |
 | **Validation** | `./gradlew :app:testDebugUnitTest` could not start until `JAVA_HOME` was set because the shell had no default Java runtime. `JAVA_HOME=/tmp/codex-jdk17/Contents/Home PATH=/tmp/codex-jdk17/Contents/Home/bin:$PATH ./gradlew :app:testDebugUnitTest` passed. |
 | **Prevention Rule** | When refactoring an action-target plumbing contract, grep for every `SemanticPoint(...)` constructor call and audit whether each path threads through the new guard. |
+
+---
+
+### DL-058 — P0 ActionPolicy audit found confidence, trust-lifetime, and keyword-scope misses
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-05-20 |
+| **Tags** | `#android #ActionPolicyEngine #SourceTrust #tap-for-me #dispatch_action #audit` |
+| **Severity** | Safety / UX Regression Risk |
+| **File(s)** | `android-runtime/src/main/kotlin/com/handy/runtime/action/DefaultActionPolicyEngine.kt`, `android-runtime/src/main/kotlin/com/handy/runtime/llm/HandyToolRunner.kt`, `app/src/main/kotlin/com/handy/app/accessibility/PolicyGuardedActionPerformer.kt`, `core/src/main/kotlin/com/handy/core/llm/ToolRunner.kt`, `core/src/main/kotlin/com/handy/core/orchestrator/ConversationOrchestrator.kt`, `android-runtime/src/test/kotlin/com/handy/runtime/action/DefaultActionPolicyEngineTest.kt`, `android-runtime/src/test/kotlin/com/handy/runtime/llm/HandyToolRunnerPolicyTest.kt`, `core/src/test/kotlin/com/handy/core/orchestrator/ConversationOrchestratorTest.kt`, `DEBUG_LOG.md` |
+| **Symptom** | The first P0 implementation centralized policy and passed the requested suite, but this audit found three gaps: UI targets with resolver confidence in the 0.70-0.89 band could still receive an allowed policy decision, an untrusted web/fetch tool result could poison the next user turn because the runner had no turn-boundary reset, and broad keyword checks could block harmless native intents such as `StartTimer(label="buy milk")`. |
+| **Root Cause** | The implementation mapped the table row `Low resolver confidence (<0.7)` literally but did not encode the later row's positive precondition: normal visible button actions require confidence `>=0.90`. The SourceTrust state was implemented inside the singleton `HandyToolRunner`, but `ToolRunner` had no `beginTurn` lifecycle hook, so the state survived past the current tool loop. The beta-blocked keyword scan initially reused one text extractor for all `AssistantAction`s, which was safe-biased but too coarse for non-executing intent text. These misses were missed because the first acceptance tests asserted happy-path rows and the prompt-injection row, but did not include boundary confidence, cross-turn trust lifetime, or harmless-commerce-word regression cases. Context compaction also encouraged validating the newly added files in isolation rather than re-walking the full orchestrator/tool-runner lifecycle. |
+| **Fix** | Raised the policy UI-action confidence floor to `0.90`, added a middle-band regression test, added `ToolRunner.beginTurn()` with `ConversationOrchestrator` calling it before every tool-aware turn and `HandyToolRunner` clearing SourceTrust state there, and narrowed beta/sensitive keyword blocking so beta terms apply to UI targets/payment URLs rather than arbitrary timer/search labels. `PolicyGuardedActionPerformer` now fails closed when it cannot obtain a live screen snapshot instead of reusing the expected target package/window/hash as if they were current. |
+| **Validation** | `JAVA_HOME=$HOME/.gradle/jdks/eclipse_adoptium-17-aarch64-os_x.2/jdk-17.0.18+8/Contents/Home ./gradlew :core:test :android-runtime:test :app:test` passed after the fixes. |
+| **Prevention Rule** | For policy-table work, each row needs both negative and positive boundary tests. Stateful trust or provenance carried by a singleton must have an explicit lifecycle reset and a test proving the next user turn starts clean. Keyword policy must be scoped to the action surface that can actually execute the risky behavior, with at least one harmless-word regression test. |
+
+---
+
+### DL-059 — TapForMeConfirmationSheet used the wrong Compose gesture package
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-05-21 |
+| **Tags** | `#android #Compose #tap-for-me #build` |
+| **Severity** | Build Break |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/overlay/TapForMeConfirmationSheet.kt`, `DEBUG_LOG.md` |
+| **Symptom** | Android Studio failed `:app:compileDebugKotlin` with unresolved references for `awaitEachGesture`, `awaitFirstDown`, and `waitForUpOrCancellation` in `TapForMeConfirmationSheet.kt`. |
+| **Root Cause** | The new hold-to-confirm button imported gesture helpers from `androidx.compose.ui.input.pointer`, but these helpers are provided by `androidx.compose.foundation.gestures` for the Compose Foundation version resolved by this app's BOM. The only API from `androidx.compose.ui.input.pointer` needed in this file is `pointerInput`. |
+| **Why It Was Missed** | The first validation attempt ran `./gradlew :core:test :app:test` without `JAVA_HOME`, and the shell reported no Java runtime before Kotlin compilation began. I treated that as a local environment blocker instead of first searching for the repo/session's bundled JDK and compiling the exact changed Android source set. That meant a simple import/package mismatch made it to Android Studio. |
+| **Fix** | Moved the three gesture-helper imports to `androidx.compose.foundation.gestures` and kept `pointerInput` under `androidx.compose.ui.input.pointer`. |
+| **Validation** | `JAVA_HOME=/tmp/codex-jdk17/Contents/Home PATH=/tmp/codex-jdk17/Contents/Home/bin:$PATH ./gradlew :app:compileDebugKotlin --stacktrace` passed. `JAVA_HOME=/tmp/codex-jdk17/Contents/Home PATH=/tmp/codex-jdk17/Contents/Home/bin:$PATH ./gradlew :core:test :app:test --stacktrace` passed. |
+| **Prevention Rule** | For any Android/Kotlin UI edit, do not stop at a missing default Java runtime. First look for a bundled/session JDK and run the narrow compile task for the changed source set, usually `:app:compileDebugKotlin`, before handing off. For Compose pointer gestures, import high-level gesture suspending helpers from `androidx.compose.foundation.gestures`; reserve `androidx.compose.ui.input.pointer` for `pointerInput` and low-level pointer types. |

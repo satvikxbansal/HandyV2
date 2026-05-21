@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Settings-gated [ActionPerformer] binding. Resolves to the real performer
- * only when both the tap-for-me toggle and the future action-disclosure
+ * only when both the tap-for-me toggle and the versioned action-disclosure
  * version are present; otherwise it stays at [NoopActionPerformer].
  *
  * The gate check runs per-call — flipping the setting in-process takes

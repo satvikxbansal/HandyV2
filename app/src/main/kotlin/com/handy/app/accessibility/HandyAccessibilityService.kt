@@ -6,9 +6,19 @@ import android.view.accessibility.AccessibilityEvent
 import com.handy.app.foreground.HandyForegroundAppMonitor
 import com.handy.app.overlay.BuddyFlightDriver
 import com.handy.app.overlay.ManualTargetSelector
+import com.handy.core.action.ActionExecutionGate
+import com.handy.runtime.di.ApplicationScope
+import com.handy.runtime.storage.DataStoreSettings
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 /**
@@ -40,17 +50,14 @@ class HandyAccessibilityService : AccessibilityService() {
     @Inject lateinit var stateMonitor: AccessibilityStateMonitor
     @Inject lateinit var flightDriver: BuddyFlightDriver
     @Inject lateinit var manualTargetSelector: ManualTargetSelector
+    @Inject lateinit var settings: DataStoreSettings
+    @Inject @ApplicationScope lateinit var appScope: CoroutineScope
+
+    private var serviceInfoJob: Job? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        val si = serviceInfo ?: AccessibilityServiceInfo()
-        si.flags = si.flags or
-            AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
-            AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
-        si.eventTypes = si.eventTypes or
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
-            AccessibilityEvent.TYPE_VIEW_SCROLLED
-        serviceInfo = si
+        observeActionDisclosureForServiceInfo()
         active.set(this)
         // Push the "service connected" edge immediately so the chat
         // banner / onboarding gate flip within the same frame. The
@@ -58,6 +65,39 @@ class HandyAccessibilityService : AccessibilityService() {
         // up shortly too, but this is deterministic.
         stateMonitor.refreshBlocking()
         Timber.d("HandyAccessibilityService connected")
+    }
+
+    private fun observeActionDisclosureForServiceInfo() {
+        serviceInfoJob?.cancel()
+        serviceInfoJob = appScope.launch(Dispatchers.Main.immediate) {
+            settings.flow
+                .map {
+                    it.actionDisclosureVersionAccepted >=
+                        ActionExecutionGate.REQUIRED_DISCLOSURE_VERSION
+                }
+                .distinctUntilChanged()
+                .collectLatest { accepted ->
+                    applyRuntimeServiceInfo(actionDisclosureAccepted = accepted)
+                }
+        }
+    }
+
+    private fun applyRuntimeServiceInfo(actionDisclosureAccepted: Boolean) {
+        val si = serviceInfo ?: AccessibilityServiceInfo()
+        si.flags = si.flags or
+            AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
+            AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+        si.eventTypes = BASE_EVENT_TYPES or if (actionDisclosureAccepted) {
+            ACTION_DISCLOSURE_EVENT_TYPES
+        } else {
+            0
+        }
+        serviceInfo = si
+        Timber.d(
+            "HandyAccessibilityService serviceInfo updated actionDisclosureAccepted=%s eventTypes=%d",
+            actionDisclosureAccepted,
+            si.eventTypes,
+        )
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -106,6 +146,8 @@ class HandyAccessibilityService : AccessibilityService() {
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
         active.compareAndSet(this, null)
+        serviceInfoJob?.cancel()
+        serviceInfoJob = null
         runCatching { stateMonitor.refreshBlocking() }
         Timber.d("HandyAccessibilityService unbound")
         return super.onUnbind(intent)
@@ -113,12 +155,22 @@ class HandyAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         active.compareAndSet(this, null)
+        serviceInfoJob?.cancel()
+        serviceInfoJob = null
         runCatching { stateMonitor.refreshBlocking() }
         super.onDestroy()
     }
 
     companion object {
         private val active = AtomicReference<AccessibilityService?>(null)
+        private val BASE_EVENT_TYPES: Int =
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
+                AccessibilityEvent.TYPE_VIEW_FOCUSED or
+                AccessibilityEvent.TYPE_VIEW_CLICKED
+        private val ACTION_DISCLOSURE_EVENT_TYPES: Int =
+            AccessibilityEvent.TYPE_VIEW_SCROLLED or
+                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
 
         /**
          * Current live instance, or null when the service is not

@@ -47,12 +47,14 @@ import com.handy.app.theme.HandyTheme
 import com.handy.app.theme.HandyType
 import com.handy.core.accessibility.AccessibilityConnectionState
 import com.handy.core.action.ActionExecutionGate
+import com.handy.core.action.PolicyDecision
 import com.handy.core.audit.AuditEvent
 import com.handy.core.audit.AuditStore
 import com.handy.core.llm.LocalAvailability
 import com.handy.core.llm.LocalGenAiClient
 import com.handy.core.model.HandySettings
 import com.handy.core.privacy.ScreenRedactor
+import com.handy.runtime.action.DefaultActionPolicyEngine
 import com.handy.runtime.storage.DataStoreSettings
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -105,6 +107,7 @@ class DiagnosticsViewModel @Inject constructor(
     private val localGenAi: LocalGenAiClient,
     private val clipboardAssist: ClipboardAssist,
     private val overlayPresenter: OverlayPresenter,
+    private val policyEngine: DefaultActionPolicyEngine,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DiagnosticsUi())
@@ -124,6 +127,11 @@ class DiagnosticsViewModel @Inject constructor(
         viewModelScope.launch {
             auditStore.observe(limit = 20).collectLatest { tail ->
                 _state.value = _state.value.copy(auditTail = tail)
+            }
+        }
+        viewModelScope.launch {
+            policyEngine.observeDecisions(limit = 20).collectLatest { tail ->
+                _state.value = _state.value.copy(policyTail = tail)
             }
         }
         viewModelScope.launch {
@@ -166,6 +174,7 @@ data class DiagnosticsUi(
     val settings: HandySettings? = null,
     val accessibility: AccessibilityConnectionState = AccessibilityConnectionState.NeverConnected,
     val auditTail: List<AuditEvent> = emptyList(),
+    val policyTail: List<PolicyDecision> = emptyList(),
     val clipState: String = "idle",
     val localAvailability: String = "loading…",
     val flightFsm: String = "Docked",
@@ -222,6 +231,19 @@ fun DiagnosticsScreen(state: DiagnosticsUi) {
                     }
                     items(state.auditTail.reversed()) { event ->
                         AuditRow(event)
+                    }
+                }
+                if (state.policyTail.isNotEmpty()) {
+                    item {
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = "Recent policy decisions",
+                            style = HandyType.SectionHeader,
+                            color = HandyColors.TextPrimary,
+                        )
+                    }
+                    items(state.policyTail.reversed()) { decision ->
+                        PolicyDecisionRow(decision)
                     }
                 }
             }
@@ -281,6 +303,33 @@ private fun AuditRow(event: AuditEvent) {
             event.failureReason?.let {
                 Text(text = it, color = HandyColors.Danger, style = HandyType.Overline)
             }
+        }
+    }
+}
+
+@Composable
+private fun PolicyDecisionRow(decision: PolicyDecision) {
+    val shape = RoundedCornerShape(HandyDimens.RadiusSm)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(HandyColors.GlassTint)
+            .border(0.5.dp, HandyColors.GlassBorder, shape)
+            .padding(HandyDimens.StackM),
+    ) {
+        Column {
+            Text(
+                text = "${if (decision.allowed) "allowed" else "blocked"} → ${decision.risk} / ${decision.confirmation}",
+                style = HandyType.CaptionSmall,
+                color = HandyColors.TextPrimary,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                text = "reason=${decision.reason ?: "none"} fresh=${decision.requireFreshSnapshot.onOff()} nodeOnly=${decision.requireNodeActionOnly.onOff()} gestureFallback=${decision.allowGestureFallback.onOff()}",
+                style = HandyType.Overline,
+                color = if (decision.allowed) HandyColors.TextSecondary else HandyColors.Danger,
+            )
         }
     }
 }

@@ -23,6 +23,13 @@ package com.handy.core.llm
 interface ToolRunner {
 
     /**
+     * Called at the start of a new user turn. Most runners are stateless;
+     * stateful implementations use this to drop per-turn trust/correlation
+     * breadcrumbs so one turn's tool evidence cannot poison the next turn.
+     */
+    fun beginTurn() = Unit
+
+    /**
      * Runs the named tool. [inputJson] is Claude's raw input payload as
      * JSON — the runner is responsible for parsing it against the
      * schema that was advertised in [ToolDefinition.inputSchemaJson].

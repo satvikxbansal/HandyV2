@@ -3,6 +3,7 @@ package com.handy.app.di
 import android.content.Context
 import com.handy.app.accessibility.AccessibilityGestureActionPerformer
 import com.handy.app.accessibility.HandyAccessibilityService
+import com.handy.app.accessibility.PolicyGuardedActionPerformer
 import com.handy.app.accessibility.SwitchingActionPerformer
 import com.handy.app.chat.ChatConfirmationBroker
 import com.handy.app.foreground.HandyForegroundAppMonitor
@@ -77,7 +78,7 @@ object AppRuntimeBindings {
     /**
      * V2 real tap-for-me performer (cursorbuddy recipe #3, scope §4).
      * Resolved through [SwitchingActionPerformer] below based on the
-     * user's `tapForMeEnabled` setting plus the future action disclosure
+     * user's `tapForMeEnabled` setting plus the versioned action disclosure
      * version gate.
      */
     @Provides
@@ -128,12 +129,12 @@ abstract class AppRuntimeBindsModule {
     ): ConfirmationPrompter
 
     /**
-     * V2 [ActionPerformer] binding — fail-closed switcher between the real
-     * `AccessibilityGestureActionPerformer` and the legacy
-     * `NoopActionPerformer`. Scope §4 confirmation policy applies upstream
-     * (in the tool runner / panel pipeline), not here.
+     * V2 [ActionPerformer] binding — central policy guard around the
+     * settings-gated switcher. Every tap / long-press / scroll gets one
+     * [com.handy.core.action.ActionPolicyEngine] decision before the
+     * accessibility performer can fire.
      */
     @Binds
     @Singleton
-    abstract fun bindActionPerformer(impl: SwitchingActionPerformer): ActionPerformer
+    abstract fun bindActionPerformer(impl: PolicyGuardedActionPerformer): ActionPerformer
 }

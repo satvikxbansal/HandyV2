@@ -31,6 +31,7 @@ sealed class TapTarget {
         val expectedPackage: String?,
         val expectedWindowId: Int?,
         val snapshotHash: String?,
+        val resolverConfidence: Float? = null,
     ) : TapTarget()
 }
 

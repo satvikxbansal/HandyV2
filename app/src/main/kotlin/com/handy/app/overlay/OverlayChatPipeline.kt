@@ -206,8 +206,8 @@ class OverlayChatPipeline @Inject constructor(
             }
             // V2: buddy flight — fire after the response is in the
             // green bubble. The bubble taxonomy flips to Navigation
-            // while the sticky pointer is active. Tap-for-me remains
-            // fail-closed until the future action disclosure gate ships.
+            // while the sticky pointer is active. Tap-for-me now proceeds
+            // only through the versioned disclosure gate and per-action sheet.
             val semanticSpec = pointing?.semantic
             val pixelPoint = pointing?.pixel
             if (semanticSpec != null) {

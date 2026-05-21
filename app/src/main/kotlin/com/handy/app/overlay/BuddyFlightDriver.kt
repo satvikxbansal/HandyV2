@@ -16,8 +16,12 @@ import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
 import com.handy.app.widget.BezierFlightController
 import com.handy.app.widget.LensRenderer
-import com.handy.core.action.ActionExecutionGate
+import com.handy.core.action.ActionPolicyEngine
 import com.handy.core.action.ActionPerformer
+import com.handy.core.action.AssistantAction
+import com.handy.core.action.ConfirmationLevel
+import com.handy.core.action.PerformResult
+import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
 import com.handy.core.audit.AuditAction
 import com.handy.core.audit.AuditEvent
@@ -31,10 +35,11 @@ import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.privacy.ScreenRedactor
 import com.handy.core.screen.GroundingSnapshot
 import com.handy.core.screen.IntRect
+import com.handy.core.screen.TurnSource
+import com.handy.core.tool.ToolContext
 import com.handy.runtime.accessibility.SemanticPointerResolver.ResolutionFailureReason
 import com.handy.runtime.accessibility.SemanticPointerResolver.ResolvedPointTarget
 import com.handy.runtime.accessibility.SemanticPointerResolver
-import com.handy.runtime.storage.DataStoreSettings
 import java.lang.ref.WeakReference
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -51,6 +56,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 
 /**
@@ -68,8 +74,8 @@ import timber.log.Timber
 class BuddyFlightDriver @Inject constructor(
     private val presenter: OverlayPresenter,
     private val pointerResolver: SemanticPointerResolver,
+    private val policyEngine: ActionPolicyEngine,
     private val actionPerformer: ActionPerformer,
-    private val settings: DataStoreSettings,
     private val auditStore: AuditStore,
 ) {
 
@@ -352,8 +358,8 @@ class BuddyFlightDriver @Inject constructor(
         }
     }
     /**
-     * Cross-cutting: fly to [spec] and, only after the future action
-     * disclosure gate is accepted, perform a tap on the resolved node.
+     * Cross-cutting: fly to [spec] and, only after policy allows it
+     * and the overlay confirmation sheet is accepted, tap the resolved node.
      *
      * Returns true when the buddy actually tapped. Scope §4 / recipe #3.
      */
@@ -364,8 +370,6 @@ class BuddyFlightDriver @Inject constructor(
         fallbackMarks: List<AccessibilityMark> = emptyList(),
         groundingSnapshot: GroundingSnapshot? = null,
     ): Boolean {
-        val enabled = runCatching { ActionExecutionGate.gesturesAllowed(settings.current()) }
-            .getOrDefault(false)
         val flight = resolveForFlight(
             spec = spec,
             label = bubbleLabel,
@@ -388,18 +392,73 @@ class BuddyFlightDriver @Inject constructor(
             resolved.node?.let { node -> runCatching { node.recycle() } }
         }
         if (!landed) return false
-        if (!enabled) return false
-        // Short pause so the user sees the buddy land before it taps.
-        kotlinx.coroutines.delay(250L)
         val displayLabel = targetLabel?.take(30) ?: "here"
+        val tapTarget = buildTapTargetForResolved(spec, resolved, groundingSnapshot)
+        val grounding = groundingSnapshot ?: fallbackGroundingFor(flight, tapTarget)
+        val policyPackage = tapTarget.expectedPackage
+            ?: grounding.toolContext.packageName.takeIf { it.isNotBlank() }
+            ?: flight.targetPackage
+            ?: "unknown"
+        val decision = policyEngine.decide(
+            action = AssistantAction.OpenApp(packageHint = policyPackage),
+            target = tapTarget,
+            grounding = grounding,
+            sourceTrust = SourceTrust.TRUSTED_RECIPE,
+        )
+        if (!decision.allowed) {
+            val reason = decision.reason ?: "policy-denied"
+            auditTapForMe(
+                tapTarget = tapTarget,
+                targetPackage = policyPackage,
+                result = AuditResult.Failed(reason),
+                confirmationRequired = false,
+                userConfirmed = false,
+            )
+            if (reason !in POINTER_SAFE_DENIAL_REASONS) {
+                dismissPointingAfterUserInteraction("policy:$reason")
+            }
+            return false
+        }
+
+        val confirmationLevel = when (decision.confirmation) {
+            ConfirmationLevel.NONE -> ConfirmationLevel.NORMAL
+            else -> decision.confirmation
+        }
+        val confirmed = withTimeoutOrNull(TAP_CONFIRMATION_TIMEOUT_MS) {
+            presenter.requestTapForMeConfirmation(
+                targetLabel = displayLabel,
+                appLabel = grounding.toolContext.appLabel,
+                packageName = policyPackage,
+                confirmationLevel = confirmationLevel,
+                risk = decision.risk,
+                reason = decision.reason,
+            )
+        } == true
+        if (!confirmed) {
+            auditTapForMe(
+                tapTarget = tapTarget,
+                targetPackage = policyPackage,
+                result = AuditResult.Cancelled,
+                confirmationRequired = true,
+                userConfirmed = false,
+            )
+            dismissPointingAfterUserInteraction("tap_confirmation_cancelled")
+            return false
+        }
+
         presenter.onActionStarted("tapping $displayLabel")
         val result = runCatching {
-            actionPerformer.tap(
-                buildTapTargetForResolved(spec, resolved, groundingSnapshot),
-            )
+            actionPerformer.tap(tapTarget)
         }.onFailure { Timber.w(it, "BuddyFlightDriver tap failed") }.getOrNull()
+        auditTapForMe(
+            tapTarget = tapTarget,
+            targetPackage = policyPackage,
+            result = result.toAuditResult(),
+            confirmationRequired = true,
+            userConfirmed = true,
+        )
         presenter.onActionFinished()
-        return result is com.handy.core.action.PerformResult.Ok
+        return result is PerformResult.Ok
     }
 
     private suspend fun resolveForFlight(
@@ -683,6 +742,85 @@ class BuddyFlightDriver @Inject constructor(
     private fun String.logSnippet(max: Int = 80): String =
         replace('\n', ' ').take(max)
 
+    private fun fallbackGroundingFor(
+        flight: FlightResolution,
+        target: TapTarget.AtNode,
+    ): GroundingSnapshot {
+        val packageName = target.expectedPackage ?: flight.targetPackage ?: "unknown"
+        return GroundingSnapshot(
+            requestId = "tap-for-me-${System.currentTimeMillis()}",
+            source = TurnSource.OVERLAY_PANEL,
+            toolContext = ToolContext(
+                packageName = packageName,
+                appLabel = packageName,
+            ),
+            windowId = target.expectedWindowId,
+            capturedAtMs = System.currentTimeMillis(),
+        )
+    }
+
+    private suspend fun auditTapForMe(
+        tapTarget: TapTarget.AtNode,
+        targetPackage: String?,
+        result: AuditResult,
+        confirmationRequired: Boolean,
+        userConfirmed: Boolean,
+    ) {
+        val event = AuditEvent(
+            timestampEpochMs = System.currentTimeMillis(),
+            requestId = java.util.UUID.randomUUID().toString(),
+            provider = "tap-for-me",
+            action = AuditAction.Tap,
+            targetApp = targetPackage ?: tapTarget.expectedPackage ?: "unknown",
+            semanticTarget = tapTarget.auditDescription(),
+            confirmationRequired = confirmationRequired,
+            userConfirmed = userConfirmed,
+            result = result,
+            failureReason = (result as? AuditResult.Failed)?.reason,
+        )
+        runCatching { auditStore.append(event) }
+            .onFailure { Timber.w(it, "AuditStore tap-for-me append failed") }
+    }
+
+    private fun PerformResult?.toAuditResult(): AuditResult = when (this) {
+        PerformResult.Ok -> AuditResult.Dispatched(component = "tap-for-me")
+        PerformResult.NotFound -> AuditResult.NotFound
+        is PerformResult.Unsupported -> AuditResult.NotPermitted
+        is PerformResult.Failed -> AuditResult.Failed(reason)
+        null -> AuditResult.Failed("tap failed")
+    }
+
+    private fun TapTarget.AtNode.auditDescription(): String = buildString {
+        val context = listOfNotNull(role, text, viewId, desc, expectedPackage, snapshotHash)
+            .joinToString(" ")
+        val passwordContext = context.contains("password", ignoreCase = true) ||
+            context.contains("passcode", ignoreCase = true) ||
+            Regex("""\bpwd\b""", RegexOption.IGNORE_CASE).containsMatchIn(context)
+        appendAuditPart("markId", markId, context)
+        appendAuditPart("role", role, context)
+        appendAuditPart("text", text, context, isPassword = passwordContext)
+        appendAuditPart("viewId", viewId, context)
+        appendAuditPart("desc", desc, context, isPassword = passwordContext)
+        appendAuditPart("expectedPackage", expectedPackage, context)
+        expectedWindowId?.let { append("expectedWindowId=$it;") }
+        appendAuditPart("snapshotHash", snapshotHash, context)
+    }.trimEnd(';')
+
+    private fun StringBuilder.appendAuditPart(
+        name: String,
+        value: String?,
+        context: String,
+        isPassword: Boolean = false,
+    ) {
+        val redacted = ScreenRedactor.redactText(
+            value = value,
+            context = context,
+            isPassword = isPassword,
+            diagnostics = true,
+        ) ?: return
+        append(name).append('=').append(redacted).append(';')
+    }
+
     private suspend fun auditManualSelection(
         target: ManualTargetSnapshot,
         selectedAtEpochMs: Long,
@@ -708,6 +846,12 @@ class BuddyFlightDriver @Inject constructor(
         const val POINT_TARGET_RADIUS: Int = 20
         const val MIN_FLY_CONFIDENCE: Float = 0.68f
         const val STICKY_POINTER_TIMEOUT_MS: Long = 30_000L
+        const val TAP_CONFIRMATION_TIMEOUT_MS: Long = 8_000L
+        val POINTER_SAFE_DENIAL_REASONS: Set<String> = setOf(
+            "gate-closed",
+            "muted",
+            "denylisted",
+        )
         const val POINTER_ROTATION_BLEND_START: Float = 0.78f
         const val TWO_PI: Float = (Math.PI * 2.0).toFloat()
     }
@@ -1043,6 +1187,7 @@ internal fun buildTapTargetForResolved(
         expectedPackage = groundingSnapshot?.toolContext?.packageName?.takeIf { it.isNotBlank() },
         expectedWindowId = groundingSnapshot?.windowId,
         snapshotHash = groundingSnapshot?.rootBoundsHash?.takeIf { it.isNotBlank() },
+        resolverConfidence = resolved.confidence,
     )
 
 private fun android.content.Context.systemBarSize(name: String): Int {

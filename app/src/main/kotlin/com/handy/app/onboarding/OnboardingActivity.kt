@@ -38,6 +38,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -87,12 +90,8 @@ class OnboardingActivity : ComponentActivity() {
         setContent {
             HandyTheme(darkTheme = true) {
                 val state by viewModel.state.collectAsState()
-
-                LaunchedEffect(state.fullyReady) {
-                    if (state.fullyReady) {
-                        goToChat()
-                    }
-                }
+                var actionDisclosurePrompted by rememberSaveable { mutableStateOf(false) }
+                var actionDisclosureInFlight by rememberSaveable { mutableStateOf(false) }
 
                 val micLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission(),
@@ -114,6 +113,40 @@ class OnboardingActivity : ComponentActivity() {
                 ) {
                     viewModel.markAccessibilityVisited()
                     viewModel.refreshFromSystem()
+                }
+                val actionDisclosureLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.StartActivityForResult(),
+                ) {
+                    actionDisclosureInFlight = false
+                    viewModel.refreshFromSystem()
+                }
+
+                LaunchedEffect(
+                    state.disclosureAcknowledged,
+                    state.accessibilityVisited,
+                    state.accessibilityEnabled,
+                    state.actionDisclosureAccepted,
+                    state.fullyReady,
+                    actionDisclosurePrompted,
+                    actionDisclosureInFlight,
+                ) {
+                    if (state.disclosureAcknowledged &&
+                        state.accessibilityVisited &&
+                        state.accessibilityEnabled &&
+                        !state.actionDisclosureAccepted &&
+                        !actionDisclosurePrompted &&
+                        !actionDisclosureInFlight
+                    ) {
+                        actionDisclosurePrompted = true
+                        actionDisclosureInFlight = true
+                        actionDisclosureLauncher.launch(
+                            Intent(this@OnboardingActivity, ActionDisclosureActivity::class.java),
+                        )
+                        return@LaunchedEffect
+                    }
+                    if (state.fullyReady && !actionDisclosureInFlight) {
+                        goToChat()
+                    }
                 }
 
                 OnboardingScreen(

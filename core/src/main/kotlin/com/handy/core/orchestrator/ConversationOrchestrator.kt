@@ -143,6 +143,7 @@ class ConversationOrchestrator(
         val collectedSearchTools = mutableListOf<String>()
 
         val stream = if (llmRequest.tools.isNotEmpty() && toolRunner != null) {
+            toolRunner.beginTurn()
             llmClient.streamToolAwareChat(llmRequest, toolRunner)
         } else {
             llmClient.streamChat(llmRequest)

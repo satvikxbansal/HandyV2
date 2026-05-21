@@ -148,8 +148,8 @@ data class HandySettings(
      * binding. When `false`, `NoopActionPerformer` remains bound — V1
      * behaviour. Confirmation policy still gates destructive actions.
      *
-     * Phase 0 hardening: this preference alone is no longer enough to
-     * execute gestures. A future action disclosure must also set
+     * Phase 0 hardening: this preference alone is not enough to
+     * execute gestures. The versioned action disclosure must also set
      * [actionDisclosureVersionAccepted].
      */
     val tapForMeEnabled: Boolean = false,
@@ -160,6 +160,12 @@ data class HandySettings(
      * updates Play/onboarding copy.
      */
     val actionDisclosureVersionAccepted: Int = 0,
+
+    /** Tap-for-me panic switch expiry; zero means not muted. */
+    val tapForMeMutedUntilEpochMs: Long = 0L,
+
+    /** User-managed per-package denylist for tap-for-me / action dispatch. */
+    val tapForMeUserDenylistedPackages: Set<String> = emptySet(),
 
     /**
      * V2 §5: cloud provider pick. `ClaudeCloud` is the default; the

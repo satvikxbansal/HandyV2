@@ -79,6 +79,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private var host: OverlayComposeHost? = null
     private var bubbleHost: OverlayComposeHost? = null
     private var manualChipHost: OverlayComposeHost? = null
+    private var tapConfirmationHost: OverlayComposeHost? = null
     private val flightController = BezierFlightController(
         reduceMotionEnabled = { reduceMotionEnabled() },
     )
@@ -89,10 +90,12 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private var view: android.view.View? = null
     private var bubbleView: android.view.View? = null
     private var manualChipView: android.view.View? = null
+    private var tapConfirmationView: android.view.View? = null
     private lateinit var windowManager: WindowManager
     private lateinit var params: WindowManager.LayoutParams
     private var bubbleParams: WindowManager.LayoutParams? = null
     private var manualChipParams: WindowManager.LayoutParams? = null
+    private var tapConfirmationParams: WindowManager.LayoutParams? = null
     private var bubblePlacementHint: BubblePlacementHint = BubblePlacementHint.Side
 
     private val state = MutableStateFlow(WidgetState.IDLE)
@@ -234,13 +237,30 @@ class FloatingWidgetOverlayService : LifecycleService() {
 
         lifecycleScope.launch {
             presenter.state
-                .map { it.mode == OverlayMode.Pointing && it.buddyState == BuddyState.POINTING }
+                .map {
+                    it.mode == OverlayMode.Pointing &&
+                        it.buddyState == BuddyState.POINTING &&
+                        it.tapForMeConfirmation == null
+                }
                 .distinctUntilChanged()
                 .collectLatest { showManualChip ->
                     if (showManualChip) {
                         attachManualFallbackChipIfNeeded()
                     } else {
                         detachManualFallbackChip()
+                    }
+                }
+        }
+
+        lifecycleScope.launch {
+            presenter.state
+                .map { it.tapForMeConfirmation }
+                .distinctUntilChanged()
+                .collectLatest { confirmation ->
+                    if (confirmation == null) {
+                        detachTapConfirmationOverlay()
+                    } else {
+                        attachTapConfirmationOverlayIfNeeded()
                     }
                 }
         }
@@ -328,6 +348,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private fun detachOverlay() {
         detachBubbleOverlay()
         detachManualFallbackChip()
+        detachTapConfirmationOverlay()
         val v = view
         val h = host
         view = null
@@ -427,6 +448,55 @@ class FloatingWidgetOverlayService : LifecycleService() {
         manualChipView = null
         manualChipHost = null
         manualChipParams = null
+        if (v != null) runCatching { windowManager.removeView(v) }
+        h?.release()
+    }
+
+    private fun attachTapConfirmationOverlayIfNeeded() {
+        if (tapConfirmationView != null) return
+        val host = OverlayComposeHost(this).also { tapConfirmationHost = it }
+        val composeView = host.createView {
+            val overlayState by presenter.state.collectAsState()
+            overlayState.tapForMeConfirmation?.let { request ->
+                TapForMeConfirmationSheet(
+                    request = request,
+                    onDecision = { approved ->
+                        presenter.respondTapForMeConfirmation(request.id, approved)
+                    },
+                )
+            }
+        }
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            tapConfirmationFlags(),
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 0
+            y = 0
+        }
+        tapConfirmationParams = lp
+        runCatching { windowManager.addView(composeView, lp) }
+            .onSuccess {
+                tapConfirmationView = composeView
+                applyOverlayVisibility()
+            }
+            .onFailure {
+                Timber.e(it, "Tap-for-me confirmation overlay attach failed")
+                tapConfirmationHost = null
+                tapConfirmationParams = null
+                host.release()
+            }
+    }
+
+    private fun detachTapConfirmationOverlay() {
+        val v = tapConfirmationView
+        val h = tapConfirmationHost
+        tapConfirmationView = null
+        tapConfirmationHost = null
+        tapConfirmationParams = null
         if (v != null) runCatching { windowManager.removeView(v) }
         h?.release()
     }
@@ -692,6 +762,9 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private fun manualChipFlags(): Int =
         idleFlags()
 
+    private fun tapConfirmationFlags(): Int =
+        idleFlags()
+
     private fun updateBubblePosition() {
         val widget = view ?: return
         val bubble = bubbleView ?: return
@@ -849,6 +922,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
         view?.visibility = visibility
         bubbleView?.visibility = visibility
         manualChipView?.visibility = visibility
+        tapConfirmationView?.visibility = visibility
     }
 
     companion object {

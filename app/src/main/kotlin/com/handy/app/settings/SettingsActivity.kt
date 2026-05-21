@@ -1,5 +1,6 @@
 package com.handy.app.settings
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.annotation.DrawableRes
 import androidx.activity.ComponentActivity
@@ -50,6 +51,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -60,10 +62,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.handy.app.BuildConfig
 import com.handy.app.R
+import com.handy.app.onboarding.ActionDisclosureActivity
 import com.handy.app.theme.HandyColors
 import com.handy.app.theme.HandyDimens
 import com.handy.app.theme.HandyTheme
 import com.handy.app.theme.HandyType
+import com.handy.core.action.ActionExecutionGate
 import com.handy.core.model.HandySettings
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -101,6 +105,12 @@ class SettingsActivity : ComponentActivity() {
                     onTutorModeToggle = { enabled ->
                         viewModel.updateSettings { it.copy(tutorModeEnabled = enabled) }
                     },
+                    onTapForMeToggle = viewModel::setTapForMeEnabled,
+                    onTapForMePanicMute = viewModel::muteTapForMeForOneHour,
+                    onTapForMeRevoke = viewModel::revokeTapForMeConsent,
+                    onReviewActionDisclosure = {
+                        startActivity(Intent(this, ActionDisclosureActivity::class.java))
+                    },
                     onClearHistory = viewModel::clearAllHistory,
                     onBack = { finish() },
                 )
@@ -120,10 +130,19 @@ private fun SettingsScreen(
     onWebSearchToggle: (Boolean) -> Unit,
     onClaudeModelVariant: (Boolean) -> Unit,
     onTutorModeToggle: (Boolean) -> Unit,
+    onTapForMeToggle: (Boolean) -> Unit,
+    onTapForMePanicMute: () -> Unit,
+    onTapForMeRevoke: () -> Unit,
+    onReviewActionDisclosure: () -> Unit,
     onClearHistory: () -> Unit,
     onBack: () -> Unit,
 ) {
     val useHaiku = state.settings?.claudeModelOverride == HandySettings.DEFAULT_CLAUDE_HAIKU_MODEL
+    val actionDisclosureAccepted =
+        (state.settings?.actionDisclosureVersionAccepted ?: 0) >=
+            ActionExecutionGate.REQUIRED_DISCLOSURE_VERSION
+    val tapForMeMuted =
+        (state.settings?.tapForMeMutedUntilEpochMs ?: 0L) > System.currentTimeMillis()
 
     Box(
         modifier = Modifier
@@ -254,6 +273,47 @@ private fun SettingsScreen(
                         onCheckedChange = {},
                         badge = "Coming soon",
                     )
+                }
+
+                /* ---- Actions ---- */
+                SectionHeaderWithIcon(
+                    iconRes = R.drawable.ic_pointer_hand,
+                    title = stringResource(R.string.settings_actions_header),
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (actionDisclosureAccepted) {
+                        ToggleCard(
+                            title = stringResource(R.string.settings_tap_for_me_title),
+                            subtitle = if (tapForMeMuted) {
+                                stringResource(R.string.settings_tap_for_me_muted_desc)
+                            } else {
+                                stringResource(R.string.settings_tap_for_me_desc)
+                            },
+                            checked = state.settings?.tapForMeEnabled == true,
+                            enabled = true,
+                            onCheckedChange = onTapForMeToggle,
+                        )
+                        ActionButtonCard(
+                            title = stringResource(R.string.settings_tap_for_me_panic_title),
+                            subtitle = stringResource(R.string.settings_tap_for_me_panic_desc),
+                            actionLabel = stringResource(R.string.settings_tap_for_me_panic_action),
+                            onClick = onTapForMePanicMute,
+                        )
+                        ActionButtonCard(
+                            title = stringResource(R.string.settings_tap_for_me_revoke_title),
+                            subtitle = stringResource(R.string.settings_tap_for_me_revoke_desc),
+                            actionLabel = stringResource(R.string.settings_tap_for_me_revoke_action),
+                            danger = true,
+                            onClick = onTapForMeRevoke,
+                        )
+                    } else {
+                        ActionButtonCard(
+                            title = stringResource(R.string.settings_tap_for_me_review_title),
+                            subtitle = stringResource(R.string.settings_tap_for_me_review_desc),
+                            actionLabel = stringResource(R.string.settings_tap_for_me_review_action),
+                            onClick = onReviewActionDisclosure,
+                        )
+                    }
                 }
 
                 /* ---- Web Tools ---- */
@@ -646,6 +706,57 @@ private fun ReadyPill() {
 }
 
 /* ---------- Toggle card ---------- */
+
+@Composable
+private fun ActionButtonCard(
+    title: String,
+    subtitle: String,
+    actionLabel: String,
+    onClick: () -> Unit,
+    danger: Boolean = false,
+) {
+    val shape = RoundedCornerShape(HandyDimens.RadiusLg)
+    val accent = if (danger) HandyColors.Danger else HandyColors.Accent
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(HandyColors.ChipBg)
+            .border(0.5.dp, HandyColors.ChipBorder, shape)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = HandyType.Body.copy(fontWeight = FontWeight.Medium),
+                color = HandyColors.TextPrimary,
+            )
+            Spacer(Modifier.height(1.dp))
+            Text(
+                text = subtitle,
+                style = HandyType.CaptionSmall,
+                color = HandyColors.TextSecondary,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(accent.copy(alpha = if (danger) 0.16f else 1f))
+                .border(0.5.dp, accent.copy(alpha = if (danger) 0.40f else 1f), RoundedCornerShape(10.dp))
+                .clickable(onClick = onClick)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = actionLabel,
+                style = HandyType.Overline.copy(letterSpacing = 0.sp),
+                color = if (danger) HandyColors.Danger else HandyColors.AccentInk,
+            )
+        }
+    }
+}
 
 @Composable
 private fun ToggleCard(

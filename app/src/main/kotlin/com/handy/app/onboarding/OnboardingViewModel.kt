@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.handy.app.accessibility.HandyAccessibilityService
+import com.handy.core.action.ActionExecutionGate
 import com.handy.runtime.storage.DataStoreSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -45,6 +46,8 @@ class OnboardingViewModel @Inject constructor(
                     it.copy(
                         disclosureAcknowledged = s.accessibilityDisclosureAcknowledged,
                         reducedModeAcknowledged = s.reducedModeAcknowledged,
+                        actionDisclosureAccepted =
+                            s.actionDisclosureVersionAccepted >= ActionExecutionGate.REQUIRED_DISCLOSURE_VERSION,
                     )
                 }
             }
@@ -147,6 +150,7 @@ data class OnboardingUiState(
     val overlayGranted: Boolean = false,
     val accessibilityEnabled: Boolean = false,
     val accessibilityVisited: Boolean = false,
+    val actionDisclosureAccepted: Boolean = false,
     /**
      * Set to true when the user explicitly opts into reduced mode
      * (declined accessibility). Unlocks the primary "Open Handy" button

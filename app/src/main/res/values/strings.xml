@@ -14,7 +14,7 @@
 
     <!-- Accessibility service (Play-policy compliant description) -->
     <string name="accessibility_service_label">Handy assistant</string>
-    <string name="accessibility_service_description">Handy reads visible on-screen text and the UI tree so the assistant can answer questions about what you see and point at the right button. Handy never taps or types on your behalf in v1. You can turn this off at any time in Settings → Accessibility.</string>
+    <string name="accessibility_service_description">Handy reads visible on-screen text and the UI tree so the assistant can answer questions about what you see and point at the right button. If you separately enable Tap-for-me, Handy can tap or scroll only after you confirm that exact action on screen. Handy blocks sensitive apps and you can turn this off at any time in Settings.</string>
 
     <!-- Specialuse FGS subtype property -->
     <string name="special_use_fgs_subtype">on-screen AI assistant overlay that must remain visible across apps</string>
@@ -23,7 +23,7 @@
          Requirements: name the specific data accessed, how it is used,
          who it is shared with, and the user's control. -->
     <string name="onboarding_disclosure_title">Handy needs a few permissions</string>
-    <string name="onboarding_disclosure_body">Handy is an on-screen AI assistant. When you ask a question, Handy reads visible on-screen text via the Android Accessibility service and may capture the active window, then sends your message plus that context to Anthropic (Claude) over HTTPS using your own API key. Optional web-search tools send queries to Brave, Jina, and the public GitHub API only when you enable them in Settings. Handy never taps, types, or scrolls on your behalf. No data is sent to our servers — Handy has none. You can decline any permission and Handy will run in a reduced mode.</string>
+    <string name="onboarding_disclosure_body">Handy is an on-screen AI assistant. When you ask a question, Handy reads visible on-screen text via the Android Accessibility service and may capture the active window, then sends your message plus that context to Anthropic (Claude) over HTTPS using your own API key. Optional web-search tools send queries to Brave, Jina, and the public GitHub API only when you enable them in Settings. Tap-for-me is a separate opt-in after Accessibility is enabled: Handy can tap or scroll only after you confirm that exact action on screen, and sensitive apps are blocked. No data is sent to our servers — Handy has none. You can decline any permission and Handy will run in a reduced mode.</string>
     <string name="onboarding_continue">Continue</string>
     <string name="onboarding_decline">Not now</string>
     <string name="onboarding_accessibility_title">Turn on Handy in Accessibility settings</string>
@@ -57,6 +57,18 @@
     <string name="onboarding_row_allow">Allow</string>
     <string name="onboarding_row_enable">Enable</string>
 
+    <!-- Tap-for-me action disclosure -->
+    <string name="action_disclosure_title">Enable Tap-for-me?</string>
+    <string name="action_disclosure_body">Tap-for-me lets Handy tap or scroll the item it just pointed at. It is optional, versioned consent on top of Accessibility access.</string>
+    <string name="action_disclosure_point_confirm_title">Every action asks first</string>
+    <string name="action_disclosure_point_confirm_body">After Buddy lands on a target, Handy shows an overlay confirmation sheet. No tap or scroll runs unless you approve that specific action.</string>
+    <string name="action_disclosure_point_guard_title">Sensitive screens are blocked</string>
+    <string name="action_disclosure_point_guard_body">Banking, payments, password managers, secure windows, stale screens, and low-confidence targets are denied before the confirmation sheet appears.</string>
+    <string name="action_disclosure_point_control_title">You stay in control</string>
+    <string name="action_disclosure_point_control_body">Settings includes a Tap-for-me toggle, a one-hour panic mute, and a revoke action that clears this consent immediately.</string>
+    <string name="action_disclosure_accept">Enable Tap-for-me</string>
+    <string name="action_disclosure_decline">Not now</string>
+
     <!-- Chat -->
     <string name="chat_title">Handy</string>
     <string name="chat_input_placeholder">Ask Handy anything…</string>
@@ -86,6 +98,19 @@
     <string name="settings_assistant_mode_header">Assistant mode</string>
     <string name="settings_app_theme_header">Theme</string>
     <string name="settings_accessibility_header">Accessibility</string>
+    <string name="settings_actions_header">Actions</string>
+    <string name="settings_tap_for_me_title">Tap-for-me</string>
+    <string name="settings_tap_for_me_desc">Let Handy tap or scroll only after the per-action confirmation sheet.</string>
+    <string name="settings_tap_for_me_muted_desc">Muted for this hour. The action gate stays closed until the mute expires.</string>
+    <string name="settings_tap_for_me_panic_title">Panic mute</string>
+    <string name="settings_tap_for_me_panic_desc">Close the action gate for 1 hour without changing your saved consent.</string>
+    <string name="settings_tap_for_me_panic_action">Mute 1h</string>
+    <string name="settings_tap_for_me_revoke_title">Revoke action consent</string>
+    <string name="settings_tap_for_me_revoke_desc">Clears the action disclosure version and hides Tap-for-me until you review it again.</string>
+    <string name="settings_tap_for_me_revoke_action">Revoke</string>
+    <string name="settings_tap_for_me_review_title">Tap-for-me is off</string>
+    <string name="settings_tap_for_me_review_desc">Review the action disclosure before enabling Handy to tap or scroll for you.</string>
+    <string name="settings_tap_for_me_review_action">Review</string>
     <string name="settings_reset_history">Clear all chat history</string>
     <string name="settings_privacy_policy">Privacy policy</string>
     <string name="settings_version_footer">Handy for Android — v%1$s</string>
@@ -97,4 +122,13 @@
     <!-- V2 clipboard assist -->
     <string name="clipboard_assist_disclosure_title">Handy clipboard assist</string>
     <string name="clipboard_assist_disclosure_body">When the panel or chat is open, Handy can offer to summarize, translate, or rewrite what you just copied. Handy never reads the clipboard in the background.</string>
+
+    <!-- Tap-for-me per-action sheet -->
+    <string name="tap_for_me_sheet_title">Confirm Tap-for-me</string>
+    <string name="tap_for_me_sheet_body">Handy is about to tap "%1$s" in %2$s. It will run only this action.</string>
+    <string name="tap_for_me_sheet_this_app">this app</string>
+    <string name="tap_for_me_sheet_policy_reason">Policy: %1$s</string>
+    <string name="tap_for_me_sheet_confirm">Tap for me</string>
+    <string name="tap_for_me_sheet_hold_confirm">Hold 1s</string>
+    <string name="tap_for_me_sheet_cancel">Cancel</string>
 </resources>

@@ -1,13 +1,17 @@
 package com.handy.runtime.di
 
 import android.content.Context
+import com.handy.core.action.ActionAppPolicy
+import com.handy.core.action.ActionPolicyEngine
 import com.handy.core.action.ActionPerformer
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.LlmClient
 import com.handy.core.llm.ToolRunner
+import com.handy.core.model.HandySettings
 import com.handy.core.speech.SttClient
 import com.handy.core.speech.TtsClient
 import com.handy.runtime.action.NoopActionPerformer
+import com.handy.runtime.action.DefaultActionPolicyEngine
 import com.handy.runtime.intent.AndroidIntentDispatcher
 import com.handy.runtime.intent.LaunchableAppIndex
 import com.handy.runtime.llm.ClaudeLlmClient
@@ -22,6 +26,7 @@ import com.handy.runtime.storage.DataStoreSettings
 import com.handy.runtime.storage.EncryptedKeyStore
 import com.handy.runtime.storage.JsonHistoryStore
 import com.handy.runtime.storage.KeyStore
+import com.handy.runtime.storage.LearnedAllowlistStore
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -29,9 +34,12 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Qualifier
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
@@ -172,6 +180,34 @@ object RuntimeModule {
     @Provides
     @Singleton
     fun provideNoopActionPerformer(): NoopActionPerformer = NoopActionPerformer()
+
+    @Provides
+    @Singleton
+    fun provideDefaultActionPolicyEngine(
+        settings: DataStoreSettings,
+        learnedAllowlistStore: LearnedAllowlistStore,
+        @ApplicationScope appScope: CoroutineScope,
+    ): DefaultActionPolicyEngine {
+        val currentSettings = AtomicReference(HandySettings())
+        appScope.launch {
+            settings.flow.collectLatest { currentSettings.set(it) }
+        }
+        return DefaultActionPolicyEngine(
+            appPolicy = ActionAppPolicy {
+                currentSettings.get().tapForMeUserDenylistedPackages
+            },
+            settingsProvider = { currentSettings.get() },
+            learnedAllowlistProvider = { packageName ->
+                learnedAllowlistStore.isLearnedSync(packageName)
+            },
+        )
+    }
+
+    @Provides
+    @Singleton
+    fun provideActionPolicyEngine(
+        impl: DefaultActionPolicyEngine,
+    ): ActionPolicyEngine = impl
 
     @Provides
     @Singleton
