@@ -96,6 +96,8 @@ class PromptCatalogTest {
         assertThat(withSnapshot).contains("<screen_ui>")
         assertThat(withSnapshot).contains("com.google.android.gm")
         assertThat(withSnapshot).contains("screen text (from accessibility):")
+        assertThat(withSnapshot).contains("controlled typing")
+        assertThat(withSnapshot).contains("[TYPE:text=")
         assertThat(withoutSnapshot).doesNotContain("screen text (from accessibility):")
         assertThat(withoutSnapshot).doesNotContain("com.google.android.gm")
     }

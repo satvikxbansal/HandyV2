@@ -5,6 +5,7 @@ package com.handy.app.accessibility
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
+import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 import com.handy.core.action.ActionCapability
 import com.handy.core.action.ActionPerformer
@@ -17,9 +18,13 @@ import com.handy.core.audit.AuditResult
 import com.handy.core.audit.AuditStore
 import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.privacy.ScreenRedactor
+import com.handy.runtime.accessibility.ActionEventObserver
 import com.handy.runtime.accessibility.LiveScreenGuard
 import com.handy.runtime.accessibility.SemanticPointerResolver
 import com.handy.runtime.di.AccessibilityServiceProvider
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import timber.log.Timber
@@ -44,6 +49,7 @@ class AccessibilityGestureActionPerformer(
     private val service: AccessibilityServiceProvider,
     private val resolver: SemanticPointerResolver,
     private val liveScreenGuard: LiveScreenGuard,
+    private val actionEventObserver: ActionEventObserver = ActionEventObserver(),
     private val auditStore: AuditStore,
     private val foregroundPackageProvider: () -> String?,
     private val clock: () -> Long = { System.currentTimeMillis() },
@@ -56,6 +62,7 @@ class AccessibilityGestureActionPerformer(
         ActionCapability.LONG_PRESS,
         ActionCapability.SCROLL,
         ActionCapability.SWIPE,
+        ActionCapability.TYPE,
     )
 
     override suspend fun tap(target: TapTarget): PerformResult =
@@ -116,6 +123,155 @@ class AccessibilityGestureActionPerformer(
             result = audit,
         )
         return if (ok) PerformResult.Ok else PerformResult.Failed("scroll gesture cancelled")
+    }
+
+    override suspend fun typeText(target: TapTarget, text: String): PerformResult {
+        service() ?: return audited(
+            action = AuditAction.TypeText,
+            targetDescription = target.describeWithTypedText(text),
+            confirmationRequired = false,
+            userConfirmed = false,
+            result = AuditResult.NotPermitted,
+        ).let { PerformResult.Unsupported("accessibility not connected") }
+
+        val nodeTarget = target as? TapTarget.AtNode
+            ?: return audited(
+                action = AuditAction.TypeText,
+                targetDescription = target.describeWithTypedText(text),
+                confirmationRequired = false,
+                userConfirmed = false,
+                result = AuditResult.Failed("target must be an accessibility node"),
+            ).let { PerformResult.Unsupported("type target must be a node") }
+
+        if (nodeTarget.screenChanged(liveScreenGuard.snapshot())) {
+            audited(
+                action = AuditAction.TypeText,
+                targetDescription = nodeTarget.describeWithTypedText(text),
+                confirmationRequired = false,
+                userConfirmed = false,
+                result = AuditResult.Failed(SCREEN_CHANGED_REASON),
+            )
+            return PerformResult.Failed(SCREEN_CHANGED_REASON)
+        }
+
+        val spec = nodeTarget.toSemanticPointOrNull()
+            ?: return audited(
+                action = AuditAction.TypeText,
+                targetDescription = nodeTarget.describeWithTypedText(text),
+                confirmationRequired = false,
+                userConfirmed = false,
+                result = AuditResult.NotFound,
+            ).let { PerformResult.NotFound }
+
+        val resolved = runCatching {
+            resolver.resolve(
+                spec = spec,
+                fallbackMarks = emptyList(),
+                expectedPackage = nodeTarget.expectedPackage,
+                expectedWindowId = nodeTarget.expectedWindowId,
+            )
+        }.getOrNull()
+        val resolvedNode = resolved?.node
+        if (resolved == null ||
+            resolved.failureReason != null ||
+            resolved.confidence < MIN_ACTION_CONFIDENCE ||
+            resolvedNode == null
+        ) {
+            resolvedNode?.let { runCatching { it.recycle() } }
+            audited(
+                action = AuditAction.TypeText,
+                targetDescription = nodeTarget.describeWithTypedText(text),
+                confirmationRequired = false,
+                userConfirmed = false,
+                result = AuditResult.NotFound,
+            )
+            return PerformResult.NotFound
+        }
+
+        val node = resolvedNode
+        val redactionContext = nodeTarget.typeRedactionContext(node)
+        if (wouldTypedTextBeRedacted(text, redactionContext, node.isPassword) ||
+            text.isBlockedTypedSecretPattern()
+        ) {
+            runCatching { node.recycle() }
+            audited(
+                action = AuditAction.TypeText,
+                targetDescription = nodeTarget.describeWithTypedText(text),
+                confirmationRequired = false,
+                userConfirmed = false,
+                result = AuditResult.Failed("sensitive-text"),
+            )
+            return PerformResult.Failed("sensitive-text")
+        }
+
+        if (!node.isEditable) {
+            runCatching { node.recycle() }
+            audited(
+                action = AuditAction.TypeText,
+                targetDescription = nodeTarget.describeWithTypedText(text),
+                confirmationRequired = false,
+                userConfirmed = false,
+                result = AuditResult.Failed("target is not editable"),
+            )
+            return PerformResult.Unsupported("target is not editable")
+        }
+
+        if (!node.supportsSetTextAction()) {
+            runCatching { node.recycle() }
+            audited(
+                action = AuditAction.TypeText,
+                targetDescription = nodeTarget.describeWithTypedText(text),
+                confirmationRequired = false,
+                userConfirmed = false,
+                result = AuditResult.Failed("ACTION_SET_TEXT unsupported"),
+            )
+            return PerformResult.Unsupported("ACTION_SET_TEXT unsupported")
+        }
+
+        val matcher = actionEventObserver.textChangedTargetFor(node, text)
+        val (actionReturnedOk, verifiedBy) = coroutineScope {
+            val verification = async(start = CoroutineStart.UNDISPATCHED) {
+                actionEventObserver.awaitTextChanged(
+                    target = matcher,
+                    timeoutMs = ACTION_EVENT_VERIFY_TIMEOUT_MS,
+                )
+            }
+            val args = Bundle().apply {
+                putCharSequence(
+                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                    text,
+                )
+            }
+            val ok = runCatching {
+                node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+            }.getOrDefault(false)
+            if (!ok) {
+                verification.cancel()
+                false to null
+            } else {
+                true to verification.await()
+            }
+        }
+        runCatching { node.recycle() }
+
+        val auditResult = when {
+            !actionReturnedOk -> AuditResult.Failed("ACTION_SET_TEXT returned false")
+            verifiedBy == null -> AuditResult.Failed("text change not verified")
+            else -> AuditResult.Dispatched(component = null)
+        }
+        audited(
+            action = AuditAction.TypeText,
+            targetDescription = nodeTarget.describeWithTypedText(text),
+            confirmationRequired = false,
+            userConfirmed = false,
+            result = auditResult,
+            verifiedBy = verifiedBy,
+        )
+        return when {
+            !actionReturnedOk -> PerformResult.Unsupported("ACTION_SET_TEXT returned false")
+            verifiedBy == null -> PerformResult.Failed("text change not verified")
+            else -> PerformResult.Ok
+        }
     }
 
     private suspend fun perform(
@@ -265,6 +421,7 @@ class AccessibilityGestureActionPerformer(
         confirmationRequired: Boolean,
         userConfirmed: Boolean,
         result: AuditResult,
+        verifiedBy: String? = null,
     ) {
         val event = AuditEvent(
             timestampEpochMs = clock(),
@@ -277,6 +434,7 @@ class AccessibilityGestureActionPerformer(
             userConfirmed = userConfirmed,
             result = result,
             failureReason = (result as? AuditResult.Failed)?.reason,
+            verifiedBy = verifiedBy,
         )
         runCatching { auditStore.append(event) }
             .onFailure { Timber.w(it, "AuditStore append failed") }
@@ -297,6 +455,20 @@ class AccessibilityGestureActionPerformer(
             expectedWindowId?.let { append("expectedWindowId=$it;") }
             appendTargetPart("snapshotHash", snapshotHash, context)
         }.trimEnd(';')
+    }
+
+    private fun TapTarget.describeWithTypedText(text: String): String {
+        val context = when (this) {
+            is TapTarget.AtNode -> typeRedactionContext()
+            is TapTarget.AtScreenPoint -> describe()
+        }
+        val redactedText = ScreenRedactor.redactText(
+            value = text,
+            context = context,
+            isPassword = context.containsPasswordContext(),
+            diagnostics = true,
+        ) ?: ""
+        return "${describe()};input=$redactedText"
     }
 
     private fun StringBuilder.appendTargetPart(
@@ -337,6 +509,42 @@ class AccessibilityGestureActionPerformer(
         )
     }
 
+    private fun TapTarget.AtNode.typeRedactionContext(node: AccessibilityNodeInfo? = null): String =
+        listOfNotNull(
+            role,
+            text,
+            viewId,
+            desc,
+            expectedPackage,
+            node?.className?.toString(),
+            node?.viewIdResourceName,
+            node?.contentDescription?.toString(),
+        ).joinToString(" ")
+
+    private fun wouldTypedTextBeRedacted(
+        text: String,
+        context: String,
+        isPassword: Boolean,
+    ): Boolean {
+        val raw = text.trim().takeIf { it.isNotEmpty() } ?: return false
+        val redacted = ScreenRedactor.redactText(
+            value = raw,
+            context = context,
+            isPassword = isPassword,
+            diagnostics = true,
+        ) ?: return false
+        return redacted != raw
+    }
+
+    private fun String.isBlockedTypedSecretPattern(): Boolean =
+        TYPE_CARD_PATTERN_REGEX.containsMatchIn(this) ||
+            TYPE_SHORT_CODE_REGEX.matches(trim())
+
+    private fun AccessibilityNodeInfo.supportsSetTextAction(): Boolean =
+        runCatching {
+            actionList.any { action -> action.id == AccessibilityNodeInfo.ACTION_SET_TEXT }
+        }.getOrDefault(false)
+
     private fun TapTarget.AtNode.screenChanged(live: LiveScreenGuard.LiveScreen?): Boolean {
         val expectedPackage = expectedPackage?.takeIf { it.isNotBlank() }
         val expectedWindowId = expectedWindowId
@@ -362,7 +570,10 @@ class AccessibilityGestureActionPerformer(
         const val TAP_DURATION_MS: Long = 100L
         const val LONG_PRESS_DURATION_MS: Long = 800L
         const val SCROLL_DURATION_MS: Long = 400L
+        const val ACTION_EVENT_VERIFY_TIMEOUT_MS: Long = 1_500L
         const val MIN_ACTION_CONFIDENCE: Float = 0.9f
         const val SCREEN_CHANGED_REASON: String = "screen-changed"
+        val TYPE_CARD_PATTERN_REGEX = Regex("""\b(?:\d[ -]?){13,19}\b""")
+        val TYPE_SHORT_CODE_REGEX = Regex("""\d{3,8}""")
     }
 }

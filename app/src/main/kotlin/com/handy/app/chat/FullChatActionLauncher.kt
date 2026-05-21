@@ -52,13 +52,25 @@ class FullChatActionLauncher @Inject constructor(
             val pixel = action.pointing.pixel
             when {
                 semantic != null -> {
-                    val landed = flightDriver.flyToAndTap(
-                        spec = semantic,
-                        bubbleLabel = action.bubbleLabel,
-                        targetLabel = action.targetLabel,
-                        fallbackMarks = action.snapshot.marks,
-                        groundingSnapshot = action.groundingSnapshot,
-                    )
+                    val typeText = action.pointing.typeText
+                    val landed = if (!typeText.isNullOrBlank()) {
+                        flightDriver.flyToAndType(
+                            spec = semantic,
+                            text = typeText,
+                            bubbleLabel = action.bubbleLabel,
+                            targetLabel = action.targetLabel,
+                            fallbackMarks = action.snapshot.marks,
+                            groundingSnapshot = action.groundingSnapshot,
+                        )
+                    } else {
+                        flightDriver.flyToAndTap(
+                            spec = semantic,
+                            bubbleLabel = action.bubbleLabel,
+                            targetLabel = action.targetLabel,
+                            fallbackMarks = action.snapshot.marks,
+                            groundingSnapshot = action.groundingSnapshot,
+                        )
+                    }
                     Timber.d("FullChatActionLauncher: semantic flight landed=%s", landed)
                 }
                 pixel != null -> {

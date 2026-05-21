@@ -71,6 +71,14 @@ class AssistantMarkupParserTest {
         assertThat(result.isNone).isFalse()
     }
 
+    @Test fun `parsePoint carries controlled type text and strips type tag`() {
+        val result = AssistantMarkupParser.parsePoint("type milk [TYPE:text=milk] [POINT:markId=m3]")
+
+        assertThat(result.typeText).isEqualTo("milk")
+        assertThat(result.semantic?.markId).isEqualTo("m3")
+        assertThat(result.cleanedText).isEqualTo("type milk")
+    }
+
     @Test fun `parsePoint ignores unknown semantic keys without throwing`() {
         val result = AssistantMarkupParser.parsePoint("tap this [POINT:foo=bar]")
         assertThat(result.semantic).isNull()

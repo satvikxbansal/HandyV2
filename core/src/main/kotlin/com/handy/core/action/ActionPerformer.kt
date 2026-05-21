@@ -16,6 +16,7 @@ interface ActionPerformer {
     suspend fun tap(target: TapTarget): PerformResult
     suspend fun longPress(target: TapTarget): PerformResult
     suspend fun scroll(direction: ScrollDirection, target: TapTarget?): PerformResult
+    suspend fun typeText(target: TapTarget, text: String): PerformResult
 
     val capabilities: Set<ActionCapability>
 }
@@ -37,7 +38,7 @@ sealed class TapTarget {
 
 enum class ScrollDirection { UP, DOWN, LEFT, RIGHT }
 
-enum class ActionCapability { TAP, LONG_PRESS, SCROLL, SWIPE }
+enum class ActionCapability { TAP, LONG_PRESS, SCROLL, SWIPE, TYPE }
 
 sealed class PerformResult {
     data object Ok : PerformResult()

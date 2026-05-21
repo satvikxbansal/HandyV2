@@ -59,9 +59,9 @@
 
     <!-- Tap-for-me action disclosure -->
     <string name="action_disclosure_title">Enable Tap-for-me?</string>
-    <string name="action_disclosure_body">Tap-for-me lets Handy tap or scroll the item it just pointed at. It is optional, versioned consent on top of Accessibility access.</string>
+    <string name="action_disclosure_body">Tap-for-me lets Handy tap, scroll, or type ordinary text into the item it just pointed at. It is optional, versioned consent on top of Accessibility access.</string>
     <string name="action_disclosure_point_confirm_title">Every action asks first</string>
-    <string name="action_disclosure_point_confirm_body">After Buddy lands on a target, Handy shows an overlay confirmation sheet. No tap or scroll runs unless you approve that specific action.</string>
+    <string name="action_disclosure_point_confirm_body">After Buddy lands on a target, Handy shows an overlay confirmation sheet. No tap, scroll, or typing runs unless you approve that specific action.</string>
     <string name="action_disclosure_point_guard_title">Sensitive screens are blocked</string>
     <string name="action_disclosure_point_guard_body">Banking, payments, password managers, secure windows, stale screens, and low-confidence targets are denied before the confirmation sheet appears.</string>
     <string name="action_disclosure_point_control_title">You stay in control</string>
@@ -100,7 +100,7 @@
     <string name="settings_accessibility_header">Accessibility</string>
     <string name="settings_actions_header">Actions</string>
     <string name="settings_tap_for_me_title">Tap-for-me</string>
-    <string name="settings_tap_for_me_desc">Let Handy tap or scroll only after the per-action confirmation sheet.</string>
+    <string name="settings_tap_for_me_desc">Let Handy tap, scroll, or type ordinary text only after the per-action confirmation sheet.</string>
     <string name="settings_tap_for_me_muted_desc">Muted for this hour. The action gate stays closed until the mute expires.</string>
     <string name="settings_tap_for_me_panic_title">Stop tap-for-me for 1 hour</string>
     <string name="settings_tap_for_me_panic_desc">Close the action gate for 1 hour without changing your saved consent.</string>
@@ -129,9 +129,12 @@
     <!-- Tap-for-me per-action sheet -->
     <string name="tap_for_me_sheet_title">Confirm Tap-for-me</string>
     <string name="tap_for_me_sheet_body">Handy is about to tap "%1$s" in %2$s. It will run only this action.</string>
+    <string name="tap_for_me_sheet_type_title">Confirm Type-for-me</string>
+    <string name="tap_for_me_sheet_type_body">Handy is about to type into "%1$s" in %2$s. Edit the text before approving.</string>
     <string name="tap_for_me_sheet_this_app">this app</string>
     <string name="tap_for_me_sheet_policy_reason">Policy: %1$s</string>
     <string name="tap_for_me_sheet_confirm">Tap for me</string>
+    <string name="tap_for_me_sheet_type_confirm">Type for me</string>
     <string name="tap_for_me_sheet_hold_confirm">Hold 1s</string>
     <string name="tap_for_me_sheet_cancel">Cancel</string>
 </resources>

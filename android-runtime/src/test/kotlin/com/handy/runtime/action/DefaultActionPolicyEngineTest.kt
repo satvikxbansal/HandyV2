@@ -180,6 +180,58 @@ class DefaultActionPolicyEngineTest {
         }
     }
 
+    @Test fun `type text into nearby sensitive field is blocked`() {
+        val marks = listOf(
+            mark("OTP", bounds = intArrayOf(0, 0, 120, 40), markId = "m1"),
+            mark("", bounds = intArrayOf(0, 48, 220, 100), markId = "m2", role = "EditText"),
+        )
+        val decision = engine().decide(
+            action = AssistantAction.TypeText("123456"),
+            target = node(markId = "m2", text = null, resolverConfidence = 0.95f),
+            grounding = grounding(marks = marks),
+            sourceTrust = SourceTrust.TRUSTED_RECIPE,
+        )
+
+        assertThat(decision.allowed).isFalse()
+        assertThat(decision.reason).isEqualTo("sensitive-field")
+    }
+
+    @Test fun `type text with card pattern is blocked before dispatch`() {
+        val decision = engine().decide(
+            action = AssistantAction.TypeText("4111 1111 1111 1111"),
+            target = node(markId = "m1", text = "Search", resolverConfidence = 0.95f),
+            grounding = grounding(),
+            sourceTrust = SourceTrust.TRUSTED_RECIPE,
+        )
+
+        assertThat(decision.allowed).isFalse()
+        assertThat(decision.reason).isEqualTo("sensitive-field")
+    }
+
+    @Test fun `type text with otp pattern is blocked in verification context`() {
+        val decision = engine().decide(
+            action = AssistantAction.TypeText("123456"),
+            target = node(markId = "m1", desc = "Verification code", resolverConfidence = 0.95f),
+            grounding = grounding(),
+            sourceTrust = SourceTrust.TRUSTED_RECIPE,
+        )
+
+        assertThat(decision.allowed).isFalse()
+        assertThat(decision.reason).isEqualTo("sensitive-field")
+    }
+
+    @Test fun `type text with pure otp shaped code is blocked even without field context`() {
+        val decision = engine().decide(
+            action = AssistantAction.TypeText("123456"),
+            target = node(markId = "m1", text = "Search", resolverConfidence = 0.95f),
+            grounding = grounding(),
+            sourceTrust = SourceTrust.TRUSTED_RECIPE,
+        )
+
+        assertThat(decision.allowed).isFalse()
+        assertThat(decision.reason).isEqualTo("sensitive-field")
+    }
+
     @Test fun `app changed after grounding is blocked`() {
         val decision = engine().decide(
             action = AssistantAction.OpenApp("com.example.old"),
@@ -290,9 +342,15 @@ class DefaultActionPolicyEngineTest {
             resolverConfidence = resolverConfidence,
         )
 
-    private fun mark(text: String, bounds: IntArray): AccessibilityMark =
+    private fun mark(
+        text: String,
+        bounds: IntArray,
+        markId: String? = null,
+        role: String = "Button",
+    ): AccessibilityMark =
         AccessibilityMark(
-            role = "Button",
+            markId = markId,
+            role = role,
             text = text,
             bounds = bounds,
             clickable = true,

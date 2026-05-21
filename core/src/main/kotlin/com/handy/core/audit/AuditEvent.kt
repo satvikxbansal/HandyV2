@@ -25,6 +25,7 @@ data class AuditEvent(
     val userConfirmed: Boolean,
     val result: AuditResult,
     val failureReason: String? = null,
+    val verifiedBy: String? = null,
 )
 
 @Serializable
@@ -34,6 +35,7 @@ sealed class AuditAction {
     @Serializable @SerialName("manual_select") data object ManualSelect : AuditAction()
     @Serializable @SerialName("scroll") data class Scroll(val direction: String) : AuditAction()
     @Serializable @SerialName("swipe") data class Swipe(val direction: String) : AuditAction()
+    @Serializable @SerialName("type_text") data object TypeText : AuditAction()
     @Serializable @SerialName("intent") data class Intent(val name: String) : AuditAction()
 }
 

@@ -54,5 +54,8 @@ class SwitchingActionPerformer @Inject constructor(
     override suspend fun scroll(direction: ScrollDirection, target: TapTarget?): PerformResult =
         if (enabled()) real.scroll(direction, target) else noop.scroll(direction, target)
 
+    override suspend fun typeText(target: TapTarget, text: String): PerformResult =
+        if (enabled()) real.typeText(target, text) else noop.typeText(target, text)
+
     private fun enabled(): Boolean = gesturesEnabled
 }

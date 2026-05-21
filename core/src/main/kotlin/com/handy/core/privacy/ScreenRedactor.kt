@@ -49,6 +49,8 @@ object ScreenRedactor {
         )
     }
 
+    // Controlled typing uses this same path with diagnostics=true to
+    // fail closed before ACTION_SET_TEXT when proposed text would be masked.
     fun redactText(
         value: String?,
         context: String = "",

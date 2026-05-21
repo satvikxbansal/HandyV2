@@ -2,7 +2,9 @@ package com.handy.app.diagnostics
 
 import android.content.Intent
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -52,11 +54,12 @@ class AuditReviewActivityTest {
             }
         }
 
-        compose.onNodeWithText("com.example.target", substring = true).assertExists()
+        compose.onAllNodesWithText("com.example.target", substring = true)
+            .assertCountEquals(2)
         compose.onNodeWithText("Disable here").performClick()
         compose.onNodeWithText("Disabled here").assertExists()
 
-        compose.onNodeWithText("Report wrong tap").performClick()
+        compose.onNodeWithText("Report wrong action").performClick()
         compose.runOnIdle {
             assertThat(reported.value).isEqualTo(event)
         }
@@ -64,7 +67,7 @@ class AuditReviewActivityTest {
         val intent = createWrongTapFeedbackIntent(event)
         assertThat(intent.action).isEqualTo(Intent.ACTION_SEND)
         assertThat(intent.type).isEqualTo("text/plain")
-        assertThat(intent.getStringExtra(Intent.EXTRA_SUBJECT)).isEqualTo("Handy wrong tap report")
+        assertThat(intent.getStringExtra(Intent.EXTRA_SUBJECT)).isEqualTo("Handy wrong action report")
         assertThat(intent.getStringExtra(Intent.EXTRA_TEXT)).contains("request-review-test")
         assertThat(intent.getStringExtra(Intent.EXTRA_TEXT)).contains("com.example.target")
     }

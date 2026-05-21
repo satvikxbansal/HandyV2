@@ -12,6 +12,7 @@ import com.handy.core.overlay.OverlayPanelState
 import com.handy.core.overlay.PanelContent
 import com.handy.core.overlay.PanelSnapshot
 import com.handy.core.overlay.TapForMeConfirmation
+import com.handy.core.overlay.TapForMeConfirmationDecision
 import com.handy.core.prompts.QuickPromptCatalog
 import com.handy.core.tool.ToolContext
 import javax.inject.Inject
@@ -57,7 +58,7 @@ class OverlayPresenter @Inject constructor(
     val state: StateFlow<OverlayPanelState> = _state.asStateFlow()
     private val tapConfirmationIds = AtomicLong(1L)
     private val tapConfirmationContinuations =
-        mutableMapOf<Long, CancellableContinuation<Boolean>>()
+        mutableMapOf<Long, CancellableContinuation<TapForMeConfirmationDecision>>()
 
     private fun setState(
         event: String,
@@ -457,7 +458,45 @@ class OverlayPresenter @Inject constructor(
         confirmationLevel: com.handy.core.action.ConfirmationLevel,
         risk: com.handy.core.action.ActionRisk,
         reason: String?,
-    ): Boolean {
+    ): Boolean =
+        requestTapForMeConfirmationDecision(
+            targetLabel = targetLabel,
+            appLabel = appLabel,
+            packageName = packageName,
+            confirmationLevel = confirmationLevel,
+            risk = risk,
+            reason = reason,
+            typingText = null,
+        ).approved
+
+    suspend fun requestTypeForMeConfirmation(
+        targetLabel: String,
+        appLabel: String?,
+        packageName: String?,
+        confirmationLevel: com.handy.core.action.ConfirmationLevel,
+        risk: com.handy.core.action.ActionRisk,
+        reason: String?,
+        typingText: String,
+    ): String? =
+        requestTapForMeConfirmationDecision(
+            targetLabel = targetLabel,
+            appLabel = appLabel,
+            packageName = packageName,
+            confirmationLevel = confirmationLevel,
+            risk = risk,
+            reason = reason,
+            typingText = typingText,
+        ).takeIf { it.approved }?.typingText
+
+    private suspend fun requestTapForMeConfirmationDecision(
+        targetLabel: String,
+        appLabel: String?,
+        packageName: String?,
+        confirmationLevel: com.handy.core.action.ConfirmationLevel,
+        risk: com.handy.core.action.ActionRisk,
+        reason: String?,
+        typingText: String?,
+    ): TapForMeConfirmationDecision {
         val id = tapConfirmationIds.getAndIncrement()
         val request = TapForMeConfirmation(
             id = id,
@@ -467,6 +506,7 @@ class OverlayPresenter @Inject constructor(
             confirmationLevel = confirmationLevel,
             risk = risk,
             reason = reason,
+            typingText = typingText,
         )
         return suspendCancellableCoroutine { cont ->
             tapConfirmationContinuations[id] = cont
@@ -481,10 +521,17 @@ class OverlayPresenter @Inject constructor(
         }
     }
 
-    fun respondTapForMeConfirmation(id: Long, approved: Boolean) {
+    fun respondTapForMeConfirmation(id: Long, approved: Boolean, typingText: String? = null) {
         val cont = tapConfirmationContinuations.remove(id) ?: return
         clearTapForMeConfirmation(id)
-        if (cont.isActive) cont.resume(approved)
+        if (cont.isActive) {
+            cont.resume(
+                TapForMeConfirmationDecision(
+                    approved = approved,
+                    typingText = typingText,
+                ),
+            )
+        }
     }
 
     private fun clearTapForMeConfirmation(id: Long) {

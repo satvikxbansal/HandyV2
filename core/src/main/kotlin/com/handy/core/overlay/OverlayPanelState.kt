@@ -84,6 +84,12 @@ data class TapForMeConfirmation(
     val confirmationLevel: ConfirmationLevel,
     val risk: ActionRisk,
     val reason: String?,
+    val typingText: String? = null,
+)
+
+data class TapForMeConfirmationDecision(
+    val approved: Boolean,
+    val typingText: String? = null,
 )
 
 /**

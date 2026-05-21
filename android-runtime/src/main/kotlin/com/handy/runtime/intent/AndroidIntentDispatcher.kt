@@ -54,6 +54,9 @@ class AndroidIntentDispatcher(
         is AssistantAction.ShareUrl -> IntentResult.NeedsConfirmation(
             reason = "Share URL${action.title?.let { " \"$it\"" }.orEmpty()}?",
         )
+        is AssistantAction.TypeText -> IntentResult.Failed(
+            "type_text is handled by ActionPerformer, not dispatch_action",
+        )
     }
 
     /**

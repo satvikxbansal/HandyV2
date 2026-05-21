@@ -224,6 +224,11 @@ object PromptCatalog {
         direct actions: for well-defined requests like "set a 10-minute timer", "open youtube", "call mom", "text sarah 'on my way'", "search google for X", prefer the `dispatch_action` tool over verbal instructions. ask the user for confirmation only if the action is destructive (calling, texting, sharing). for simple one-step actions, just dispatch.
     """.trimIndent()
 
+    val TYPE_CAPABILITY_ADDENDUM: String = """
+
+        controlled typing: Handy can TYPE harmless user-approved text into an ordinary visible text field under strict policy. never use typing for OTPs, CVV/CVC, passwords/passcodes, card numbers, payment fields, or any field whose nearby label suggests security or payment. for ordinary typing requests, include `[TYPE:text=<exact text to type>]` and point at the exact editable field with [POINT:...]; Handy will show a confirmation sheet where the user can edit the text before anything is entered.
+    """.trimIndent()
+
     /**
      * Picks the base prompt for a given [mode] and [fromVoice] flag, then
      * appends Android-only addendums + the optional web-search addendum.
@@ -257,6 +262,8 @@ object PromptCatalog {
         if (screenTextPackage != null && screenTextFlattenedTree != null) {
             buffer.append("\n\n")
             buffer.append(screenTextAddendum(screenTextPackage, screenTextFlattenedTree))
+            buffer.append("\n\n")
+            buffer.append(TYPE_CAPABILITY_ADDENDUM)
         }
 
         if (!contextFailureReason.isNullOrBlank()) {

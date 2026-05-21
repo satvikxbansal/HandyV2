@@ -14,6 +14,7 @@ import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.WindowMetrics
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.lifecycleScope
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
@@ -462,6 +463,109 @@ class BuddyFlightDriver @Inject constructor(
             result = result.toAuditResult(),
             confirmationRequired = true,
             userConfirmed = true,
+        )
+        presenter.onActionFinished()
+        return result is PerformResult.Ok
+    }
+
+    suspend fun flyToAndType(
+        spec: AssistantMarkupParser.SemanticPoint,
+        text: String,
+        bubbleLabel: String?,
+        targetLabel: String?,
+        fallbackMarks: List<AccessibilityMark> = emptyList(),
+        groundingSnapshot: GroundingSnapshot? = null,
+    ): Boolean {
+        val flight = resolveForFlight(
+            spec = spec,
+            label = bubbleLabel,
+            fallbackMarks = fallbackMarks,
+            expectedPackage = groundingSnapshot?.toolContext?.packageName,
+            expectedWindowId = groundingSnapshot?.windowId,
+        ) ?: return false
+        val resolved = flight.resolved
+        val landed = try {
+            withContext(Dispatchers.Main.immediate) {
+                flyToBounds(
+                    service = flight.service,
+                    bounds = resolved.bounds,
+                    label = bubbleLabel,
+                    resolved = resolved,
+                    targetPackage = flight.targetPackage,
+                )
+            }
+        } finally {
+            resolved.node?.let { node -> runCatching { node.recycle() } }
+        }
+        if (!landed) return false
+
+        val displayLabel = targetLabel?.take(30) ?: "this field"
+        val typeTarget = buildTapTargetForResolved(spec, resolved, groundingSnapshot)
+        val grounding = groundingSnapshot ?: fallbackGroundingFor(flight, typeTarget)
+        val policyPackage = typeTarget.expectedPackage
+            ?: grounding.toolContext.packageName.takeIf { it.isNotBlank() }
+            ?: flight.targetPackage
+            ?: "unknown"
+        val decision = policyEngine.decide(
+            action = AssistantAction.TypeText(text),
+            target = typeTarget,
+            grounding = grounding,
+            sourceTrust = SourceTrust.TRUSTED_RECIPE,
+        )
+        if (!decision.allowed) {
+            val reason = decision.reason ?: "policy-denied"
+            auditTypeForMe(
+                typeTarget = typeTarget,
+                typedText = text,
+                targetPackage = policyPackage,
+                result = AuditResult.Failed(reason),
+                confirmationRequired = false,
+                userConfirmed = false,
+            )
+            dismissPointingAfterUserInteraction("policy:$reason")
+            return false
+        }
+
+        val confirmationLevel = when (decision.confirmation) {
+            ConfirmationLevel.NONE -> ConfirmationLevel.NORMAL
+            else -> decision.confirmation
+        }
+        val confirmedText = withTimeoutOrNull(TAP_CONFIRMATION_TIMEOUT_MS) {
+            presenter.requestTypeForMeConfirmation(
+                targetLabel = displayLabel,
+                appLabel = grounding.toolContext.appLabel,
+                packageName = policyPackage,
+                confirmationLevel = confirmationLevel,
+                risk = decision.risk,
+                reason = decision.reason,
+                typingText = text,
+            )
+        }
+        if (confirmedText == null) {
+            auditTypeForMe(
+                typeTarget = typeTarget,
+                typedText = text,
+                targetPackage = policyPackage,
+                result = AuditResult.Cancelled,
+                confirmationRequired = true,
+                userConfirmed = false,
+            )
+            dismissPointingAfterUserInteraction("type_confirmation_cancelled")
+            return false
+        }
+
+        presenter.onActionStarted("typing in $displayLabel")
+        val result = runCatching {
+            actionPerformer.typeText(typeTarget, confirmedText)
+        }.onFailure { Timber.w(it, "BuddyFlightDriver type failed") }.getOrNull()
+        auditTypeForMe(
+            typeTarget = typeTarget,
+            typedText = confirmedText,
+            targetPackage = policyPackage,
+            result = result.toAuditResult("type failed"),
+            confirmationRequired = true,
+            userConfirmed = true,
+            verifiedBy = if (result is PerformResult.Ok) "text-changed" else null,
         )
         presenter.onActionFinished()
         return result is PerformResult.Ok
@@ -973,6 +1077,14 @@ class BuddyFlightDriver @Inject constructor(
         null -> AuditResult.Failed("tap failed")
     }
 
+    private fun PerformResult?.toAuditResult(defaultFailure: String): AuditResult = when (this) {
+        PerformResult.Ok -> AuditResult.Dispatched(component = "type-for-me")
+        PerformResult.NotFound -> AuditResult.NotFound
+        is PerformResult.Unsupported -> AuditResult.NotPermitted
+        is PerformResult.Failed -> AuditResult.Failed(reason)
+        null -> AuditResult.Failed(defaultFailure)
+    }
+
     private fun TapTarget.AtNode.auditDescription(): String = buildString {
         val context = listOfNotNull(role, text, viewId, desc, expectedPackage, snapshotHash)
             .joinToString(" ")
@@ -988,6 +1100,18 @@ class BuddyFlightDriver @Inject constructor(
         expectedWindowId?.let { append("expectedWindowId=$it;") }
         appendAuditPart("snapshotHash", snapshotHash, context)
     }.trimEnd(';')
+
+    private fun TapTarget.AtNode.auditDescriptionWithInput(typedText: String): String {
+        val context = listOfNotNull(role, text, viewId, desc, expectedPackage, snapshotHash)
+            .joinToString(" ")
+        val redactedInput = ScreenRedactor.redactText(
+            value = typedText,
+            context = context,
+            isPassword = context.contains("password", ignoreCase = true),
+            diagnostics = true,
+        ) ?: ""
+        return "${auditDescription()};input=$redactedInput"
+    }
 
     private fun StringBuilder.appendAuditPart(
         name: String,
@@ -1023,6 +1147,32 @@ class BuddyFlightDriver @Inject constructor(
         )
         runCatching { auditStore.append(event) }
             .onFailure { Timber.w(it, "AuditStore manual selection append failed") }
+    }
+
+    private suspend fun auditTypeForMe(
+        typeTarget: TapTarget.AtNode,
+        typedText: String,
+        targetPackage: String?,
+        result: AuditResult,
+        confirmationRequired: Boolean,
+        userConfirmed: Boolean,
+        verifiedBy: String? = null,
+    ) {
+        val event = AuditEvent(
+            timestampEpochMs = System.currentTimeMillis(),
+            requestId = java.util.UUID.randomUUID().toString(),
+            provider = "tap-for-me",
+            action = AuditAction.TypeText,
+            targetApp = targetPackage ?: typeTarget.expectedPackage ?: "unknown",
+            semanticTarget = typeTarget.auditDescriptionWithInput(typedText),
+            confirmationRequired = confirmationRequired,
+            userConfirmed = userConfirmed,
+            result = result,
+            failureReason = (result as? AuditResult.Failed)?.reason,
+            verifiedBy = verifiedBy,
+        )
+        runCatching { auditStore.append(event) }
+            .onFailure { Timber.w(it, "AuditStore type-for-me append failed") }
     }
 
     private companion object {
@@ -1268,6 +1418,7 @@ private fun IntRect.logSummary(): String =
 
 private fun Rect.toIntRect(): IntRect = IntRect(left, top, right, bottom)
 
+@RequiresApi(Build.VERSION_CODES.R)
 private fun WindowMetrics.toFlightViewport(avoidBounds: List<IntRect>): FlightViewport {
     val insetTypes = WindowInsets.Type.systemBars() or
         WindowInsets.Type.displayCutout() or

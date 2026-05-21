@@ -97,7 +97,7 @@ class AuditReviewActivity : ComponentActivity() {
                     onDisablePackage = viewModel::disablePackage,
                     onReportWrongTap = { event ->
                         val send = createWrongTapFeedbackIntent(event)
-                        startActivity(Intent.createChooser(send, "Report wrong tap"))
+                        startActivity(Intent.createChooser(send, "Report wrong action"))
                     },
                     onBack = { finish() },
                 )
@@ -358,6 +358,15 @@ private fun AuditReviewRow(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        event.verifiedBy?.let { verifiedBy ->
+            Text(
+                text = "Verified by $verifiedBy",
+                style = HandyType.CaptionSmall,
+                color = HandyColors.Success,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         Text(
             text = event.redactedTargetLine(),
             style = HandyType.CaptionSmall,
@@ -376,7 +385,7 @@ private fun AuditReviewRow(
                 onClick = { onDisablePackage(event.targetApp) },
             )
             ReviewPillButton(
-                text = "Report wrong tap",
+                text = "Report wrong action",
                 enabled = true,
                 danger = false,
                 onClick = { onReportWrongTap(event) },
@@ -417,18 +426,19 @@ private fun ReviewPillButton(
 internal fun createWrongTapFeedbackIntent(event: AuditEvent): Intent =
     Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(Intent.EXTRA_SUBJECT, "Handy wrong tap report")
+        putExtra(Intent.EXTRA_SUBJECT, "Handy wrong action report")
         putExtra(Intent.EXTRA_TEXT, event.feedbackBody())
     }
 
 private fun AuditEvent.feedbackBody(): String = buildString {
-    appendLine("Wrong tap report")
+    appendLine("Wrong action report")
     appendLine("requestId=$requestId")
     appendLine("provider=$provider")
     appendLine("action=${action.displayName()}")
     appendLine("result=${result.displayName()}")
     appendLine("target=${redactedTargetLine()}")
     failureReason?.let { appendLine("failureReason=$it") }
+    verifiedBy?.let { appendLine("verifiedBy=$it") }
 }
 
 private fun AuditAction.displayName(): String = when (this) {
@@ -437,6 +447,7 @@ private fun AuditAction.displayName(): String = when (this) {
     AuditAction.ManualSelect -> "Manual select"
     is AuditAction.Scroll -> "Scroll ${direction.lowercase()}"
     is AuditAction.Swipe -> "Swipe ${direction.lowercase()}"
+    AuditAction.TypeText -> "Type text"
     is AuditAction.Intent -> "Intent $name"
 }
 

@@ -24,6 +24,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -53,16 +54,18 @@ private const val HOLD_TO_CONFIRM_MS = 1_000L
 @Composable
 fun TapForMeConfirmationSheet(
     request: TapForMeConfirmation,
-    onDecision: (Boolean) -> Unit,
+    onDecision: (Boolean, String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var completed by remember(request.id) { mutableStateOf(false) }
     var timeoutProgress by remember(request.id) { mutableStateOf(1f) }
+    var editableTypingText by remember(request.id) { mutableStateOf(request.typingText.orEmpty()) }
+    val isTyping = request.typingText != null
 
     fun decide(approved: Boolean) {
         if (completed) return
         completed = true
-        onDecision(approved)
+        onDecision(approved, editableTypingText.takeIf { isTyping })
     }
 
     LaunchedEffect(request.id) {
@@ -119,14 +122,24 @@ fun TapForMeConfirmationSheet(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(R.string.tap_for_me_sheet_title),
+                        text = stringResource(
+                            if (isTyping) {
+                                R.string.tap_for_me_sheet_type_title
+                            } else {
+                                R.string.tap_for_me_sheet_title
+                            },
+                        ),
                         style = HandyType.TitleMedium,
                         color = HandyColors.TextPrimary,
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = stringResource(
-                            R.string.tap_for_me_sheet_body,
+                            if (isTyping) {
+                                R.string.tap_for_me_sheet_type_body
+                            } else {
+                                R.string.tap_for_me_sheet_body
+                            },
                             request.targetLabel,
                             request.appLabel ?: request.packageName ?: stringResource(R.string.tap_for_me_sheet_this_app),
                         ),
@@ -142,6 +155,16 @@ fun TapForMeConfirmationSheet(
                         )
                     }
                 }
+            }
+
+            if (isTyping) {
+                OutlinedTextField(
+                    value = editableTypingText,
+                    onValueChange = { editableTypingText = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = HandyType.Body,
+                    maxLines = 4,
+                )
             }
 
             Box(
@@ -176,7 +199,13 @@ fun TapForMeConfirmationSheet(
                     )
                 } else {
                     PrimaryDecisionButton(
-                        text = stringResource(R.string.tap_for_me_sheet_confirm),
+                        text = stringResource(
+                            if (isTyping) {
+                                R.string.tap_for_me_sheet_type_confirm
+                            } else {
+                                R.string.tap_for_me_sheet_confirm
+                            },
+                        ),
                         onClick = { decide(true) },
                         modifier = Modifier.weight(1f),
                     )

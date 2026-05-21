@@ -541,8 +541,8 @@ class FloatingWidgetOverlayService : LifecycleService() {
             overlayState.tapForMeConfirmation?.let { request ->
                 TapForMeConfirmationSheet(
                     request = request,
-                    onDecision = { approved ->
-                        presenter.respondTapForMeConfirmation(request.id, approved)
+                    onDecision = { approved, typingText ->
+                        presenter.respondTapForMeConfirmation(request.id, approved, typingText)
                     },
                 )
             }

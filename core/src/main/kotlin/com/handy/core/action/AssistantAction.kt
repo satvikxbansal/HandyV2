@@ -93,6 +93,10 @@ sealed class AssistantAction {
     @SerialName("share_url")
     data class ShareUrl(val url: String, val title: String? = null) : AssistantAction()
 
+    @Serializable
+    @SerialName("type_text")
+    data class TypeText(val text: String) : AssistantAction()
+
     /** Subset that requires explicit user confirmation before dispatching. */
     val isDestructive: Boolean
         get() = when (this) {

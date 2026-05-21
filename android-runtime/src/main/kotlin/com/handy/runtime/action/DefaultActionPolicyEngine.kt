@@ -11,6 +11,7 @@ import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
 import com.handy.core.model.HandySettings
 import com.handy.core.overlay.AccessibilityMark
+import com.handy.core.privacy.ScreenRedactor
 import com.handy.core.screen.CaptureResult
 import com.handy.core.screen.ContextFailureReason
 import com.handy.core.screen.GroundingSnapshot
@@ -68,6 +69,10 @@ class DefaultActionPolicyEngine(
 
         if (sourceTrust == SourceTrust.UNTRUSTED_TOOL) {
             return denied(ActionRisk.HIGH, "tool-suggestion-only")
+        }
+
+        if (action is AssistantAction.TypeText && action.typeTextBlockedByPrivacy(target, grounding)) {
+            return denied(ActionRisk.CRITICAL, "sensitive-field")
         }
 
         if (action.hasSensitiveData() || target.looksSensitive(grounding)) {
@@ -162,6 +167,7 @@ class DefaultActionPolicyEngine(
         is AssistantAction.ComposeSms -> listOfNotNull(to, body).joinToString(" ").containsSensitiveData()
         is AssistantAction.ShareText -> text.containsSensitiveData()
         is AssistantAction.ShareUrl -> listOfNotNull(url, title).joinToString(" ").containsSensitiveData()
+        is AssistantAction.TypeText -> text.containsSensitiveData()
         else -> false
     }
 
@@ -247,6 +253,79 @@ class DefaultActionPolicyEngine(
             CARD_LIKE_REGEX.containsMatchIn(text)
     }
 
+    private fun AssistantAction.TypeText.typeTextBlockedByPrivacy(
+        target: TapTarget?,
+        grounding: GroundingSnapshot,
+    ): Boolean {
+        val context = target.typingPrivacyContext(grounding)
+        return text.wouldBeRedactedInTypingContext(context) ||
+            text.isPureShortCode() ||
+            text.containsSensitiveData() ||
+            context.containsAny(TYPE_SENSITIVE_NEARBY_TERMS)
+    }
+
+    private fun String.wouldBeRedactedInTypingContext(context: String): Boolean {
+        val raw = trim().takeIf { it.isNotEmpty() } ?: return false
+        val redacted = ScreenRedactor.redactText(
+            value = raw,
+            context = context,
+            isPassword = context.containsPasswordContext(),
+            diagnostics = true,
+        ) ?: return false
+        return redacted != raw
+    }
+
+    private fun TapTarget?.typingPrivacyContext(grounding: GroundingSnapshot): String {
+        val node = this as? TapTarget.AtNode
+        val ownContext = listOfNotNull(
+            node?.role,
+            node?.text,
+            node?.viewId,
+            node?.desc,
+            grounding.screenText?.windowTitle,
+        )
+        val nearby = node.nearbyLabels(grounding)
+        return (ownContext + nearby).joinToString(" ")
+    }
+
+    private fun TapTarget.AtNode?.nearbyLabels(grounding: GroundingSnapshot): List<String> {
+        this ?: return emptyList()
+        val marks = grounding.panelSnapshot?.marks.orEmpty()
+        if (marks.isEmpty()) return emptyList()
+        val targetMarkId = markId?.takeIf { it.isNotBlank() }
+        val targetViewId = viewId?.takeIf { it.isNotBlank() }
+        val targetText = text?.takeIf { it.isNotBlank() }
+        val targetDesc = desc?.takeIf { it.isNotBlank() }
+        val targetMark = marks.firstOrNull { mark ->
+            (targetMarkId != null && mark.markId.equalsNormalized(targetMarkId)) ||
+                (targetViewId != null && mark.viewIdSuffix.equalsViewId(targetViewId)) ||
+                (targetText != null && mark.text.equalsNormalized(targetText)) ||
+                (targetDesc != null && mark.contentDescription.equalsNormalized(targetDesc))
+        } ?: return emptyList()
+        return marks
+            .asSequence()
+            .filter { it !== targetMark && it.isNearbyLabelFor(targetMark) }
+            .flatMap { mark ->
+                sequenceOf(mark.text, mark.contentDescription, mark.viewIdSuffix, mark.role)
+                    .filterNotNull()
+            }
+            .toList()
+    }
+
+    private fun AccessibilityMark.isNearbyLabelFor(target: AccessibilityMark): Boolean {
+        val verticalGap = when {
+            bottom < target.top -> target.top - bottom
+            top > target.bottom -> top - target.bottom
+            else -> 0
+        }
+        if (verticalGap > NEARBY_LABEL_MAX_GAP_PX) return false
+        val horizontalOverlap = minOf(right, target.right) > maxOf(left, target.left)
+        val leftLabel = right <= target.left && target.left - right <= NEARBY_LABEL_MAX_LEFT_GAP_PX
+        val aboveOrBelow = horizontalOverlap && (bottom <= target.top || top >= target.bottom)
+        val sameRow = verticalGap == 0 && (leftLabel || horizontalOverlap)
+        return aboveOrBelow || sameRow
+    }
+
     private fun TapTarget?.isBetaBlocked(): Boolean {
         val node = this as? TapTarget.AtNode ?: return false
         val text = listOfNotNull(node.text, node.viewId, node.desc).joinToString(" ")
@@ -277,6 +356,25 @@ class DefaultActionPolicyEngine(
             "send money",
         )
 
+        val TYPE_SENSITIVE_NEARBY_TERMS = listOf(
+            "otp",
+            "one time",
+            "one-time",
+            "verification",
+            "verify",
+            "cvv",
+            "cvc",
+            "security code",
+            "password",
+            "passcode",
+            "card",
+            "credit",
+            "debit",
+        )
+
+        const val NEARBY_LABEL_MAX_GAP_PX: Int = 96
+        const val NEARBY_LABEL_MAX_LEFT_GAP_PX: Int = 240
+
     }
 }
 
@@ -297,9 +395,17 @@ private fun String.containsAny(needles: List<String>): Boolean =
 private fun String.containsSensitiveData(): Boolean =
     containsAny(SENSITIVE_TERMS) || CARD_LIKE_REGEX.containsMatchIn(this)
 
+private fun String.isPureShortCode(): Boolean =
+    TYPE_SHORT_CODE_REGEX.matches(trim())
+
 private fun String.isSubmitPersonalData(): Boolean =
     contains("submit", ignoreCase = true) &&
         PERSONAL_DATA_TERMS.any { contains(it, ignoreCase = true) }
+
+private fun String.containsPasswordContext(): Boolean =
+    contains("password", ignoreCase = true) ||
+        contains("passcode", ignoreCase = true) ||
+        Regex("""\bpwd\b""", RegexOption.IGNORE_CASE).containsMatchIn(this)
 
 private val PERSONAL_DATA_TERMS = listOf(
     "personal data",
@@ -332,3 +438,4 @@ private val SENSITIVE_TERMS = listOf(
 )
 
 private val CARD_LIKE_REGEX = Regex("""\b(?:\d[ -]?){13,19}\b""")
+private val TYPE_SHORT_CODE_REGEX = Regex("""\d{3,8}""")

@@ -23,6 +23,9 @@ class NoopActionPerformer : ActionPerformer {
     override suspend fun scroll(direction: ScrollDirection, target: TapTarget?): PerformResult =
         unsupported("scroll($direction)", target)
 
+    override suspend fun typeText(target: TapTarget, text: String): PerformResult =
+        unsupported("typeText", target)
+
     private fun unsupported(action: String, target: TapTarget?): PerformResult {
         Timber.tag("handy-action").i("ActionPerformer noop: %s target=%s", action, target)
         return PerformResult.Unsupported("enable tap-for-me in settings — v2")

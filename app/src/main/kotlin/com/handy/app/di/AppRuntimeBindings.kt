@@ -13,6 +13,7 @@ import com.handy.core.foreground.ForegroundAppMonitor
 import com.handy.core.llm.ConfirmationPrompter
 import com.handy.runtime.accessibility.AccessibilityMarksProvider
 import com.handy.runtime.accessibility.AccessibilityTreeReader
+import com.handy.runtime.accessibility.ActionEventObserver
 import com.handy.runtime.accessibility.LiveScreenGuard
 import com.handy.runtime.accessibility.SemanticPointerResolver
 import com.handy.runtime.capture.MediaProjectionCaptureSourceImpl
@@ -87,12 +88,14 @@ object AppRuntimeBindings {
         accessibilityProvider: AccessibilityServiceProvider,
         resolver: SemanticPointerResolver,
         liveScreenGuard: LiveScreenGuard,
+        actionEventObserver: ActionEventObserver,
         auditStore: AuditStore,
         foregroundMonitor: HandyForegroundAppMonitor,
     ): AccessibilityGestureActionPerformer = AccessibilityGestureActionPerformer(
         service = accessibilityProvider,
         resolver = resolver,
         liveScreenGuard = liveScreenGuard,
+        actionEventObserver = actionEventObserver,
         auditStore = auditStore,
         foregroundPackageProvider = {
             foregroundMonitor.refreshNow()?.packageName

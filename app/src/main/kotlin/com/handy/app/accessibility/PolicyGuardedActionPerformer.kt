@@ -40,13 +40,23 @@ class PolicyGuardedActionPerformer @Inject constructor(
             delegate.scroll(direction, target)
         }
 
+    override suspend fun typeText(target: TapTarget, text: String): PerformResult =
+        guard(kind = "type_text", target = target, text = text) {
+            delegate.typeText(target, text)
+        }
+
     private suspend fun guard(
         kind: String,
         target: TapTarget?,
+        text: String? = null,
         perform: suspend () -> PerformResult,
     ): PerformResult {
         val grounding = liveGroundingFor(target)
-        val action = AssistantAction.OpenApp(packageHint = target.packageNameOrNull() ?: grounding.toolContext.packageName)
+        val action = if (kind == "type_text") {
+            AssistantAction.TypeText(text.orEmpty())
+        } else {
+            AssistantAction.OpenApp(packageHint = target.packageNameOrNull() ?: grounding.toolContext.packageName)
+        }
         val decision = policyEngine.decide(
             action = action,
             target = target,
@@ -64,7 +74,7 @@ class PolicyGuardedActionPerformer @Inject constructor(
         }
 
         val result = perform()
-        if (result is PerformResult.Ok) {
+        if (result is PerformResult.Ok && kind != "type_text") {
             runCatching {
                 learnedAllowlistStore.recordSuccess(target.packageNameOrNull() ?: grounding.toolContext.packageName)
             }.onFailure { Timber.w(it, "LearnedAllowlistStore record failed for %s", kind) }

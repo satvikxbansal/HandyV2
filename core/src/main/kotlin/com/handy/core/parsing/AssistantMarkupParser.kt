@@ -30,6 +30,9 @@ object AssistantMarkupParser {
     /** Any `[POINT:...]` tag — used by [stripPointTags]. */
     private val anyPointTagRegex = Regex("""\[POINT:[^\]]*\]""")
 
+    /** Any controlled typing tag. Paired with a semantic `[POINT:...]` target. */
+    private val anyTypeTagRegex = Regex("""\[TYPE:text=[^\]]*\]""")
+
     /** Full `[SPOKEN]` tags are internal control markup, never UI copy. */
     private val anySpokenTagRegex = Regex(
         pattern = """\[/?SPOKEN\]""",
@@ -38,7 +41,12 @@ object AssistantMarkupParser {
 
     /** Streaming can expose an unfinished control tag; hide it until complete. */
     private val trailingPartialControlTagRegex = Regex(
-        pattern = """\s*\[(?:/?SPOKEN|POINT:[^\]]*)$""",
+        pattern = """\s*\[(?:/?SPOKEN|POINT:[^\]]*|TYPE:text=[^\]]*)$""",
+        option = RegexOption.IGNORE_CASE,
+    )
+
+    private val typeTextRegex = Regex(
+        pattern = """\[TYPE:text=([^\]]*)\]""",
         option = RegexOption.IGNORE_CASE,
     )
 
@@ -76,6 +84,7 @@ object AssistantMarkupParser {
      */
     fun stripPointTags(text: String): String {
         var result = anyPointTagRegex.replace(text, "")
+        result = anyTypeTagRegex.replace(result, "")
         while (result.contains("\n\n\n")) {
             result = result.replace("\n\n\n", "\n\n")
         }
@@ -89,6 +98,7 @@ object AssistantMarkupParser {
      */
     fun stripDisplayMarkup(text: String): String {
         var result = anyPointTagRegex.replace(text, "")
+        result = anyTypeTagRegex.replace(result, "")
         result = anySpokenTagRegex.replace(result, "")
         result = trailingPartialControlTagRegex.replace(result, "")
         while (result.contains("\n\n\n")) {
@@ -119,6 +129,7 @@ object AssistantMarkupParser {
         val pixel: PixelPoint? = null,
         val semantic: SemanticPoint? = null,
         val isNone: Boolean = false,
+        val typeText: String? = null,
         val cleanedText: String = "",
     ) {
         val hasPointer: Boolean
@@ -154,12 +165,13 @@ object AssistantMarkupParser {
      */
     fun parsePoint(text: String): PointingResult {
         val cleaned = stripPointTags(text)
+        val typeText = parseTypeText(text)
 
         // Semantic first (v1 contract).
         semanticPointRegex.findAll(text).lastOrNull()?.let { match ->
             val body = match.value
             if (body.replace(" ", "").lowercase() == "[point:none]") {
-                return PointingResult(isNone = true, cleanedText = cleaned)
+                return PointingResult(isNone = true, typeText = typeText, cleanedText = cleaned)
             }
             val inner = match.groupValues[1]
             val pairs = parseKeyValuePairs(inner)
@@ -186,7 +198,7 @@ object AssistantMarkupParser {
                 null
             }
             if (semantic != null) {
-                return PointingResult(semantic = semantic, cleanedText = cleaned)
+                return PointingResult(semantic = semantic, typeText = typeText, cleanedText = cleaned)
             }
         }
 
@@ -194,7 +206,7 @@ object AssistantMarkupParser {
         pixelPointRegex.findAll(text).lastOrNull()?.let { match ->
             val body = match.value
             if (body.replace(" ", "").lowercase() == "[point:none]") {
-                return PointingResult(isNone = true, cleanedText = cleaned)
+                return PointingResult(isNone = true, typeText = typeText, cleanedText = cleaned)
             }
             val x = match.groupValues.getOrNull(1)?.toIntOrNull()
             val y = match.groupValues.getOrNull(2)?.toIntOrNull()
@@ -203,13 +215,22 @@ object AssistantMarkupParser {
             if (x != null && y != null) {
                 return PointingResult(
                     pixel = PixelPoint(x = x, y = y, label = label, screenNumber = screen),
+                    typeText = typeText,
                     cleanedText = cleaned,
                 )
             }
         }
 
-        return PointingResult(cleanedText = cleaned)
+        return PointingResult(typeText = typeText, cleanedText = cleaned)
     }
+
+    private fun parseTypeText(text: String): String? =
+        typeTextRegex.findAll(text)
+            .lastOrNull()
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
 
     /**
      * Extract [SPOKEN]...[/SPOKEN]. Returns (spoken, display) where

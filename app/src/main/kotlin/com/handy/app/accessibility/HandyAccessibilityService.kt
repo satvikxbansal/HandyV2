@@ -7,6 +7,7 @@ import com.handy.app.foreground.HandyForegroundAppMonitor
 import com.handy.app.overlay.BuddyFlightDriver
 import com.handy.app.overlay.ManualTargetSelector
 import com.handy.core.action.ActionExecutionGate
+import com.handy.runtime.accessibility.ActionEventObserver
 import com.handy.runtime.di.ApplicationScope
 import com.handy.runtime.storage.DataStoreSettings
 import dagger.hilt.android.AndroidEntryPoint
@@ -50,6 +51,7 @@ class HandyAccessibilityService : AccessibilityService() {
     @Inject lateinit var stateMonitor: AccessibilityStateMonitor
     @Inject lateinit var flightDriver: BuddyFlightDriver
     @Inject lateinit var manualTargetSelector: ManualTargetSelector
+    @Inject lateinit var actionEventObserver: ActionEventObserver
     @Inject lateinit var settings: DataStoreSettings
     @Inject @ApplicationScope lateinit var appScope: CoroutineScope
 
@@ -103,6 +105,7 @@ class HandyAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
         if (manualTargetSelector.handleAccessibilityEvent(event)) return
+        actionEventObserver.onAccessibilityEvent(event)
         maybeCancelStaleFlightTarget(event)
         if (!manualTargetSelector.isActive) {
             maybeDismissStickyPointer(event)

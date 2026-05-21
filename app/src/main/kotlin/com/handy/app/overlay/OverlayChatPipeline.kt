@@ -222,13 +222,25 @@ class OverlayChatPipeline @Inject constructor(
                 presenter.dismissPanel()
                 delay(PANEL_DISMISS_BEFORE_FLIGHT_MS)
                 val landed = runCatching {
-                    flightDriver.flyToAndTap(
-                        spec = spec,
-                        bubbleLabel = bubbleLabel,
-                        targetLabel = targetLabel,
-                        fallbackMarks = groundedSnapshot?.marks.orEmpty(),
-                        groundingSnapshot = turnContext,
-                    )
+                    val typeText = pointing?.typeText
+                    if (!typeText.isNullOrBlank()) {
+                        flightDriver.flyToAndType(
+                            spec = spec,
+                            text = typeText,
+                            bubbleLabel = bubbleLabel,
+                            targetLabel = targetLabel,
+                            fallbackMarks = groundedSnapshot?.marks.orEmpty(),
+                            groundingSnapshot = turnContext,
+                        )
+                    } else {
+                        flightDriver.flyToAndTap(
+                            spec = spec,
+                            bubbleLabel = bubbleLabel,
+                            targetLabel = targetLabel,
+                            fallbackMarks = groundedSnapshot?.marks.orEmpty(),
+                            groundingSnapshot = turnContext,
+                        )
+                    }
                 }
                     .onFailure { Timber.w(it, "buddy flight failed") }
                     .getOrDefault(false)
