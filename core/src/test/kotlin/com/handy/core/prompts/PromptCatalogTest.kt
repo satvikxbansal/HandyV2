@@ -137,6 +137,20 @@ class PromptCatalogTest {
         assertThat(prompt).doesNotContain("[POINT:x,y:label]")
     }
 
+    @Test fun `quick overlay prompt uses recipe directives instead of raw executable plans`() {
+        val prompt = PromptCatalog.buildSystemPrompt(
+            mode = AssistantMode.HELP_ONLY,
+            fromVoice = false,
+            webSearchEnabled = false,
+            hasBraveKey = false,
+            quickOverlayResponse = true,
+        )
+        assertThat(prompt).contains("agent-mode recipes:")
+        assertThat(prompt).contains("use recipe <recipe_id> with args")
+        assertThat(prompt).contains("never emit raw executable plans")
+        assertThat(prompt).contains("Handy will re-check policy on a fresh snapshot before every step")
+    }
+
     @Test fun `buildSystemPrompt appends context failure addendum`() {
         val prompt = PromptCatalog.buildSystemPrompt(
             mode = AssistantMode.HELP_ONLY,

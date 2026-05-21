@@ -229,6 +229,23 @@ object PromptCatalog {
         controlled typing: Handy can TYPE harmless user-approved text into an ordinary visible text field under strict policy. never use typing for OTPs, CVV/CVC, passwords/passcodes, card numbers, payment fields, or any field whose nearby label suggests security or payment. for ordinary typing requests, include `[TYPE:text=<exact text to type>]` and point at the exact editable field with [POINT:...]; Handy will show a confirmation sheet where the user can edit the text before anything is entered.
     """.trimIndent()
 
+    val AGENT_RECIPE_ADDENDUM: String = """
+
+        agent-mode recipes:
+        for multi-step ui work, you may choose ONLY a named deterministic recipe with json arguments. never emit raw executable plans, numbered tap/type/scroll steps, or multiple [POINT] tags for Handy to execute.
+
+        if a recipe fits, write a short user-facing sentence, then include exactly one directive:
+        use recipe <recipe_id> with args {"key":"value"}
+
+        available recipes:
+        - tap_visible: args may include label, target, markId, role, viewId, or desc.
+        - type_visible: args include field or label, plus text.
+        - search_visible: args include query, plus optional field and submit.
+        - scroll_visible: args include direction as up, down, left, or right.
+
+        never use recipes for payment, checkout, buying, deleting, sending money, password/passcode/otp/cvv entry, or anything that submits private or financial data. for those, explain that the user needs to do it themselves. recipes are only proposals; Handy will re-check policy on a fresh snapshot before every step and will ask the user before the plan and every sensitive step.
+    """.trimIndent()
+
     /**
      * Picks the base prompt for a given [mode] and [fromVoice] flag, then
      * appends Android-only addendums + the optional web-search addendum.
@@ -274,6 +291,8 @@ object PromptCatalog {
         if (quickOverlayResponse) {
             buffer.append("\n\n")
             buffer.append(quickOverlayAddendum())
+            buffer.append("\n\n")
+            buffer.append(AGENT_RECIPE_ADDENDUM)
         }
 
         if (intentToolEnabled) {

@@ -22,6 +22,7 @@ import androidx.dynamicanimation.animation.SpringForce
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.handy.app.HandyApplication
+import com.handy.app.agent.AgentSessionController
 import com.handy.app.chat.ChatActivity
 import com.handy.app.chat.ChatTargetHandoffStore
 import com.handy.app.voice.VoiceController
@@ -75,9 +76,11 @@ class FloatingWidgetOverlayService : LifecycleService() {
     @Inject lateinit var flightDriver: BuddyFlightDriver
     @Inject lateinit var chatTargetHandoffStore: ChatTargetHandoffStore
     @Inject lateinit var manualTargetSelector: ManualTargetSelector
+    @Inject lateinit var agentSessionController: AgentSessionController
 
     private var host: OverlayComposeHost? = null
     private var bubbleHost: OverlayComposeHost? = null
+    private var agentProgressHost: OverlayComposeHost? = null
     private var manualChipHost: OverlayComposeHost? = null
     private var candidateChipsHost: OverlayComposeHost? = null
     private var tapConfirmationHost: OverlayComposeHost? = null
@@ -90,12 +93,14 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private var dockY: Int = 0
     private var view: android.view.View? = null
     private var bubbleView: android.view.View? = null
+    private var agentProgressView: android.view.View? = null
     private var manualChipView: android.view.View? = null
     private var candidateChipsView: android.view.View? = null
     private var tapConfirmationView: android.view.View? = null
     private lateinit var windowManager: WindowManager
     private lateinit var params: WindowManager.LayoutParams
     private var bubbleParams: WindowManager.LayoutParams? = null
+    private var agentProgressParams: WindowManager.LayoutParams? = null
     private var manualChipParams: WindowManager.LayoutParams? = null
     private var candidateChipsParams: WindowManager.LayoutParams? = null
     private var tapConfirmationParams: WindowManager.LayoutParams? = null
@@ -239,6 +244,19 @@ class FloatingWidgetOverlayService : LifecycleService() {
         }
 
         lifecycleScope.launch {
+            agentSessionController.progress
+                .map { it.visible }
+                .distinctUntilChanged()
+                .collectLatest { visible ->
+                    if (visible) {
+                        attachAgentProgressOverlayIfNeeded()
+                    } else {
+                        detachAgentProgressOverlay()
+                    }
+                }
+        }
+
+        lifecycleScope.launch {
             presenter.state
                 .map {
                     it.mode == OverlayMode.Pointing &&
@@ -372,6 +390,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
 
     private fun detachOverlay() {
         detachBubbleOverlay()
+        detachAgentProgressOverlay()
         detachManualFallbackChip()
         detachCandidateChips()
         detachTapConfirmationOverlay()
@@ -425,6 +444,52 @@ class FloatingWidgetOverlayService : LifecycleService() {
         bubbleView = null
         bubbleHost = null
         bubbleParams = null
+        if (v != null) runCatching { windowManager.removeView(v) }
+        h?.release()
+    }
+
+    private fun attachAgentProgressOverlayIfNeeded() {
+        if (agentProgressView != null) {
+            updateAgentProgressPosition()
+            return
+        }
+        val host = OverlayComposeHost(this).also { agentProgressHost = it }
+        val composeView = host.createView {
+            val progress by agentSessionController.progress.collectAsState()
+            AgentProgressBubble(progress)
+        }
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            bubbleFlags(),
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = params.x
+            y = params.y
+        }
+        agentProgressParams = lp
+        runCatching { windowManager.addView(composeView, lp) }
+            .onSuccess {
+                agentProgressView = composeView
+                applyOverlayVisibility()
+                composeView.post { updateAgentProgressPosition() }
+            }
+            .onFailure {
+                Timber.e(it, "Agent progress overlay attach failed")
+                agentProgressHost = null
+                agentProgressParams = null
+                host.release()
+            }
+    }
+
+    private fun detachAgentProgressOverlay() {
+        val v = agentProgressView
+        val h = agentProgressHost
+        agentProgressView = null
+        agentProgressHost = null
+        agentProgressParams = null
         if (v != null) runCatching { windowManager.removeView(v) }
         h?.release()
     }
@@ -634,6 +699,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
                     params.y = (windowStartY + dy.toInt()).coerceIn(0, screenH - (v.height.takeIf { it > 0 } ?: 1))
                     runCatching { windowManager.updateViewLayout(v, params) }
                     updateBubblePosition()
+                    updateAgentProgressPosition()
                     updateManualChipPosition()
                     updateCandidateChipsPosition()
                 }
@@ -726,6 +792,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
                 params.x = value.toInt()
                 runCatching { windowManager.updateViewLayout(v, params) }
                 updateBubblePosition()
+                updateAgentProgressPosition()
                 updateManualChipPosition()
                 updateCandidateChipsPosition()
             }
@@ -745,6 +812,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
         params.y = y
         runCatching { windowManager.updateViewLayout(v, params) }
         updateBubblePosition()
+        updateAgentProgressPosition()
         updateManualChipPosition()
         updateCandidateChipsPosition()
     }
@@ -793,6 +861,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
             else -> BubblePlacementHint.Side
         }
         updateBubblePosition()
+        updateAgentProgressPosition()
     }
 
     /** Current buddy dock coordinates (top-left of widget window). */
@@ -914,6 +983,27 @@ class FloatingWidgetOverlayService : LifecycleService() {
         lp.x = clampedX
         lp.y = adjacentY
         runCatching { windowManager.updateViewLayout(bubble, lp) }
+    }
+
+    private fun updateAgentProgressPosition() {
+        val widget = view ?: return
+        val progress = agentProgressView ?: return
+        val lp = agentProgressParams ?: return
+        val gap = (resources.displayMetrics.density * 8f).toInt()
+        val screenW = resources.displayMetrics.widthPixels
+        val screenH = resources.displayMetrics.heightPixels
+        val widgetW = widget.width.takeIf { it > 0 } ?: 1
+        val widgetH = widget.height.takeIf { it > 0 } ?: 1
+        val progressW = progress.width.takeIf { it > 0 } ?: 1
+        val progressH = progress.height.takeIf { it > 0 } ?: 1
+        val maxX = (screenW - progressW).coerceAtLeast(0)
+        val maxY = (screenH - progressH).coerceAtLeast(0)
+        val centeredX = (params.x + widgetW / 2 - progressW / 2).coerceIn(0, maxX)
+        val belowY = params.y + widgetH + gap
+        val aboveY = params.y - progressH - gap
+        lp.x = centeredX
+        lp.y = if (belowY <= maxY) belowY else aboveY.coerceIn(0, maxY)
+        runCatching { windowManager.updateViewLayout(progress, lp) }
     }
 
     private fun updateManualChipPosition() {
@@ -1038,6 +1128,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
         val visibility = if (isHandyActivityForeground) android.view.View.GONE else android.view.View.VISIBLE
         view?.visibility = visibility
         bubbleView?.visibility = visibility
+        agentProgressView?.visibility = visibility
         manualChipView?.visibility = visibility
         candidateChipsView?.visibility = visibility
         tapConfirmationView?.visibility = visibility

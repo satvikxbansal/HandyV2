@@ -1,5 +1,6 @@
 package com.handy.app.overlay
 
+import com.handy.app.agent.AgentSessionController
 import com.handy.app.chat.ChatConfirmationBroker
 import com.handy.app.screen.ScreenContextBuilder
 import com.handy.core.history.ChatHistoryStore
@@ -12,6 +13,7 @@ import com.handy.core.orchestrator.OrchestrationEvent
 import com.handy.core.orchestrator.OrchestrationRequest
 import com.handy.core.overlay.PanelContent
 import com.handy.core.overlay.PanelSnapshot
+import com.handy.core.agent.UserGoal
 import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.screen.TurnSource
 import com.handy.core.tool.ToolContext
@@ -64,6 +66,7 @@ class OverlayChatPipeline @Inject constructor(
     private val confirmationBroker: ChatConfirmationBroker,
     private val flightDriver: BuddyFlightDriver,
     private val screenContextBuilder: ScreenContextBuilder,
+    private val agentSessionController: AgentSessionController,
     @ApplicationScope private val appScope: CoroutineScope,
 ) {
 
@@ -201,8 +204,24 @@ class OverlayChatPipeline @Inject constructor(
                 }
             }
             stopVerbRotation()
-            if (finalChatText.isNotBlank()) {
-                presenter.onResponseFinalized(finalOverlaySpoken, finalChatText)
+            val displayChatText = UserGoal.stripRecipeDirective(finalChatText)
+            val displayOverlaySpoken = finalOverlaySpoken
+                ?.let(UserGoal::stripRecipeDirective)
+                ?.takeIf { it.isNotBlank() }
+                ?: fallbackOverlayClamp(displayChatText)
+            if (displayChatText.isNotBlank()) {
+                presenter.onResponseFinalized(displayOverlaySpoken, displayChatText)
+            }
+            val recipeHandled = agentSessionController.runIfRecipeRequested(
+                assistantText = finalChatText,
+                userText = userText,
+                initialGrounding = turnContext,
+                source = if (fromVoice) TurnSource.OVERLAY_VOICE else TurnSource.OVERLAY_PANEL,
+                toolContext = toolContext,
+            )
+            if (recipeHandled) {
+                Timber.d("OverlayChatPipeline: recipe directive handled")
+                return@launch
             }
             // V2: buddy flight — fire after the response is in the
             // green bubble. The bubble taxonomy flips to Navigation
