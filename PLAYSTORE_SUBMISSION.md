@@ -1,6 +1,6 @@
 # Handy for Android — Play Store Submission Dossier
 
-_Last updated: 2026-04-24. Owner: @satvik. Companion to
+_Last updated: 2026-05-22. Owner: @satvik. Companion to
 [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md), [`DESIGN_NOTES.md`](DESIGN_NOTES.md),
 and [`DEBUG_LOG.md`](DEBUG_LOG.md)._
 
@@ -103,14 +103,48 @@ and provides a usable reduced-mode fallback.
 
 ### 4.3 What does the service do?
 
-Verbatim from the in-app Accessibility service description
-([`strings.xml → accessibility_service_description`](app/src/main/res/values/strings.xml)):
+Use this answer in the Play Console:
 
-> Handy reads visible on-screen text and the UI tree so the assistant
-> can answer questions about what you see and point at the right
-> button. If you separately enable Tap-for-me, Handy can tap or scroll
-> only after you confirm that exact action on screen. Handy blocks
-> sensitive apps and you can turn this off at any time in Settings.
+Handy uses AccessibilityService for a general screen-aware AI copilot
+experience. After prominent disclosure and user consent, the service can:
+
+- Read visible screen text, UI labels, roles, bounds, view IDs, content
+  descriptions, current app/package, and current window metadata.
+- Build a compact visible-UI snapshot so the assistant can answer
+  questions like "what does this screen mean?" or "where should I tap?"
+- Point at visible controls through Handy's own overlay. Pointing is
+  guidance only and does not perform an action.
+- Verify targets and screen freshness for actions the user explicitly
+  requests.
+- After a second Tap-for-me disclosure, perform a confirmed tap,
+  scroll, long-press, or ordinary text entry on a visible foreground
+  control.
+
+The service does not provide disability-focused assistive technology.
+It is submitted as a productivity augmentation feature.
+
+What the service will not do:
+
+- It will not read or send secure-window content, password fields, OTPs,
+  card numbers, CVVs, or credential-like fields.
+- It will not capture the screen in the background.
+- It will not perform hidden UI traversal or open-ended automation.
+- It will not pay, purchase, checkout, transfer money, delete, submit
+  personal data, or change sensitive account/security settings in this
+  beta.
+- It will not act on banking, payment, wallet, password-manager, secure,
+  stale, or low-confidence surfaces.
+
+Verbatim in-app Accessibility service description
+([`strings.xml -> accessibility_service_description`](app/src/main/res/values/strings.xml)):
+
+> Handy reads visible screen text, UI labels, roles, bounds, and the
+> current app/window so it can answer questions, point at controls, and
+> verify actions you explicitly request. If you separately enable
+> Tap-for-me, Handy can tap, scroll, long-press, or type ordinary text
+> only after on-screen confirmation. Handy blocks secure windows,
+> passwords, OTP/card fields, payments, purchases, deletes, and
+> sensitive apps. You can turn this off any time.
 
 ### 4.4 User benefit
 
@@ -122,28 +156,54 @@ Verbatim from the in-app Accessibility service description
 
 ### 4.5 In-app disclosure
 
-Shown in [`OnboardingActivity`](app/src/main/kotlin/com/handy/app/onboarding/OnboardingActivity.kt)
-BEFORE any settings deep-link. Exact copy (string resource
-`onboarding_disclosure_body`):
+Disclosure locations:
 
-> Handy is an on-screen AI assistant. When you ask a question, Handy
-> reads visible on-screen text via the Android Accessibility service
-> and may capture the active window, then sends your message plus
-> that context to Anthropic (Claude) over HTTPS using your own API
-> key. Optional web-search tools send queries to Brave, Jina, and the
-> public GitHub API only when you enable them in Settings. Tap-for-me
-> is a separate opt-in after Accessibility is enabled: Handy can tap
-> or scroll only after you confirm that exact action on screen, and
-> sensitive apps are blocked. No data is sent to our servers — Handy
-> has none. You can decline any permission and Handy will run in a
-> reduced mode.
+- [`OnboardingActivity`](app/src/main/kotlin/com/handy/app/onboarding/OnboardingActivity.kt)
+  shows the main Accessibility/data disclosure before any Android
+  settings deep-link.
+- [`ActionDisclosureActivity`](app/src/main/kotlin/com/handy/app/onboarding/ActionDisclosureActivity.kt)
+  shows the separate Tap-for-me disclosure after Accessibility has been
+  visited/enabled.
+- [`SettingsActivity`](app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt)
+  has a "What Handy can do today" section generated from the policy
+  capability table and current feature flags. It tells reviewers which
+  capabilities are on, off, limited, muted, or blocked.
 
-The action disclosure is shown after the Accessibility service is
-enabled. Accepting it records the versioned Tap-for-me consent and
-enables the Settings toggle; declining leaves Handy in read/point-only
-mode. Every Tap-for-me action then shows an overlay confirmation sheet
-with an 8-second auto-cancel, and sensitive confirmation levels require
-a 1-second hold.
+Main onboarding disclosure, exact copy from
+[`strings.xml -> onboarding_disclosure_body`](app/src/main/res/values/strings.xml):
+
+> Handy is an on-screen AI assistant. When you ask a question, Handy can
+> read visible screen text, UI labels, roles, bounds, and the current
+> app/window through Android Accessibility, and it may capture the
+> active window for that turn. Handy sends your message plus the minimum
+> needed screen context to Anthropic (Claude) over HTTPS using your own
+> API key. Optional web-search tools send your search or page-fetch
+> query to Brave, Jina, and the public GitHub API only when web search
+> is enabled in Settings. Handy does not have our own server.
+> Tap-for-me is a second opt-in after Accessibility: Handy can tap,
+> scroll, long-press, or type ordinary text only after it shows the
+> exact action and you approve it. Handy will not read or type
+> passwords, OTPs, card details, secure-window content, payments,
+> purchases, deletes, or personal-data submissions. You can decline
+> permissions and Handy will still run in reduced mode for typed chat,
+> voice input, and ordinary AI answers.
+
+Tap-for-me action disclosure, exact behavior:
+
+- Accepting records
+  `actionDisclosureVersionAccepted = ActionExecutionGate.REQUIRED_DISCLOSURE_VERSION`
+  and enables the Settings Tap-for-me toggle.
+- Declining leaves Handy in screen-reading, pointing, chat, voice, web
+  search, and intent-first reduced-action mode. No Accessibility
+  gesture performer is activated.
+- Every Tap-for-me/Type-for-me action uses the overlay confirmation
+  sheet. Higher-risk action levels require a hold confirmation.
+- The Settings screen exposes Tap-for-me on/off, one-hour panic stop,
+  "stop until I turn it back on", Chrome Incognito action blocking, and
+  per-package restore controls.
+
+Disclosure-flow video:
+[`docs/review-artifacts/disclosure-flow-2026-05-22.mp4`](docs/review-artifacts/disclosure-flow-2026-05-22.mp4)
 
 ### 4.6 Reduced mode
 
@@ -169,16 +229,23 @@ or that we intentionally attach to a turn**.
 
 ### 5.1 Data collected
 
-| Data type | Collected? | Shared with third parties? | Optional? | Encrypted in transit? | Users can request deletion? | Why |
+Fill the Play Console Data safety form from this table. Declare
+anything Handy intentionally attaches to a user turn or keeps locally
+for transparency.
+
+| Data type | Collected? | Shared with third parties? | Optional? | Encrypted in transit? | Users can request deletion? | Why / scope |
 |---|---|---|---|---|---|---|
-| **Messages** (user-typed or transcribed) | Yes | Yes — Anthropic | No | Yes (HTTPS) | Yes — Settings → Clear all chat history | Core feature: the AI's input. |
-| **Photos / screenshots** | Yes | Yes — Anthropic | No | Yes (HTTPS) | Yes — same action | Optional screen context for visual questions. Tied to a single user-initiated turn. Never captured from secured surfaces (OS-5). |
-| **Other user-generated content** (on-screen text tree) | Yes | Yes — Anthropic | No | Yes (HTTPS) | Yes — same action | Accessibility tree snapshot, attached to the turn in plain text so Claude can answer UI questions. |
-| **App interactions / action audit** (Tap-for-me result, target app, redacted target label, failure reason) | Yes | No | Yes — Tap-for-me opt-in only | N/A — local only | Yes — uninstall or clear app data | Local safety audit so users can review performed, cancelled, and policy-blocked actions such as `denylisted`. |
-| **Search history / queries** | Yes (only when web search is enabled and the user typed a web-related query) | Yes — Brave Search / Jina Reader / GitHub Search | Yes (opt-in toggle) | Yes (HTTPS) | Yes — same action | Optional web-search tools. Off by default. |
-| **Voice / audio recordings** | No | No | N/A | N/A | N/A | Audio is streamed into `android.speech.SpeechRecognizer` and is never stored by Handy. The recognizer may retain under the user's system speech settings. |
-| **Contact info, financial info, health info, personal identifiers, location, browsing history, device IDs** | No | No | N/A | N/A | N/A | Not collected. |
-| **Crashes / diagnostics** | No | No | N/A | N/A | N/A | Not collected. Timber logs never leave the device. |
+| **Messages** (typed text and voice transcripts) | Yes | Yes - Anthropic today | No for core chat | Yes (HTTPS) | Yes - Settings -> Clear all chat history, app data clear, or uninstall | Core assistant input. Voice audio is not stored by Handy; only the recognized transcript enters chat. |
+| **Photos / screenshots / active-window captures** | Yes, per user-initiated turn when needed | Yes - Anthropic today | Yes in practice; screen context can be declined by reduced mode | Yes (HTTPS) | Yes - clear history/app data; screenshots are not routinely stored | Visual context for a question. Secure, unsupported, failed, or blocked captures are not sent. |
+| **Other user-generated content** (visible screen text, UI labels, roles, bounds, view IDs, app/window metadata) | Yes when Accessibility is enabled | Yes - Anthropic today when attached to a turn | Yes - Accessibility can be declined/disabled | Yes (HTTPS) | Yes - clear history/app data; per-turn snapshots are ephemeral | Lets Handy answer screen questions, point at controls, and verify explicit actions. Password/OTP/card/secure-field content is blocked/redacted. |
+| **App interactions / local action audit** (action type, target app, redacted target label, confirmation state, policy result, failure reason) | Yes | No by default | Yes - action features are opt-in/gated | N/A - local only | Yes - clear app data or uninstall | Lets users/reviewers see performed, cancelled, verified, and policy-blocked actions. No screenshots, raw prompts, API keys, or raw secrets. |
+| **Search history / queries** | Yes only when web search is enabled and the user asks a web/page/repo query | Yes - Brave Search, Jina Reader, and public GitHub API | Yes - web search is off by default | Yes (HTTPS) | Yes - clear history/app data | Optional public web tools. Fetched content is untrusted evidence and cannot trigger device actions by itself. |
+| **Notification content** (app label, title, text, key, reply availability) | Not active by default; collected only if notification feature flag and Android notification access are enabled | Not shared today unless future user-requested summary/reply flow sends it to selected provider | Yes - feature gated/off by default | Yes if later sent to provider | Yes - disable notification access, clear app data, uninstall | Current build publishes empty snapshots when the feature flag is off. RemoteInput reply sending is not active today. |
+| **Clipboard content** | Not active by default; collected only while Handy is visible and clipboard assist is enabled | Yes only if the user sends/uses a clip in an AI turn | Yes - feature gated/off by default | Yes if sent to provider | Yes - disable clipboard assist, clear app data, uninstall | Visible-only clipboard help. 32 KB cap, hash dedupe, skips password/OTP/card-like clips, ignores URI/binary clips. |
+| **Voice / audio recordings** | No persistent Handy collection | No by Handy | N/A | N/A | N/A | Audio is streamed to Android `SpeechRecognizer` only while the user starts voice input. System recognizer retention follows the user's Android speech settings. |
+| **API keys and credentials** | Yes, user-provided keys | Sent only to the matching provider endpoint as auth headers | Yes - user must provide cloud keys for cloud features | Yes (HTTPS) | Yes - remove/rotate keys or clear app data | Stored in Android Keystore-backed encrypted storage. Never logged, audited, or shown in diagnostics. |
+| **Contact info, financial info, health info, location, device IDs, advertising IDs** | No intentional collection | No | N/A | N/A | N/A | Not requested or used as product data. Some user messages may contain user-entered content; that is covered by Messages. |
+| **Crashes / diagnostics** | No external crash reporter | No | N/A | N/A | N/A | Timber/logcat diagnostics stay local and must be secret-free. DiagnosticsActivity is local/read-only. |
 
 ### 5.2 Encryption in transit
 
@@ -197,10 +264,26 @@ server-side state.
 
 ### 5.4 Families policy
 
-Not applicable — Handy targets adults (18+) and is not in the
-Designed For Families programme. Tap-for-me is an adult productivity
-feature, remains opt-in, blocks banking/payment/password-manager apps,
-and never runs a gesture without same-action confirmation.
+Not applicable - Handy targets adults (18+) and is not submitted to the
+Designed for Families programme.
+
+Play Console target audience answer:
+
+- Target age: adults 18+.
+- Not designed for children.
+- No ads.
+- No in-app purchases.
+- No gambling, dating, medical, financial-services, or child-directed
+  content.
+
+Reasoning: Handy is a productivity assistant that can read visible app
+context and, after a second opt-in, perform confirmed device actions.
+Those capabilities are intentionally adult-only. Tap-for-me, recipes,
+notification seams, clipboard assist, and Tutor mode are all gated,
+auditable, and documented, but they are still not appropriate for a
+child-directed listing. Payment, purchase, checkout, transfer, delete,
+password/OTP/card typing, and personal-data submission actions are
+blocked in this build.
 
 ---
 
@@ -230,10 +313,12 @@ All required based on the services we declare.
 Every item must be ready before the submission is uploaded. Tick off
 here as the artifacts land.
 
-- [ ] **In-app disclosure recording** — 30-second screen recording of the
-  `OnboardingActivity` flow showing disclosure → mic grant →
-  notifications grant → overlay grant → accessibility deep-link and
-  toggle → Tap-for-me action disclosure → "Open Handy" becomes enabled.
+- [x] **In-app disclosure recording** — linked in §4.5 as
+  [`docs/review-artifacts/disclosure-flow-2026-05-22.mp4`](docs/review-artifacts/disclosure-flow-2026-05-22.mp4).
+  The recording must show `OnboardingActivity` disclosure -> mic grant
+  -> notifications grant -> overlay grant -> accessibility deep-link
+  and toggle -> Tap-for-me action disclosure -> Handy opens in ready or
+  reduced mode.
 - [ ] **Canonical chat + pointing session** — 30-second recording of:
   widget tap → chat opens with detected tool name → user asks a question →
   response streams → (post-v2: pointer arrow flies to a UI element).

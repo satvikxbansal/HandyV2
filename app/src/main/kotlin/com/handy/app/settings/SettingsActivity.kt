@@ -3,6 +3,7 @@ package com.handy.app.settings
 import android.content.Intent
 import android.os.Bundle
 import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -256,6 +257,19 @@ private fun SettingsScreen(
                     )
                 }
 
+                /* ---- Current capability disclosure ---- */
+                SectionHeaderWithIcon(
+                    iconRes = R.drawable.ic_shield,
+                    title = stringResource(R.string.settings_capabilities_header),
+                )
+                CapabilityPolicySection(
+                    rows = buildCapabilityPolicyRows(
+                        settings = state.settings,
+                        actionDisclosureAccepted = actionDisclosureAccepted,
+                        tapForMeMuted = tapForMeMuted,
+                    ),
+                )
+
                 /* ---- Triggers ---- */
                 SectionHeaderWithIcon(
                     iconRes = R.drawable.ic_bolt,
@@ -428,6 +442,233 @@ private fun SettingsScreen(
                 snackbarData = data,
             )
         }
+    }
+}
+
+private data class CapabilityPolicyRow(
+    @StringRes val titleRes: Int,
+    @StringRes val bodyRes: Int,
+    @StringRes val wontRes: Int,
+    val status: CapabilityStatus,
+)
+
+private enum class CapabilityStatus {
+    ON,
+    OFF,
+    LIMITED,
+    BLOCKED,
+    REDUCED,
+    AVAILABLE,
+    NEEDS_ACCESSIBILITY,
+    NEEDS_DISCLOSURE,
+    MUTED,
+}
+
+private fun buildCapabilityPolicyRows(
+    settings: HandySettings?,
+    actionDisclosureAccepted: Boolean,
+    tapForMeMuted: Boolean,
+): List<CapabilityPolicyRow> {
+    val s = settings ?: HandySettings()
+    val tapForMeAllowed = ActionExecutionGate.gesturesAllowed(s)
+
+    return listOf(
+        CapabilityPolicyRow(
+            titleRes = R.string.settings_capability_brain_title,
+            bodyRes = R.string.settings_capability_brain_body,
+            wontRes = R.string.settings_capability_brain_wont,
+            status = CapabilityStatus.ON,
+        ),
+        CapabilityPolicyRow(
+            titleRes = R.string.settings_capability_screen_title,
+            bodyRes = if (s.accessibilityDisclosureAcknowledged) {
+                R.string.settings_capability_screen_body_on
+            } else {
+                R.string.settings_capability_screen_body_off
+            },
+            wontRes = R.string.settings_capability_screen_wont,
+            status = if (s.accessibilityDisclosureAcknowledged) {
+                CapabilityStatus.AVAILABLE
+            } else {
+                CapabilityStatus.NEEDS_ACCESSIBILITY
+            },
+        ),
+        CapabilityPolicyRow(
+            titleRes = R.string.settings_capability_tap_title,
+            bodyRes = if (tapForMeAllowed) {
+                R.string.settings_capability_tap_body_on
+            } else {
+                R.string.settings_capability_tap_body_off
+            },
+            wontRes = R.string.settings_capability_tap_wont,
+            status = when {
+                tapForMeAllowed -> CapabilityStatus.ON
+                tapForMeMuted -> CapabilityStatus.MUTED
+                !actionDisclosureAccepted -> CapabilityStatus.NEEDS_DISCLOSURE
+                else -> CapabilityStatus.OFF
+            },
+        ),
+        CapabilityPolicyRow(
+            titleRes = R.string.settings_capability_incognito_title,
+            bodyRes = if (s.noActionsInIncognito) {
+                R.string.settings_capability_incognito_body_on
+            } else {
+                R.string.settings_capability_incognito_body_off
+            },
+            wontRes = R.string.settings_capability_incognito_wont,
+            status = if (s.noActionsInIncognito) CapabilityStatus.ON else CapabilityStatus.OFF,
+        ),
+        CapabilityPolicyRow(
+            titleRes = R.string.settings_capability_recipes_title,
+            bodyRes = if (tapForMeAllowed) {
+                R.string.settings_capability_recipes_body_on
+            } else {
+                R.string.settings_capability_recipes_body_off
+            },
+            wontRes = R.string.settings_capability_recipes_wont,
+            status = if (tapForMeAllowed) CapabilityStatus.LIMITED else CapabilityStatus.BLOCKED,
+        ),
+        CapabilityPolicyRow(
+            titleRes = R.string.settings_capability_web_title,
+            bodyRes = if (s.webSearchEnabled) {
+                R.string.settings_capability_web_body_on
+            } else {
+                R.string.settings_capability_web_body_off
+            },
+            wontRes = R.string.settings_capability_web_wont,
+            status = if (s.webSearchEnabled) CapabilityStatus.ON else CapabilityStatus.OFF,
+        ),
+        CapabilityPolicyRow(
+            titleRes = R.string.settings_capability_entry_title,
+            bodyRes = R.string.settings_capability_entry_body,
+            wontRes = R.string.settings_capability_entry_wont,
+            status = CapabilityStatus.AVAILABLE,
+        ),
+        CapabilityPolicyRow(
+            titleRes = R.string.settings_capability_notifications_title,
+            bodyRes = if (s.notificationListenerEnabled) {
+                R.string.settings_capability_notifications_body_on
+            } else {
+                R.string.settings_capability_notifications_body_off
+            },
+            wontRes = R.string.settings_capability_notifications_wont,
+            status = if (s.notificationListenerEnabled) CapabilityStatus.LIMITED else CapabilityStatus.OFF,
+        ),
+        CapabilityPolicyRow(
+            titleRes = R.string.settings_capability_clipboard_title,
+            bodyRes = if (s.clipboardAssistEnabled) {
+                R.string.settings_capability_clipboard_body_on
+            } else {
+                R.string.settings_capability_clipboard_body_off
+            },
+            wontRes = R.string.settings_capability_clipboard_wont,
+            status = if (s.clipboardAssistEnabled) CapabilityStatus.ON else CapabilityStatus.OFF,
+        ),
+        CapabilityPolicyRow(
+            titleRes = R.string.settings_capability_tutor_title,
+            bodyRes = if (s.tutorModeEnabled) {
+                R.string.settings_capability_tutor_body_on
+            } else {
+                R.string.settings_capability_tutor_body_off
+            },
+            wontRes = R.string.settings_capability_tutor_wont,
+            status = if (s.tutorModeEnabled) CapabilityStatus.ON else CapabilityStatus.OFF,
+        ),
+    )
+}
+
+@Composable
+private fun CapabilityPolicySection(rows: List<CapabilityPolicyRow>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        rows.forEach { row ->
+            CapabilityPolicyCard(row)
+        }
+    }
+}
+
+@Composable
+private fun CapabilityPolicyCard(row: CapabilityPolicyRow) {
+    val shape = RoundedCornerShape(HandyDimens.RadiusLg)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(HandyColors.ChipBg)
+            .border(0.5.dp, HandyColors.ChipBorder, shape)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
+        ) {
+            Text(
+                text = stringResource(row.titleRes),
+                style = HandyType.Body.copy(fontWeight = FontWeight.Medium),
+                color = HandyColors.TextPrimary,
+                modifier = Modifier.weight(1f),
+            )
+            CapabilityStatusPill(row.status)
+        }
+        Text(
+            text = stringResource(row.bodyRes),
+            style = HandyType.CaptionSmall,
+            color = HandyColors.TextSecondary,
+        )
+        Text(
+            text = stringResource(
+                R.string.settings_capability_wont_prefix,
+                stringResource(row.wontRes),
+            ),
+            style = HandyType.CaptionSmall,
+            color = HandyColors.TextMuted,
+        )
+    }
+}
+
+@Composable
+private fun CapabilityStatusPill(status: CapabilityStatus) {
+    val labelRes = when (status) {
+        CapabilityStatus.ON -> R.string.settings_capability_status_on
+        CapabilityStatus.OFF -> R.string.settings_capability_status_off
+        CapabilityStatus.LIMITED -> R.string.settings_capability_status_limited
+        CapabilityStatus.BLOCKED -> R.string.settings_capability_status_blocked
+        CapabilityStatus.REDUCED -> R.string.settings_capability_status_reduced
+        CapabilityStatus.AVAILABLE -> R.string.settings_capability_status_available
+        CapabilityStatus.NEEDS_ACCESSIBILITY -> R.string.settings_capability_status_needs_accessibility
+        CapabilityStatus.NEEDS_DISCLOSURE -> R.string.settings_capability_status_needs_disclosure
+        CapabilityStatus.MUTED -> R.string.settings_capability_status_muted
+    }
+    val color = when (status) {
+        CapabilityStatus.ON,
+        CapabilityStatus.AVAILABLE -> HandyColors.Success
+        CapabilityStatus.LIMITED,
+        CapabilityStatus.REDUCED,
+        CapabilityStatus.NEEDS_ACCESSIBILITY,
+        CapabilityStatus.NEEDS_DISCLOSURE,
+        CapabilityStatus.MUTED -> HandyColors.Accent
+        CapabilityStatus.OFF -> HandyColors.TextMuted
+        CapabilityStatus.BLOCKED -> HandyColors.Danger
+    }
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(HandyDimens.RadiusPill))
+            .background(color.copy(alpha = 0.14f))
+            .border(
+                0.5.dp,
+                color.copy(alpha = 0.36f),
+                RoundedCornerShape(HandyDimens.RadiusPill),
+            )
+            .padding(horizontal = 9.dp, vertical = 5.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = stringResource(labelRes),
+            style = HandyType.Overline.copy(letterSpacing = 0.sp),
+            color = color,
+            maxLines = 1,
+        )
     }
 }
 
