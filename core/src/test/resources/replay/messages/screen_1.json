@@ -1,0 +1,48 @@
+{
+  "appGroup": "messages",
+  "packageName": "com.google.android.apps.messaging",
+  "screenId": "messages.conversations",
+  "marks": [
+    {
+      "markId": "m1",
+      "text": "Search messages",
+      "viewIdSuffix": "zero_state_search_box",
+      "role": "EditText",
+      "bounds": [88, 80, 920, 160],
+      "editable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "text": "Start chat",
+      "viewIdSuffix": "start_chat_fab",
+      "role": "Button",
+      "bounds": [684, 1944, 1036, 2072],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m3",
+      "contentDescription": "More options",
+      "viewIdSuffix": "overflow_menu",
+      "role": "ImageButton",
+      "bounds": [948, 80, 1032, 160],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "messages-start-chat",
+      "userText": "how do i text someone new?",
+      "assistantText": "tap start chat. [POINT:role=button;text=Start chat]",
+      "expectedMarkId": "m2"
+    },
+    {
+      "id": "messages-search",
+      "userText": "where do i search texts?",
+      "assistantText": "use the search messages field. [POINT:markId=m1]",
+      "expectedMarkId": "m1"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "appGroup": "chrome",
+  "packageName": "com.android.chrome",
+  "screenId": "chrome.new_tab",
+  "marks": [
+    {
+      "markId": "m1",
+      "text": "Search or type web address",
+      "viewIdSuffix": "search_box_text",
+      "role": "EditText",
+      "bounds": [64, 360, 1016, 456],
+      "editable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "contentDescription": "Switch tabs",
+      "viewIdSuffix": "tab_switcher_button",
+      "role": "ImageButton",
+      "bounds": [840, 96, 920, 176],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m3",
+      "contentDescription": "More options",
+      "viewIdSuffix": "menu_button",
+      "role": "ImageButton",
+      "bounds": [960, 96, 1040, 176],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "address-bar",
+      "userText": "where do i enter a website?",
+      "assistantText": "tap the search or type web address box. [POINT:viewId=search_box_text]",
+      "expectedMarkId": "m1"
+    },
+    {
+      "id": "tabs",
+      "userText": "where are my tabs?",
+      "assistantText": "use the switch tabs button near the top right. [POINT:desc=Switch tabs]",
+      "expectedMarkId": "m2"
+    }
+  ]
+}

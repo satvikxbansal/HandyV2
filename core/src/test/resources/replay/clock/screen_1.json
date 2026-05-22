@@ -1,0 +1,48 @@
+{
+  "appGroup": "clock",
+  "packageName": "com.google.android.deskclock",
+  "screenId": "clock.home",
+  "marks": [
+    {
+      "markId": "m1",
+      "text": "Alarm",
+      "viewIdSuffix": "tab_menu_alarm",
+      "role": "TabWidget",
+      "bounds": [0, 1960, 270, 2072],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "text": "Timer",
+      "viewIdSuffix": "tab_menu_timer",
+      "role": "TabWidget",
+      "bounds": [540, 1960, 810, 2072],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m3",
+      "contentDescription": "Add alarm",
+      "viewIdSuffix": "fab",
+      "role": "Button",
+      "bounds": [460, 1748, 620, 1908],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "clock-add-alarm",
+      "userText": "where do i add a new alarm?",
+      "assistantText": "tap add alarm near the bottom. [POINT:desc=Add alarm]",
+      "expectedMarkId": "m3"
+    },
+    {
+      "id": "clock-timer",
+      "userText": "where is timer?",
+      "assistantText": "tap timer in the bottom tabs. [POINT:markId=m2]",
+      "expectedMarkId": "m2"
+    }
+  ]
+}

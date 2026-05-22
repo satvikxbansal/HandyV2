@@ -1,0 +1,47 @@
+{
+  "appGroup": "meesho",
+  "packageName": "com.meesho.supply",
+  "screenId": "meesho.product",
+  "marks": [
+    {
+      "markId": "m1",
+      "text": "Search for sarees, kurtis and more",
+      "viewIdSuffix": "search_bar",
+      "role": "EditText",
+      "bounds": [52, 92, 928, 172],
+      "editable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "text": "7 days easy return",
+      "viewIdSuffix": "return_policy",
+      "role": "TextView",
+      "bounds": [56, 1260, 612, 1336],
+      "enabled": true
+    },
+    {
+      "markId": "m3",
+      "text": "View coupons",
+      "viewIdSuffix": "coupon_entry",
+      "role": "Button",
+      "bounds": [56, 1432, 1016, 1528],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "returnable-hai",
+      "userText": "returnable hai?",
+      "assistantText": "haan, 7 days easy return dikh raha hai. [POINT:markId=m2]",
+      "expectedMarkId": "m2"
+    },
+    {
+      "id": "coupon-dhoondo",
+      "userText": "coupon dhoondo",
+      "assistantText": "view coupons button khol sakte ho. [POINT:role=button;text=View coupons]",
+      "expectedMarkId": "m3"
+    }
+  ]
+}

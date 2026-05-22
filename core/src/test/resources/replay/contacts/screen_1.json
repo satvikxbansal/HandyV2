@@ -1,0 +1,48 @@
+{
+  "appGroup": "contacts",
+  "packageName": "com.google.android.contacts",
+  "screenId": "contacts.list",
+  "marks": [
+    {
+      "markId": "m1",
+      "text": "Search contacts",
+      "viewIdSuffix": "open_search_bar_text_view",
+      "role": "TextView",
+      "bounds": [112, 72, 852, 152],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "contentDescription": "Create contact",
+      "viewIdSuffix": "floating_action_button",
+      "role": "Button",
+      "bounds": [864, 1932, 1032, 2100],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m3",
+      "contentDescription": "Account menu",
+      "viewIdSuffix": "og_apd_internal_image_view",
+      "role": "ImageButton",
+      "bounds": [940, 72, 1020, 152],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "contacts-search",
+      "userText": "find a contact",
+      "assistantText": "tap search contacts at the top. [POINT:role=textfield;text=Search contacts]",
+      "expectedMarkId": "m1"
+    },
+    {
+      "id": "contacts-create",
+      "userText": "where do i add someone new?",
+      "assistantText": "tap create contact in the lower right. [POINT:desc=Create contact]",
+      "expectedMarkId": "m2"
+    }
+  ]
+}

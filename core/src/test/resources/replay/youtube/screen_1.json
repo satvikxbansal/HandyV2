@@ -1,0 +1,48 @@
+{
+  "appGroup": "youtube",
+  "packageName": "com.google.android.youtube",
+  "screenId": "youtube.home",
+  "marks": [
+    {
+      "markId": "m1",
+      "contentDescription": "Search",
+      "viewIdSuffix": "menu_item_1",
+      "role": "ImageButton",
+      "bounds": [844, 72, 924, 152],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "text": "Subscriptions",
+      "viewIdSuffix": "subscriptions",
+      "role": "TabWidget",
+      "bounds": [432, 2100, 648, 2188],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m3",
+      "text": "You",
+      "viewIdSuffix": "account",
+      "role": "TabWidget",
+      "bounds": [864, 2100, 1040, 2188],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "youtube-search",
+      "userText": "how do i search videos?",
+      "assistantText": "tap the search icon at the top. [POINT:desc=Search]",
+      "expectedMarkId": "m1"
+    },
+    {
+      "id": "youtube-subscriptions",
+      "userText": "where are channels i follow?",
+      "assistantText": "go to subscriptions in the bottom bar. [POINT:markId=m2]",
+      "expectedMarkId": "m2"
+    }
+  ]
+}

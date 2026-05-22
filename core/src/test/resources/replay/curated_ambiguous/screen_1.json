@@ -1,0 +1,39 @@
+{
+  "appGroup": "curated_ambiguous",
+  "packageName": "com.handy.fixture.ambiguous",
+  "screenId": "curated_ambiguous.screen_1",
+  "marks": [
+    {
+      "markId": "m1",
+      "text": "Continue",
+      "role": "Button",
+      "bounds": [64, 1420, 498, 1508],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "text": "Continue",
+      "role": "Button",
+      "bounds": [582, 1420, 1016, 1508],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m3",
+      "text": "Cancel",
+      "role": "Button",
+      "bounds": [64, 1536, 498, 1624],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "duplicate-text-ambiguous",
+      "userText": "which continue should i tap?",
+      "assistantText": "tap continue. [POINT:role=button;text=Continue]",
+      "expectedOutcome": "ambiguous"
+    }
+  ]
+}

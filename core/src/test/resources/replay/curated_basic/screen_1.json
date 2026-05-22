@@ -1,0 +1,54 @@
+{
+  "appGroup": "curated_basic",
+  "packageName": "com.handy.fixture.curated",
+  "screenId": "curated_basic.screen_1",
+  "marks": [
+    {
+      "markId": "m1",
+      "text": "Search",
+      "viewIdSuffix": "search_src_text",
+      "role": "EditText",
+      "bounds": [32, 96, 948, 168],
+      "editable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "contentDescription": "More options",
+      "viewIdSuffix": "more_options",
+      "role": "ImageButton",
+      "bounds": [972, 96, 1044, 168],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m3",
+      "text": "Save",
+      "viewIdSuffix": "save_button",
+      "role": "Button",
+      "bounds": [824, 2080, 1040, 2160],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "mark-id-save",
+      "userText": "where do i save?",
+      "assistantText": "tap save at the bottom. [POINT:markId=m3]",
+      "expectedMarkId": "m3"
+    },
+    {
+      "id": "view-id-search",
+      "userText": "where can i search?",
+      "assistantText": "use the search field at the top. [POINT:viewId=search_src_text]",
+      "expectedMarkId": "m1"
+    },
+    {
+      "id": "desc-more-options",
+      "userText": "where are more options?",
+      "assistantText": "open the more options button in the top right. [POINT:desc=More options]",
+      "expectedMarkId": "m2"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "appGroup": "amazon",
+  "packageName": "in.amazon.mShop.android.shopping",
+  "screenId": "amazon.home",
+  "marks": [
+    {
+      "markId": "m1",
+      "text": "Search Amazon.in",
+      "viewIdSuffix": "rs_search_src_text",
+      "role": "EditText",
+      "bounds": [44, 88, 860, 176],
+      "editable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "contentDescription": "Cart",
+      "viewIdSuffix": "cart_count",
+      "role": "ImageButton",
+      "bounds": [904, 88, 1032, 176],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m3",
+      "text": "Deals",
+      "viewIdSuffix": "deals_chip",
+      "role": "Button",
+      "bounds": [48, 276, 248, 360],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "amazon-search",
+      "userText": "search bluetooth speaker",
+      "assistantText": "tap the search amazon.in field. [POINT:markId=m1]",
+      "expectedMarkId": "m1"
+    },
+    {
+      "id": "amazon-cart",
+      "userText": "where is my cart?",
+      "assistantText": "the cart button is in the top right. [POINT:desc=Cart]",
+      "expectedMarkId": "m2"
+    }
+  ]
+}

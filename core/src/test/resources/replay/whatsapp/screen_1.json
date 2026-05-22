@@ -1,0 +1,48 @@
+{
+  "appGroup": "whatsapp",
+  "packageName": "com.whatsapp",
+  "screenId": "whatsapp.chats",
+  "marks": [
+    {
+      "markId": "m1",
+      "contentDescription": "Search",
+      "viewIdSuffix": "menuitem_search",
+      "role": "ImageButton",
+      "bounds": [824, 72, 904, 152],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "contentDescription": "New chat",
+      "viewIdSuffix": "fab",
+      "role": "Button",
+      "bounds": [880, 1932, 1032, 2084],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m3",
+      "text": "Chats",
+      "viewIdSuffix": "chats_tab",
+      "role": "TabWidget",
+      "bounds": [0, 176, 360, 248],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "new-chat",
+      "userText": "where do i start a chat?",
+      "assistantText": "tap the new chat button in the lower right. [POINT:desc=New chat]",
+      "expectedMarkId": "m2"
+    },
+    {
+      "id": "search-chat",
+      "userText": "how do i find a contact here?",
+      "assistantText": "tap search at the top. [POINT:markId=m1]",
+      "expectedMarkId": "m1"
+    }
+  ]
+}

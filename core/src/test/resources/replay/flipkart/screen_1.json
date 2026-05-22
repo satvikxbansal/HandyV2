@@ -1,0 +1,48 @@
+{
+  "appGroup": "flipkart",
+  "packageName": "com.flipkart.android",
+  "screenId": "flipkart.listing",
+  "marks": [
+    {
+      "markId": "m1",
+      "text": "Search for products",
+      "viewIdSuffix": "search_widget_textbox",
+      "role": "EditText",
+      "bounds": [52, 88, 1016, 176],
+      "editable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "text": "Filter",
+      "viewIdSuffix": "filter_button",
+      "role": "Button",
+      "bounds": [0, 2076, 360, 2160],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m3",
+      "text": "Sort",
+      "viewIdSuffix": "sort_button",
+      "role": "Button",
+      "bounds": [360, 2076, 720, 2160],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "flipkart-filter",
+      "userText": "where do i filter by price?",
+      "assistantText": "tap filter in the bottom bar. [POINT:role=button;text=Filter]",
+      "expectedMarkId": "m2"
+    },
+    {
+      "id": "flipkart-sort",
+      "userText": "how do i sort this list?",
+      "assistantText": "use sort at the bottom. [POINT:markId=m3]",
+      "expectedMarkId": "m3"
+    }
+  ]
+}

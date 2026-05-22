@@ -1,0 +1,48 @@
+{
+  "appGroup": "calendar",
+  "packageName": "com.google.android.calendar",
+  "screenId": "calendar.month",
+  "marks": [
+    {
+      "markId": "m1",
+      "contentDescription": "Create",
+      "viewIdSuffix": "floating_action_button",
+      "role": "Button",
+      "bounds": [876, 1940, 1040, 2104],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "text": "Today",
+      "viewIdSuffix": "action_today",
+      "role": "Button",
+      "bounds": [740, 72, 888, 152],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m3",
+      "contentDescription": "Search",
+      "viewIdSuffix": "action_search",
+      "role": "ImageButton",
+      "bounds": [916, 72, 1004, 152],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "calendar-create",
+      "userText": "where do i add an event?",
+      "assistantText": "tap create in the lower right. [POINT:desc=Create]",
+      "expectedMarkId": "m1"
+    },
+    {
+      "id": "calendar-today",
+      "userText": "jump back to today",
+      "assistantText": "tap today in the top bar. [POINT:role=button;text=Today]",
+      "expectedMarkId": "m2"
+    }
+  ]
+}

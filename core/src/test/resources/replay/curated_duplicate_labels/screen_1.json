@@ -1,0 +1,39 @@
+{
+  "appGroup": "curated_duplicate_labels",
+  "packageName": "com.handy.fixture.duplicates",
+  "screenId": "curated_duplicate_labels.screen_1",
+  "marks": [
+    {
+      "markId": "m1",
+      "text": "Edit",
+      "viewIdSuffix": "profile_edit",
+      "role": "Button",
+      "bounds": [760, 280, 1012, 356],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "text": "Edit",
+      "viewIdSuffix": "address_edit",
+      "role": "Button",
+      "bounds": [760, 920, 1012, 996],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "mark-id-wins-duplicate-label",
+      "userText": "change my address",
+      "assistantText": "tap the edit button beside address. [POINT:markId=m2]",
+      "expectedMarkId": "m2"
+    },
+    {
+      "id": "view-id-wins-duplicate-label",
+      "userText": "edit profile",
+      "assistantText": "use the profile edit control. [POINT:viewId=profile_edit]",
+      "expectedMarkId": "m1"
+    }
+  ]
+}

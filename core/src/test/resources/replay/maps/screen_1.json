@@ -1,0 +1,48 @@
+{
+  "appGroup": "maps",
+  "packageName": "com.google.android.apps.maps",
+  "screenId": "maps.home",
+  "marks": [
+    {
+      "markId": "m1",
+      "text": "Search here",
+      "viewIdSuffix": "search_omnibox_text_box",
+      "role": "EditText",
+      "bounds": [72, 96, 936, 184],
+      "editable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "contentDescription": "Directions",
+      "viewIdSuffix": "directions",
+      "role": "Button",
+      "bounds": [804, 1900, 1032, 1988],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m3",
+      "text": "Restaurants",
+      "viewIdSuffix": "category_restaurants",
+      "role": "Button",
+      "bounds": [72, 292, 320, 376],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "maps-search",
+      "userText": "where do i search for a place?",
+      "assistantText": "tap search here at the top. [POINT:markId=m1]",
+      "expectedMarkId": "m1"
+    },
+    {
+      "id": "maps-directions",
+      "userText": "how do i get route options?",
+      "assistantText": "use the directions button. [POINT:desc=Directions]",
+      "expectedMarkId": "m2"
+    }
+  ]
+}

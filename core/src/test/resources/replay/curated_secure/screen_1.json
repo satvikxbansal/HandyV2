@@ -1,0 +1,15 @@
+{
+  "appGroup": "curated_secure",
+  "packageName": "com.handy.fixture.secure",
+  "screenId": "curated_secure.screen_1",
+  "secureWindow": true,
+  "marks": [],
+  "cases": [
+    {
+      "id": "secure-none",
+      "userText": "what does this screen say?",
+      "assistantText": "i cannot inspect this protected screen. [POINT:none]",
+      "expectedOutcome": "no_target"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "appGroup": "photos",
+  "packageName": "com.google.android.apps.photos",
+  "screenId": "photos.viewer",
+  "marks": [
+    {
+      "markId": "m1",
+      "contentDescription": "Share",
+      "viewIdSuffix": "photos_overflow_share",
+      "role": "ImageButton",
+      "bounds": [64, 2040, 168, 2144],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "contentDescription": "Edit",
+      "viewIdSuffix": "photos_edit",
+      "role": "ImageButton",
+      "bounds": [280, 2040, 384, 2144],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m3",
+      "contentDescription": "Delete",
+      "viewIdSuffix": "photos_delete",
+      "role": "ImageButton",
+      "bounds": [912, 2040, 1016, 2144],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "photos-share",
+      "userText": "how do i share this photo?",
+      "assistantText": "tap share in the bottom bar. [POINT:desc=Share]",
+      "expectedMarkId": "m1"
+    },
+    {
+      "id": "photos-edit",
+      "userText": "where can i adjust this image?",
+      "assistantText": "tap edit along the bottom. [POINT:markId=m2]",
+      "expectedMarkId": "m2"
+    }
+  ]
+}

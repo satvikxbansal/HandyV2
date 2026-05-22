@@ -1,0 +1,48 @@
+{
+  "appGroup": "settings",
+  "packageName": "com.android.settings",
+  "screenId": "settings.main",
+  "marks": [
+    {
+      "markId": "m1",
+      "text": "Search settings",
+      "viewIdSuffix": "search_action_bar",
+      "role": "EditText",
+      "bounds": [80, 84, 1000, 168],
+      "editable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "text": "Network and internet",
+      "viewIdSuffix": "network_dashboard",
+      "role": "TextView",
+      "bounds": [64, 300, 1016, 404],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m3",
+      "text": "Display",
+      "viewIdSuffix": "display_settings",
+      "role": "TextView",
+      "bounds": [64, 548, 1016, 652],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "display-settings",
+      "userText": "where do i change dark mode?",
+      "assistantText": "open display first. [POINT:markId=m3]",
+      "expectedMarkId": "m3"
+    },
+    {
+      "id": "network-settings",
+      "userText": "where is wifi?",
+      "assistantText": "tap network and internet. [POINT:role=menuitem;text=Network and internet]",
+      "expectedMarkId": "m2"
+    }
+  ]
+}

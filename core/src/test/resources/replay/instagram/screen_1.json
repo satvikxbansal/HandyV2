@@ -1,0 +1,48 @@
+{
+  "appGroup": "instagram",
+  "packageName": "com.instagram.android",
+  "screenId": "instagram.home",
+  "marks": [
+    {
+      "markId": "m1",
+      "contentDescription": "Search and explore",
+      "viewIdSuffix": "search_tab",
+      "role": "TabWidget",
+      "bounds": [216, 2076, 432, 2184],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "contentDescription": "Create",
+      "viewIdSuffix": "create_tab",
+      "role": "TabWidget",
+      "bounds": [432, 2076, 648, 2184],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m3",
+      "contentDescription": "Profile",
+      "viewIdSuffix": "profile_tab",
+      "role": "TabWidget",
+      "bounds": [864, 2076, 1080, 2184],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "instagram-search",
+      "userText": "where do i discover accounts?",
+      "assistantText": "tap search and explore in the bottom bar. [POINT:desc=Search and explore]",
+      "expectedMarkId": "m1"
+    },
+    {
+      "id": "instagram-profile",
+      "userText": "where is my profile?",
+      "assistantText": "tap profile at the far right. [POINT:markId=m3]",
+      "expectedMarkId": "m3"
+    }
+  ]
+}

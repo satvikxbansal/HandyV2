@@ -1,0 +1,33 @@
+{
+  "appGroup": "curated_basic",
+  "packageName": "com.handy.fixture.curated",
+  "screenId": "curated_basic.screen_2.small_target",
+  "marks": [
+    {
+      "markId": "m1",
+      "contentDescription": "Close",
+      "viewIdSuffix": "close_icon",
+      "role": "ImageButton",
+      "bounds": [1030, 48, 1040, 58],
+      "clickable": true,
+      "enabled": true
+    },
+    {
+      "markId": "m2",
+      "text": "Done",
+      "viewIdSuffix": "done_button",
+      "role": "Button",
+      "bounds": [820, 2020, 1040, 2112],
+      "clickable": true,
+      "enabled": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "small-target-mark-id",
+      "userText": "where is close?",
+      "assistantText": "the close icon is in the top right. [POINT:markId=m1]",
+      "expectedMarkId": "m1"
+    }
+  ]
+}
