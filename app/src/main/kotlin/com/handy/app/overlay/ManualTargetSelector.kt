@@ -138,7 +138,7 @@ class ManualTargetSelector(
         if (!_state.value.active) return false
         if (event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED) return false
         val sourcePackage = event.packageName?.toString()
-        if (sourcePackage.equals(appPackageName, ignoreCase = true)) return false
+        if (shouldSkipSourcePackage(sourcePackage)) return true
         val source = runCatching { event.source }.getOrNull() ?: return false
         val ownedNode = runCatching { AccessibilityNodeInfo.obtain(source) }
             .onSuccess { runCatching { source.recycle() } }
@@ -159,6 +159,10 @@ class ManualTargetSelector(
         if (!current.active || current.captured) {
             runCatching { node.recycle() }
             return current.active
+        }
+        if (shouldSkipSourcePackage(sourcePackage)) {
+            runCatching { node.recycle() }
+            return true
         }
         val bounds = node.boundsAsIntRect()
         if (bounds.width <= 0 || bounds.height <= 0) {
@@ -279,8 +283,26 @@ class ManualTargetSelector(
         return IntRect(rect.left, rect.top, rect.right, rect.bottom)
     }
 
+    private fun shouldSkipSourcePackage(sourcePackage: String?): Boolean {
+        val normalizedPackage = sourcePackage?.takeIf { it.isNotBlank() } ?: return false
+        return normalizedPackage.equals(appPackageName, ignoreCase = true) ||
+            SKIPPED_SOURCE_PACKAGES.any { normalizedPackage.equals(it, ignoreCase = true) } ||
+            SKIPPED_SOURCE_PACKAGE_PREFIXES.any {
+                normalizedPackage.startsWith(it, ignoreCase = true)
+            }
+    }
+
     private companion object {
         const val CAPTURE_PULSE_MS: Long = 520L
+        val SKIPPED_SOURCE_PACKAGES: Set<String> = setOf(
+            "com.android.systemui",
+            "android",
+            "com.android.launcher3",
+        )
+        val SKIPPED_SOURCE_PACKAGE_PREFIXES: Set<String> = setOf(
+            "com.google.android.inputmethod",
+            "com.android.inputmethod",
+        )
     }
 }
 

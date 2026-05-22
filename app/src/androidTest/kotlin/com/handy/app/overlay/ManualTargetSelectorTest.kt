@@ -67,7 +67,7 @@ class ManualTargetSelectorTest {
         }
 
         assertThat(selector.begin(ManualTargetSelector.Trigger.WidgetLongPress)).isTrue()
-        assertThat(selector.handleAccessibilityEvent(event)).isFalse()
+        assertThat(selector.handleAccessibilityEvent(event)).isTrue()
         assertThat(selector.isActive).isTrue()
         assertThat(callbacks.captured.isCompleted).isFalse()
 
