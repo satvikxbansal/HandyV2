@@ -18,6 +18,8 @@ import com.handy.core.screen.ContextFailureReason
 import com.handy.core.screen.GroundingSnapshot
 import com.handy.core.screen.ScreenTextSnapshot
 import com.handy.core.screen.UiNode
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -77,6 +79,10 @@ class DefaultActionPolicyEngine(
             return denied(ActionRisk.MEDIUM, "ambiguous")
         }
 
+        if (action.isPaymentUrl()) {
+            return denied(ActionRisk.CRITICAL, "beta-blocked")
+        }
+
         if (sourceTrust == SourceTrust.UNTRUSTED_TOOL) {
             return denied(ActionRisk.HIGH, "tool-suggestion-only")
         }
@@ -89,7 +95,7 @@ class DefaultActionPolicyEngine(
             return denied(ActionRisk.CRITICAL, "sensitive-field")
         }
 
-        if (action.isBetaBlocked() || target.isBetaBlocked()) {
+        if (target.isBetaBlocked(sourceTrust)) {
             return denied(ActionRisk.CRITICAL, "beta-blocked")
         }
 
@@ -207,8 +213,8 @@ class DefaultActionPolicyEngine(
         else -> false
     }
 
-    private fun AssistantAction.isBetaBlocked(): Boolean = when (this) {
-        is AssistantAction.OpenUrl -> url.containsAny(BETA_BLOCKED_TERMS) || url.startsWith("upi:", ignoreCase = true)
+    private fun AssistantAction.isPaymentUrl(): Boolean = when (this) {
+        is AssistantAction.OpenUrl -> url.isPaymentUrl()
         else -> false
     }
 
@@ -368,10 +374,17 @@ class DefaultActionPolicyEngine(
         return aboveOrBelow || sameRow
     }
 
-    private fun TapTarget?.isBetaBlocked(): Boolean {
+    private fun TapTarget?.isBetaBlocked(sourceTrust: SourceTrust): Boolean {
         val node = this as? TapTarget.AtNode ?: return false
         val text = listOfNotNull(node.text, node.viewId, node.desc).joinToString(" ")
-        return text.containsAny(BETA_BLOCKED_TERMS) || text.isSubmitPersonalData()
+        val uiBetaBlocked = text.containsAnyWholePhrase(UI_BETA_BLOCKED_PHRASES)
+        val deleteHardBlocked = text.containsAnyWholePhrase(DELETE_HARD_BLOCKED_PHRASES)
+        val phraseBlocked = when (sourceTrust) {
+            SourceTrust.TRUSTED_RECIPE -> uiBetaBlocked || deleteHardBlocked
+            SourceTrust.TRUSTED_USER,
+            SourceTrust.UNTRUSTED_TOOL -> uiBetaBlocked || deleteHardBlocked
+        }
+        return phraseBlocked || text.isSubmitPersonalData()
     }
 
     private data class TargetIdentifier(
@@ -385,17 +398,21 @@ class DefaultActionPolicyEngine(
         const val MIN_UI_ACTION_CONFIDENCE: Float = 0.9f
         const val MAX_DECISION_TAIL: Int = 20
 
-        val BETA_BLOCKED_TERMS = listOf(
-            "buy",
-            "purchase",
-            "pay",
-            "payment",
-            "checkout",
+        val UI_BETA_BLOCKED_PHRASES = listOf(
+            "buy now",
             "place order",
-            "delete",
-            "remove",
-            "transfer",
+            "complete purchase",
+            "pay now",
+            "checkout",
             "send money",
+            "transfer money",
+            "wire transfer",
+        )
+
+        val DELETE_HARD_BLOCKED_PHRASES = listOf(
+            "delete account",
+            "close account",
+            "factory reset",
         )
 
         val TYPE_SENSITIVE_NEARBY_TERMS = listOf(
@@ -453,6 +470,27 @@ private fun String?.equalsViewId(other: String): Boolean {
 private fun String.containsAny(needles: List<String>): Boolean =
     needles.any { contains(it, ignoreCase = true) }
 
+private fun String.containsAnyWholePhrase(phrases: List<String>): Boolean =
+    phrases.any { containsWholePhrase(it) }
+
+private fun String.containsWholePhrase(phrase: String): Boolean {
+    val tokens = phrase.trim().split(Regex("""\s+""")).filter { it.isNotBlank() }
+    if (tokens.isEmpty()) return false
+    val tokenPattern = tokens.joinToString("""[^A-Za-z0-9]+""") { Regex.escape(it) }
+    return Regex("""(?<![A-Za-z0-9])$tokenPattern(?![A-Za-z0-9])""", RegexOption.IGNORE_CASE)
+        .containsMatchIn(this)
+}
+
+private fun String.isPaymentUrl(): Boolean {
+    val decoded = bestEffortUrlDecoded()
+    return decoded.startsWith("upi:", ignoreCase = true) ||
+        decoded.containsAnyWholePhrase(PAYMENT_URL_BLOCKED_PHRASES)
+}
+
+private fun String.bestEffortUrlDecoded(): String =
+    runCatching { URLDecoder.decode(this, StandardCharsets.UTF_8.name()) }
+        .getOrDefault(this)
+
 private fun String.containsSensitiveData(): Boolean =
     containsAny(SENSITIVE_TERMS) || CARD_LIKE_REGEX.containsMatchIn(this)
 
@@ -487,6 +525,22 @@ private val PERSONAL_DATA_TERMS = listOf(
     "ssn",
     "passport",
     "card",
+)
+
+private val PAYMENT_URL_BLOCKED_PHRASES = listOf(
+    "buy",
+    "purchase",
+    "purchases",
+    "pay",
+    "payment",
+    "payments",
+    "checkout",
+    "place order",
+    "complete purchase",
+    "pay now",
+    "send money",
+    "transfer money",
+    "wire transfer",
 )
 
 private val SENSITIVE_TERMS = listOf(

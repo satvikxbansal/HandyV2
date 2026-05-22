@@ -149,19 +149,19 @@ class DefaultActionPolicyEngineTest {
         }
     }
 
-    @Test fun `payment purchase delete and personal-data submit are blocked in beta`() {
+    @Test fun `payment urls and personal-data submit are blocked in beta`() {
         val decisions = listOf(
-            engine().decide(
-                action = AssistantAction.OpenApp("com.example.app"),
-                target = node(text = "Buy now", resolverConfidence = 0.95f),
-                grounding = grounding(),
-                sourceTrust = SourceTrust.TRUSTED_RECIPE,
-            ),
             engine().decide(
                 action = AssistantAction.OpenUrl("upi://pay?pa=merchant@example&am=100"),
                 target = null,
                 grounding = grounding(),
                 sourceTrust = SourceTrust.TRUSTED_USER,
+            ),
+            engine().decide(
+                action = AssistantAction.OpenUrl("https://shop.example/complete-purchase"),
+                target = null,
+                grounding = grounding(),
+                sourceTrust = SourceTrust.TRUSTED_RECIPE,
             ),
             engine().decide(
                 action = AssistantAction.OpenApp("com.example.app"),
@@ -175,6 +175,59 @@ class DefaultActionPolicyEngineTest {
             assertThat(decision.allowed).isFalse()
             assertThat(decision.reason).isEqualTo("beta-blocked")
         }
+    }
+
+    @Test fun `gmail recipe delete email is allowed for trusted recipe`() {
+        val decision = engine().decide(
+            action = AssistantAction.OpenApp("com.google.android.gm"),
+            target = node(
+                text = "Delete email",
+                expectedPackage = "com.google.android.gm",
+                resolverConfidence = 0.95f,
+            ),
+            grounding = grounding(packageName = "com.google.android.gm"),
+            sourceTrust = SourceTrust.TRUSTED_RECIPE,
+        )
+
+        assertThat(decision.allowed).isTrue()
+        assertThat(decision.confirmation).isEqualTo(ConfirmationLevel.NORMAL)
+    }
+
+    @Test fun `delete account target is blocked regardless of source trust`() {
+        val decisions = listOf(
+            SourceTrust.TRUSTED_RECIPE,
+            SourceTrust.TRUSTED_USER,
+            SourceTrust.UNTRUSTED_TOOL,
+        ).associateWith { sourceTrust ->
+            engine().decide(
+                action = AssistantAction.OpenApp("com.example.app"),
+                target = node(text = "Delete account", resolverConfidence = 0.95f),
+                grounding = grounding(),
+                sourceTrust = sourceTrust,
+            )
+        }
+
+        decisions.values.forEach { decision ->
+            assertThat(decision.allowed).isFalse()
+        }
+        assertThat(decisions[SourceTrust.TRUSTED_RECIPE]?.reason).isEqualTo("beta-blocked")
+        assertThat(decisions[SourceTrust.TRUSTED_USER]?.reason).isEqualTo("beta-blocked")
+    }
+
+    @Test fun `shopping buy now target is blocked in beta`() {
+        val decision = engine().decide(
+            action = AssistantAction.OpenApp("com.shopping.example"),
+            target = node(
+                text = "Buy now",
+                expectedPackage = "com.shopping.example",
+                resolverConfidence = 0.95f,
+            ),
+            grounding = grounding(packageName = "com.shopping.example"),
+            sourceTrust = SourceTrust.TRUSTED_RECIPE,
+        )
+
+        assertThat(decision.allowed).isFalse()
+        assertThat(decision.reason).isEqualTo("beta-blocked")
     }
 
     @Test fun `harmless native intent text is not blocked by commerce words`() {
