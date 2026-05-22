@@ -10,6 +10,12 @@ import com.handy.core.intent.IntentResult
 import com.handy.core.screen.GroundingSnapshot
 import kotlinx.coroutines.delay
 
+/**
+ * Executes deterministic recipes one step at a time with fresh policy checks, confirmation,
+ * and verification before advancing. The recipe ceiling intentionally stays at six steps so
+ * a WhatsApp contact-search send can remain one auditable plan instead of being split into
+ * an artificial draft/send handoff.
+ */
 class RecipeRunner(
     private val performer: ActionPerformer,
     private val policy: ActionPolicyEngine,
@@ -182,6 +188,11 @@ class RecipeRunner(
     }
 
     companion object {
+        /**
+         * Max 6 steps so multi-screen recipes (WhatsApp open -> search -> type -> open ->
+         * type -> send) fit without artificial fragmentation. The final WhatsApp send still
+         * requires its own STRONG_HOLD confirmation immediately before execution.
+         */
         const val MAX_STEPS: Int = 6
         private const val PACKAGE_SETTLE_DELAY_MS: Long = 650L
     }

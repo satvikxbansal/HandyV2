@@ -1132,3 +1132,20 @@ cross-references the one being superseded.
 | **Fix** | `SwitchingActionPerformer` now passes `nowEpochMs = System.currentTimeMillis()` whenever it computes `ActionExecutionGate.gesturesAllowed(...)`, keeps the latest settings snapshot, refreshes the gate on a 60-second ticker so mute expiry is reflected without another settings write, and returns `noop.capabilities` whenever `gesturesEnabled` is false. Added a unit test proving muted settings expose noop capabilities. |
 | **Validation** | `JAVA_HOME=/Users/satvik.bansal/.cache/codex-jdk17 PATH=/Users/satvik.bansal/.cache/codex-jdk17/bin:$PATH ./gradlew :app:testDebugUnitTest --tests 'com.handy.app.accessibility.SwitchingActionPerformerMuteCapabilityTest' --stacktrace` passed. `JAVA_HOME=/Users/satvik.bansal/.cache/codex-jdk17 PATH=/Users/satvik.bansal/.cache/codex-jdk17/bin:$PATH ./gradlew :app:test --stacktrace` passed. `git diff --check` passed. `JAVA_HOME=/Users/satvik.bansal/.cache/codex-jdk17 PATH=/Users/satvik.bansal/.cache/codex-jdk17/bin:$PATH ./gradlew :app:assembleDebug --stacktrace` passed. Installed `app-debug.apk` on `emulator-5554`, launched `com.handy.android/com.handy.app.onboarding.OnboardingActivity`, confirmed the process stayed alive, and fresh logcat had no `AndroidRuntime`, `FATAL EXCEPTION`, or Handy exception/error matches. |
 | **Prevention Rule** | Every consumer of `ActionExecutionGate` must pass `nowEpochMs`; the no-arg overload should be removed in a follow-up refactor. |
+
+---
+
+### DL-069 — RecipeRunner.MAX_STEPS drifted from docs
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-05-22 |
+| **Tags** | `#core #agent-recipes #docs #action-policy #safety-constant` |
+| **Severity** | Documentation / Safety-Constant Drift |
+| **File(s)** | `core/src/main/kotlin/com/handy/core/agent/RecipeRunner.kt`, `docs/ACTION_POLICY.md`, `HANDY_NEXT_LEVEL_PLAN.md`, `DEBUG_LOG.md` |
+| **Symptom** | `RecipeRunner.MAX_STEPS` allowed six recipe steps while `docs/ACTION_POLICY.md` and `HANDY_NEXT_LEVEL_PLAN.md` still told reviewers and contributors that deterministic recipes were capped at five. |
+| **Root Cause** | WhatsApp recipe needs 6 steps; runner was bumped without updating the policy + plan docs. Reviewers and contributors will hit a contradiction. |
+| **Why It Was Missed** | The implementation changed a numeric safety constant in code, but there was no same-PR requirement tying that constant to its policy and roadmap mirrors. Because the WhatsApp send step is still guarded by `STRONG_HOLD`, the code looked safe locally while the docs silently drifted. |
+| **Fix** | Kept option A: `RecipeRunner.MAX_STEPS` remains `6`. Added KDoc explaining the WhatsApp ceiling, updated the policy and plan docs to say: "Max 6 steps so multi-screen recipes (WhatsApp open → search → type → open → type → send) fit without artificial fragmentation," and clarified that the final Send step still requires its own explicit `STRONG_HOLD` confirmation. |
+| **Validation** | `git diff --check` passed. `JAVA_HOME=$HOME/.cache/codex-jdk17 PATH=$HOME/.cache/codex-jdk17/bin:$PATH ./gradlew build --no-daemon --stacktrace` passed, including `:core:test`, `:android-runtime:test`, `:app:test`, lint, debug assembly, R8/minified release, and release assembly. `JAVA_HOME=$HOME/.cache/codex-jdk17 PATH=$HOME/.cache/codex-jdk17/bin:$PATH ./gradlew :app:installDebug --no-daemon --stacktrace` installed `app-debug.apk` on `emulator-5554`. Launched `com.handy.android/com.handy.app.onboarding.OnboardingActivity`; `am start -W` returned `Status: ok`, the process stayed alive, and fresh logcat contained no `AndroidRuntime`, `FATAL EXCEPTION`, or Handy exception/error matches. |
+| **Prevention Rule** | When bumping a numeric safety constant, the same PR must update the matching value in ACTION_POLICY.md and HANDY_NEXT_LEVEL_PLAN.md. |

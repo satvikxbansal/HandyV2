@@ -539,14 +539,14 @@ interface AppRecipe {
     suspend fun executeStep(step: RecipeStep): StepResult
 }
 
-data class RecipePlan(val steps: List<RecipeStep>, val maxSteps: Int = 5)
+data class RecipePlan(val steps: List<RecipeStep>, val maxSteps: Int = 6)
 ```
 
 Flow:
 ```
 LLM understands user goal (a UserGoal)
   → RecipeRegistry picks recipe(s) that recognize() this snapshot
-  → recipe.propose() returns a deterministic RecipePlan (≤5 steps)
+  → recipe.propose() returns a deterministic RecipePlan (≤6 steps)
   → ActionPolicyEngine.decide() each step
   → user approves plan (and re-approves sensitive steps individually)
   → RecipeRunner executes one step at a time, verifies via events,
@@ -559,12 +559,13 @@ Chrome, Maps. Phase 7.2: Meesho / Amazon / Flipkart "search + compare
 + coupon find" (feeds Phase 9).
 
 **Hard rules** (codified in `RecipeRunner`):
-- max 5 steps, abort on package change,
+- Max 6 steps so multi-screen recipes (WhatsApp open → search → type → open → type → send) fit without artificial fragmentation,
+- abort on package change,
 - every sensitive step re-confirmed,
 - LLM cannot inject new steps; it can only re-pick the recipe.
 
 **Acceptance:** "Set a 7am alarm in Clock" runs end to end with a
-visible progress bubble + audit per step; a recipe that asks for >5
+visible progress bubble + audit per step; a recipe that asks for >6
 steps is rejected; modifying the manifest at runtime to claim the
 "PaymentApp" package routes to `allowed=false` even from a recipe.
 
@@ -1261,7 +1262,8 @@ Files to touch:
    raw executable plan)
 
 Hard rules in RecipeRunner:
-- max 5 steps, abort on package change, sensitive step requires
+- Max 6 steps so multi-screen recipes (WhatsApp open → search → type → open → type → send) fit without artificial fragmentation,
+- abort on package change, sensitive step requires
   per-step confirmation, every step re-captures, every step calls
   policy.decide on the fresh snapshot.
 
@@ -1314,8 +1316,10 @@ Files to touch (new):
 - android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ChromeRecipe.kt
 
 Notes:
-- GmailRecipe + WhatsAppRecipe must stop BEFORE Send. Sending is a
-  separate explicit step with STRONG_HOLD confirmation.
+- GmailRecipe + WhatsAppRecipe must pause BEFORE Send. Sending is a
+  separate explicit step with STRONG_HOLD confirmation; for WhatsApp
+  contact search, that Send step is the sixth step in the same
+  auditable recipe plan.
 - ChromeRecipe: open URL via intent (no need to type into address
   bar); summarize visible page via fetch_page; navigate within the
   page via marks.
