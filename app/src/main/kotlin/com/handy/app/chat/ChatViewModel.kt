@@ -8,6 +8,7 @@ import com.handy.app.voice.VoiceController
 import com.handy.core.foreground.ForegroundAppMonitor
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.LlmClient
+import com.handy.core.llm.LlmSessionBudget
 import com.handy.core.llm.ToolRunner
 import com.handy.core.llm.availableTools
 import com.handy.core.model.ChatMessage
@@ -66,6 +67,7 @@ class ChatViewModel @Inject constructor(
     private val accessibilityStateMonitor: AccessibilityStateMonitor,
     private val chatTargetHandoffStore: ChatTargetHandoffStore,
     private val screenContextBuilder: ScreenContextBuilder,
+    private val llmSessionBudget: LlmSessionBudget,
 ) : ViewModel() {
 
     private val orchestrator = ConversationOrchestrator(
@@ -103,6 +105,15 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             settings.flow.collectLatest { s ->
                 _state.value = _state.value.copy(settings = s)
+            }
+        }
+        viewModelScope.launch {
+            llmSessionBudget.state.collectLatest { budget ->
+                _state.value = _state.value.copy(
+                    remainingSessionTokens = budget.remainingTokens,
+                    sessionBudgetRunningLow = budget.isRunningLow,
+                    sessionBudgetExhausted = budget.isExhausted,
+                )
             }
         }
         // Mirror the mic's live partial into the composer so words stream
@@ -274,7 +285,7 @@ class ChatViewModel @Inject constructor(
                 )
                 return@launch
             }
-            Timber.d("stopVoice: final transcript=\"%s\"", transcript)
+            Timber.d("stopVoice: final transcript chars=%d", transcript?.length ?: 0)
             if (transcript.isNullOrBlank()) {
                 _state.value = _state.value.copy(
                     voiceState = VoiceUiState.IDLE,
@@ -690,4 +701,7 @@ data class ChatUiState(
      * the singleton's StateFlow is warming up.
      */
     val accessibilityServiceEnabled: Boolean = true,
+    val remainingSessionTokens: Int? = null,
+    val sessionBudgetRunningLow: Boolean = false,
+    val sessionBudgetExhausted: Boolean = false,
 )

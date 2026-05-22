@@ -79,7 +79,7 @@ class AndroidIntentDispatcher(
         val intent = Intent(Intent.ACTION_SENDTO, uri)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         action.body?.let { intent.putExtra("sms_body", it) }
-        return start(intent) { "sms to ${action.to}" }
+        return start(intent) { "sms toChars=${action.to?.length ?: 0}" }
     }
 
     private fun fireShareUrl(action: AssistantAction.ShareUrl): IntentResult {
@@ -107,7 +107,7 @@ class AndroidIntentDispatcher(
             action.notes?.let { putExtra(CalendarContract.Events.DESCRIPTION, it) }
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        return start(intent) { "calendar event '${action.title}'" }
+        return start(intent) { "calendar event titleChars=${action.title.length}" }
     }
 
     private fun fireOpenSettings(target: SettingsTarget): IntentResult {
@@ -143,7 +143,7 @@ class AndroidIntentDispatcher(
         // documented scheme; other maps apps pattern-match on it.
         val uri = Uri.parse("google.navigation:q=${Uri.encode(query)}")
         val intent = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        return start(intent) { "navigation $query" }
+        return start(intent) { "navigation queryChars=${query.length}" }
     }
 
     // ---------- destructive — fired after confirmation ----------
@@ -151,7 +151,7 @@ class AndroidIntentDispatcher(
     private fun fireDial(number: String): IntentResult {
         val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        return start(intent) { "ACTION_DIAL $number" }
+        return start(intent) { "ACTION_DIAL numberChars=${number.length}" }
     }
 
     private fun fireEmail(action: AssistantAction.ComposeEmail): IntentResult {
@@ -207,7 +207,7 @@ class AndroidIntentDispatcher(
         val uri = runCatching { Uri.parse(url) }.getOrNull()
             ?: return IntentResult.Failed("invalid url")
         val intent = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        return start(intent) { "ACTION_VIEW $url" }
+        return start(intent) { "ACTION_VIEW host=${uri.host.orEmpty()}" }
     }
 
     private fun fireLaunchApp(packageHint: String): IntentResult {
@@ -227,7 +227,7 @@ class AndroidIntentDispatcher(
     private fun fireMaps(query: String): IntentResult {
         val uri = Uri.parse("geo:0,0?q=${Uri.encode(query)}")
         val intent = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        return start(intent) { "geo?q=$query" }
+        return start(intent) { "geo queryChars=${query.length}" }
     }
 
     private fun fireWebSearch(query: String): IntentResult {
@@ -235,7 +235,7 @@ class AndroidIntentDispatcher(
             putExtra("query", query)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        return start(intent) { "ACTION_WEB_SEARCH $query" }
+        return start(intent) { "ACTION_WEB_SEARCH queryChars=${query.length}" }
     }
 
     private inline fun start(intent: Intent, label: () -> String): IntentResult {

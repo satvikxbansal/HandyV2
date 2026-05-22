@@ -86,14 +86,14 @@ class VoiceController @Inject constructor(
         collectJob = appScope.launch(Dispatchers.Main.immediate) {
             runCatching {
                 sttClient.listen().collect { event ->
-                    Timber.d("VoiceController: STT event → %s", event)
+                    Timber.d("VoiceController: STT event=%s", event::class.simpleName)
                     when (event) {
                         is SttEvent.Partial -> {
                             _latestPartial.value = event.transcript
                         }
                         is SttEvent.Final -> {
                             finalTranscript = event.transcript
-                            Timber.d("VoiceController: Final transcript = \"%s\"", event.transcript)
+                            Timber.d("VoiceController: final transcript chars=%d", event.transcript.length)
                             if (_latestPartial.value.isBlank()) {
                                 _latestPartial.value = event.transcript
                             }
@@ -118,8 +118,12 @@ class VoiceController @Inject constructor(
             // Flow is done — but we do NOT reset state to IDLE here.
             // The user may still have their finger down (long-press).
             // stopAndAwaitFinal() or cancel() will clean up.
-            Timber.d("VoiceController: STT flow completed. final=\"%s\" partial=\"%s\" err=%s",
-                finalTranscript, _latestPartial.value, lastError)
+            Timber.d(
+                "VoiceController: STT flow completed finalChars=%d partialChars=%d err=%s",
+                finalTranscript.length,
+                _latestPartial.value.length,
+                lastError,
+            )
         }
         return true
     }
@@ -129,8 +133,12 @@ class VoiceController @Inject constructor(
      * transcript. Returns null when nothing usable was captured.
      */
     suspend fun stopAndAwaitFinal(gracePeriodMs: Long = 2000L): String? {
-        Timber.d("VoiceController.stopAndAwaitFinal: state=%s final=\"%s\" partial=\"%s\"",
-            _state.value, finalTranscript, _latestPartial.value)
+        Timber.d(
+            "VoiceController.stopAndAwaitFinal: state=%s finalChars=%d partialChars=%d",
+            _state.value,
+            finalTranscript.length,
+            _latestPartial.value.length,
+        )
 
         // Even if the flow already completed (e.g. on error), we still
         // want to drain whatever was buffered — so we do NOT bail on
@@ -158,7 +166,7 @@ class VoiceController @Inject constructor(
         val result = transcript.takeIf { it.isNotBlank() }
         val correctionHandled = result?.let { routePointingCorrection(it) } == true
 
-        Timber.d("VoiceController.stopAndAwaitFinal: returning \"%s\" (err=%s)", result, lastError)
+        Timber.d("VoiceController.stopAndAwaitFinal: returningChars=%d err=%s", result?.length ?: 0, lastError)
 
         resetBuffers()
         return if (correctionHandled) null else result
@@ -197,7 +205,7 @@ class VoiceController @Inject constructor(
         }
         if (handled) {
             lastPointingCorrectionHandled = true
-            Timber.d("VoiceController: consumed pointing correction \"%s\" as %s", transcript, intent)
+            Timber.d("VoiceController: consumed pointing correction chars=%d as %s", transcript.length, intent)
         }
         return handled
     }

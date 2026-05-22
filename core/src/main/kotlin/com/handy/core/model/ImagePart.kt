@@ -1,5 +1,6 @@
 package com.handy.core.model
 
+import com.handy.core.privacy.Sensitive
 import kotlinx.serialization.Serializable
 
 /**
@@ -12,6 +13,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ImagePart(
     /** JPEG bytes (sRGB). Already encoded, ready for base64 by `ClaudeLlmClient`. */
+    @Sensitive
     val jpegBytes: ByteArray,
     /** Short human / LLM-visible label (e.g. `"primary focus (image dimensions: 1440x900 pixels)"`). */
     val label: String,
@@ -36,4 +38,7 @@ data class ImagePart(
         result = 31 * result + jpegBytes.contentHashCode()
         return result
     }
+
+    override fun toString(): String =
+        "ImagePart(label=$label, widthPx=$widthPx, heightPx=$heightPx, jpegBytes=[redacted:${jpegBytes.size} bytes])"
 }

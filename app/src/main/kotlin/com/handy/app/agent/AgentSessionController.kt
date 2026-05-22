@@ -62,8 +62,8 @@ class AgentSessionController @Inject constructor(
         if (goal.requestedRecipe == null) return false
         if (!UserGoal.allowsRecipeExecution(userText)) {
             Timber.d(
-                "AgentSessionController: ignored recipe directive for guidance-only user intent query=\"%s\"",
-                userText.logSnippet(),
+                "AgentSessionController: ignored recipe directive for guidance-only user intent queryChars=%d",
+                userText.length,
             )
             return false
         }
@@ -295,9 +295,6 @@ class AgentSessionController @Inject constructor(
         is RecipeRunResult.Failed -> "recipe failed at $stepId: $reason"
         is RecipeRunResult.VerificationFailed -> "recipe could not verify $stepId: $reason"
     }
-
-    private fun String.logSnippet(max: Int = 80): String =
-        replace('\n', ' ').take(max)
 
     companion object {
         private const val PLAN_CONFIRMATION_TIMEOUT_MS = 12_000L

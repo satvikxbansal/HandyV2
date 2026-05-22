@@ -167,7 +167,7 @@ class BuddyFlightDriver @Inject constructor(
             )
             return false
         }
-        Timber.d("BuddyFlightDriver.flyToPoint: x=%d y=%d label=\"%s\"", x, y, bubbleLabel?.logSnippet())
+        Timber.d("BuddyFlightDriver.flyToPoint: x=%d y=%d labelChars=%d", x, y, bubbleLabel?.length ?: 0)
         return withContext(Dispatchers.Main.immediate) {
             presenter.onPreparingPoint(bubbleLabel)
             flyToBounds(
@@ -250,7 +250,7 @@ class BuddyFlightDriver @Inject constructor(
         activeViewportSignature = viewport.signature
         val startedAtMs = SystemClock.uptimeMillis()
         Timber.d(
-            "BuddyFlightDriver.flyToBounds: markId=%s confidence=%.2f source=%s from=%d,%d target=%d,%d widget=%dx%d fitScale=%.2f kind=%s angle=%.2f blendStart=%.2f dock=%d,%d bounds=%s safe=%s label=\"%s\"",
+            "BuddyFlightDriver.flyToBounds: markId=%s confidence=%.2f source=%s from=%d,%d target=%d,%d widget=%dx%d fitScale=%.2f kind=%s angle=%.2f blendStart=%.2f dock=%d,%d bounds=%s safe=%s labelChars=%d",
             resolved?.markId,
             resolved?.confidence ?: 0f,
             resolved?.source,
@@ -268,7 +268,7 @@ class BuddyFlightDriver @Inject constructor(
             dockY,
             bounds.logSummary(),
             viewport.safeBounds.logSummary(),
-            label?.logSnippet(),
+            label?.length ?: 0,
         )
 
         service.updateBubblePlacementHint(landing.kind)
@@ -304,13 +304,13 @@ class BuddyFlightDriver @Inject constructor(
 
                 override fun onArrived() {
                     Timber.d(
-                        "BuddyFlightDriver.flyToBounds: arrived durationMs=%d finalWidget=%d,%d-%d,%d label=\"%s\"",
+                        "BuddyFlightDriver.flyToBounds: arrived durationMs=%d finalWidget=%d,%d-%d,%d labelChars=%d",
                         SystemClock.uptimeMillis() - startedAtMs,
                         landing.x,
                         landing.y,
                         landing.x + widgetW,
                         landing.y + widgetH,
-                        label?.logSnippet(),
+                        label?.length ?: 0,
                     )
                     service.updatePointerPose(
                         tangentRadians = arrivalAngle,
@@ -695,9 +695,9 @@ class BuddyFlightDriver @Inject constructor(
         if (candidate.bounds.width <= 0 || candidate.bounds.height <= 0) return false
 
         Timber.d(
-            "BuddyFlightDriver.flyToCandidateOption: id=%s label=\"%s\" confidence=%.2f bounds=%s",
+            "BuddyFlightDriver.flyToCandidateOption: id=%s labelChars=%d confidence=%.2f bounds=%s",
             candidate.id,
-            candidate.label.logSnippet(),
+            candidate.label.length,
             candidate.confidence,
             candidate.bounds.logSummary(),
         )
@@ -719,10 +719,10 @@ class BuddyFlightDriver @Inject constructor(
         if (!options.hasAlternatives) return false
         val candidate = options.selectFor(intent) ?: return false
         Timber.d(
-            "BuddyFlightDriver.applyCorrectionIntent: intent=%s candidate=%s label=\"%s\"",
+            "BuddyFlightDriver.applyCorrectionIntent: intent=%s candidate=%s labelChars=%d",
             intent,
             candidate.id,
-            candidate.label.logSnippet(),
+            candidate.label.length,
         )
         return flyToCandidateOption(candidate.id)
     }
@@ -1023,13 +1023,10 @@ class BuddyFlightDriver @Inject constructor(
             .trim()
 
     private fun AssistantMarkupParser.SemanticPoint.logSummary(): String =
-        "markId=$markId role=$role text=${text?.logSnippet()} viewId=$viewId desc=${contentDescription?.logSnippet()}"
+        "markId=$markId role=$role textChars=${text?.length ?: 0} viewId=$viewId descChars=${contentDescription?.length ?: 0}"
 
     private fun IntRect.logSummary(): String =
         "$left,$top-$right,$bottom"
-
-    private fun String.logSnippet(max: Int = 80): String =
-        replace('\n', ' ').take(max)
 
     private fun fallbackGroundingFor(
         flight: FlightResolution,

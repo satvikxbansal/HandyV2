@@ -4,7 +4,10 @@ import android.util.Base64
 import com.handy.core.llm.LlmChunk
 import com.handy.core.llm.LlmClient
 import com.handy.core.llm.LlmRequest
+import com.handy.core.llm.LlmSessionBudget
+import com.handy.core.llm.LlmTokenEstimator
 import com.handy.core.llm.ToolRunner
+import com.handy.core.llm.UnboundedLlmSessionBudget
 import com.handy.core.model.HandySettings
 import com.handy.core.model.MessageRole
 import com.handy.runtime.storage.KeyStore
@@ -29,7 +32,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import timber.log.Timber
+import java.util.concurrent.TimeUnit
 
 /**
  * Gemini Cloud client — experimental V2 second brain (scope §5).
@@ -58,11 +61,18 @@ class GeminiCloudLlmClient(
         encodeDefaults = false
         classDiscriminator = "type"
     },
+    private val sessionBudget: LlmSessionBudget = UnboundedLlmSessionBudget,
+    private val retryPolicy: CloudRetryPolicy = CloudRetryPolicy(),
     private val baseUrl: String = "https://generativelanguage.googleapis.com",
     private val defaultModel: String = HandySettings.DEFAULT_GEMINI_CLOUD_MODEL,
 ) : LlmClient {
 
     override val modelId: String = defaultModel
+    private val streamingHttpClient = httpClient.newBuilder()
+        .connectTimeout(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        .readTimeout(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        .writeTimeout(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        .build()
 
     override fun streamChat(request: LlmRequest): Flow<LlmChunk> =
         openStream(request, runner = null).flowOn(Dispatchers.IO)
@@ -80,9 +90,11 @@ class GeminiCloudLlmClient(
         var contents = buildInitialContents(request)
         var iteration = 0
         while (iteration++ < MAX_TOOL_ITERATIONS) {
-            val payload = buildRequestBody(request, contents)
-            val httpRequest = buildHttpRequest(model, apiKey, payload)
-            val outcome = runCatching { runSingleStream(httpRequest) { emit(it) } }
+            val outcome = runCatching {
+                runSingleStreamWithRetry(
+                    requestFactory = { reserveHttpRequest(model, apiKey, request, contents) },
+                ) { emit(it) }
+            }
                 .getOrElse { t ->
                     emit(LlmChunk.Error(t))
                     return@flow
@@ -96,7 +108,10 @@ class GeminiCloudLlmClient(
             // + a user turn with function_response parts.
             val modelParts = outcome.rawParts
             val functionResponses = outcome.functionCalls.map { call ->
-                val result = runner.run(call.name, call.arguments.toString())
+                val result = runCatching { runner.run(call.name, call.arguments.toString()) }
+                    .getOrElse { t ->
+                        com.handy.core.llm.ToolResult.Failed(t.message ?: t::class.simpleName.orEmpty())
+                    }
                 buildJsonObject {
                     put(
                         "functionResponse",
@@ -126,23 +141,74 @@ class GeminiCloudLlmClient(
         emit(LlmChunk.Done("max_tool_iterations"))
     }
 
+    private suspend fun runSingleStreamWithRetry(
+        requestFactory: () -> Result<Request>,
+        emit: suspend (LlmChunk) -> Unit,
+    ): StreamOutcome {
+        var attempt = 1
+        while (true) {
+            val httpRequest = requestFactory().getOrElse { t ->
+                emit(LlmChunk.Error(t))
+                return StreamOutcome(error = t, finishReason = "error")
+            }
+            var emittedContent = false
+            val outcome = runCatching {
+                runSingleStream(httpRequest) { chunk ->
+                    when (chunk) {
+                        is LlmChunk.Text,
+                        is LlmChunk.ToolCall -> {
+                            emittedContent = true
+                            emit(chunk)
+                        }
+                        else -> emit(chunk)
+                    }
+                }
+            }.getOrElse { t -> StreamOutcome(error = t, finishReason = "error") }
+            if (outcome.error == null) return outcome
+            if (!emittedContent && retryPolicy.shouldRetry(outcome.error, attempt)) {
+                retryPolicy.delayBeforeRetry(attempt)
+                attempt += 1
+                continue
+            }
+            emit(LlmChunk.Error(outcome.error))
+            return outcome
+        }
+    }
+
+    private fun reserveHttpRequest(
+        model: String,
+        apiKey: String,
+        request: LlmRequest,
+        contents: List<JsonObject>,
+    ): Result<Request> =
+        runCatching {
+            val payloadDraft = buildRequestBody(request, contents)
+            val reservation = sessionBudget.tryReserve(
+                provider = PROVIDER,
+                estimatedInputTokens = LlmTokenEstimator.estimatePayloadTokens(payloadDraft, request.images),
+                requestedOutputTokens = request.maxTokens,
+            ).getOrThrow()
+            val budgetedRequest = request.copy(maxTokens = reservation.reservedOutputTokens)
+            val payload = if (budgetedRequest.maxTokens == request.maxTokens) {
+                payloadDraft
+            } else {
+                buildRequestBody(budgetedRequest, contents)
+            }
+            buildHttpRequest(model, apiKey, payload)
+        }
+
     private suspend fun runSingleStream(
         httpRequest: Request,
         emit: suspend (LlmChunk) -> Unit,
     ): StreamOutcome {
-        val call = httpClient.newCall(httpRequest)
+        val call = streamingHttpClient.newCall(httpRequest)
         val response = call.execute()
         if (!response.isSuccessful) {
-            val body = response.body?.string().orEmpty().take(600)
-            val err = IllegalStateException(
-                "Gemini error ${response.code}: $body".take(800),
-            )
-            emit(LlmChunk.Error(err))
+            val err = response.toRetryableHttpException(PROVIDER)
             return StreamOutcome(error = err, finishReason = "error")
         }
         val body = response.body ?: run {
             val err = IllegalStateException("Gemini: empty response body")
-            emit(LlmChunk.Error(err))
             return StreamOutcome(error = err, finishReason = "error")
         }
         val functionCalls = mutableListOf<FunctionCall>()
@@ -282,11 +348,12 @@ class GeminiCloudLlmClient(
     }
 
     private fun buildHttpRequest(model: String, apiKey: String, body: String): Request {
-        val url = "$baseUrl/v1beta/models/$model:streamGenerateContent?alt=sse&key=$apiKey"
+        val url = "$baseUrl/v1beta/models/$model:streamGenerateContent?alt=sse"
         return Request.Builder()
             .url(url)
             .post(body.toRequestBody("application/json".toMediaType()))
             .addHeader("Accept", "text/event-stream")
+            .addHeader("x-goog-api-key", apiKey)
             .build()
     }
 
@@ -309,5 +376,7 @@ class GeminiCloudLlmClient(
 
     private companion object {
         const val MAX_TOOL_ITERATIONS = 5
+        const val PROVIDER = "Gemini"
+        const val DEFAULT_TIMEOUT_MS: Long = 8_000L
     }
 }

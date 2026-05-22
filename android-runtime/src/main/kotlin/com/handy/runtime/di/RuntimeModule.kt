@@ -8,6 +8,8 @@ import com.handy.core.action.ActionPolicyEngine
 import com.handy.core.action.ActionPerformer
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.LlmClient
+import com.handy.core.llm.LlmSessionBudget
+import com.handy.core.llm.InMemoryLlmSessionBudget
 import com.handy.core.llm.ToolRunner
 import com.handy.core.model.HandySettings
 import com.handy.core.speech.SttClient
@@ -112,6 +114,10 @@ object RuntimeModule {
 
     @Provides
     @Singleton
+    fun provideLlmSessionBudget(): LlmSessionBudget = InMemoryLlmSessionBudget()
+
+    @Provides
+    @Singleton
     fun provideSettings(@ApplicationContext context: Context): DataStoreSettings =
         DataStoreSettings(context)
 
@@ -129,11 +135,13 @@ object RuntimeModule {
         keyStore: KeyStore,
         httpClient: OkHttpClient,
         json: Json,
+        sessionBudget: LlmSessionBudget,
     ): ClaudeLlmClient = ClaudeLlmClient(
         keyStore = keyStore,
         httpClient = httpClient,
         json = json,
         networkDiagnostics = NetworkDiagnostics.from(context),
+        sessionBudget = sessionBudget,
     )
 
     @Provides
@@ -142,10 +150,12 @@ object RuntimeModule {
         keyStore: KeyStore,
         httpClient: OkHttpClient,
         json: Json,
+        sessionBudget: LlmSessionBudget,
     ): GeminiCloudLlmClient = GeminiCloudLlmClient(
         keyStore = keyStore,
         httpClient = httpClient,
         json = json,
+        sessionBudget = sessionBudget,
     )
 
     @Provides

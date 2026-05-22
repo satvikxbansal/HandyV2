@@ -52,19 +52,21 @@ class HandyToolRunner @Inject constructor(
 ) : ToolRunner {
 
     private val mostRecentToolResultWasUntrusted = AtomicBoolean(false)
+    private val quotaLock = Any()
+    private val sessionToolCounts = mutableMapOf<String, Int>()
 
     override fun beginTurn() {
         mostRecentToolResultWasUntrusted.set(false)
     }
 
     override suspend fun run(name: String, inputJson: String): ToolResult {
-        Timber.d("ToolRunner.run name=%s input=%s", name, inputJson.take(300))
+        Timber.d("ToolRunner.run name=%s inputChars=%d", name, inputJson.length)
         val result = try {
             val input = parseObject(inputJson)
             when (name) {
-                "web_search" -> runWebSearch(input)
+                "web_search" -> withQuota(name) { runWebSearch(input) }
                 "github_search" -> runGithubSearch(input)
-                "fetch_page" -> runFetchPage(input)
+                "fetch_page" -> withQuota(name) { runFetchPage(input) }
                 "dispatch_action" -> runDispatchAction(inputJson, dispatchSourceTrust())
                 else -> ToolResult.Failed("unknown tool: $name")
             }
@@ -78,6 +80,23 @@ class HandyToolRunner @Inject constructor(
         }
         rememberToolTrust(name, result)
         return result
+    }
+
+    private suspend fun withQuota(name: String, block: suspend () -> ToolResult): ToolResult {
+        val quota = TOOL_QUOTAS[name] ?: return block()
+        val allowed = synchronized(quotaLock) {
+            val used = sessionToolCounts[name] ?: 0
+            if (used >= quota) {
+                false
+            } else {
+                sessionToolCounts[name] = used + 1
+                true
+            }
+        }
+        if (!allowed) {
+            return ToolResult.Failed("quota_exceeded: $name is limited to $quota calls per session")
+        }
+        return block()
     }
 
     private suspend fun runWebSearch(input: JsonObject): ToolResult {
@@ -247,5 +266,9 @@ class HandyToolRunner @Inject constructor(
 
     private companion object {
         val UNTRUSTED_TOOL_NAMES = setOf("web_search", "github_search", "fetch_page")
+        val TOOL_QUOTAS = mapOf(
+            "web_search" to 10,
+            "fetch_page" to 6,
+        )
     }
 }

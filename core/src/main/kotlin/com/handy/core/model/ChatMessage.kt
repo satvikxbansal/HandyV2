@@ -1,5 +1,6 @@
 package com.handy.core.model
 
+import com.handy.core.privacy.Sensitive
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
@@ -21,6 +22,7 @@ data class ChatMessage(
     /** UUID as a lowercase canonical string (matches Swift `UUID().uuidString.lowercased()`). */
     val id: String,
     val role: MessageRole,
+    @Sensitive
     val content: String,
     /** Unix epoch milliseconds. See class-level note on macOS compatibility. */
     @EncodeDefault
@@ -31,6 +33,11 @@ data class ChatMessage(
     @EncodeDefault
     val searchToolsUsed: List<String> = emptyList(),
 ) {
+    override fun toString(): String =
+        "ChatMessage(id=$id, role=$role, content=[redacted:${content.length} chars], " +
+            "timestampEpochMs=$timestampEpochMs, toolName=$toolName, isStreaming=$isStreaming, " +
+            "searchToolsUsed=$searchToolsUsed)"
+
     companion object {
         /**
          * Factory that mints a fresh UUID and timestamp. Keeping this in a
@@ -68,11 +75,18 @@ enum class MessageRole {
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class ConversationTurn(
+    @Sensitive
     val userMessage: String,
+    @Sensitive
     val assistantMessage: String,
     val timestampEpochMs: Long,
     val toolName: String? = null,
-)
+) {
+    override fun toString(): String =
+        "ConversationTurn(userMessage=[redacted:${userMessage.length} chars], " +
+            "assistantMessage=[redacted:${assistantMessage.length} chars], " +
+            "timestampEpochMs=$timestampEpochMs, toolName=$toolName)"
+}
 
 /**
  * Canonical lowercase UUID string. Pure Kotlin — `java.util.UUID` is on the

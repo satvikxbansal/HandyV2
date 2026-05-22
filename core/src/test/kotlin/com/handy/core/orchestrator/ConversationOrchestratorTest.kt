@@ -9,6 +9,7 @@ import com.handy.core.llm.ToolDefinition
 import com.handy.core.llm.ToolResult
 import com.handy.core.llm.ToolRunner
 import com.handy.core.model.ChatMessage
+import com.handy.core.model.CloudProvider
 import com.handy.core.model.ConversationTurn
 import com.handy.core.model.HandySettings
 import com.handy.core.screen.CaptureResult
@@ -278,6 +279,37 @@ class ConversationOrchestratorTest {
         assertThat(finalized.searchToolsUsed).containsExactly("web_search")
     }
 
+    @Test fun `selected cloud provider controls model override on LLM request`() = runTest {
+        val store = FakeHistoryStore()
+        val llm = CapturingLlm()
+        val orchestrator = ConversationOrchestrator(
+            llmClient = llm,
+            historyStore = store,
+            clock = { 7000L },
+            uuid = { "u-uid" },
+            rng = Random(seed = 0),
+        )
+
+        orchestrator.converse(
+            OrchestrationRequest(
+                userMessage = "hi",
+                toolContext = tool,
+                settings = settings.copy(
+                    cloudProvider = CloudProvider.GEMINI,
+                    claudeModelOverride = "claude-haiku-4-5-20251001",
+                    geminiModelOverride = "gemini-test-model",
+                ),
+                fromVoice = false,
+                capture = null,
+                screenText = null,
+                hasBraveKey = false,
+                tools = emptyList(),
+            ),
+        ).collectAll()
+
+        assertThat(llm.lastRequest?.modelOverride).isEqualTo("gemini-test-model")
+    }
+
     @Test fun `llm errors surface as Error event, not a throw`() = runTest {
         val store = FakeHistoryStore()
         val llm = ThrowingLlm(IllegalStateException("kaboom"))
@@ -366,6 +398,21 @@ class ConversationOrchestratorTest {
             request: LlmRequest,
             runner: com.handy.core.llm.ToolRunner,
         ): Flow<LlmChunk> = flowThatThrows(throwable)
+    }
+
+    private class CapturingLlm : LlmClient {
+        override val modelId: String = "capturing"
+        var lastRequest: LlmRequest? = null
+
+        override fun streamChat(request: LlmRequest): Flow<LlmChunk> {
+            lastRequest = request
+            return listOf(LlmChunk.Done("end_turn")).asFlow()
+        }
+
+        override fun streamToolAwareChat(request: LlmRequest, runner: ToolRunner): Flow<LlmChunk> {
+            lastRequest = request
+            return listOf(LlmChunk.Done("end_turn")).asFlow()
+        }
     }
 
     /**

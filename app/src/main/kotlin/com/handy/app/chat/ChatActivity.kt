@@ -274,6 +274,13 @@ internal fun ChatScreen(
                 ErrorBanner(text = state.errorBanner, onDismiss = onDismissError)
             }
 
+            if (state.sessionBudgetRunningLow || state.sessionBudgetExhausted) {
+                BudgetWarningBanner(
+                    exhausted = state.sessionBudgetExhausted,
+                    remainingTokens = state.remainingSessionTokens,
+                )
+            }
+
             MessageList(
                 state = state,
                 modifier = Modifier.weight(1f),
@@ -1169,6 +1176,57 @@ private fun ChatComposer(
                 }
             },
         )
+    }
+}
+
+@Composable
+private fun BudgetWarningBanner(
+    exhausted: Boolean,
+    remainingTokens: Int?,
+) {
+    val title = if (exhausted) {
+        "Cloud budget reached"
+    } else {
+        "Cloud budget running low"
+    }
+    val detail = if (exhausted) {
+        "Handy will stop cloud calls before costs run away."
+    } else {
+        "About ${remainingTokens ?: 0} tokens remain in this session."
+    }
+    Surface(
+        color = HandyColors.Accent.copy(alpha = 0.14f),
+        contentColor = HandyColors.Accent,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = HandyDimens.Space16, vertical = HandyDimens.Space12),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(HandyDimens.Space8),
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_brain),
+                contentDescription = null,
+                tint = HandyColors.Accent,
+                modifier = Modifier.size(18.dp),
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = HandyColors.TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = detail,
+                    color = HandyColors.TextSecondary,
+                    fontSize = 12.sp,
+                )
+            }
+        }
     }
 }
 

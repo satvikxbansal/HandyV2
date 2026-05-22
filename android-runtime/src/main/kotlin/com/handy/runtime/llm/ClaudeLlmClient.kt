@@ -7,18 +7,19 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.Base64
 import com.handy.core.llm.LlmChunk
+import com.handy.core.llm.LlmSessionBudget
 import com.handy.core.llm.LlmClient
 import com.handy.core.llm.LlmRequest
+import com.handy.core.llm.LlmTokenEstimator
 import com.handy.core.llm.ToolResult
 import com.handy.core.llm.ToolRunner
+import com.handy.core.llm.UnboundedLlmSessionBudget
 import com.handy.core.model.HandySettings
 import com.handy.core.model.MessageRole
 import com.handy.runtime.storage.KeyStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -35,6 +36,7 @@ import timber.log.Timber
 import java.net.UnknownHostException
 import java.security.cert.CertificateException
 import java.security.cert.CertPathValidatorException
+import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLHandshakeException
 
 /**
@@ -51,37 +53,37 @@ class ClaudeLlmClient(
     private val httpClient: OkHttpClient,
     private val json: Json = DEFAULT_JSON,
     private val networkDiagnostics: NetworkDiagnostics = NetworkDiagnostics.Noop,
+    private val sessionBudget: LlmSessionBudget = UnboundedLlmSessionBudget,
+    private val retryPolicy: CloudRetryPolicy = CloudRetryPolicy(),
     private val baseUrl: String = "https://api.anthropic.com",
     private val defaultModel: String = HandySettings.DEFAULT_CLAUDE_MODEL,
     private val anthropicVersion: String = "2023-06-01",
 ) : LlmClient {
 
     override val modelId: String = defaultModel
+    private val streamingHttpClient = httpClient.newBuilder()
+        .connectTimeout(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        .readTimeout(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        .writeTimeout(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        .build()
 
-    override fun streamChat(request: LlmRequest): Flow<LlmChunk> = callbackFlow {
+    override fun streamChat(request: LlmRequest): Flow<LlmChunk> = channelFlow {
         val apiKey = keyStore.get(KeyStore.KEY_ANTHROPIC)
         if (apiKey.isNullOrBlank()) {
             trySend(LlmChunk.Error(IllegalStateException("No Claude API key. Add one in Settings.")))
-            close()
-            return@callbackFlow
+            return@channelFlow
         }
 
         val messages = buildInitialMessages(request)
         val tools = toClaudeTools(request)
-        val payload = buildRequestBody(request, messages, tools)
-        val httpRequest = buildHttpRequest(apiKey, payload)
-        logStreamStart(httpRequest, request, tools)
-
-        val listener = ClaudeEventSourceListener(
-            json = json,
-            host = httpRequest.url.host,
-            failureMapper = ::mapTransportFailure,
-            onChunk = { trySend(it) },
-            onIterationEnd = { close() },
-        )
-        val source = EventSources.createFactory(httpClient).newEventSource(httpRequest, listener)
-
-        awaitClose { source.cancel() }
+        runSingleSseWithRetry(
+            requestFactory = {
+                reserveHttpRequest(apiKey, request, messages, tools).onSuccess { httpRequest ->
+                    logStreamStart(httpRequest, request, tools)
+                }
+            },
+            forwardDone = true,
+        ) { chunk -> trySend(chunk) }
     }
 
     override fun streamToolAwareChat(request: LlmRequest, runner: ToolRunner): Flow<LlmChunk> = channelFlow {
@@ -95,11 +97,14 @@ class ClaudeLlmClient(
         val tools = toClaudeTools(request)
         var iteration = 0
         while (iteration++ < MAX_TOOL_ITERATIONS) {
-            val payload = buildRequestBody(request, messages, tools)
-            val httpRequest = buildHttpRequest(apiKey, payload)
-            logStreamStart(httpRequest, request, tools, iteration)
-
-            val outcome = runSingleSse(httpRequest) { chunk -> trySend(chunk) }
+            val outcome = runSingleSseWithRetry(
+                requestFactory = {
+                    reserveHttpRequest(apiKey, request, messages, tools).onSuccess { httpRequest ->
+                        logStreamStart(httpRequest, request, tools, iteration)
+                    }
+                },
+                forwardDone = false,
+            ) { chunk -> trySend(chunk) }
             if (outcome.error != null) {
                 // error chunk was already forwarded by the listener; we just exit.
                 return@channelFlow
@@ -157,6 +162,7 @@ class ClaudeLlmClient(
 
     private suspend fun runSingleSse(
         httpRequest: Request,
+        forwardDone: Boolean,
         onChunk: (LlmChunk) -> Unit,
     ): IterationOutcome {
         val done = CompletableDeferred<IterationOutcome>()
@@ -167,9 +173,7 @@ class ClaudeLlmClient(
             onChunk = { chunk ->
                 when (chunk) {
                     is LlmChunk.Done -> {
-                        // Do NOT forward Done to the outer collector during
-                        // intermediate iterations — the caller decides when to
-                        // emit the final Done. We still record stopReason.
+                        if (forwardDone) onChunk(chunk)
                     }
                     is LlmChunk.Error -> onChunk(chunk)
                     else -> onChunk(chunk)
@@ -177,7 +181,7 @@ class ClaudeLlmClient(
             },
             onIterationEnd = { outcome -> if (!done.isCompleted) done.complete(outcome) },
         )
-        val source = EventSources.createFactory(httpClient).newEventSource(httpRequest, listener)
+        val source = EventSources.createFactory(streamingHttpClient).newEventSource(httpRequest, listener)
         return try {
             done.await()
         } catch (t: CancellationException) {
@@ -185,6 +189,67 @@ class ClaudeLlmClient(
             throw t
         }
     }
+
+    private suspend fun runSingleSseWithRetry(
+        requestFactory: () -> Result<Request>,
+        forwardDone: Boolean,
+        onChunk: (LlmChunk) -> Unit,
+    ): IterationOutcome {
+        var attempt = 1
+        while (true) {
+            val httpRequest = requestFactory().getOrElse { t ->
+                onChunk(LlmChunk.Error(t))
+                return IterationOutcome(
+                    orderedBlocks = emptyList(),
+                    toolUseBlocks = emptyList(),
+                    stopReason = "error",
+                    error = t,
+                )
+            }
+            var emittedContent = false
+            var pendingError: LlmChunk.Error? = null
+            val outcome = runSingleSse(httpRequest, forwardDone = forwardDone) { chunk ->
+                when (chunk) {
+                    is LlmChunk.Error -> pendingError = chunk
+                    is LlmChunk.Done -> if (forwardDone) onChunk(chunk)
+                    else -> {
+                        emittedContent = true
+                        onChunk(chunk)
+                    }
+                }
+            }
+            if (outcome.error == null) return outcome
+            if (!emittedContent && retryPolicy.shouldRetry(outcome.error, attempt)) {
+                retryPolicy.delayBeforeRetry(attempt)
+                attempt += 1
+                continue
+            }
+            onChunk(pendingError ?: LlmChunk.Error(outcome.error))
+            return outcome
+        }
+    }
+
+    private fun reserveHttpRequest(
+        apiKey: String,
+        request: LlmRequest,
+        messages: List<ClaudeMessage>,
+        tools: List<ClaudeTool>?,
+    ): Result<Request> =
+        runCatching {
+            val payloadDraft = buildRequestBody(request, messages, tools)
+            val reservation = sessionBudget.tryReserve(
+                provider = PROVIDER,
+                estimatedInputTokens = LlmTokenEstimator.estimatePayloadTokens(payloadDraft, request.images),
+                requestedOutputTokens = request.maxTokens,
+            ).getOrThrow()
+            val budgetedRequest = request.copy(maxTokens = reservation.reservedOutputTokens)
+            val payload = if (budgetedRequest.maxTokens == request.maxTokens) {
+                payloadDraft
+            } else {
+                buildRequestBody(budgetedRequest, messages, tools)
+            }
+            buildHttpRequest(apiKey, payload)
+        }
 
     private fun buildHttpRequest(apiKey: String, payload: String): Request =
         Request.Builder()
@@ -215,6 +280,9 @@ class ClaudeLlmClient(
     }
 
     private fun mapTransportFailure(host: String, throwable: Throwable?, response: Response?): Throwable {
+        if (throwable == null && response != null) {
+            return response.toRetryableHttpException(PROVIDER)
+        }
         return mapClaudeTransportFailure(
             host = host,
             throwable = throwable,
@@ -282,6 +350,8 @@ class ClaudeLlmClient(
 
     companion object {
         const val MAX_TOOL_ITERATIONS: Int = 5
+        private const val PROVIDER = "Claude"
+        private const val DEFAULT_TIMEOUT_MS: Long = 8_000L
 
         val DEFAULT_JSON: Json = Json {
             ignoreUnknownKeys = true

@@ -28,7 +28,10 @@ import timber.log.Timber
 @Singleton
 class ChatConfirmationBroker @Inject constructor() : ConfirmationPrompter {
 
-    data class Request(val id: Long, val reason: String)
+    data class Request(val id: Long, val reason: String) {
+        override fun toString(): String =
+            "Request(id=$id, reason=[redacted:${reason.length} chars])"
+    }
 
     private val _pending = MutableStateFlow<Request?>(null)
     val pending: StateFlow<Request?> = _pending.asStateFlow()
@@ -48,7 +51,7 @@ class ChatConfirmationBroker @Inject constructor() : ConfirmationPrompter {
             id
         }
         previous?.complete(false)
-        Timber.d("ChatConfirmationBroker: suspending for \"%s\"", reason)
+        Timber.d("ChatConfirmationBroker: suspending reasonChars=%d", reason.length)
         return try {
             deferred.await()
         } finally {

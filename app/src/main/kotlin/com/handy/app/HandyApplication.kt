@@ -11,6 +11,9 @@ import com.handy.app.tutor.TutorModeController
 import com.handy.runtime.di.ApplicationScope
 import com.handy.runtime.intent.LaunchableAppIndex
 import dagger.hilt.android.HiltAndroidApp
+import java.io.File
+import java.io.FileOutputStream
+import java.time.Instant
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,9 +76,10 @@ class HandyApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        installCrashDiagnostics()
         registerActivityLifecycleCallbacks(activityVisibilityCallbacks)
         if (BuildConfig.DEBUG) {
-            Timber.plant(Timber.DebugTree())
+            Timber.plant(SensitiveRedactingDebugTree())
             installStrictMode()
         }
         createNotificationChannels()
@@ -142,8 +146,93 @@ class HandyApplication : Application() {
         ).forEach(nm::createNotificationChannel)
     }
 
+    private fun installCrashDiagnostics() {
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            runCatching { writeCrashDiagnostics(thread, throwable) }
+            if (previous != null) {
+                previous.uncaughtException(thread, throwable)
+            } else {
+                kotlin.system.exitProcess(2)
+            }
+        }
+    }
+
+    private fun writeCrashDiagnostics(thread: Thread, throwable: Throwable) {
+        val dir = File(filesDir, "diagnostics").apply { mkdirs() }
+        val file = File(dir, "last_crash.txt")
+        val body = CrashDiagnosticsFormatter.format(thread.name, throwable)
+        FileOutputStream(file, false).use { output ->
+            output.write(body.toByteArray(Charsets.UTF_8))
+            output.flush()
+            output.fd.sync()
+        }
+    }
+
     companion object {
         const val CHANNEL_ASSISTANT: String = "handy_assistant"
         const val CHANNEL_CAPTURE: String = "handy_capture"
     }
+}
+
+private class SensitiveRedactingDebugTree : Timber.DebugTree() {
+    override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
+        val safeMessage = SensitiveLogSanitizer.redact(message)
+        val safeThrowable = t?.let {
+            buildString { it.appendCrashSafeStackTo(this) }
+        }
+        super.log(
+            priority,
+            tag,
+            if (safeThrowable == null) safeMessage else "$safeMessage\n$safeThrowable",
+            null,
+        )
+    }
+}
+
+internal object SensitiveLogSanitizer {
+    private val replacements = listOf(
+        Regex("""sk-ant-[A-Za-z0-9_-]{12,}""") to "[redacted-api-key]",
+        Regex("""AIza[0-9A-Za-z_-]{20,}""") to "[redacted-api-key]",
+        Regex("""(?:github_pat|ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{12,}""") to "[redacted-token]",
+        Regex("""(?i)("?(authorization|x-api-key|x-goog-api-key|x-subscription-token|apiKey|api_key|token|secret|password|key)"?\s*:\s*")([^"]*)(")""") to "\$1[redacted]\$4",
+        Regex("""(?i)\bauthorization\s*[:=]\s*Bearer\s+[^,\s;&]+""") to "authorization=[redacted]",
+        Regex("""(?i)\b(authorization|x-api-key|x-goog-api-key|x-subscription-token|apiKey|api_key|token|secret|password|key)\s*[:=]\s*([^,\s;&]+)""") to "\$1=[redacted]",
+        Regex("""(?i)("?(transcript|query|spoken|final|partial|userText|userMessage)"?\s*:\s*")([^"]*)(")""") to "\$1[redacted:user-text]\$4",
+        Regex("(?i)\\b(transcript|query|spoken|final|partial|userText|userMessage)=\"[^\"]*\"") to "\$1=\"[redacted:user-text]\"",
+        Regex("""(?<![A-Za-z0-9+/=])[A-Za-z0-9+/]{256,}={0,2}(?![A-Za-z0-9+/=])""") to "[redacted-bytes]",
+    )
+
+    fun redact(value: String): String =
+        replacements.fold(value) { current, (regex, replacement) ->
+            regex.replace(current, replacement)
+        }
+}
+
+internal object CrashDiagnosticsFormatter {
+    fun format(threadName: String, throwable: Throwable): String = buildString {
+        appendLine("time=${Instant.now()}")
+        appendLine("thread=${SensitiveLogSanitizer.redact(threadName)}")
+        appendLine("exception=${throwable::class.qualifiedName ?: throwable::class.java.name}")
+        throwable.appendCrashSafeStackTo(this)
+    }
+}
+
+private fun Throwable.appendCrashSafeStackTo(out: StringBuilder, depth: Int = 0) {
+    if (depth > 4) return
+    out.append("cause[").append(depth).append("]=")
+        .append(this::class.qualifiedName ?: this::class.java.name)
+        .appendLine()
+    stackTrace.take(40).forEach { frame ->
+        out.append("  at ")
+            .append(frame.className)
+            .append('.')
+            .append(frame.methodName)
+            .append('(')
+            .append(frame.fileName ?: "Unknown Source")
+            .append(':')
+            .append(frame.lineNumber)
+            .appendLine(')')
+    }
+    cause?.appendCrashSafeStackTo(out, depth + 1)
 }

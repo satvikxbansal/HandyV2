@@ -7,6 +7,7 @@ import com.handy.core.llm.LlmRequest
 import com.handy.core.llm.ToolDefinition
 import com.handy.core.llm.ToolRunner
 import com.handy.core.model.ChatMessage
+import com.handy.core.model.CloudProvider
 import com.handy.core.model.ConversationTurn
 import com.handy.core.model.HandySettings
 import com.handy.core.model.IntroPrefix
@@ -131,7 +132,7 @@ class ConversationOrchestrator(
             images = imageParts,
             screenText = screenText.takeIf { mode != ScreenInputRouter.Mode.VisionOnly },
             tools = request.tools,
-            modelOverride = request.settings.claudeModelOverride,
+            modelOverride = request.settings.cloudModelOverrideForSelectedProvider(),
         )
 
         val introPrefix = IntroPrefix.forTurn(
@@ -256,6 +257,12 @@ class ConversationOrchestrator(
         )
     }
 }
+
+private fun HandySettings.cloudModelOverrideForSelectedProvider(): String? =
+    when (cloudProvider) {
+        CloudProvider.CLAUDE -> claudeModelOverride
+        CloudProvider.GEMINI -> geminiModelOverride
+    }
 
 data class OrchestrationRequest(
     val userMessage: String,

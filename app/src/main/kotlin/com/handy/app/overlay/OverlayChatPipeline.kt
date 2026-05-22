@@ -138,14 +138,14 @@ class OverlayChatPipeline @Inject constructor(
         )
         val groundedSnapshot = turnContext.panelSnapshot
         Timber.d(
-            "OverlayChatPipeline.runTurn: request=%s app=%s marks=%d screenText=%s captureMode=%s failure=%s query=\"%s\"",
+            "OverlayChatPipeline.runTurn: request=%s app=%s marks=%d screenText=%s captureMode=%s failure=%s queryChars=%d",
             turnContext.requestId,
             toolContext.packageName,
             groundedSnapshot?.marks?.size ?: 0,
             turnContext.screenText != null,
             turnContext.captureMode,
             turnContext.failureReason,
-            userText.logSnippet(),
+            userText.length,
         )
         val request = OrchestrationRequest(
             userMessage = userText,
@@ -181,8 +181,8 @@ class OverlayChatPipeline @Inject constructor(
                                 ?: fallbackOverlayClamp(event.chatText)
                             pointing = event.pointing
                             Timber.d(
-                                "OverlayChatPipeline.finalized: spoken=\"%s\" chatChars=%d point=%s",
-                                finalOverlaySpoken.orEmpty().logSnippet(),
+                                "OverlayChatPipeline.finalized: spokenChars=%d chatChars=%d point=%s",
+                                finalOverlaySpoken.orEmpty().length,
                                 finalChatText.length,
                                 event.pointing.logSummary(),
                             )
@@ -280,10 +280,10 @@ class OverlayChatPipeline @Inject constructor(
                 Timber.d("OverlayChatPipeline: semantic flight landed=%s", landed)
             } else if (pixelPoint != null) {
                 Timber.d(
-                    "OverlayChatPipeline: ignoring pixel pointer in normal mode target=%d,%d label=%s",
+                    "OverlayChatPipeline: ignoring pixel pointer in normal mode target=%d,%d labelChars=%d",
                     pixelPoint.x,
                     pixelPoint.y,
-                    pixelPoint.label?.logSnippet(),
+                    pixelPoint.label?.length ?: 0,
                 )
             } else {
                 Timber.d("OverlayChatPipeline: no point emitted")
@@ -319,17 +319,14 @@ class OverlayChatPipeline @Inject constructor(
         val pixelPoint = pixel
         return when {
             semanticPoint != null -> "semantic(${semanticPoint.logSummary()})"
-            pixelPoint != null -> "pixel(${pixelPoint.x},${pixelPoint.y},label=${pixelPoint.label})"
+            pixelPoint != null -> "pixel(${pixelPoint.x},${pixelPoint.y},labelChars=${pixelPoint.label?.length ?: 0})"
             isNone -> "none"
             else -> "missing"
         }
     }
 
     private fun AssistantMarkupParser.SemanticPoint.logSummary(): String =
-        "role=$role text=${text?.logSnippet()} viewId=$viewId desc=${contentDescription?.logSnippet()}"
-
-    private fun String.logSnippet(max: Int = 80): String =
-        replace('\n', ' ').take(max)
+        "role=$role textChars=${text?.length ?: 0} viewId=$viewId descChars=${contentDescription?.length ?: 0}"
 
     private companion object {
         const val VERB_ROTATION_MS: Long = 2500L

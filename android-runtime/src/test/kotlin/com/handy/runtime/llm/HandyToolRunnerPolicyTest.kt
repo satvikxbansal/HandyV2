@@ -72,6 +72,35 @@ class HandyToolRunnerPolicyTest {
         verify(exactly = 1) { dispatcher.dispatch(any<AssistantAction>()) }
     }
 
+    @Test fun `web search quota is capped per session`() = runTest {
+        val runner = runner(dispatcher = mockDispatcher())
+
+        repeat(10) {
+            assertThat(runner.run("web_search", """{"query":"kotlin"}""")).isInstanceOf(ToolResult.Ok::class.java)
+        }
+        val capped = runner.run("web_search", """{"query":"kotlin"}""")
+
+        assertThat(capped).isInstanceOf(ToolResult.Failed::class.java)
+        assertThat((capped as ToolResult.Failed).message).contains("quota_exceeded")
+        runner.beginTurn()
+        assertThat(runner.run("web_search", """{"query":"kotlin"}""")).isInstanceOf(ToolResult.Failed::class.java)
+    }
+
+    @Test fun `fetch page quota is capped per session`() = runTest {
+        val webSearch = mockWebSearch().also {
+            coEvery { it.fetchPage(any()) } returns Result.success("page body")
+        }
+        val runner = runner(dispatcher = mockDispatcher(), webSearch = webSearch)
+
+        repeat(6) {
+            assertThat(runner.run("fetch_page", """{"url":"https://example.com"}""")).isInstanceOf(ToolResult.Ok::class.java)
+        }
+        val capped = runner.run("fetch_page", """{"url":"https://example.com"}""")
+
+        assertThat(capped).isInstanceOf(ToolResult.Failed::class.java)
+        assertThat((capped as ToolResult.Failed).message).contains("quota_exceeded")
+    }
+
     private fun runner(
         dispatcher: AndroidIntentDispatcher,
         webSearch: WebSearchService = mockWebSearch(),
@@ -97,5 +126,11 @@ class HandyToolRunnerPolicyTest {
                     ),
                 ),
             )
+        }
+
+    private fun mockDispatcher(): AndroidIntentDispatcher =
+        mockk<AndroidIntentDispatcher>().also { dispatcher ->
+            every { dispatcher.dispatch(any<AssistantAction>()) } returns IntentResult.Dispatched("fake")
+            every { dispatcher.dispatchConfirmed(any<AssistantAction>()) } returns IntentResult.Dispatched("fake")
         }
 }

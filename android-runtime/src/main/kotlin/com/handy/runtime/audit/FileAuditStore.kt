@@ -4,6 +4,8 @@ import android.content.Context
 import com.handy.core.audit.AuditEvent
 import com.handy.core.audit.AuditStore
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -67,14 +69,17 @@ class FileAuditStore(
     @OptIn(ExperimentalSerializationApi::class)
     private fun writeAtomically(events: List<AuditEvent>) {
         runCatching {
-            tempFile.outputStream().use { os ->
+            FileOutputStream(tempFile).use { os ->
                 json.encodeToStream(events, os)
+                os.flush()
+                os.fd.sync()
             }
             if (!tempFile.renameTo(file)) {
                 // Cross-device fallback: copy + delete.
                 tempFile.copyTo(file, overwrite = true)
                 tempFile.delete()
             }
+            FileInputStream(file).use { it.fd.sync() }
         }.onFailure { Timber.w(it, "FileAuditStore: write failed") }
     }
 
