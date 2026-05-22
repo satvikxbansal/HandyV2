@@ -4,8 +4,6 @@ import com.handy.core.llm.ConfirmationPrompter
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,22 +33,27 @@ class ChatConfirmationBroker @Inject constructor() : ConfirmationPrompter {
     private val _pending = MutableStateFlow<Request?>(null)
     val pending: StateFlow<Request?> = _pending.asStateFlow()
 
-    private val mutex = Mutex()
+    private val lock = Any()
     private var idCounter = 0L
+    private var current: Pair<Long, CompletableDeferred<Boolean>>? = null
 
     override suspend fun confirm(reason: String): Boolean {
         val deferred = CompletableDeferred<Boolean>()
-        mutex.withLock {
+        var previous: CompletableDeferred<Boolean>? = null
+        val requestId = synchronized(lock) {
+            previous = current?.second
             val id = ++idCounter
             current = id to deferred
             _pending.value = Request(id = id, reason = reason)
+            id
         }
+        previous?.complete(false)
         Timber.d("ChatConfirmationBroker: suspending for \"%s\"", reason)
         return try {
             deferred.await()
         } finally {
-            mutex.withLock {
-                if (current?.first == _pending.value?.id) {
+            synchronized(lock) {
+                if (current?.first == requestId) {
                     _pending.value = null
                     current = null
                 }
@@ -65,21 +68,26 @@ class ChatConfirmationBroker @Inject constructor() : ConfirmationPrompter {
      * already fired.
      */
     fun respond(requestId: Long, approved: Boolean) {
-        val snapshot = current
-        if (snapshot == null || snapshot.first != requestId) {
-            Timber.d("ChatConfirmationBroker.respond: stale id=%d (current=%d)", requestId, snapshot?.first ?: -1)
-            return
+        val deferred = synchronized(lock) {
+            val snapshot = current
+            if (snapshot == null || snapshot.first != requestId) {
+                Timber.d("ChatConfirmationBroker.respond: stale id=%d (current=%d)", requestId, snapshot?.first ?: -1)
+                null
+            } else {
+                snapshot.second
+            }
         }
-        snapshot.second.complete(approved)
+        deferred?.complete(approved)
     }
 
     /** Cancel any in-flight confirmation (e.g. ViewModel clearing). */
     fun clear() {
-        val snapshot = current
-        snapshot?.second?.complete(false)
-        _pending.value = null
-        current = null
+        val deferred = synchronized(lock) {
+            val snapshot = current
+            _pending.value = null
+            current = null
+            snapshot?.second
+        }
+        deferred?.complete(false)
     }
-
-    @Volatile private var current: Pair<Long, CompletableDeferred<Boolean>>? = null
 }

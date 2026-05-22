@@ -44,6 +44,12 @@ class GroundingSnapshotTest {
             .isNotEqualTo(GroundingSnapshot.treeHash(changedPrefix, screenText = null))
     }
 
+    @Test
+    fun `label tree hash ignores blank labels`() {
+        assertThat(GroundingSnapshot.labelTreeHash(listOf(" ", "Checkout")))
+            .isEqualTo(GroundingSnapshot.labelTreeHash(listOf("Checkout")))
+    }
+
     @Suppress("DEPRECATION")
     @Test
     fun `turn screen context remains a source-compatible alias`() {

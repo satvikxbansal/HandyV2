@@ -298,6 +298,18 @@ class DefaultActionPolicyEngineTest {
         assertThat(decision.reason).isEqualTo("screen-changed")
     }
 
+    @Test fun `tree changed after grounding is blocked`() {
+        val decision = engine().decide(
+            action = AssistantAction.OpenApp("com.example.app"),
+            target = node(resolverConfidence = 0.95f, treeHash = "old-tree"),
+            grounding = grounding(treeHash = "new-tree"),
+            sourceTrust = SourceTrust.TRUSTED_RECIPE,
+        )
+
+        assertThat(decision.allowed).isFalse()
+        assertThat(decision.reason).isEqualTo("screen-changed")
+    }
+
     @Test fun `normal visible button requires node action for unknown app`() {
         val decision = engine().decide(
             action = AssistantAction.OpenApp("com.example.app"),
@@ -358,6 +370,7 @@ class DefaultActionPolicyEngineTest {
         marks: List<AccessibilityMark> = emptyList(),
         capture: CaptureResult? = null,
         privacyFlags: PrivacyFlags = PrivacyFlags(),
+        treeHash: String? = null,
     ): GroundingSnapshot =
         GroundingSnapshot(
             requestId = "test",
@@ -373,6 +386,7 @@ class DefaultActionPolicyEngineTest {
             capture = capture,
             windowId = WINDOW_ID,
             rootBoundsHash = ROOT_HASH,
+            treeHash = treeHash,
             capturedAtMs = 1_000L,
             privacyFlags = privacyFlags,
         )
@@ -383,6 +397,7 @@ class DefaultActionPolicyEngineTest {
         desc: String? = null,
         expectedPackage: String = "com.example.app",
         resolverConfidence: Float? = null,
+        treeHash: String? = null,
     ): TapTarget.AtNode =
         TapTarget.AtNode(
             markId = markId,
@@ -394,6 +409,7 @@ class DefaultActionPolicyEngineTest {
             expectedWindowId = WINDOW_ID,
             snapshotHash = ROOT_HASH,
             resolverConfidence = resolverConfidence,
+            treeHash = treeHash,
         )
 
     private fun mark(

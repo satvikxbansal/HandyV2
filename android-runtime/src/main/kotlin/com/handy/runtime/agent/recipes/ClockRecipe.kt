@@ -19,7 +19,7 @@ object AndroidRuntimeRecipes {
         GmailRecipe,
         WhatsAppRecipe,
         ChromeRecipe,
-    )
+    ) + ShoppingRecipePack.defaultRecipes()
 }
 
 object ClockRecipe : AppRecipe {

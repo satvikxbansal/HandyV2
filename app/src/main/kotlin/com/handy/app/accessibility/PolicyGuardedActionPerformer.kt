@@ -30,26 +30,30 @@ class PolicyGuardedActionPerformer @Inject constructor(
         get() = delegate.capabilities
 
     override suspend fun tap(target: TapTarget): PerformResult =
-        guard(kind = "tap", target = target) { delegate.tap(target) }
+        guard(kind = "tap", target = target) { guardedTarget ->
+            delegate.tap(guardedTarget ?: target)
+        }
 
     override suspend fun longPress(target: TapTarget): PerformResult =
-        guard(kind = "long_press", target = target) { delegate.longPress(target) }
+        guard(kind = "long_press", target = target) { guardedTarget ->
+            delegate.longPress(guardedTarget ?: target)
+        }
 
     override suspend fun scroll(direction: ScrollDirection, target: TapTarget?): PerformResult =
         guard(kind = "scroll_${direction.name.lowercase()}", target = target) {
-            delegate.scroll(direction, target)
+            delegate.scroll(direction, it)
         }
 
     override suspend fun typeText(target: TapTarget, text: String): PerformResult =
         guard(kind = "type_text", target = target, text = text) {
-            delegate.typeText(target, text)
+            delegate.typeText(it ?: target, text)
         }
 
     private suspend fun guard(
         kind: String,
         target: TapTarget?,
         text: String? = null,
-        perform: suspend () -> PerformResult,
+        perform: suspend (TapTarget?) -> PerformResult,
     ): PerformResult {
         val grounding = liveGroundingFor(target)
         val action = if (kind == "type_text") {
@@ -73,7 +77,8 @@ class PolicyGuardedActionPerformer @Inject constructor(
             return PerformResult.Failed("policy:node-action-only")
         }
 
-        val result = perform()
+        val guardedTarget = target.withGestureFallback(decision.allowGestureFallback)
+        val result = perform(guardedTarget)
         if (result is PerformResult.Ok && kind != "type_text") {
             runCatching {
                 learnedAllowlistStore.recordSuccess(target.packageNameOrNull() ?: grounding.toolContext.packageName)
@@ -95,12 +100,19 @@ class PolicyGuardedActionPerformer @Inject constructor(
             windowId = live?.windowId,
             windowBounds = IntRect.ZERO,
             rootBoundsHash = live?.rootBoundsHash,
+            treeHash = live?.treeHash,
             capturedAtMs = System.currentTimeMillis(),
         )
     }
 
     private fun TapTarget?.packageNameOrNull(): String? =
         (this as? TapTarget.AtNode)?.expectedPackage?.takeIf { it.isNotBlank() }
+
+    private fun TapTarget?.withGestureFallback(allowed: Boolean): TapTarget? =
+        when (this) {
+            is TapTarget.AtNode -> copy(allowGestureFallback = allowed)
+            else -> this
+        }
 
     private companion object {
         const val UNKNOWN_PACKAGE = "unknown"

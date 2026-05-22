@@ -2,7 +2,9 @@ package com.handy.app.overlay
 
 import com.google.common.truth.Truth.assertThat
 import com.handy.app.foreground.HandyForegroundAppMonitor
+import com.handy.core.foreground.ForegroundAppSnapshot
 import com.handy.core.overlay.FlightFsm
+import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -49,6 +51,25 @@ class OverlayPresenterFsmTest {
         presenter.onActionFinished()
 
         assertThat(presenter.state.value.flightFsm).isEqualTo(FlightFsm.Docked)
+    }
+
+    @Test
+    fun `widget tap on browser shopping site shows shopping prompts`() {
+        val monitor = mockk<HandyForegroundAppMonitor>(relaxed = true)
+        every { monitor.refreshNow() } returns ForegroundAppSnapshot(
+            packageName = "com.android.chrome",
+            appLabel = "Chrome",
+            umbrellaSiteLabel = "Meesho",
+            umbrellaSiteUrl = "https://www.meesho.com/kurti/p/abc123",
+        )
+        val presenter = OverlayPresenter(monitor)
+
+        presenter.onWidgetTap()
+
+        val panel = presenter.state.value.panel
+        assertThat(panel.greeting).contains("Meesho")
+        assertThat(panel.quickPrompts).contains("Similar se compare karo / Compare with similar")
+        assertThat(panel.quickPrompts).contains("Coupon dhoondo / Find coupons")
     }
 
     @Test

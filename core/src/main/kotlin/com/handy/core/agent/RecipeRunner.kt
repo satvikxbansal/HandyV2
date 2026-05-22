@@ -119,7 +119,7 @@ class RecipeRunner(
                 }
             }
 
-            val performResult = step.perform(target)
+            val performResult = step.perform(target.withGestureFallback(decision.allowGestureFallback))
             if (index < plan.steps.lastIndex && step.allowsPackageChangeAfter()) {
                 delay(PACKAGE_SETTLE_DELAY_MS)
             }
@@ -158,6 +158,12 @@ class RecipeRunner(
 
     private fun RecipeStep.allowsPackageChangeAfter(): Boolean =
         (command as? RecipeCommand.NativeAction)?.allowPackageChangeAfter == true
+
+    private fun TapTarget?.withGestureFallback(allowed: Boolean): TapTarget? =
+        when (this) {
+            is TapTarget.AtNode -> copy(allowGestureFallback = allowed)
+            else -> this
+        }
 
     private fun RecipeStep.canEnterPackage(): Boolean =
         command is RecipeCommand.NativeAction && allowsPackageChangeAfter()

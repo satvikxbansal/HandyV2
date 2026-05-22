@@ -80,9 +80,16 @@ data class GroundingSnapshot(
             } else {
                 screenText?.root?.topLabels().orEmpty()
             }
-            if (labels.isEmpty()) return null
+            return labelTreeHash(labels)
+        }
+
+        fun labelTreeHash(labels: List<String>): String? {
+            val normalized = labels.mapNotNull { label ->
+                label.trim().takeIf { it.isNotEmpty() }
+            }
+            if (normalized.isEmpty()) return null
             return stableHash(
-                (listOf(labels.size.toString()) + labels.take(TREE_HASH_LABEL_LIMIT))
+                (listOf(normalized.size.toString()) + normalized.take(TREE_HASH_LABEL_LIMIT))
                     .joinToString(separator = "|"),
             )
         }

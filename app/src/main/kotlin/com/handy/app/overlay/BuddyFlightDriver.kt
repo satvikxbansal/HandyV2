@@ -455,11 +455,12 @@ class BuddyFlightDriver @Inject constructor(
         }
 
         presenter.onActionStarted("tapping $displayLabel")
+        val performTarget = tapTarget.copy(allowGestureFallback = decision.allowGestureFallback)
         val result = runCatching {
-            actionPerformer.tap(tapTarget)
+            actionPerformer.tap(performTarget)
         }.onFailure { Timber.w(it, "BuddyFlightDriver tap failed") }.getOrNull()
         auditTapForMe(
-            tapTarget = tapTarget,
+            tapTarget = performTarget,
             targetPackage = policyPackage,
             result = result.toAuditResult(),
             confirmationRequired = true,
@@ -1043,6 +1044,8 @@ class BuddyFlightDriver @Inject constructor(
                 appLabel = packageName,
             ),
             windowId = target.expectedWindowId,
+            rootBoundsHash = target.snapshotHash,
+            treeHash = target.treeHash,
             capturedAtMs = System.currentTimeMillis(),
         )
     }
@@ -1087,7 +1090,7 @@ class BuddyFlightDriver @Inject constructor(
     }
 
     private fun TapTarget.AtNode.auditDescription(): String = buildString {
-        val context = listOfNotNull(role, text, viewId, desc, expectedPackage, snapshotHash)
+        val context = listOfNotNull(role, text, viewId, desc, expectedPackage, snapshotHash, treeHash)
             .joinToString(" ")
         val passwordContext = context.contains("password", ignoreCase = true) ||
             context.contains("passcode", ignoreCase = true) ||
@@ -1100,10 +1103,11 @@ class BuddyFlightDriver @Inject constructor(
         appendAuditPart("expectedPackage", expectedPackage, context)
         expectedWindowId?.let { append("expectedWindowId=$it;") }
         appendAuditPart("snapshotHash", snapshotHash, context)
+        appendAuditPart("treeHash", treeHash, context)
     }.trimEnd(';')
 
     private fun TapTarget.AtNode.auditDescriptionWithInput(typedText: String): String {
-        val context = listOfNotNull(role, text, viewId, desc, expectedPackage, snapshotHash)
+        val context = listOfNotNull(role, text, viewId, desc, expectedPackage, snapshotHash, treeHash)
             .joinToString(" ")
         val redactedInput = ScreenRedactor.redactText(
             value = typedText,
@@ -1526,6 +1530,7 @@ internal fun buildTapTargetForResolved(
         expectedWindowId = groundingSnapshot?.windowId,
         snapshotHash = groundingSnapshot?.rootBoundsHash?.takeIf { it.isNotBlank() },
         resolverConfidence = resolved.confidence,
+        treeHash = groundingSnapshot?.treeHash?.takeIf { it.isNotBlank() },
     )
 
 private fun android.content.Context.systemBarSize(name: String): Int {

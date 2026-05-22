@@ -310,6 +310,38 @@ class RecipeRunnerTest {
         assertThat((result as RecipeRunResult.Refused).reason).isEqualTo("policy-pay")
     }
 
+    @Test fun `passes policy gesture fallback decision to performer target`() = runTest {
+        val snapshots = SnapshotQueue(
+            snapshot("com.example.app", mark("Continue", "m1")),
+            snapshot("com.example.app", mark("Continue", "m1")),
+            snapshot("com.example.app", mark("Continue", "m1")),
+        )
+        val performer = FakePerformer()
+        val runner = RecipeRunner(
+            performer = performer,
+            policy = FakePolicy(allowGestureFallback = true),
+            snapshotProvider = snapshots,
+            planConfirmer = RecipePlanConfirmer { _, _, _ -> true },
+            sensitiveStepConfirmer = RecipeSensitiveStepConfirmer { _, _, _, _ -> true },
+        )
+
+        val result = runner.run(
+            fakePlan(
+                stepCount = 1,
+                steps = listOf(
+                    RecipeStep(
+                        id = "continue",
+                        title = "Tap Continue",
+                        command = RecipeCommand.Tap(RecipeTarget.Node(text = "Continue", role = "button")),
+                    ),
+                ),
+            ),
+        )
+
+        assertThat(result).isEqualTo(RecipeRunResult.Completed(completedSteps = 1))
+        assertThat((performer.targets.single() as TapTarget.AtNode).allowGestureFallback).isTrue()
+    }
+
     private fun fakePlan(
         stepCount: Int = 2,
         packageName: String? = "com.example.app",
@@ -352,6 +384,7 @@ class RecipeRunnerTest {
 
     private class FakePerformer : com.handy.core.action.ActionPerformer {
         val calls = mutableListOf<String>()
+        val targets = mutableListOf<TapTarget>()
         override val capabilities: Set<ActionCapability> = setOf(
             ActionCapability.TAP,
             ActionCapability.TYPE,
@@ -360,21 +393,25 @@ class RecipeRunnerTest {
         )
 
         override suspend fun tap(target: TapTarget): PerformResult {
+            targets += target
             calls += "tap:${target.label()}"
             return PerformResult.Ok
         }
 
         override suspend fun longPress(target: TapTarget): PerformResult {
+            targets += target
             calls += "long:${target.label()}"
             return PerformResult.Ok
         }
 
         override suspend fun scroll(direction: ScrollDirection, target: TapTarget?): PerformResult {
+            target?.let { targets += it }
             calls += "scroll:${direction.name.lowercase()}"
             return PerformResult.Ok
         }
 
         override suspend fun typeText(target: TapTarget, text: String): PerformResult {
+            targets += target
             calls += "type:$text"
             return PerformResult.Ok
         }
@@ -387,6 +424,7 @@ class RecipeRunnerTest {
 
     private class FakePolicy(
         private val denyLabels: Set<String> = emptySet(),
+        private val allowGestureFallback: Boolean = false,
     ) : ActionPolicyEngine {
         val decisions = mutableListOf<String>()
 
@@ -405,7 +443,7 @@ class RecipeRunnerTest {
                 confirmation = ConfirmationLevel.NONE,
                 requireFreshSnapshot = true,
                 requireNodeActionOnly = false,
-                allowGestureFallback = false,
+                allowGestureFallback = allowGestureFallback,
                 reason = if (denied) "policy-$label" else null,
             )
         }

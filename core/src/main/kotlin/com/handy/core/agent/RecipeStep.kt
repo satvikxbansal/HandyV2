@@ -146,6 +146,7 @@ sealed class RecipeTarget {
                 packageName = packageName,
                 windowId = grounding.windowId,
                 snapshotHash = grounding.rootBoundsHash,
+                treeHash = grounding.treeHash,
             )
         }
 
@@ -160,6 +161,7 @@ sealed class RecipeTarget {
             expectedWindowId = grounding.windowId,
             snapshotHash = grounding.rootBoundsHash,
             resolverConfidence = 1f,
+            treeHash = grounding.treeHash,
         )
     }
 
@@ -211,6 +213,7 @@ sealed class RecipeTarget {
         packageName: String?,
         windowId: Int?,
         snapshotHash: String?,
+        treeHash: String?,
     ): TapTarget.AtNode =
         TapTarget.AtNode(
             markId = markId ?: selector.markId,
@@ -222,6 +225,7 @@ sealed class RecipeTarget {
             expectedWindowId = windowId,
             snapshotHash = snapshotHash,
             resolverConfidence = 1f,
+            treeHash = treeHash,
         )
 }
 

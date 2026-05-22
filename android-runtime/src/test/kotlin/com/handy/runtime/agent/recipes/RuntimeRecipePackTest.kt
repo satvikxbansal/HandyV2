@@ -86,7 +86,13 @@ class RuntimeRecipePackTest {
 
     @Test fun `runtime recipe pack includes high value app recipes`() {
         assertThat(AndroidRuntimeRecipes.defaultRecipes().map { it.id })
-            .containsAtLeast("gmail_compose", "whatsapp_reply", "chrome")
+            .containsAtLeast(
+                "gmail_compose",
+                "whatsapp_reply",
+                "chrome",
+                "shopping_search",
+                "shopping_find_coupons",
+            )
     }
 
     @Test fun `gmail recipe opens draft and requires strong hold before send`() {
@@ -171,6 +177,54 @@ class RuntimeRecipePackTest {
         )
 
         assertThat(proposal).isEqualTo(RecipeProposal.Refused("use-fetch-page-for-summary"))
+    }
+
+    @Test fun `shopping search proposes scoped product search`() {
+        val plan = ShoppingSearchRecipe.propose(
+            goal = goal("Search for cotton kurti", "shopping_search", "query" to "cotton kurti"),
+            invocation = invocation("shopping_search", "query" to "cotton kurti"),
+            grounding = grounding(packageName = "com.meesho.supply", windowTitle = "Meesho"),
+        ).plan()
+
+        assertThat(plan.appLabel).isEqualTo("Meesho")
+        assertThat(plan.steps.map { it.id }).containsExactly("focus-search", "type-query").inOrder()
+        val type = plan.steps.last().command as RecipeCommand.TypeText
+        assertThat(type.text).isEqualTo("cotton kurti")
+    }
+
+    @Test fun `shopping recipes refuse unsupported apps`() {
+        val proposal = ShoppingSearchRecipe.propose(
+            goal = goal("Search for cotton kurti", "shopping_search", "query" to "cotton kurti"),
+            invocation = invocation("shopping_search", "query" to "cotton kurti"),
+            grounding = grounding(packageName = "com.instagram.android", windowTitle = "Instagram"),
+        )
+
+        assertThat(proposal).isEqualTo(RecipeProposal.Refused("unsupported-shopping-surface"))
+    }
+
+    @Test fun `shopping recipes block purchase and payment requests`() {
+        val proposal = ShoppingSearchRecipe.propose(
+            goal = goal("Buy now", "shopping_search", "query" to "cotton kurti"),
+            invocation = invocation("shopping_search", "query" to "cotton kurti"),
+            grounding = grounding(packageName = "com.flipkart.android", windowTitle = "Flipkart"),
+        )
+
+        assertThat(proposal).isEqualTo(RecipeProposal.Refused("shopping-purchase-blocked"))
+    }
+
+    @Test fun `shopping coupon recipe taps visible offers affordance only`() {
+        val plan = ShoppingFindCouponsRecipe.propose(
+            goal = goal("Find coupons", "shopping_find_coupons", "label" to "Offers"),
+            invocation = invocation("shopping_find_coupons", "label" to "Offers"),
+            grounding = grounding(
+                packageName = "com.amazon.mShop.android.shopping",
+                windowTitle = "Amazon",
+            ),
+        ).plan()
+
+        assertThat(plan.appLabel).isEqualTo("Amazon")
+        assertThat(plan.steps.map { it.id }).containsExactly("open-coupons")
+        assertThat(plan.steps.single().command).isInstanceOf(RecipeCommand.Tap::class.java)
     }
 
     private fun goal(

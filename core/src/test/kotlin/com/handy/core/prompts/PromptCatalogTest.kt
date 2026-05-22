@@ -154,6 +154,65 @@ class PromptCatalogTest {
         assertThat(prompt).contains("Handy will re-check policy on a fresh snapshot before every step")
     }
 
+    @Test fun `shopping addendum appears for Meesho package and teaches fetch page compare`() {
+        val prompt = PromptCatalog.buildSystemPrompt(
+            mode = AssistantMode.HELP_ONLY,
+            fromVoice = true,
+            webSearchEnabled = true,
+            hasBraveKey = false,
+            screenTextPackage = "com.meesho.supply",
+            screenTextFlattenedTree = """
+                m1 [TextView] "Women Printed Kurta" @ 0,0-100,20 enabled
+                m2 [TextView] "₹399" @ 0,24-100,44 enabled
+            """.trimIndent(),
+            quickOverlayResponse = true,
+        )
+
+        assertThat(prompt).contains("shopping mode:")
+        assertThat(prompt).contains("similar se compare karo")
+        assertThat(prompt).contains("use fetch_page on the current product url")
+        assertThat(prompt).contains("returnability")
+        assertThat(prompt).contains("coupons/offers")
+        assertThat(prompt).contains("[SPOKEN]")
+    }
+
+    @Test fun `shopping addendum appears for browser shopping domains only`() {
+        val shoppingPrompt = PromptCatalog.buildSystemPrompt(
+            mode = AssistantMode.HELP_ONLY,
+            fromVoice = false,
+            webSearchEnabled = true,
+            hasBraveKey = false,
+            screenTextPackage = "com.android.chrome",
+            screenTextFlattenedTree = """m1 [EditText] "https://www.meesho.com/kurti/p/abc123" enabled""",
+        )
+        val normalPrompt = PromptCatalog.buildSystemPrompt(
+            mode = AssistantMode.HELP_ONLY,
+            fromVoice = false,
+            webSearchEnabled = true,
+            hasBraveKey = false,
+            screenTextPackage = "com.android.chrome",
+            screenTextFlattenedTree = """m1 [EditText] "https://example.com/article" enabled""",
+        )
+
+        assertThat(shoppingPrompt).contains("shopping mode:")
+        assertThat(normalPrompt).doesNotContain("shopping mode:")
+    }
+
+    @Test fun `agent recipes include scoped shopping recipes and block shopping compare recipes`() {
+        val prompt = PromptCatalog.buildSystemPrompt(
+            mode = AssistantMode.HELP_ONLY,
+            fromVoice = false,
+            webSearchEnabled = false,
+            hasBraveKey = false,
+            quickOverlayResponse = true,
+        )
+
+        assertThat(prompt).contains("shopping_search")
+        assertThat(prompt).contains("shopping_find_coupons")
+        assertThat(prompt).contains("for shopping compare, price check, returnability, or summary questions")
+        assertThat(prompt).contains("answer with visible/fetched evidence instead of a recipe")
+    }
+
     @Test fun `buildSystemPrompt appends context failure addendum`() {
         val prompt = PromptCatalog.buildSystemPrompt(
             mode = AssistantMode.HELP_ONLY,

@@ -138,6 +138,68 @@ class AccessibilityGestureActionPerformerTypeTextTest {
         assertThat(auditStore.events.single().verifiedBy).isEqualTo("text-changed")
     }
 
+    @Test
+    fun `tap refuses raw gesture fallback when node-only policy is carried on target`() = runTest {
+        val auditStore = InMemoryAuditStore()
+        val service = mockk<AccessibilityService>(relaxed = true)
+        every { service.rootInActiveWindow } returns null
+
+        val node = mockk<AccessibilityNodeInfo>(relaxed = true)
+        every { node.isClickable } returns false
+        every { node.packageName } returns "com.example"
+        every { node.windowId } returns 7
+        every { node.recycle() } just runs
+
+        val resolver = mockk<SemanticPointerResolver>()
+        every {
+            resolver.resolve(
+                any<AssistantMarkupParser.SemanticPoint>(),
+                any<List<AccessibilityMark>>(),
+                null,
+                null,
+            )
+        } returns ResolvedPointTarget(
+            bounds = IntRect(0, 0, 300, 80),
+            node = node,
+            source = ResolutionSource.MARK_ID,
+            confidence = 1f,
+            candidateCount = 1,
+            markId = "m3",
+            role = "Button",
+            text = "Continue",
+        )
+
+        val provider = AccessibilityServiceProvider { service }
+        val performer = AccessibilityGestureActionPerformer(
+            service = provider,
+            resolver = resolver,
+            liveScreenGuard = LiveScreenGuard(provider),
+            auditStore = auditStore,
+            foregroundPackageProvider = { "com.example" },
+            clock = { 1_000L },
+            requestIdProvider = { "request-tap" },
+            providerId = "test",
+        )
+        val target = TapTarget.AtNode(
+            markId = "m3",
+            role = "button",
+            text = "Continue",
+            viewId = null,
+            desc = null,
+            expectedPackage = null,
+            expectedWindowId = null,
+            snapshotHash = null,
+            resolverConfidence = 1f,
+            allowGestureFallback = false,
+        )
+
+        val result = performer.tap(target)
+
+        assertThat(result).isEqualTo(PerformResult.Failed("gesture-fallback-disallowed"))
+        assertThat(auditStore.events.single().failureReason)
+            .isEqualTo("gesture-fallback-disallowed")
+    }
+
     private class InMemoryAuditStore : AuditStore {
         val events = mutableListOf<AuditEvent>()
         private val state = MutableStateFlow<List<AuditEvent>>(emptyList())

@@ -33,6 +33,8 @@ sealed class TapTarget {
         val expectedWindowId: Int?,
         val snapshotHash: String?,
         val resolverConfidence: Float? = null,
+        val treeHash: String? = null,
+        val allowGestureFallback: Boolean = false,
     ) : TapTarget()
 }
 

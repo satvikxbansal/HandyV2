@@ -57,7 +57,7 @@ fun availableTools(
 }
 
 private const val DISPATCH_ACTION_DESCRIPTION =
-    "Fire a native Android Intent on the user's behalf. Call this for well-defined one-step requests: set a timer, set an alarm, open an app, open a URL, search Maps, dial a number, compose an email or SMS, share text, share a URL, create a calendar event, open a settings deep-link, start navigation, or run a web-search intent. Destructive actions (call, email, SMS, share) always require user confirmation — the tool will return \"needs_confirmation\" in that case; you must ask the user and, once they agree, call dispatch_action again with the same payload."
+    "Fire a native Android Intent on the user's behalf. Call this for well-defined one-step requests: set a timer, set an alarm, open an app, open a URL, search Maps, dial a number, compose an email or SMS, share text, share a URL, create a calendar event, open a settings deep-link, start navigation, or run a web-search intent. Destructive or high-risk actions (call, email, SMS, share, navigation start) are confirmed by Handy's UI before dispatch; do not ask the user to confirm separately unless the tool reports that the user declined or no handler exists."
 
 private val DISPATCH_ACTION_INPUT_SCHEMA_JSON: String = """
 {

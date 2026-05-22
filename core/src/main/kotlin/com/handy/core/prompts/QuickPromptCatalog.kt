@@ -8,10 +8,12 @@ package com.handy.core.prompts
  * `LaunchableAppIndex` + this pure-Kotlin catalog (no Android
  * dependency — `:core` rule).
  *
- * Categorisation is package-substring based, reimplemented from
- * cursorbuddy's `AppDetector` under the recipes-not-source discipline
- * documented in `DESIGN_NOTES.md`. The CHIP COPY itself is **our
- * wording** — cursorbuddy's strings are not ported verbatim.
+ * Categorisation is package-substring based, with a narrow browser-site
+ * label override for shopping domains. The package-category core was
+ * reimplemented from cursorbuddy's `AppDetector` under the
+ * recipes-not-source discipline documented in `DESIGN_NOTES.md`. The
+ * CHIP COPY itself is **our wording** — cursorbuddy's strings are not
+ * ported verbatim.
  */
 object QuickPromptCatalog {
 
@@ -41,6 +43,7 @@ object QuickPromptCatalog {
         CALENDAR,
         CLOCK,
         CALCULATOR,
+        SHOPPING,
         STORE,
         FINANCE,
         PRODUCTIVITY,
@@ -50,10 +53,12 @@ object QuickPromptCatalog {
     }
 
     /**
-     * Categorise by package-substring match. Pure Kotlin — no `Context`.
-     * Order matters: more specific matches go first.
+     * Categorise by package-substring match plus optional browser site
+     * label. Pure Kotlin — no `Context`. Order matters: more specific
+     * matches go first.
      */
-    fun categorize(packageName: String?): AppCategory {
+    fun categorize(packageName: String?, siteLabel: String? = null): AppCategory {
+        if (isShoppingSiteLabel(siteLabel)) return AppCategory.SHOPPING
         if (packageName.isNullOrBlank()) return AppCategory.UNKNOWN
         val p = packageName.lowercase()
         return when {
@@ -88,6 +93,7 @@ object QuickPromptCatalog {
             p.contains("clock") || p.contains("alarm") || p.contains("deskclock") ->
                 AppCategory.CLOCK
             p.contains("calculator") || p.contains("calc") -> AppCategory.CALCULATOR
+            isShoppingPackage(p) -> AppCategory.SHOPPING
             p.contains("vending") || p.contains("playstore") || p.contains("appstore") ->
                 AppCategory.STORE
             p.contains("bank") || p.contains("venmo") || p.contains("cashapp") ||
@@ -184,6 +190,12 @@ object QuickPromptCatalog {
             "Convert a unit",
             "Percent change",
         )
+        AppCategory.SHOPPING -> listOf(
+            "Returnable hai? / Is this returnable?",
+            "Coupon dhoondo / Find coupons",
+            "Similar se compare karo / Compare with similar",
+            "Price sahi hai? / Is this a good price?",
+        )
         AppCategory.STORE -> listOf(
             "Find an app",
             "Update installed apps",
@@ -229,7 +241,26 @@ object QuickPromptCatalog {
             AppCategory.MAPS -> "Where do you need to go?"
             AppCategory.CAMERA -> "Camera's open. Want a photography tip?"
             AppCategory.PHONE -> "In the Phone app. What do you need?"
+            AppCategory.SHOPPING -> label?.let { "Shopping in $it. Compare, coupons, or returns?" }
+                ?: "Shopping. What should I check?"
             else -> label?.let { "In $it. What can I help with?" } ?: FALLBACK_GREETING
         }
+    }
+
+    private fun isShoppingPackage(packageName: String): Boolean =
+        packageName.contains("meesho") ||
+            packageName.contains("flipkart") ||
+            (
+                packageName.contains("amazon.mshop") &&
+                    packageName.contains("shopping")
+                )
+
+    private fun isShoppingSiteLabel(siteLabel: String?): Boolean {
+        val normalized = siteLabel?.lowercase()?.trim() ?: return false
+        return normalized in setOf("meesho", "amazon", "flipkart") ||
+            normalized.contains("meesho.com") ||
+            normalized.contains("amazon.in") ||
+            normalized.contains("amazon.com") ||
+            normalized.contains("flipkart.com")
     }
 }

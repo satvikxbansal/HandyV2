@@ -236,6 +236,12 @@ class DefaultActionPolicyEngine(
         ) {
             return true
         }
+        if (!node.treeHash.isNullOrBlank() &&
+            !grounding.treeHash.isNullOrBlank() &&
+            !node.treeHash.equals(grounding.treeHash, ignoreCase = true)
+        ) {
+            return true
+        }
         return false
     }
 

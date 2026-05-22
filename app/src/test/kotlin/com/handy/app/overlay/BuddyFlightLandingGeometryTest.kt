@@ -1,7 +1,13 @@
 package com.handy.app.overlay
 
 import com.google.common.truth.Truth.assertThat
+import com.handy.core.parsing.AssistantMarkupParser
+import com.handy.core.screen.GroundingSnapshot
 import com.handy.core.screen.IntRect
+import com.handy.core.screen.TurnSource
+import com.handy.core.tool.ToolContext
+import com.handy.runtime.accessibility.SemanticPointerResolver.ResolutionSource
+import com.handy.runtime.accessibility.SemanticPointerResolver.ResolvedPointTarget
 import org.junit.Test
 
 class BuddyFlightLandingGeometryTest {
@@ -112,6 +118,33 @@ class BuddyFlightLandingGeometryTest {
         assertThat(landing.visualBounds.top).isAtLeast(viewport.safeBounds.top)
         assertThat(landing.visualBounds.right).isAtMost(viewport.safeBounds.right)
         assertThat(landing.visualBounds.bottom).isAtMost(viewport.safeBounds.bottom)
+    }
+
+    @Test
+    fun `tap target carries root and tree hashes from grounding snapshot`() {
+        val target = buildTapTargetForResolved(
+            spec = AssistantMarkupParser.SemanticPoint(markId = "m3"),
+            resolved = ResolvedPointTarget(
+                bounds = IntRect(0, 0, 120, 80),
+                node = null,
+                source = ResolutionSource.MARK_ID,
+                confidence = 1f,
+                candidateCount = 1,
+                markId = "m3",
+                role = "Button",
+                text = "Continue",
+            ),
+            groundingSnapshot = GroundingSnapshot(
+                requestId = "test",
+                source = TurnSource.TEST,
+                toolContext = ToolContext(packageName = "com.example", appLabel = "Example"),
+                rootBoundsHash = "root-hash",
+                treeHash = "tree-hash",
+            ),
+        )
+
+        assertThat(target.snapshotHash).isEqualTo("root-hash")
+        assertThat(target.treeHash).isEqualTo("tree-hash")
     }
 
     private fun IntRect.overlaps(other: IntRect): Boolean =

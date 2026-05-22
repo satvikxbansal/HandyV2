@@ -98,10 +98,13 @@ class OverlayPresenter @Inject constructor(
         clock: () -> Long = { System.currentTimeMillis() },
     ) {
         val snapshot = captureSnapshot(marksProvider, clock)
-        val category = QuickPromptCatalog.categorize(snapshot?.toolContext?.packageName)
+        val category = QuickPromptCatalog.categorize(
+            packageName = snapshot?.toolContext?.packageName,
+            siteLabel = snapshot?.toolContext?.umbrellaSiteLabel,
+        )
         val prompts = QuickPromptCatalog.promptsFor(category)
         val greeting = QuickPromptCatalog.greetingFor(
-            snapshot?.toolContext?.appLabel,
+            snapshot?.toolContext?.displayLabel,
             category,
         )
         setState(event = "onWidgetTap") { it.copy(

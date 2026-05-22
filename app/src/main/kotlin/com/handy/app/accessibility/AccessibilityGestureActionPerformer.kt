@@ -37,7 +37,8 @@ import timber.log.Timber
  *   2. If `node.isClickable`, call `node.performAction(ACTION_CLICK)`.
  *      Respects the real click handler, disabled state, etc.
  *   3. Fall back to `AccessibilityService.dispatchGesture` at the
- *      node's bounds centre **only** when the node is not clickable.
+ *      node's bounds centre **only** when policy explicitly allows
+ *      gesture fallback for this target.
  *
  * Every call writes an [AuditEvent] to [AuditStore] — scope §4.3.
  *
@@ -368,6 +369,17 @@ class AccessibilityGestureActionPerformer(
             )
             return if (ok) PerformResult.Ok else PerformResult.Failed("node action failed")
         }
+        if (target is TapTarget.AtNode && !target.allowGestureFallback) {
+            node?.let { runCatching { it.recycle() } }
+            audited(
+                action = kind.toAudit(),
+                targetDescription = target.describe(),
+                confirmationRequired = false,
+                userConfirmed = false,
+                result = AuditResult.Failed(GESTURE_FALLBACK_DISALLOWED_REASON),
+            )
+            return PerformResult.Failed(GESTURE_FALLBACK_DISALLOWED_REASON)
+        }
 
         // Fall back to gesture dispatch at the target's centre.
         val (x, y) = when (target) {
@@ -443,7 +455,7 @@ class AccessibilityGestureActionPerformer(
     private fun TapTarget.describe(): String = when (this) {
         is TapTarget.AtScreenPoint -> "point($x,$y)"
         is TapTarget.AtNode -> buildString {
-            val context = listOfNotNull(role, text, viewId, desc, expectedPackage, snapshotHash)
+            val context = listOfNotNull(role, text, viewId, desc, expectedPackage, snapshotHash, treeHash)
                 .joinToString(" ")
             val passwordContext = context.containsPasswordContext()
             appendTargetPart("markId", markId, context)
@@ -454,6 +466,7 @@ class AccessibilityGestureActionPerformer(
             appendTargetPart("expectedPackage", expectedPackage, context)
             expectedWindowId?.let { append("expectedWindowId=$it;") }
             appendTargetPart("snapshotHash", snapshotHash, context)
+            appendTargetPart("treeHash", treeHash, context)
         }.trimEnd(';')
     }
 
@@ -548,7 +561,13 @@ class AccessibilityGestureActionPerformer(
     private fun TapTarget.AtNode.screenChanged(live: LiveScreenGuard.LiveScreen?): Boolean {
         val expectedPackage = expectedPackage?.takeIf { it.isNotBlank() }
         val expectedWindowId = expectedWindowId
-        if (expectedPackage == null && expectedWindowId == null) return false
+        if (expectedPackage == null &&
+            expectedWindowId == null &&
+            snapshotHash.isNullOrBlank() &&
+            treeHash.isNullOrBlank()
+        ) {
+            return false
+        }
         if (live == null) return true
         if (expectedPackage != null &&
             !live.packageName.equals(expectedPackage, ignoreCase = true)
@@ -556,6 +575,18 @@ class AccessibilityGestureActionPerformer(
             return true
         }
         if (expectedWindowId != null && live.windowId != expectedWindowId) return true
+        if (!snapshotHash.isNullOrBlank() &&
+            !live.rootBoundsHash.isNullOrBlank() &&
+            !snapshotHash.equals(live.rootBoundsHash, ignoreCase = true)
+        ) {
+            return true
+        }
+        if (!treeHash.isNullOrBlank() &&
+            !live.treeHash.isNullOrBlank() &&
+            !treeHash.equals(live.treeHash, ignoreCase = true)
+        ) {
+            return true
+        }
         return false
     }
 
@@ -573,6 +604,7 @@ class AccessibilityGestureActionPerformer(
         const val ACTION_EVENT_VERIFY_TIMEOUT_MS: Long = 1_500L
         const val MIN_ACTION_CONFIDENCE: Float = 0.9f
         const val SCREEN_CHANGED_REASON: String = "screen-changed"
+        const val GESTURE_FALLBACK_DISALLOWED_REASON: String = "gesture-fallback-disallowed"
         val TYPE_CARD_PATTERN_REGEX = Regex("""\b(?:\d[ -]?){13,19}\b""")
         val TYPE_SHORT_CODE_REGEX = Regex("""\d{3,8}""")
     }

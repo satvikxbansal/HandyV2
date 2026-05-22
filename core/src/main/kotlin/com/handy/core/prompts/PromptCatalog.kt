@@ -216,6 +216,27 @@ object PromptCatalog {
     """.trimIndent()
 
     /**
+     * Android-only addendum for shopping surfaces. Scoped narrowly so the
+     * model does not become a general-purpose shopping assistant outside
+     * Meesho, Amazon, and Flipkart.
+     */
+    fun shoppingModeAddendum(): String = """
+
+        shopping mode:
+        this addendum applies only when the current package, visible url, or visible domain is meesho, amazon shopping, or flipkart. keep the current response format from the base prompt, including [SPOKEN]...[/SPOKEN], [POINT:...], [TYPE:...], and tool names exactly in english.
+
+        for hindi or hinglish shopping requests, answer in the same register naturally. examples: "returnable hai?", "coupon dhoondo", "similar se compare karo", and "price sahi hai?" should be handled as shopping questions, not generic navigation questions.
+
+        when the user asks to compare with similar products, compare similar, "similar se compare karo", or asks whether this is a good deal, use fetch_page on the current product url when a meesho, amazon, or flipkart url is visible in <screen_ui>. then summarize the fetched page and the visible screen together: price, rating/review count, delivery date or fees, returnability, coupons/offers, seller signals if visible, and a short practical recommendation. if no fetchable url is visible, say what you can infer from the visible screen and ask the user to open/share the product link for a stronger comparison.
+
+        when the user asks "is this returnable?" or "returnable hai?", look for return/replacement text first. if it is visible, answer directly and point at that line or control. if it is not visible, say that the page does not clearly show the return policy yet and suggest opening the product details/returns section.
+
+        when the user asks for coupons or offers, inspect visible coupon, bank offer, discount, and price-drop text first. if a product url is visible and fetch_page is available, fetch that product page before summarizing coupons. do not invent coupon codes or claim a discount applies unless it is visible or fetched.
+
+        never buy, checkout, pay, place an order, apply a coupon, add to cart, change address, enter card/upi details, or interact with saved payment details from shopping mode. for those requests, explain that the user must do it themselves and offer to compare, summarize, find returnability, or find coupons instead.
+    """.trimIndent()
+
+    /**
      * Android-only addendum. Always present in v1 when intent dispatch is
      * enabled (which is always — v1 ships `dispatch_action` as the single
      * action tool). Body is spec'd verbatim in
@@ -223,7 +244,7 @@ object PromptCatalog {
      */
     val INTENT_TOOL_ADDENDUM: String = """
 
-        direct actions: for well-defined requests like "set a 10-minute timer", "open youtube", "call mom", "text sarah 'on my way'", "search google for X", prefer the `dispatch_action` tool over verbal instructions. ask the user for confirmation only if the action is destructive (calling, texting, sharing). for simple one-step actions, just dispatch.
+        direct actions: for well-defined requests like "set a 10-minute timer", "open youtube", "call mom", "text sarah 'on my way'", "search google for X", prefer the `dispatch_action` tool over verbal instructions. Handy will show its own confirmation UI for destructive or high-risk actions, so don't ask for a separate chat confirmation first. for simple one-step actions, just dispatch.
     """.trimIndent()
 
     val TYPE_CAPABILITY_ADDENDUM: String = """
@@ -252,8 +273,10 @@ object PromptCatalog {
         - gmail_compose: args include to, body, and optional subject. it drafts the email and pauses before Send; Send requires STRONG_HOLD.
         - whatsapp_reply: args include recipient/contact and message, plus optional phone. it opens the chat, fills the draft, and pauses before Send; Send requires STRONG_HOLD.
         - chrome: args include url to open via intent, or markId/label/desc/viewId to navigate within the visible page. for summarizing a visible/current page, use fetch_page on the page URL instead of a recipe.
+        - shopping_search: only for meesho, amazon shopping, or flipkart; args include query, plus optional searchMarkId/searchViewId/searchDesc/field and optional submitMarkId/submitViewId/submitDesc. use it only when the user explicitly asks you to search products in the visible shopping surface.
+        - shopping_find_coupons: only for meesho, amazon shopping, or flipkart; args may include couponMarkId/couponViewId/couponDesc/target/label/text. use it only to open a visible coupons/offers affordance, not to apply a coupon.
 
-        never use recipes for payment, checkout, buying, deleting, sending money, password/passcode/otp/cvv entry, or private/financial data submission. email and whatsapp drafting recipes are the only messaging exception: draft only from the user's own requested text, stop before Send, and rely on the STRONG_HOLD Send step. recipes are only proposals; Handy will re-check policy on a fresh snapshot before every step and will ask the user before the plan and every sensitive step.
+        never use recipes for payment, checkout, buying, add-to-cart, deleting, sending money, password/passcode/otp/cvv entry, or private/financial data submission. for shopping compare, price check, returnability, or summary questions, answer with visible/fetched evidence instead of a recipe. email and whatsapp drafting recipes are the only messaging exception: draft only from the user's own requested text, stop before Send, and rely on the STRONG_HOLD Send step. recipes are only proposals; Handy will re-check policy on a fresh snapshot before every step and will ask the user before the plan and every sensitive step.
     """.trimIndent()
 
     /**
@@ -293,6 +316,11 @@ object PromptCatalog {
             buffer.append(TYPE_CAPABILITY_ADDENDUM)
         }
 
+        if (isShoppingModeContext(screenTextPackage, screenTextFlattenedTree)) {
+            buffer.append("\n\n")
+            buffer.append(shoppingModeAddendum())
+        }
+
         if (!contextFailureReason.isNullOrBlank()) {
             buffer.append("\n\n")
             buffer.append(contextFailureAddendum(contextFailureReason))
@@ -312,4 +340,33 @@ object PromptCatalog {
 
         return buffer.toString()
     }
+
+    private fun isShoppingModeContext(
+        packageName: String?,
+        flattenedTree: String?,
+    ): Boolean =
+        packageName.isShoppingAppPackage() || flattenedTree.hasShoppingDomain()
+
+    private fun String?.isShoppingAppPackage(): Boolean {
+        val normalized = this?.lowercase() ?: return false
+        return normalized.contains("meesho") ||
+            normalized.contains("flipkart") ||
+            (
+                normalized.contains("amazon.mshop") &&
+                    normalized.contains("shopping")
+                )
+    }
+
+    private fun String?.hasShoppingDomain(): Boolean {
+        if (isNullOrBlank()) return false
+        val normalized = lowercase()
+        return SHOPPING_DOMAIN_HINTS.any { normalized.contains(it) }
+    }
+
+    private val SHOPPING_DOMAIN_HINTS = listOf(
+        "meesho.com",
+        "amazon.in",
+        "amazon.com",
+        "flipkart.com",
+    )
 }
