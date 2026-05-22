@@ -1149,3 +1149,19 @@ cross-references the one being superseded.
 | **Fix** | Kept option A: `RecipeRunner.MAX_STEPS` remains `6`. Added KDoc explaining the WhatsApp ceiling, updated the policy and plan docs to say: "Max 6 steps so multi-screen recipes (WhatsApp open → search → type → open → type → send) fit without artificial fragmentation," and clarified that the final Send step still requires its own explicit `STRONG_HOLD` confirmation. |
 | **Validation** | `git diff --check` passed. `JAVA_HOME=$HOME/.cache/codex-jdk17 PATH=$HOME/.cache/codex-jdk17/bin:$PATH ./gradlew build --no-daemon --stacktrace` passed, including `:core:test`, `:android-runtime:test`, `:app:test`, lint, debug assembly, R8/minified release, and release assembly. `JAVA_HOME=$HOME/.cache/codex-jdk17 PATH=$HOME/.cache/codex-jdk17/bin:$PATH ./gradlew :app:installDebug --no-daemon --stacktrace` installed `app-debug.apk` on `emulator-5554`. Launched `com.handy.android/com.handy.app.onboarding.OnboardingActivity`; `am start -W` returned `Status: ok`, the process stayed alive, and fresh logcat contained no `AndroidRuntime`, `FATAL EXCEPTION`, or Handy exception/error matches. |
 | **Prevention Rule** | When bumping a numeric safety constant, the same PR must update the matching value in ACTION_POLICY.md and HANDY_NEXT_LEVEL_PLAN.md. |
+
+---
+
+### DL-070 — HandyNotificationListenerService kdoc promised unimplemented reply/dismiss
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-05-22 |
+| **Tags** | `#android #notifications #kdoc #RemoteInput #policy` |
+| **Severity** | Documentation / Policy Boundary Drift |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/notifications/HandyNotificationListenerService.kt`, `DEBUG_LOG.md` |
+| **Symptom** | `HandyNotificationListenerService` KDoc claimed `dismiss(key)` and `reply(key, text)` existed even though the class only publishes notification snapshots and does not execute reply or dismiss actions. |
+| **Root Cause** | Doc was written ahead of implementation (A4 was deferred). No code consumer existed, so the lie was invisible. |
+| **Fix** | Removed the false reply/dismiss promise from the class KDoc, added the explicit A4 / Phase 6 deferral note with the future `STRONG_HOLD` confirmation requirement, and added `canReplyTo(snapshot)` as a read-only convenience over `NotificationSnapshot.canReply` without adding a throwable reply stub. |
+| **Validation** | `git diff --check -- app/src/main/kotlin/com/handy/app/notifications/HandyNotificationListenerService.kt DEBUG_LOG.md` passed. `JAVA_HOME=$HOME/.cache/codex-jdk17 PATH=$HOME/.cache/codex-jdk17/bin:$PATH ./gradlew :app:compileDebugKotlin --stacktrace --no-daemon` passed. `JAVA_HOME=$HOME/.cache/codex-jdk17 PATH=$HOME/.cache/codex-jdk17/bin:$PATH ./gradlew :app:testDebugUnitTest :app:assembleDebug --stacktrace --no-daemon` passed. `JAVA_HOME=$HOME/.cache/codex-jdk17 PATH=$HOME/.cache/codex-jdk17/bin:$PATH ./gradlew build --stacktrace --no-daemon` passed, including lint, release compile, R8, and release assembly. Installed `app-debug.apk` on `emulator-5554`, launched `com.handy.android/com.handy.app.onboarding.OnboardingActivity` with `am start -W`, confirmed `Status: ok`, confirmed the app process stayed alive, and fresh logcat had no `AndroidRuntime`, `FATAL EXCEPTION`, `am_crash`, or Handy crash matches. |
+| **Prevention Rule** | kdoc must describe what the code does, not what the roadmap intends. Roadmap goes into HANDY_NEXT_LEVEL_PLAN.md. |

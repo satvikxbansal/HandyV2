@@ -31,9 +31,8 @@ import timber.log.Timber
  *    disabled the service still binds (it has to, or Android revokes
  *    the listener permission) but publishes an empty list and skips
  *    any processing.
- *  - Provide `dismiss(key)` and `reply(key, text)` for the two
- *    guarded features. These are invoked from the chat pipeline /
- *    panel only — never from this service's own event callbacks.
+ *
+ * Notification reply / dismiss are deferred to A4 / Phase 6 (RemoteInput) and will require STRONG_HOLD policy confirmation.
  *
  * What we explicitly DO NOT do:
  *  - Ambient triage, rule engines, auto-reply, auto-dismiss — scope
@@ -50,6 +49,8 @@ class HandyNotificationListenerService : NotificationListenerService() {
 
     private val _state = MutableStateFlow<List<NotificationSnapshot>>(emptyList())
     val state: StateFlow<List<NotificationSnapshot>> = _state.asStateFlow()
+
+    fun canReplyTo(snapshot: NotificationSnapshot): Boolean = snapshot.canReply
 
     override fun onCreate() {
         super.onCreate()
