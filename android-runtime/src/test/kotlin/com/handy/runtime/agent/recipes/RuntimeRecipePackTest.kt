@@ -91,6 +91,7 @@ class RuntimeRecipePackTest {
                 "install_app",
                 "web_search",
                 "set_timer",
+                "create_calendar_event",
                 "gmail_compose",
                 "whatsapp_reply",
                 "chrome",

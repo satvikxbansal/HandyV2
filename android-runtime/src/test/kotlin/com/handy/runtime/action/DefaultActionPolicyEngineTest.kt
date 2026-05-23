@@ -314,6 +314,23 @@ class DefaultActionPolicyEngineTest {
         assertThat(decision.risk).isEqualTo(ActionRisk.MEDIUM)
     }
 
+    @Test fun `calendar event compose intent is allowed without confirmation`() {
+        val decision = engine().decide(
+            action = AssistantAction.CreateCalendarEvent(
+                title = "dentist",
+                startEpochMs = 1_800_000_000_000L,
+                location = "Smile Dental",
+            ),
+            target = null,
+            grounding = grounding(),
+            sourceTrust = SourceTrust.TRUSTED_USER,
+        )
+
+        assertThat(decision.allowed).isTrue()
+        assertThat(decision.confirmation).isEqualTo(ConfirmationLevel.NONE)
+        assertThat(decision.risk).isEqualTo(ActionRisk.LOW)
+    }
+
     @Test fun `play store urls are not blocked by payment words in package names`() {
         val decision = engine().decide(
             action = AssistantAction.OpenUrl(
