@@ -171,6 +171,37 @@ class PromptCatalogTest {
         assertThat(prompt).contains("Handy will re-check policy on a fresh snapshot before every step")
     }
 
+    @Test fun `quick overlay keeps concise response contract when recipes are disabled`() {
+        val prompt = PromptCatalog.buildSystemPrompt(
+            mode = AssistantMode.HELP_ONLY,
+            fromVoice = false,
+            webSearchEnabled = false,
+            hasBraveKey = false,
+            quickOverlayResponse = true,
+            agentRecipesEnabled = false,
+        )
+
+        assertThat(prompt).contains("quick overlay response:")
+        assertThat(prompt).doesNotContain("agent-mode recipes:")
+        assertThat(prompt).doesNotContain("[INTENT:<canonical>]")
+        assertThat(prompt).doesNotContain("use recipe <canonical> with args")
+    }
+
+    @Test fun `reduced mode can suppress both direct actions and recipes`() {
+        val prompt = PromptCatalog.buildSystemPrompt(
+            mode = AssistantMode.HELP_ONLY,
+            fromVoice = false,
+            webSearchEnabled = false,
+            hasBraveKey = false,
+            quickOverlayResponse = true,
+            intentToolEnabled = false,
+            agentRecipesEnabled = false,
+        )
+
+        assertThat(prompt).doesNotContain("dispatch_action")
+        assertThat(prompt).doesNotContain("agent-mode recipes:")
+    }
+
     @Test fun `shopping addendum appears for Meesho package and teaches fetch page compare`() {
         val prompt = PromptCatalog.buildSystemPrompt(
             mode = AssistantMode.HELP_ONLY,

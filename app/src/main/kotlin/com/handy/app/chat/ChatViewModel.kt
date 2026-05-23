@@ -348,13 +348,16 @@ class ChatViewModel @Inject constructor(
             val hasBraveKey = withContext(Dispatchers.IO) {
                 !keyStore.get(KeyStore.KEY_BRAVE).isNullOrBlank()
             }
+            val automationEnabled =
+                current.accessibilityDisclosureAcknowledged &&
+                    accessibilityStateMonitor.isEnabled.value
             // Mirrors V1 `ClaudeAPIService.availableTools`: web tools
-            // ride on `webSearchEnabled`; `dispatch_action` is always
-            // available (the prompt addendum already advertises it).
+            // ride on `webSearchEnabled`; `dispatch_action` stays off
+            // in reduced mode so code matches the Play disclosure.
             val tools = availableTools(
                 webSearchEnabled = current.webSearchEnabled,
                 hasBraveKey = hasBraveKey,
-                intentDispatchEnabled = true,
+                intentDispatchEnabled = automationEnabled,
             )
 
             val turnContext = screenContextBuilder.build(
@@ -382,6 +385,7 @@ class ChatViewModel @Inject constructor(
                 screenText = turnContext.screenText,
                 hasBraveKey = hasBraveKey,
                 tools = tools,
+                agentRecipesEnabled = automationEnabled,
                 contextFailureReason = turnContext.failureReason,
                 grounding = turnContext,
             )

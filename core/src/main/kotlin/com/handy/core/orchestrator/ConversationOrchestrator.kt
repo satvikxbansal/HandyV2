@@ -120,6 +120,7 @@ class ConversationOrchestrator(
                 screenTextPackage = screenTextForPrompt?.packageName,
                 screenTextFlattenedTree = flattenedScreenText,
                 intentToolEnabled = effectiveTools.any { it.name == "dispatch_action" },
+                agentRecipesEnabled = request.agentRecipesEnabled,
                 quickOverlayResponse = request.quickOverlayResponse,
                 contextFailureReason = contextFailureReason?.promptText,
             )
@@ -298,6 +299,7 @@ data class OrchestrationRequest(
     val hasBraveKey: Boolean,
     val tools: List<ToolDefinition>,
     val quickOverlayResponse: Boolean = false,
+    val agentRecipesEnabled: Boolean = true,
     val contextFailureReason: ContextFailureReason? = null,
     val grounding: GroundingSnapshot = GroundingSnapshot(
         requestId = "legacy",

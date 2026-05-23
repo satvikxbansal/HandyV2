@@ -340,6 +340,7 @@ object PromptCatalog {
         screenTextPackage: String? = null,
         screenTextFlattenedTree: String? = null,
         intentToolEnabled: Boolean = true,
+        agentRecipesEnabled: Boolean = true,
         quickOverlayResponse: Boolean = false,
         contextFailureReason: String? = null,
     ): String {
@@ -376,6 +377,9 @@ object PromptCatalog {
         if (quickOverlayResponse) {
             buffer.append("\n\n")
             buffer.append(quickOverlayAddendum())
+        }
+
+        if (quickOverlayResponse && agentRecipesEnabled) {
             buffer.append("\n\n")
             buffer.append(AGENT_RECIPE_ADDENDUM)
         }

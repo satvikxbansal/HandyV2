@@ -77,9 +77,13 @@ data class UserGoal(
             Regex("""\bwhat\s+should\s+i\s+tap\b"""),
         )
 
+        private const val EXECUTION_VERBS =
+            "tap|click|press|select|choose|open|type|enter|fill|search|find|google|look\\s+up|scroll|swipe|set|start|install|schedule|create|make|add|draft|compose|reply|text|message|send|book|turn\\s+on|turn\\s+off|enable|disable"
+
         private val EXECUTION_PATTERNS = listOf(
-            Regex("""^(please\s+)?(tap|click|press|select|choose|open|type|enter|fill|search|scroll|swipe)\b"""),
-            Regex("""\b(can|could|would)\s+you\s+(please\s+)?(tap|click|press|select|choose|open|type|enter|fill|search|scroll|swipe)\b"""),
+            Regex("""^(please\s+)?($EXECUTION_VERBS)\b"""),
+            Regex("""\b(can|could|would)\s+you\s+(please\s+)?($EXECUTION_VERBS)\b"""),
+            Regex("""\b(ringtone\s+settings|screen\s+timeout|brightness|dnd|do\s+not\s+disturb)\b"""),
             Regex("""\b(go\s+ahead|do\s+it|do\s+this|take\s+over|handle\s+it)\b"""),
             Regex("""\bfor\s+me\b"""),
         )
@@ -87,7 +91,7 @@ data class UserGoal(
         private val FORCE_AUTOMATION_PATTERNS = listOf(
             Regex("""\bfor\s+me\b"""),
             Regex("""\b(go\s+ahead|do\s+it|do\s+this|take\s+over|handle\s+it)\b"""),
-            Regex("""\b(can|could|would)\s+you\s+(please\s+)?(tap|click|press|select|choose|open|type|enter|fill|search|scroll|swipe)\b"""),
+            Regex("""\b(can|could|would)\s+you\s+(please\s+)?($EXECUTION_VERBS)\b"""),
         )
     }
 }

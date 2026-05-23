@@ -1,5 +1,6 @@
 package com.handy.app.overlay
 
+import com.handy.app.accessibility.AccessibilityStateMonitor
 import com.handy.app.agent.AgentSessionController
 import com.handy.app.chat.ChatConfirmationBroker
 import com.handy.app.screen.ScreenContextBuilder
@@ -68,6 +69,7 @@ class OverlayChatPipeline @Inject constructor(
     private val settings: DataStoreSettings,
     private val keyStore: KeyStore,
     private val confirmationBroker: ChatConfirmationBroker,
+    private val accessibilityStateMonitor: AccessibilityStateMonitor,
     private val flightDriver: BuddyFlightDriver,
     private val screenContextBuilder: ScreenContextBuilder,
     private val agentSessionController: AgentSessionController,
@@ -130,13 +132,16 @@ class OverlayChatPipeline @Inject constructor(
         val hasBraveKey = withContext(Dispatchers.IO) {
             !keyStore.get(KeyStore.KEY_BRAVE).isNullOrBlank()
         }
+        val automationEnabled =
+            current.accessibilityDisclosureAcknowledged &&
+                accessibilityStateMonitor.isEnabled.value
         val tools = if (mode == ConversationMode.SUMMARIZE_SCREEN) {
             emptyList()
         } else {
             availableTools(
                 webSearchEnabled = current.webSearchEnabled,
                 hasBraveKey = hasBraveKey,
-                intentDispatchEnabled = true,
+                intentDispatchEnabled = automationEnabled,
             )
         }
 
@@ -172,6 +177,7 @@ class OverlayChatPipeline @Inject constructor(
             hasBraveKey = hasBraveKey,
             tools = tools,
             quickOverlayResponse = true,
+            agentRecipesEnabled = automationEnabled,
             contextFailureReason = turnContext.failureReason,
             grounding = turnContext,
         )
@@ -234,16 +240,20 @@ class OverlayChatPipeline @Inject constructor(
                 return@launch
             }
             val fallbackMarks = groundedSnapshot?.marks.orEmpty().withStableMarkIds()
-            val recipeHandled = agentSessionController.runIfRecipeRequested(
-                assistantText = finalChatText,
-                userText = userText,
-                initialGrounding = turnContext,
-                source = if (fromVoice) TurnSource.OVERLAY_VOICE else TurnSource.OVERLAY_PANEL,
-                toolContext = toolContext,
-            )
-            if (recipeHandled) {
-                Timber.d("OverlayChatPipeline: recipe directive handled")
-                return@launch
+            if (automationEnabled) {
+                val recipeHandled = agentSessionController.runIfRecipeRequested(
+                    assistantText = finalChatText,
+                    userText = userText,
+                    initialGrounding = turnContext,
+                    source = if (fromVoice) TurnSource.OVERLAY_VOICE else TurnSource.OVERLAY_PANEL,
+                    toolContext = toolContext,
+                )
+                if (recipeHandled) {
+                    Timber.d("OverlayChatPipeline: recipe directive handled")
+                    return@launch
+                }
+            } else {
+                Timber.d("OverlayChatPipeline: reduced mode skips recipe routing")
             }
             // V2: buddy flight — fire after the response is in the
             // green bubble. The bubble taxonomy flips to Navigation

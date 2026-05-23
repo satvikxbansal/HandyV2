@@ -49,4 +49,29 @@ class UserGoalTest {
     @Test fun `help wording plus explicit automation still allows execution`() {
         assertThat(UserGoal.allowsRecipeExecution("can you show me where and tap it for me?")).isTrue()
     }
+
+    @Test fun `canonical recipe requests allow execution`() {
+        listOf(
+            "open spotify",
+            "install spotify",
+            "set 7am alarm",
+            "set a 10-minute timer",
+            "google android 16 release notes",
+            "turn on dnd",
+            "ringtone settings",
+            "schedule dentist tomorrow 3 pm",
+            "book a cab to airport",
+            "find cheap saree on meesho",
+            "draft email to mom",
+            "reply to john on whatsapp",
+        ).forEach { request ->
+            assertThat(UserGoal.allowsRecipeExecution(request)).isTrue()
+        }
+    }
+
+    @Test fun `new action verbs still respect guidance-only wording`() {
+        assertThat(UserGoal.allowsRecipeExecution("how do I set a timer?")).isFalse()
+        assertThat(UserGoal.allowsRecipeExecution("where is brightness?")).isFalse()
+        assertThat(UserGoal.allowsRecipeExecution("show me where to install spotify")).isFalse()
+    }
 }
