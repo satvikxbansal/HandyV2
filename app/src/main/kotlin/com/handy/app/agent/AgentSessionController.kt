@@ -201,11 +201,18 @@ class AgentSessionController @Inject constructor(
         val result = runCatching { runner.run(plan) }
             .onFailure { Timber.w(it, "Agent recipe run failed") }
             .getOrElse { RecipeRunResult.Failed("runner", it.message ?: "runner-failed") }
-        if (result !is RecipeRunResult.Completed) {
+        if (result is RecipeRunResult.Completed) {
+            plan.rideCompletionMessage()?.let(::postRecipeCompletionMessage)
+        } else {
             presenter.onError(result.userMessage())
         }
         delay(PROGRESS_FINISH_DISPLAY_MS)
         _progress.value = AgentProgressBubbleState.Hidden
+    }
+
+    private fun postRecipeCompletionMessage(message: String) {
+        presenter.onStreamingStart()
+        presenter.onResponseFinalized(message, message)
     }
 
     private suspend fun requestSensitiveStepApproval(
@@ -316,8 +323,18 @@ class AgentSessionController @Inject constructor(
         is RecipeRunResult.VerificationFailed -> "recipe could not verify $stepId: $reason"
     }
 
+    private fun RecipePlan.rideCompletionMessage(): String? =
+        rideRecipeAppLabels[recipeId]?.let { app ->
+            "Ready to go — tap Confirm in $app when you're ready."
+        }
+
     companion object {
         private const val CHROME_RECIPE_ID = "chrome"
+        private val rideRecipeAppLabels = mapOf(
+            "uber_ride" to "Uber",
+            "ola_ride" to "Ola",
+            "rapido_ride" to "Rapido",
+        )
         private const val PLAN_CONFIRMATION_TIMEOUT_MS = 12_000L
         private const val STEP_CONFIRMATION_TIMEOUT_MS = 12_000L
         private const val PANEL_DISMISS_BEFORE_RECIPE_MS = 180L

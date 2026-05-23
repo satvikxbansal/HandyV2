@@ -46,11 +46,13 @@ class LearnedAllowlistStore @Inject constructor(
 
     fun isLearnedSync(packageName: String?): Boolean {
         val key = packageName.normalizedPackage() ?: return false
+        if (key in GESTURE_FALLBACK_EXCLUDED_PACKAGES) return false
         return (counters[key] ?: 0) >= successThreshold
     }
 
     suspend fun recordSuccess(packageName: String?): Int {
         val key = packageName.normalizedPackage() ?: return 0
+        if (key in GESTURE_FALLBACK_EXCLUDED_PACKAGES) return 0
         return withContext(Dispatchers.IO) {
             var nextCount = 0
             prefs.edit { p ->
@@ -81,6 +83,11 @@ class LearnedAllowlistStore @Inject constructor(
 
     private companion object {
         const val DEFAULT_SUCCESS_THRESHOLD: Int = 3
+        val GESTURE_FALLBACK_EXCLUDED_PACKAGES = setOf(
+            "com.ubercab",
+            "com.olacabs.customer",
+            "com.rapido.passenger",
+        )
         val COUNTERS_JSON = stringPreferencesKey("package_success_counters_json")
         val COUNTERS_SERIALIZER = MapSerializer(String.serializer(), Int.serializer())
     }

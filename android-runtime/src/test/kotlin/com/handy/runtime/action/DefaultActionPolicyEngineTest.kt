@@ -34,6 +34,26 @@ class DefaultActionPolicyEngineTest {
         assertThat(decision.risk).isEqualTo(ActionRisk.CRITICAL)
     }
 
+    @Test fun `ride hailing packages are not static denylisted`() {
+        val packages = listOf(
+            "com.ubercab",
+            "com.olacabs.customer",
+            "com.rapido.passenger",
+        )
+
+        packages.forEach { packageName ->
+            val decision = engine().decide(
+                action = AssistantAction.OpenApp(packageName),
+                target = null,
+                grounding = grounding(packageName = packageName),
+                sourceTrust = SourceTrust.TRUSTED_USER,
+            )
+
+            assertThat(decision.allowed).isTrue()
+            assertThat(decision.reason).isNull()
+        }
+    }
+
     @Test fun `secure window is blocked`() {
         val decision = engine().decide(
             action = AssistantAction.OpenUrl("https://example.com"),
@@ -224,6 +244,22 @@ class DefaultActionPolicyEngineTest {
                 resolverConfidence = 0.95f,
             ),
             grounding = grounding(packageName = "com.shopping.example"),
+            sourceTrust = SourceTrust.TRUSTED_RECIPE,
+        )
+
+        assertThat(decision.allowed).isFalse()
+        assertThat(decision.reason).isEqualTo("beta-blocked")
+    }
+
+    @Test fun `ride hailing confirm target is blocked in beta`() {
+        val decision = engine().decide(
+            action = AssistantAction.OpenApp("com.ubercab"),
+            target = node(
+                text = "Confirm UberGo",
+                expectedPackage = "com.ubercab",
+                resolverConfidence = 0.95f,
+            ),
+            grounding = grounding(packageName = "com.ubercab"),
             sourceTrust = SourceTrust.TRUSTED_RECIPE,
         )
 

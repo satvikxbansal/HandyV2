@@ -97,6 +97,9 @@ class RuntimeRecipePackTest {
                 "chrome",
                 "shopping_search",
                 "shopping_find_coupons",
+                "uber_ride",
+                "ola_ride",
+                "rapido_ride",
             )
     }
 

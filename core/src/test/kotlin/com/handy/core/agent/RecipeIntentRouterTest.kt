@@ -63,6 +63,46 @@ class RecipeIntentRouterTest {
         assertThat((proposal as RecipeProposal.Proposed).plan.recipeId).isEqualTo("clock_alarm")
     }
 
+    @Test fun `book ride intent routes by app arg foreground package then Uber fallback`() {
+        val router = RecipeIntentRouter(
+            listOf(
+                FakeRecipe("uber_ride"),
+                FakeRecipe("ola_ride"),
+                FakeRecipe("rapido_ride"),
+            ),
+        )
+
+        val olaGoal = UserGoal(
+            text = "book a cab to airport",
+            requestedIntent = RecipeIntent.BOOK_RIDE.canonical,
+            requestedRecipe = RecipeInvocation("book_ride", mapOf("app" to "ola")),
+        )
+        val rapidoGoal = UserGoal(
+            text = "book a cab to airport",
+            requestedIntent = RecipeIntent.BOOK_RIDE.canonical,
+            requestedRecipe = RecipeInvocation("book_ride", emptyMap()),
+        )
+        val fallbackGoal = UserGoal(
+            text = "book a cab to airport",
+            requestedIntent = RecipeIntent.BOOK_RIDE.canonical,
+            requestedRecipe = RecipeInvocation("book_ride", emptyMap()),
+        )
+
+        assertThat(router.routeOrNull(olaGoal)?.second?.id).isEqualTo("ola_ride")
+        assertThat(
+            router.routeOrNull(
+                rapidoGoal,
+                grounding(packageName = "com.rapido.passenger"),
+            )?.second?.id,
+        ).isEqualTo("rapido_ride")
+        assertThat(
+            router.routeOrNull(
+                fallbackGoal,
+                grounding(packageName = "com.example.notes"),
+            )?.second?.id,
+        ).isEqualTo("uber_ride")
+    }
+
     @Test fun `registry falls back to legacy recipe id lookup when router returns null`() {
         val registry = RecipeRegistry(
             listOf(
@@ -110,11 +150,11 @@ class RecipeIntentRouterTest {
             )
     }
 
-    private fun grounding(): GroundingSnapshot =
+    private fun grounding(packageName: String = "com.example"): GroundingSnapshot =
         GroundingSnapshot(
             requestId = "recipe-intent-router-test",
             source = TurnSource.TEST,
-            toolContext = ToolContext(packageName = "com.example", appLabel = "Example"),
+            toolContext = ToolContext(packageName = packageName, appLabel = "Example"),
             screenText = null,
             panelSnapshot = null,
         )

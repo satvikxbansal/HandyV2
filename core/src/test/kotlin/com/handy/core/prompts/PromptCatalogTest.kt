@@ -159,6 +159,8 @@ class PromptCatalogTest {
         assertThat(prompt).contains(""""start":"tomorrow 3 pm"""")
         assertThat(prompt).contains("Calendar's event draft")
         assertThat(prompt).contains("google android 16 release notes → [INTENT:web_search]")
+        assertThat(prompt).contains("book a cab to airport → [INTENT:book_ride]")
+        assertThat(prompt).contains("for book_ride, Handy will prepare the booking but the user must tap Confirm/Request themselves")
         assertThat(prompt).contains("search chrome for cats → [INTENT:open_chrome_url]")
         assertThat(prompt).contains("generic \"search the web\" stays [INTENT:web_search]")
         assertThat(prompt).contains("WEB_SEARCH intent vs tool")

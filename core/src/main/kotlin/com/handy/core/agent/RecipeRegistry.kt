@@ -12,7 +12,7 @@ class RecipeRegistry(
         goal: UserGoal,
         grounding: GroundingSnapshot,
     ): RecipeProposal {
-        intentRouter.routeOrNull(goal)?.let { (_, recipe) ->
+        intentRouter.routeOrNull(goal, grounding)?.let { (_, recipe) ->
             val invocation = goal.requestedRecipe
                 ?.copy(recipeId = recipe.id)
                 ?: RecipeInvocation(recipeId = recipe.id, args = emptyMap())

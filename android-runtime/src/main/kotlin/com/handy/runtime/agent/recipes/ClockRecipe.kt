@@ -30,7 +30,7 @@ object AndroidRuntimeRecipes {
         GmailRecipe,
         WhatsAppRecipe,
         ChromeRecipe,
-    ) + ShoppingRecipePack.defaultRecipes()
+    ) + ShoppingRecipePack.defaultRecipes() + RideHailingRecipePack.defaultRecipes()
 }
 
 object ClockRecipe : AppRecipe {

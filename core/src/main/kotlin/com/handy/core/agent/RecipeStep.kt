@@ -117,6 +117,9 @@ sealed class RecipeTarget {
         val text: String? = null,
         val viewId: String? = null,
         val desc: String? = null,
+        val viewIdContains: String? = null,
+        val textContainsAll: List<String> = emptyList(),
+        val alternatives: List<Node> = emptyList(),
     ) : RecipeTarget()
 
     data class ScreenPoint(val x: Int, val y: Int) : RecipeTarget()
@@ -128,15 +131,38 @@ sealed class RecipeTarget {
 
     fun displayLabel(): String = when (this) {
         is ScreenPoint -> "point $x,$y"
-        is Node -> text ?: desc ?: viewId ?: markId ?: role ?: "target"
+        is Node -> text
+            ?: desc
+            ?: viewId
+            ?: viewIdContains
+            ?: markId
+            ?: role
+            ?: alternatives.firstOrNull()?.displayLabel()
+            ?: "target"
     }
 
     fun looksSensitive(): Boolean = when (this) {
         is ScreenPoint -> false
-        is Node -> listOfNotNull(role, text, viewId, desc).joinToString(" ").looksSensitive()
+        is Node -> (
+            listOfNotNull(role, text, viewId, desc, viewIdContains) +
+                textContainsAll +
+                alternatives.map { it.displayLabel() }
+            )
+            .joinToString(" ")
+            .looksSensitive()
     }
 
     private fun Node.resolveNode(grounding: GroundingSnapshot): TapTarget? {
+        if (hasDirectSelector()) {
+            resolveSingleNode(grounding)?.let { return it }
+        }
+        alternatives.forEach { alternative ->
+            alternative.resolveNode(grounding)?.let { return it }
+        }
+        return null
+    }
+
+    private fun Node.resolveSingleNode(grounding: GroundingSnapshot): TapTarget? {
         val packageName = grounding.screenText?.packageName
             ?: grounding.toolContext.packageName.takeIf { it.isNotBlank() }
         val mark = grounding.panelSnapshot?.marks.orEmpty().firstMatching(this)
@@ -165,6 +191,10 @@ sealed class RecipeTarget {
         )
     }
 
+    private fun Node.hasDirectSelector(): Boolean =
+        listOf(markId, role, text, viewId, desc, viewIdContains).any { !it.isNullOrBlank() } ||
+            textContainsAll.any { it.isNotBlank() }
+
     private fun List<AccessibilityMark>.firstMatching(selector: Node): AccessibilityMark? =
         firstOrNull { it.matches(selector) }
 
@@ -181,12 +211,20 @@ sealed class RecipeTarget {
         selector.viewId?.takeIf { it.isNotBlank() }?.let { expected ->
             return viewIdSuffix.equalsViewId(expected)
         }
+        selector.viewIdContains?.takeIf { it.isNotBlank() }?.let { expected ->
+            return viewIdSuffix.containsViewIdPart(expected) &&
+                selector.role.matchesRole(role)
+        }
         selector.desc?.takeIf { it.isNotBlank() }?.let { expected ->
             return contentDescription.equalsNormalized(expected) &&
                 selector.role.matchesRole(role)
         }
         selector.text?.takeIf { it.isNotBlank() }?.let { expected ->
             return text.equalsNormalized(expected) &&
+                selector.role.matchesRole(role)
+        }
+        selector.textContainsAll.takeIf { it.isNotEmpty() }?.let { tokens ->
+            return text.containsAllNormalizedTokens(tokens) &&
                 selector.role.matchesRole(role)
         }
         return selector.role?.takeIf { it.isNotBlank() }?.let { role.equalsNormalized(it) } == true
@@ -197,12 +235,20 @@ sealed class RecipeTarget {
         selector.viewId?.takeIf { it.isNotBlank() }?.let { expected ->
             return viewIdResourceName.equalsViewId(expected)
         }
+        selector.viewIdContains?.takeIf { it.isNotBlank() }?.let { expected ->
+            return viewIdResourceName.containsViewIdPart(expected) &&
+                selector.role.matchesRole(role)
+        }
         selector.desc?.takeIf { it.isNotBlank() }?.let { expected ->
             return contentDescription.equalsNormalized(expected) &&
                 selector.role.matchesRole(role)
         }
         selector.text?.takeIf { it.isNotBlank() }?.let { expected ->
             return text.equalsNormalized(expected) &&
+                selector.role.matchesRole(role)
+        }
+        selector.textContainsAll.takeIf { it.isNotEmpty() }?.let { tokens ->
+            return text.containsAllNormalizedTokens(tokens) &&
                 selector.role.matchesRole(role)
         }
         return selector.role?.takeIf { it.isNotBlank() }?.let { role.equalsNormalized(it) } == true
@@ -239,8 +285,23 @@ internal fun String?.equalsViewId(other: String?): Boolean {
     return !left.isNullOrBlank() && left == right
 }
 
+private fun String?.containsViewIdPart(other: String?): Boolean {
+    val left = normalizeForRecipe()?.substringAfterLast('/')
+    val right = other.normalizeForRecipe()?.substringAfterLast('/')
+    return !left.isNullOrBlank() && !right.isNullOrBlank() && left.contains(right)
+}
+
 private fun String?.matchesRole(actualRole: String?): Boolean =
-    isNullOrBlank() || actualRole.equalsNormalized(this)
+    isNullOrBlank() || actualRole.normalizeRoleForRecipe() == normalizeRoleForRecipe()
+
+private fun String?.containsAllNormalizedTokens(tokens: List<String>): Boolean {
+    val haystack = normalizeForTokenMatch()
+    if (haystack.isBlank()) return false
+    return tokens
+        .map { it.normalizeForTokenMatch() }
+        .filter { it.isNotBlank() }
+        .all { token -> haystack.contains(token) }
+}
 
 private fun String?.normalizeForRecipe(): String? =
     this
@@ -248,6 +309,21 @@ private fun String?.normalizeForRecipe(): String? =
         ?.lowercase()
         ?.replace(Regex("""\s+"""), " ")
         ?.takeIf { it.isNotBlank() }
+
+private fun String?.normalizeRoleForRecipe(): String? =
+    when (normalizeForRecipe()?.replace(" ", "")) {
+        "textfield",
+        "edittext" -> "edittext"
+        else -> normalizeForRecipe()
+    }
+
+private fun String?.normalizeForTokenMatch(): String =
+    this
+        ?.lowercase()
+        ?.replace(Regex("""[^a-z0-9]+"""), " ")
+        ?.replace(Regex("""\s+"""), " ")
+        ?.trim()
+        .orEmpty()
 
 internal fun String.looksSensitive(): Boolean {
     val normalized = lowercase()
