@@ -33,6 +33,25 @@
     <string name="onboarding_overlay_body">This is how the floating widget stays visible while you use other apps.</string>
     <string name="onboarding_open_overlay">Open overlay settings</string>
 
+    <!-- New onboarding flow -->
+    <string name="splash_built_by_line">Built with love by Satvik Bansal</string>
+    <string name="splash_title">Handy</string>
+    <string name="splash_subtitle">Your on-screen copilot</string>
+    <string name="value_screen_title">Three things Handy does for you.</string>
+    <string name="value_screen_usp1_title">See what\'s on screen</string>
+    <string name="value_screen_usp1_body">Handy reads visible text and UI so you can ask about anything you see.</string>
+    <string name="value_screen_usp2_title">Point you to the right tap</string>
+    <string name="value_screen_usp2_body">A blue arrow flies over to the exact button to press.</string>
+    <string name="value_screen_usp3_title">Do simple things for you</string>
+    <string name="value_screen_usp3_body">Set alarms, draft messages, open apps. Always with your OK.</string>
+    <string name="value_screen_privacy_title">No login. No accounts. No servers of ours.</string>
+    <string name="value_screen_privacy_body">Your messages go straight to your AI. Tap to see the full disclosure.</string>
+    <string name="value_screen_privacy_link">What Handy sees</string>
+    <string name="value_screen_cta">Get started</string>
+    <string name="permissions_title">One more step</string>
+    <string name="permissions_tagline">Handy needs these to work.</string>
+    <string name="privacy_details_close">Close disclosure</string>
+
     <!-- Post-disclosure permissions screen (design-match copy) -->
     <string name="onboarding_title_post">A few permissions,\nand you\'re set.</string>
     <string name="onboarding_tagline_post">Handy can read the visible screen only after your consent. Actions need a second opt-in and a per-action confirmation.</string>

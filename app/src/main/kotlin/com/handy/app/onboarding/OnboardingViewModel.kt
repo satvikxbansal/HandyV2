@@ -12,7 +12,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.handy.app.accessibility.HandyAccessibilityService
-import com.handy.core.action.ActionExecutionGate
 import com.handy.runtime.storage.DataStoreSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -44,10 +43,9 @@ class OnboardingViewModel @Inject constructor(
             settings.flow.collectLatest { s ->
                 _state.update {
                     it.copy(
+                        settingsLoaded = true,
                         disclosureAcknowledged = s.accessibilityDisclosureAcknowledged,
                         reducedModeAcknowledged = s.reducedModeAcknowledged,
-                        actionDisclosureAccepted =
-                            s.actionDisclosureVersionAccepted >= ActionExecutionGate.REQUIRED_DISCLOSURE_VERSION,
                     )
                 }
             }
@@ -144,13 +142,13 @@ class OnboardingViewModel @Inject constructor(
 }
 
 data class OnboardingUiState(
+    val settingsLoaded: Boolean = false,
     val disclosureAcknowledged: Boolean = false,
     val micGranted: Boolean = false,
     val notificationsGranted: Boolean = false,
     val overlayGranted: Boolean = false,
     val accessibilityEnabled: Boolean = false,
     val accessibilityVisited: Boolean = false,
-    val actionDisclosureAccepted: Boolean = false,
     /**
      * Set to true when the user explicitly opts into reduced mode
      * (declined accessibility). Unlocks the primary "Open Handy" button
@@ -161,7 +159,7 @@ data class OnboardingUiState(
 ) {
     /**
      * Minimum required permissions — mic + notifications + overlay, plus
-     * the disclosure tap. Used as the cold-launch short-circuit so
+     * the Value screen acknowledgement. Used as the cold-launch short-circuit so
      * returning users don't have to re-click through. Accessibility is
      * NOT in this set because we don't want to gate repeat launches on
      * it — it's a runtime fallback via the chat banner.

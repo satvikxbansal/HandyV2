@@ -93,6 +93,10 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun markTapForMeFirstUsePromptShown() {
+        updateSettings { it.copy(tapForMeFirstUsePromptShown = true) }
+    }
+
     fun restoreTapForMeForPackage(packageName: String) {
         viewModelScope.launch {
             settings.removeTapForMeUserDenylistedPackage(packageName)

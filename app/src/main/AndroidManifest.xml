@@ -89,7 +89,7 @@
             android:name=".onboarding.OnboardingActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:theme="@style/Theme.Handy">
+            android:theme="@style/Theme.Handy.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

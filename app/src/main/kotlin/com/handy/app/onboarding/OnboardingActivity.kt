@@ -52,6 +52,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.handy.app.R
@@ -69,12 +70,9 @@ import dagger.hilt.android.AndroidEntryPoint
  *
  * Flow:
  *  1. If `fullyReady`, short-circuit to [ChatActivity] (DL-016).
- *  2. Otherwise walk two steps:
- *     - **Pre-disclosure** (Play-policy in-app disclosure): hero + long
- *       legal body + `Continue` / `Not now`.
- *     - **Post-disclosure** (design-match permissions screen): hero +
- *       warm title + tagline + permission rows with left status icon,
- *       description, and right pill/CTA, plus a privacy callout.
+ *  2. Otherwise walk Splash -> Value -> Permissions. The Play-required
+ *     disclosure remains available from the Value screen's privacy
+ *     callout instead of occupying the first screen.
  *
  * System state is re-read on every `onResume` so the checklist
  * reflects reality — not the stale defaults from last launch (DL-005).
@@ -90,8 +88,7 @@ class OnboardingActivity : ComponentActivity() {
         setContent {
             HandyTheme(darkTheme = true) {
                 val state by viewModel.state.collectAsState()
-                var actionDisclosurePrompted by rememberSaveable { mutableStateOf(false) }
-                var actionDisclosureInFlight by rememberSaveable { mutableStateOf(false) }
+                var step by rememberSaveable { mutableStateOf<OnboardingStep?>(null) }
 
                 val micLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission(),
@@ -114,44 +111,35 @@ class OnboardingActivity : ComponentActivity() {
                     viewModel.markAccessibilityVisited()
                     viewModel.refreshFromSystem()
                 }
-                val actionDisclosureLauncher = rememberLauncherForActivityResult(
-                    ActivityResultContracts.StartActivityForResult(),
-                ) {
-                    actionDisclosureInFlight = false
-                    viewModel.refreshFromSystem()
-                }
 
                 LaunchedEffect(
+                    state.settingsLoaded,
                     state.disclosureAcknowledged,
-                    state.accessibilityVisited,
-                    state.accessibilityEnabled,
-                    state.actionDisclosureAccepted,
-                    state.fullyReady,
-                    actionDisclosurePrompted,
-                    actionDisclosureInFlight,
+                    state.reducedModeAcknowledged,
                 ) {
-                    if (state.disclosureAcknowledged &&
-                        state.accessibilityVisited &&
-                        state.accessibilityEnabled &&
-                        !state.actionDisclosureAccepted &&
-                        !actionDisclosurePrompted &&
-                        !actionDisclosureInFlight
-                    ) {
-                        actionDisclosurePrompted = true
-                        actionDisclosureInFlight = true
-                        actionDisclosureLauncher.launch(
-                            Intent(this@OnboardingActivity, ActionDisclosureActivity::class.java),
-                        )
-                        return@LaunchedEffect
+                    if (step == null && state.settingsLoaded) {
+                        step = OnboardingStep.Splash
                     }
-                    if (state.fullyReady && !actionDisclosureInFlight) {
+                }
+
+                LaunchedEffect(state.fullyReady) {
+                    if (state.fullyReady) {
                         goToChat()
                     }
                 }
 
                 OnboardingScreen(
+                    step = step,
                     state = state,
-                    onAcknowledgeDisclosure = viewModel::acknowledgeDisclosure,
+                    onSplashDone = {
+                        if (step == OnboardingStep.Splash) {
+                            step = OnboardingStep.Value
+                        }
+                    },
+                    onValueGetStarted = {
+                        viewModel.acknowledgeDisclosure()
+                        step = OnboardingStep.Permissions
+                    },
                     onRequestMic = {
                         micLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     },
@@ -172,9 +160,11 @@ class OnboardingActivity : ComponentActivity() {
                     onRequestAccessibility = {
                         accessibilityLauncher.launch(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                     },
-                    onAcknowledgeReducedMode = viewModel::acknowledgeReducedMode,
-                    onSkip = { goToChat(reduced = true) },
-                    onFinish = { goToChat(reduced = false) },
+                    onAcknowledgeReducedMode = {
+                        viewModel.acknowledgeReducedMode()
+                        step = OnboardingStep.Reduced
+                    },
+                    onFinish = { goToChat() },
                 )
             }
         }
@@ -185,7 +175,7 @@ class OnboardingActivity : ComponentActivity() {
         viewModel.refreshFromSystem()
     }
 
-    private fun goToChat(reduced: Boolean = false) {
+    private fun goToChat() {
         val state = viewModel.state.value
         if (state.overlayGranted && state.notificationsGranted) {
             AssistantForegroundService.start(this)
@@ -198,18 +188,26 @@ class OnboardingActivity : ComponentActivity() {
     }
 }
 
+private enum class OnboardingStep {
+    Splash,
+    Value,
+    Permissions,
+    Reduced,
+}
+
 /* ---------- Screen scaffolds ---------- */
 
 @Composable
 private fun OnboardingScreen(
+    step: OnboardingStep?,
     state: OnboardingUiState,
-    onAcknowledgeDisclosure: () -> Unit,
+    onSplashDone: () -> Unit,
+    onValueGetStarted: () -> Unit,
     onRequestMic: () -> Unit,
     onRequestNotifications: () -> Unit,
     onRequestOverlay: () -> Unit,
     onRequestAccessibility: () -> Unit,
     onAcknowledgeReducedMode: () -> Unit,
-    onSkip: () -> Unit,
     onFinish: () -> Unit,
 ) {
     Surface(
@@ -217,13 +215,12 @@ private fun OnboardingScreen(
         contentColor = HandyColors.TextPrimary,
         modifier = Modifier.fillMaxSize(),
     ) {
-        if (!state.disclosureAcknowledged) {
-            PreDisclosureStep(
-                onContinue = onAcknowledgeDisclosure,
-                onSkip = onSkip,
-            )
-        } else {
-            PostDisclosureStep(
+        when (step) {
+            null -> Box(Modifier.fillMaxSize())
+            OnboardingStep.Splash -> SplashScreen(onDone = onSplashDone)
+            OnboardingStep.Value -> ValueScreen(onGetStarted = onValueGetStarted)
+            OnboardingStep.Permissions,
+            OnboardingStep.Reduced -> PostDisclosureStep(
                 state = state,
                 onRequestMic = onRequestMic,
                 onRequestNotifications = onRequestNotifications,
@@ -236,45 +233,7 @@ private fun OnboardingScreen(
     }
 }
 
-/* ---------- Step 1: pre-disclosure (Play-policy compliant) ---------- */
-
-@Composable
-private fun PreDisclosureStep(
-    onContinue: () -> Unit,
-    onSkip: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .systemBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(HandyDimens.Gutter),
-        verticalArrangement = Arrangement.spacedBy(HandyDimens.StackL),
-    ) {
-        OnboardingLensHero()
-        Text(
-            text = stringResource(R.string.onboarding_disclosure_title),
-            style = HandyType.Display,
-            color = HandyColors.TextPrimary,
-        )
-        Text(
-            text = stringResource(R.string.onboarding_disclosure_body),
-            style = HandyType.Body,
-            color = HandyColors.TextSecondary,
-        )
-        Spacer(Modifier.height(HandyDimens.StackM))
-        PrimaryButton(
-            text = stringResource(R.string.onboarding_continue),
-            onClick = onContinue,
-        )
-        SecondaryTextButton(
-            text = stringResource(R.string.onboarding_decline),
-            onClick = onSkip,
-        )
-    }
-}
-
-/* ---------- Step 2: post-disclosure (design-match permissions list) ---------- */
+/* ---------- Permissions step (design-match permissions list) ---------- */
 
 @Composable
 private fun PostDisclosureStep(
@@ -297,13 +256,13 @@ private fun PostDisclosureStep(
     ) {
         OnboardingLensHero()
         Text(
-            text = stringResource(R.string.onboarding_title_post),
+            text = stringResource(R.string.permissions_title),
             style = HandyType.Display,
             color = HandyColors.TextPrimary,
             textAlign = TextAlign.Center,
         )
         Text(
-            text = stringResource(R.string.onboarding_tagline_post),
+            text = stringResource(R.string.permissions_tagline),
             style = HandyType.Body,
             color = HandyColors.TextSecondary,
             textAlign = TextAlign.Center,
@@ -397,23 +356,29 @@ private fun statusFor(granted: Boolean): PermissionStatus =
  * shape and doesn't extend outward beyond the shape bounds.
  */
 @Composable
-private fun OnboardingLensHero() {
+fun OnboardingLensHero(
+    modifier: Modifier = Modifier,
+    lensSize: Dp = HandyDimens.WidgetSize,
+    handSize: Dp = 32.dp,
+    topPadding: Dp = HandyDimens.StackS,
+    bottomPadding: Dp = HandyDimens.StackL,
+) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(top = HandyDimens.StackS, bottom = HandyDimens.StackL),
+            .padding(top = topPadding, bottom = bottomPadding),
         contentAlignment = Alignment.Center,
     ) {
-        // Outer soft glow — 112dp (72 + 40 blur) disc at ~27% accent.
+        // Outer soft glow - 112dp by default (72 + 40 blur) at ~27% accent.
         Box(
             modifier = Modifier
-                .size(HandyDimens.WidgetSize + 40.dp)
+                .size(lensSize + 40.dp)
                 .clip(CircleShape)
                 .background(HandyColors.Accent.copy(alpha = 0.12f)),
         )
         Box(
             modifier = Modifier
-                .size(HandyDimens.WidgetSize)
+                .size(lensSize)
                 .clip(CircleShape)
                 .background(HandyColors.AccentSoft)
                 .border(
@@ -423,7 +388,7 @@ private fun OnboardingLensHero() {
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            HandMarkIcon(size = 32.dp, tint = HandyColors.Accent)
+            HandMarkIcon(size = handSize, tint = HandyColors.Accent)
         }
     }
 }
@@ -587,7 +552,14 @@ private fun EnableButton(onClick: () -> Unit) {
  *   using *your* API key. No servers of ours in the middle.
  */
 @Composable
-private fun PrivacyCallout() {
+fun PrivacyCallout(
+    title: String? = null,
+    body: String? = null,
+    linkText: String? = null,
+    onClick: (() -> Unit)? = null,
+) {
+    val resolvedTitle = title ?: "Your data stays yours."
+    val resolvedBody = body ?: stringResource(R.string.onboarding_privacy_callout)
     val shape = RoundedCornerShape(14.dp)
     Row(
         modifier = Modifier
@@ -595,6 +567,13 @@ private fun PrivacyCallout() {
             .clip(shape)
             .background(HandyColors.Success.copy(alpha = 0.08f))
             .border(0.5.dp, HandyColors.Success.copy(alpha = 0.22f), shape)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(onClick = onClick)
+                } else {
+                    Modifier
+                },
+            )
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -607,7 +586,6 @@ private fun PrivacyCallout() {
                 .padding(top = 1.dp)
                 .size(16.dp),
         )
-        val detailText = stringResource(R.string.onboarding_privacy_callout)
         Text(
             text = buildAnnotatedString {
                 withStyle(
@@ -615,8 +593,20 @@ private fun PrivacyCallout() {
                         color = HandyColors.TextPrimary,
                         fontWeight = FontWeight.SemiBold,
                     ),
-                ) { append("Your data stays yours. ") }
-                append(detailText)
+                ) {
+                    append(resolvedTitle)
+                    append(" ")
+                }
+                append(resolvedBody)
+                linkText?.takeIf { it.isNotBlank() }?.let {
+                    append("\n")
+                    withStyle(
+                        SpanStyle(
+                            color = HandyColors.Success,
+                            fontWeight = FontWeight.SemiBold,
+                        ),
+                    ) { append(it) }
+                }
             },
             style = HandyType.CaptionSmall.copy(lineHeight = 18.sp),
             color = HandyColors.TextSecondary,
@@ -627,7 +617,7 @@ private fun PrivacyCallout() {
 /* ---------- Buttons ---------- */
 
 @Composable
-private fun PrimaryButton(
+fun PrimaryButton(
     text: String,
     enabled: Boolean = true,
     onClick: () -> Unit,

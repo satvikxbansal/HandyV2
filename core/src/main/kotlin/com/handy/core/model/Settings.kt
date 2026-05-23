@@ -161,6 +161,13 @@ data class HandySettings(
      */
     val actionDisclosureVersionAccepted: Int = 0,
 
+    /**
+     * Set after the first real tap-for-me request opens the action disclosure.
+     * This keeps a declined first-use disclosure from reappearing on every
+     * later tap request.
+     */
+    val tapForMeFirstUsePromptShown: Boolean = false,
+
     /** Tap-for-me panic switch expiry; zero means not muted. */
     val tapForMeMutedUntilEpochMs: Long = 0L,
 

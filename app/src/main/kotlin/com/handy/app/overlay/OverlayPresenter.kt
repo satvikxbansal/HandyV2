@@ -19,12 +19,17 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import timber.log.Timber
+
+data class ActionDisclosureReviewRequest(val id: Long)
 
 /**
  * Single state owner for the Unified Buddy overlay (widget + panel +
@@ -59,6 +64,13 @@ class OverlayPresenter @Inject constructor(
     private val tapConfirmationIds = AtomicLong(1L)
     private val tapConfirmationContinuations =
         mutableMapOf<Long, CancellableContinuation<TapForMeConfirmationDecision>>()
+    private val actionDisclosureRequestIds = AtomicLong(1L)
+    private val actionDisclosureContinuations =
+        mutableMapOf<Long, CancellableContinuation<Boolean>>()
+    private val _actionDisclosureReviewRequests =
+        MutableSharedFlow<ActionDisclosureReviewRequest>(extraBufferCapacity = 1)
+    val actionDisclosureReviewRequests: SharedFlow<ActionDisclosureReviewRequest> =
+        _actionDisclosureReviewRequests.asSharedFlow()
 
     private fun setState(
         event: String,
@@ -453,6 +465,29 @@ class OverlayPresenter @Inject constructor(
     }
 
     // ---- action bubble (Phase 3) --------------------------------------------
+
+    suspend fun requestActionDisclosureReview(): Boolean {
+        val id = actionDisclosureRequestIds.getAndIncrement()
+        return suspendCancellableCoroutine { cont ->
+            actionDisclosureContinuations[id] = cont
+            val emitted = _actionDisclosureReviewRequests.tryEmit(
+                ActionDisclosureReviewRequest(id = id),
+            )
+            if (!emitted) {
+                actionDisclosureContinuations.remove(id)
+                if (cont.isActive) cont.resume(false)
+                return@suspendCancellableCoroutine
+            }
+            cont.invokeOnCancellation {
+                actionDisclosureContinuations.remove(id)
+            }
+        }
+    }
+
+    fun respondActionDisclosureReview(id: Long, accepted: Boolean) {
+        val cont = actionDisclosureContinuations.remove(id) ?: return
+        if (cont.isActive) cont.resume(accepted)
+    }
 
     suspend fun requestTapForMeConfirmation(
         targetLabel: String,

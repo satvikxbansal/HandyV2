@@ -9,6 +9,14 @@
         <item name="android:windowLightStatusBar">false</item>
     </style>
 
+    <style name="Theme.Handy.Splash" parent="Theme.Handy">
+        <item name="android:windowBackground">@color/handy_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@color/handy_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+    </style>
+
     <style name="Theme.Handy.Transparent" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowIsTranslucent">true</item>

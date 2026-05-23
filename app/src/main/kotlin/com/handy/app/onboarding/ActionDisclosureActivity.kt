@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.handy.app.R
+import com.handy.app.overlay.OverlayPresenter
 import com.handy.app.theme.HandMarkIcon
 import com.handy.app.theme.HandyColors
 import com.handy.app.theme.HandyDimens
@@ -51,10 +52,15 @@ import kotlinx.coroutines.launch
 class ActionDisclosureActivity : ComponentActivity() {
 
     @Inject lateinit var settings: DataStoreSettings
+    @Inject lateinit var presenter: OverlayPresenter
+
+    private var presenterRequestId: Long = 0L
+    private var presenterResponded: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        presenterRequestId = intent.getLongExtra(EXTRA_PRESENTER_REQUEST_ID, 0L)
         setContent {
             HandyTheme(darkTheme = true) {
                 ActionDisclosureScreen(
@@ -75,14 +81,33 @@ class ActionDisclosureActivity : ComponentActivity() {
                 )
             }
             settings.setActionDisclosureVersion(ActionExecutionGate.REQUIRED_DISCLOSURE_VERSION)
+            respondToPresenter(accepted = true)
             setResult(Activity.RESULT_OK)
             finish()
         }
     }
 
     private fun declineDisclosure() {
+        respondToPresenter(accepted = false)
         setResult(Activity.RESULT_CANCELED)
         finish()
+    }
+
+    override fun onDestroy() {
+        respondToPresenter(accepted = false)
+        super.onDestroy()
+    }
+
+    private fun respondToPresenter(accepted: Boolean) {
+        val id = presenterRequestId
+        if (id <= 0L || presenterResponded) return
+        presenterResponded = true
+        presenter.respondActionDisclosureReview(id = id, accepted = accepted)
+    }
+
+    companion object {
+        const val EXTRA_PRESENTER_REQUEST_ID =
+            "com.handy.app.onboarding.extra.PRESENTER_REQUEST_ID"
     }
 }
 

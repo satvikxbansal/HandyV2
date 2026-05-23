@@ -64,6 +64,7 @@ class DataStoreSettings(private val context: Context) {
             p[USE_OVERLAY_CHAT_PANEL] = next.useOverlayChatPanel
             p[TAP_FOR_ME_ENABLED] = next.tapForMeEnabled
             p[ACTION_DISCLOSURE_VERSION_ACCEPTED] = next.actionDisclosureVersionAccepted
+            p[TAP_FOR_ME_FIRST_USE_PROMPT_SHOWN] = next.tapForMeFirstUsePromptShown
             p[TAP_FOR_ME_MUTED_UNTIL_EPOCH_MS] = next.tapForMeMutedUntilEpochMs
             p[TAP_FOR_ME_USER_DENYLISTED_PACKAGES] = next.tapForMeUserDenylistedPackages
             p[NO_ACTIONS_IN_INCOGNITO] = next.noActionsInIncognito
@@ -146,6 +147,7 @@ class DataStoreSettings(private val context: Context) {
             useOverlayChatPanel = this[USE_OVERLAY_CHAT_PANEL] ?: true,
             tapForMeEnabled = this[TAP_FOR_ME_ENABLED] ?: false,
             actionDisclosureVersionAccepted = this[ACTION_DISCLOSURE_VERSION_ACCEPTED] ?: 0,
+            tapForMeFirstUsePromptShown = this[TAP_FOR_ME_FIRST_USE_PROMPT_SHOWN] ?: false,
             tapForMeMutedUntilEpochMs = this[TAP_FOR_ME_MUTED_UNTIL_EPOCH_MS] ?: 0L,
             tapForMeUserDenylistedPackages = this[TAP_FOR_ME_USER_DENYLISTED_PACKAGES]
                 ?.mapNotNull { it.trim().takeIf(String::isNotBlank) }
@@ -189,6 +191,7 @@ class DataStoreSettings(private val context: Context) {
         val USE_OVERLAY_CHAT_PANEL = booleanPreferencesKey("use_overlay_chat_panel")
         val TAP_FOR_ME_ENABLED = booleanPreferencesKey("tap_for_me_enabled")
         val ACTION_DISCLOSURE_VERSION_ACCEPTED = intPreferencesKey("action_disclosure_version_accepted")
+        val TAP_FOR_ME_FIRST_USE_PROMPT_SHOWN = booleanPreferencesKey("tap_for_me_first_use_prompt_shown")
         val TAP_FOR_ME_MUTED_UNTIL_EPOCH_MS = longPreferencesKey("tap_for_me_muted_until_epoch_ms")
         val TAP_FOR_ME_USER_DENYLISTED_PACKAGES = stringSetPreferencesKey("tap_for_me_user_denylisted_packages")
         val NO_ACTIONS_IN_INCOGNITO = booleanPreferencesKey("no_actions_in_incognito")

@@ -25,6 +25,7 @@ import com.handy.app.HandyApplication
 import com.handy.app.agent.AgentSessionController
 import com.handy.app.chat.ChatActivity
 import com.handy.app.chat.ChatTargetHandoffStore
+import com.handy.app.onboarding.ActionDisclosureActivity
 import com.handy.app.voice.VoiceController
 import com.handy.app.widget.BezierFlightController
 import com.handy.app.widget.ManualTargetFallbackChip
@@ -306,6 +307,15 @@ class FloatingWidgetOverlayService : LifecycleService() {
                         attachTapConfirmationOverlayIfNeeded()
                     }
                 }
+        }
+
+        lifecycleScope.launch {
+            presenter.actionDisclosureReviewRequests.collectLatest { request ->
+                val intent = Intent(this@FloatingWidgetOverlayService, ActionDisclosureActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    .putExtra(ActionDisclosureActivity.EXTRA_PRESENTER_REQUEST_ID, request.id)
+                startActivity(intent)
+            }
         }
 
         // Hand the flight driver a pointer to this service so it can

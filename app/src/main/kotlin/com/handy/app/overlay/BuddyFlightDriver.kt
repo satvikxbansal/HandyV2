@@ -21,6 +21,7 @@ import androidx.window.layout.WindowInfoTracker
 import com.handy.app.widget.BezierFlightController
 import com.handy.app.widget.LensRenderer
 import com.handy.core.agent.CorrectionIntent
+import com.handy.core.action.ActionExecutionGate
 import com.handy.core.action.ActionPolicyEngine
 import com.handy.core.action.ActionPerformer
 import com.handy.core.action.AssistantAction
@@ -47,6 +48,7 @@ import com.handy.core.tool.ToolContext
 import com.handy.runtime.accessibility.SemanticPointerResolver.ResolutionFailureReason
 import com.handy.runtime.accessibility.SemanticPointerResolver.ResolvedPointTarget
 import com.handy.runtime.accessibility.SemanticPointerResolver
+import com.handy.runtime.storage.DataStoreSettings
 import java.lang.ref.WeakReference
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -59,6 +61,7 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -84,6 +87,7 @@ class BuddyFlightDriver @Inject constructor(
     private val policyEngine: ActionPolicyEngine,
     private val actionPerformer: ActionPerformer,
     private val auditStore: AuditStore,
+    private val settings: DataStoreSettings,
 ) {
 
     private var serviceRef: WeakReference<FloatingWidgetOverlayService>? = null
@@ -407,12 +411,27 @@ class BuddyFlightDriver @Inject constructor(
             ?: grounding.toolContext.packageName.takeIf { it.isNotBlank() }
             ?: flight.targetPackage
             ?: "unknown"
-        val decision = policyEngine.decide(
+        if (!promptForTapFirstUseDisclosureIfNeeded()) {
+            dismissPointingAfterUserInteraction("action_disclosure_declined")
+            return false
+        }
+        var decision = policyEngine.decide(
             action = AssistantAction.OpenApp(packageHint = policyPackage),
             target = tapTarget,
             grounding = grounding,
             sourceTrust = SourceTrust.TRUSTED_RECIPE,
         )
+        if (!decision.allowed && decision.reason == "gate-closed" &&
+            ActionExecutionGate.gesturesAllowed(settings.current())
+        ) {
+            delay(POLICY_REFRESH_RETRY_DELAY_MS)
+            decision = policyEngine.decide(
+                action = AssistantAction.OpenApp(packageHint = policyPackage),
+                target = tapTarget,
+                grounding = grounding,
+                sourceTrust = SourceTrust.TRUSTED_RECIPE,
+            )
+        }
         if (!decision.allowed) {
             val reason = decision.reason ?: "policy-denied"
             auditTapForMe(
@@ -1047,6 +1066,19 @@ class BuddyFlightDriver @Inject constructor(
         )
     }
 
+    private suspend fun promptForTapFirstUseDisclosureIfNeeded(): Boolean {
+        val current = settings.current()
+        if (current.actionDisclosureVersionAccepted > 0 || current.tapForMeFirstUsePromptShown) {
+            return true
+        }
+        settings.update {
+            it.copy(tapForMeFirstUsePromptShown = true)
+        }
+        return presenter.requestActionDisclosureReview().also { accepted ->
+            Timber.d("BuddyFlightDriver: first-use action disclosure accepted=%s", accepted)
+        }
+    }
+
     private suspend fun auditTapForMe(
         tapTarget: TapTarget.AtNode,
         targetPackage: String?,
@@ -1185,6 +1217,7 @@ class BuddyFlightDriver @Inject constructor(
         const val MAX_CANDIDATE_LABEL_CHARS: Int = 28
         const val STICKY_POINTER_TIMEOUT_MS: Long = 30_000L
         const val TAP_CONFIRMATION_TIMEOUT_MS: Long = 8_000L
+        const val POLICY_REFRESH_RETRY_DELAY_MS: Long = 100L
         val POINTER_SAFE_DENIAL_REASONS: Set<String> = setOf(
             "gate-closed",
             "muted",
