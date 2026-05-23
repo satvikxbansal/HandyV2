@@ -273,7 +273,35 @@ class AndroidIntentDispatcher(
             putExtra("query", query)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        return start(intent) { "ACTION_WEB_SEARCH queryChars=${query.length}" }
+        if (intent.resolveActivity(context.packageManager) == null) {
+            Timber.d("AndroidIntentDispatcher: ACTION_WEB_SEARCH unavailable, falling back to browser search")
+            return fireWebSearchFallback(query)
+        }
+        return try {
+            context.startActivity(intent)
+            Timber.d("AndroidIntentDispatcher: dispatched ACTION_WEB_SEARCH queryChars=%d", query.length)
+            IntentResult.Dispatched(component = intent.component?.flattenToString())
+        } catch (notFound: ActivityNotFoundException) {
+            Timber.d(notFound, "AndroidIntentDispatcher: ACTION_WEB_SEARCH handler disappeared, falling back")
+            fireWebSearchFallback(query)
+        } catch (t: Throwable) {
+            Timber.w(t, "AndroidIntentDispatcher: failed ACTION_WEB_SEARCH queryChars=%d", query.length)
+            IntentResult.Failed(t.message ?: "web search dispatch failed")
+        }
+    }
+
+    private fun fireWebSearchFallback(query: String): IntentResult {
+        val url = "https://www.google.com/search?q=${query.encodeUriComponent()}"
+        val view = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        val chooser = Intent.createChooser(view, "Search the web")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return runCatching {
+            context.startActivity(chooser)
+            IntentResult.ChooserShown
+        }.getOrElse {
+            Timber.w(it, "AndroidIntentDispatcher: failed web search browser fallback")
+            IntentResult.Failed(it.message ?: "web search fallback failed")
+        }
     }
 
     private inline fun start(intent: Intent, label: () -> String): IntentResult {

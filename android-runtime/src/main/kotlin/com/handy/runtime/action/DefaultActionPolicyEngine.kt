@@ -111,6 +111,18 @@ class DefaultActionPolicyEngine(
             )
         }
 
+        if (action is AssistantAction.WebSearchIntent) {
+            return PolicyDecision(
+                allowed = true,
+                risk = ActionRisk.MEDIUM,
+                confirmation = ConfirmationLevel.NORMAL,
+                requireFreshSnapshot = false,
+                requireNodeActionOnly = false,
+                allowGestureFallback = false,
+                reason = null,
+            )
+        }
+
         val isUiAction = target != null || sourceTrust == SourceTrust.TRUSTED_RECIPE
         if (isUiAction) {
             val now = clock()
@@ -228,6 +240,7 @@ class DefaultActionPolicyEngine(
         is AssistantAction.ShareText -> text.containsSensitiveData()
         is AssistantAction.ShareUrl -> listOfNotNull(url, title).joinToString(" ").containsSensitiveData()
         is AssistantAction.TypeText -> text.containsSensitiveData()
+        is AssistantAction.WebSearchIntent -> query.containsSensitiveData()
         else -> false
     }
 

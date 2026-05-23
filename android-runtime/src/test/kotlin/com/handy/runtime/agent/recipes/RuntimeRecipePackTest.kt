@@ -89,6 +89,7 @@ class RuntimeRecipePackTest {
             .containsAtLeast(
                 "open_app",
                 "install_app",
+                "web_search",
                 "set_timer",
                 "gmail_compose",
                 "whatsapp_reply",

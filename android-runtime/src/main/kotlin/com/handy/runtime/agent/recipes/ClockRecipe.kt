@@ -23,6 +23,7 @@ object AndroidRuntimeRecipes {
         InstallAppRecipe,
         ClockRecipe,
         TimerRecipe,
+        WebSearchRecipe,
         AndroidSettingsRecipe,
         MapsRecipe,
         GmailRecipe,

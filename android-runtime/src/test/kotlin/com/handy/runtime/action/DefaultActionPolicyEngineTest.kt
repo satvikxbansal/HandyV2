@@ -301,6 +301,19 @@ class DefaultActionPolicyEngineTest {
         assertThat(decision.risk).isEqualTo(ActionRisk.MEDIUM)
     }
 
+    @Test fun `web search intent is allowed with normal confirmation`() {
+        val decision = engine().decide(
+            action = AssistantAction.WebSearchIntent("kotlin coroutines"),
+            target = null,
+            grounding = grounding(),
+            sourceTrust = SourceTrust.TRUSTED_USER,
+        )
+
+        assertThat(decision.allowed).isTrue()
+        assertThat(decision.confirmation).isEqualTo(ConfirmationLevel.NORMAL)
+        assertThat(decision.risk).isEqualTo(ActionRisk.MEDIUM)
+    }
+
     @Test fun `play store urls are not blocked by payment words in package names`() {
         val decision = engine().decide(
             action = AssistantAction.OpenUrl(
@@ -325,6 +338,12 @@ class DefaultActionPolicyEngineTest {
             ),
             engine().decide(
                 action = AssistantAction.ComposeSms(body = "my card number is 4111 1111 1111 1111"),
+                target = null,
+                grounding = grounding(),
+                sourceTrust = SourceTrust.TRUSTED_USER,
+            ),
+            engine().decide(
+                action = AssistantAction.WebSearchIntent("my card number is 4111 1111 1111 1111"),
                 target = null,
                 grounding = grounding(),
                 sourceTrust = SourceTrust.TRUSTED_USER,

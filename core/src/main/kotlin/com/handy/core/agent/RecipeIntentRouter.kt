@@ -20,7 +20,7 @@ class RecipeIntentRouter(
             RecipeIntent.OPEN_APP to "open_app",
             RecipeIntent.SET_ALARM to "clock_alarm",
             RecipeIntent.SET_TIMER to "set_timer",
-            RecipeIntent.WEB_SEARCH to "web_search",
+            RecipeIntent.WEB_SEARCH to WEB_SEARCH_RECIPE_ID,
             RecipeIntent.INSTALL_APP to "install_app",
             RecipeIntent.OPEN_SETTING to "android_settings",
             RecipeIntent.CREATE_CALENDAR_EVENT to "create_calendar_event",
@@ -36,3 +36,5 @@ class RecipeIntentRouter(
             INTENT_TO_RECIPE_ID.getValue(intent)
     }
 }
+
+private const val WEB_SEARCH_RECIPE_ID = "web_search"

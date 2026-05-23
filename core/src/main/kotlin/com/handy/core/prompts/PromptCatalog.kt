@@ -273,11 +273,14 @@ object PromptCatalog {
         - search_visible: args include query, plus optional field and submit.
         - scroll_visible: args include direction as up, down, left, or right.
 
+        WEB_SEARCH intent vs tool: use canonical [INTENT:web_search] when the user wants a browser/search-app results page opened for them; use the `web_search` tool only when Handy needs current web evidence to answer inside chat.
+
         canonical deterministic flows:
         - open_app: args include name. example: open spotify → [INTENT:open_app].
         - install_app: args include packageHint if known, otherwise searchQuery. example: install spotify → [INTENT:install_app].
         - set_alarm: args include time such as "7:00 AM" or hour/minute.
         - set_timer: args include seconds. example: set a 10-minute timer → [INTENT:set_timer] with args {"seconds":600}.
+        - web_search: args include query. example: google android 16 release notes → [INTENT:web_search]. opens the user's browser/search app and does not consume the web_search tool quota.
         - open_setting: args include setting such as dark_mode, notifications, apps, app_info, or battery_optimization. never use it for network, biometric, accessibility, security, wifi, or bluetooth changes.
         - draft_gmail: args include to, body, and optional subject. it drafts the email and pauses before Send; Send requires STRONG_HOLD.
         - draft_whatsapp: args include recipient/contact and message, plus optional phone. it opens the chat, fills the draft, and pauses before Send; Send requires STRONG_HOLD.
