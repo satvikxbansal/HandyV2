@@ -209,6 +209,7 @@ class HandyToolRunner @Inject constructor(
         is AssistantAction.DialNumber -> "calling $number"
         is AssistantAction.ComposeEmail -> "opening an email draft"
         is AssistantAction.ComposeSms -> "opening an SMS draft"
+        is AssistantAction.InstallApp -> "opening Play Store"
         is AssistantAction.ShareText -> "sharing text"
         is AssistantAction.ShareUrl -> "sharing a URL"
         is AssistantAction.StartNavigation -> "starting navigation"
@@ -219,8 +220,9 @@ class HandyToolRunner @Inject constructor(
         val packageHint = when (action) {
             is AssistantAction.OpenApp -> action.packageHint
             is AssistantAction.OpenAppInfo -> action.packageHint
+            is AssistantAction.InstallApp -> action.packageHint
             else -> "android.intent"
-        }.takeIf { it.isNotBlank() } ?: "android.intent"
+        }?.takeIf { it.isNotBlank() } ?: "android.intent"
         return GroundingSnapshot(
             requestId = "dispatch_action",
             source = TurnSource.FULL_CHAT,

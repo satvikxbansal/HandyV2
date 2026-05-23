@@ -288,6 +288,33 @@ class DefaultActionPolicyEngineTest {
         }
     }
 
+    @Test fun `install app opens Play Store with normal confirmation`() {
+        val decision = engine().decide(
+            action = AssistantAction.InstallApp(packageHint = "com.spotify.music"),
+            target = null,
+            grounding = grounding(),
+            sourceTrust = SourceTrust.TRUSTED_USER,
+        )
+
+        assertThat(decision.allowed).isTrue()
+        assertThat(decision.confirmation).isEqualTo(ConfirmationLevel.NORMAL)
+        assertThat(decision.risk).isEqualTo(ActionRisk.MEDIUM)
+    }
+
+    @Test fun `play store urls are not blocked by payment words in package names`() {
+        val decision = engine().decide(
+            action = AssistantAction.OpenUrl(
+                "https://play.google.com/store/apps/details?id=com.example.payments",
+            ),
+            target = null,
+            grounding = grounding(),
+            sourceTrust = SourceTrust.TRUSTED_USER,
+        )
+
+        assertThat(decision.allowed).isTrue()
+        assertThat(decision.confirmation).isEqualTo(ConfirmationLevel.NONE)
+    }
+
     @Test fun `otp password and card fields are blocked`() {
         val decisions = listOf(
             engine().decide(

@@ -99,6 +99,18 @@ class DefaultActionPolicyEngine(
             return denied(ActionRisk.CRITICAL, "beta-blocked")
         }
 
+        if (action is AssistantAction.InstallApp) {
+            return PolicyDecision(
+                allowed = true,
+                risk = ActionRisk.MEDIUM,
+                confirmation = ConfirmationLevel.NORMAL,
+                requireFreshSnapshot = false,
+                requireNodeActionOnly = false,
+                allowGestureFallback = false,
+                reason = null,
+            )
+        }
+
         val isUiAction = target != null || sourceTrust == SourceTrust.TRUSTED_RECIPE
         if (isUiAction) {
             val now = clock()
@@ -184,6 +196,7 @@ class DefaultActionPolicyEngine(
 
     private fun AssistantAction.packageHintOrNull(): String? = when (this) {
         is AssistantAction.OpenApp -> packageHint
+        is AssistantAction.InstallApp -> packageHint
         is AssistantAction.OpenAppInfo -> packageHint
         else -> null
     }?.takeIf { it.isNotBlank() }
@@ -211,6 +224,7 @@ class DefaultActionPolicyEngine(
     private fun AssistantAction.hasSensitiveData(): Boolean = when (this) {
         is AssistantAction.ComposeEmail -> listOfNotNull(to, subject, body).joinToString(" ").containsSensitiveData()
         is AssistantAction.ComposeSms -> listOfNotNull(to, body).joinToString(" ").containsSensitiveData()
+        is AssistantAction.InstallApp -> listOfNotNull(packageHint, searchQuery).joinToString(" ").containsSensitiveData()
         is AssistantAction.ShareText -> text.containsSensitiveData()
         is AssistantAction.ShareUrl -> listOfNotNull(url, title).joinToString(" ").containsSensitiveData()
         is AssistantAction.TypeText -> text.containsSensitiveData()
@@ -487,8 +501,19 @@ private fun String.containsWholePhrase(phrase: String): Boolean {
 
 private fun String.isPaymentUrl(): Boolean {
     val decoded = bestEffortUrlDecoded()
+    if (decoded.isPlayStoreUrl()) return false
     return decoded.startsWith("upi:", ignoreCase = true) ||
         decoded.containsAnyWholePhrase(PAYMENT_URL_BLOCKED_PHRASES)
+}
+
+private fun String.isPlayStoreUrl(): Boolean {
+    val normalized = trim().lowercase()
+    return normalized.startsWith("market://details") ||
+        normalized.startsWith("market://search") ||
+        normalized.startsWith("https://play.google.com/store/apps/details") ||
+        normalized.startsWith("http://play.google.com/store/apps/details") ||
+        normalized.startsWith("https://play.google.com/store/search") ||
+        normalized.startsWith("http://play.google.com/store/search")
 }
 
 private fun String.bestEffortUrlDecoded(): String =

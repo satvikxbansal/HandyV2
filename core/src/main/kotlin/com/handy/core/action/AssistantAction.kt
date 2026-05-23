@@ -34,6 +34,19 @@ sealed class AssistantAction {
     data class OpenApp(val packageHint: String) : AssistantAction()
 
     @Serializable
+    @SerialName("install_app")
+    data class InstallApp(
+        val packageHint: String? = null,
+        val searchQuery: String? = null,
+    ) : AssistantAction() {
+        init {
+            require(!packageHint.isNullOrBlank() || !searchQuery.isNullOrBlank()) {
+                "InstallApp needs packageHint or searchQuery"
+            }
+        }
+    }
+
+    @Serializable
     @SerialName("dial_number")
     data class DialNumber(val number: String) : AssistantAction()
 

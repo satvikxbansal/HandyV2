@@ -275,6 +275,7 @@ object PromptCatalog {
 
         canonical deterministic flows:
         - open_app: args include name. example: open spotify → [INTENT:open_app].
+        - install_app: args include packageHint if known, otherwise searchQuery. example: install spotify → [INTENT:install_app].
         - set_alarm: args include time such as "7:00 AM" or hour/minute.
         - open_setting: args include setting such as dark_mode, notifications, apps, app_info, or battery_optimization. never use it for network, biometric, accessibility, security, wifi, or bluetooth changes.
         - draft_gmail: args include to, body, and optional subject. it drafts the email and pauses before Send; Send requires STRONG_HOLD.

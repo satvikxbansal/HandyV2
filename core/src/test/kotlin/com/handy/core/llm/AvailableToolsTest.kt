@@ -92,4 +92,24 @@ class AvailableToolsTest {
         assertThat(targetEnum)
             .containsAtLeast("ringtone", "dnd", "brightness", "screen_timeout")
     }
+
+    @Test fun `dispatch action schema advertises install app action`() {
+        val dispatchAction = availableTools(
+            webSearchEnabled = false,
+            hasBraveKey = false,
+            intentDispatchEnabled = true,
+        ).single()
+
+        val schema = Json.parseToJsonElement(dispatchAction.inputSchemaJson).jsonObject
+        val actionTypes = schema.getValue("properties")
+            .jsonObject
+            .getValue("type")
+            .jsonObject
+            .getValue("enum")
+            .jsonArray
+            .mapNotNull { it.jsonPrimitive.contentOrNull }
+
+        assertThat(actionTypes).contains("install_app")
+        assertThat(schema.getValue("properties").jsonObject).containsKey("searchQuery")
+    }
 }

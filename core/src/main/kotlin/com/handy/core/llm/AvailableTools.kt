@@ -57,7 +57,7 @@ fun availableTools(
 }
 
 private const val DISPATCH_ACTION_DESCRIPTION =
-    "Fire a native Android Intent on the user's behalf. Call this for well-defined one-step requests: set a timer, set an alarm, open an app, open a URL, search Maps, dial a number, compose an email or SMS, share text, share a URL, create a calendar event, open a settings deep-link, start navigation, or run a web-search intent. Destructive or high-risk actions (call, email, SMS, share, navigation start) are confirmed by Handy's UI before dispatch; do not ask the user to confirm separately unless the tool reports that the user declined or no handler exists."
+    "Fire a native Android Intent on the user's behalf. Call this for well-defined one-step requests: set a timer, set an alarm, open an app, open a URL, open a Play Store listing/search for an app, search Maps, dial a number, compose an email or SMS, share text, share a URL, create a calendar event, open a settings deep-link, start navigation, or run a web-search intent. Destructive or high-risk actions (call, email, SMS, share, navigation start, Play Store app install handoff) are confirmed by Handy's UI before dispatch; do not ask the user to confirm separately unless the tool reports that the user declined or no handler exists."
 
 private val DISPATCH_ACTION_INPUT_SCHEMA_JSON: String = """
 {
@@ -70,6 +70,7 @@ private val DISPATCH_ACTION_INPUT_SCHEMA_JSON: String = """
         "set_alarm",
         "open_url",
         "open_app",
+        "install_app",
         "dial_number",
         "maps_search",
         "compose_email",
@@ -89,7 +90,8 @@ private val DISPATCH_ACTION_INPUT_SCHEMA_JSON: String = """
     "hour": {"type": "integer", "description": "set_alarm: 0-23."},
     "minute": {"type": "integer", "description": "set_alarm: 0-59."},
     "url": {"type": "string", "description": "open_url / share_url: https://… URL."},
-    "packageHint": {"type": "string", "description": "open_app / open_app_info: app name or package hint."},
+    "packageHint": {"type": "string", "description": "open_app / open_app_info / install_app: app name or package hint."},
+    "searchQuery": {"type": "string", "description": "install_app: Play Store app search query when no package is known."},
     "number": {"type": "string", "description": "dial_number: the phone number to dial."},
     "query": {"type": "string", "description": "maps_search / web_search / start_navigation: the search text."},
     "to": {"type": "string", "description": "compose_email / compose_sms: recipient address or phone number."},

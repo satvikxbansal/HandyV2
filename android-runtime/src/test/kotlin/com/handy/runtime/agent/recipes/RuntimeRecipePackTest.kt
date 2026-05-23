@@ -88,6 +88,7 @@ class RuntimeRecipePackTest {
         assertThat(AndroidRuntimeRecipes.defaultRecipes().map { it.id })
             .containsAtLeast(
                 "open_app",
+                "install_app",
                 "gmail_compose",
                 "whatsapp_reply",
                 "chrome",

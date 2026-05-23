@@ -20,6 +20,7 @@ object AndroidRuntimeRecipes {
         findLaunchableApps: (String) -> List<LaunchableAppIndex.Entry> = { emptyList() },
     ): List<AppRecipe> = listOf(
         OpenAppRecipe(findLaunchableApps),
+        InstallAppRecipe,
         ClockRecipe,
         AndroidSettingsRecipe,
         MapsRecipe,

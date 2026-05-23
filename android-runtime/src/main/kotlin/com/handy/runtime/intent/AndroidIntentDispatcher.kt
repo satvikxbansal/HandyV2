@@ -1,5 +1,6 @@
 package com.handy.runtime.intent
 
+import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -10,6 +11,8 @@ import android.provider.Settings
 import com.handy.core.action.AssistantAction
 import com.handy.core.action.SettingsTarget
 import com.handy.core.intent.IntentResult
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import timber.log.Timber
 
 /**
@@ -32,6 +35,7 @@ class AndroidIntentDispatcher(
         is AssistantAction.SetAlarm -> fireAlarm(action)
         is AssistantAction.OpenUrl -> fireViewUrl(action.url)
         is AssistantAction.OpenApp -> fireLaunchApp(action.packageHint)
+        is AssistantAction.InstallApp -> fireInstallApp(action)
         is AssistantAction.DialNumber -> IntentResult.NeedsConfirmation(
             reason = "Dial ${action.number}?",
         )
@@ -228,6 +232,36 @@ class AndroidIntentDispatcher(
         }.getOrElse { IntentResult.Failed(it.message ?: "launch failed") }
     }
 
+    private fun fireInstallApp(action: AssistantAction.InstallApp): IntentResult {
+        val target = installAppIntentTarget(action)
+        val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse(target.marketUri))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return try {
+            context.startActivity(marketIntent)
+            Timber.d("AndroidIntentDispatcher: dispatched Play Store market URI")
+            IntentResult.Dispatched()
+        } catch (notFound: ActivityNotFoundException) {
+            Timber.d(notFound, "AndroidIntentDispatcher: market URI unavailable, falling back to HTTPS")
+            fireInstallAppFallback(target)
+        } catch (t: Throwable) {
+            Timber.w(t, "AndroidIntentDispatcher: failed Play Store market URI")
+            IntentResult.Failed(t.message ?: "install app dispatch failed")
+        }
+    }
+
+    private fun fireInstallAppFallback(target: InstallAppIntentTarget): IntentResult {
+        val view = Intent(Intent.ACTION_VIEW, Uri.parse(target.httpsUrl))
+        val chooser = Intent.createChooser(view, "Open Play Store")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return runCatching {
+            context.startActivity(chooser)
+            IntentResult.ChooserShown
+        }.getOrElse {
+            Timber.w(it, "AndroidIntentDispatcher: failed Play Store HTTPS fallback")
+            IntentResult.Failed(it.message ?: "install app fallback failed")
+        }
+    }
+
     private fun fireMaps(query: String): IntentResult {
         val uri = Uri.parse("geo:0,0?q=${Uri.encode(query)}")
         val intent = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -257,5 +291,32 @@ class AndroidIntentDispatcher(
 
 /** Uri.Builder.opaquePart is deprecated on newer SDKs; small shim for clarity. */
 private fun Uri.Builder.opaquePart(value: String): Uri.Builder = encodedOpaquePart(Uri.encode(value))
+
+internal data class InstallAppIntentTarget(
+    val marketUri: String,
+    val httpsUrl: String,
+)
+
+internal fun installAppIntentTarget(action: AssistantAction.InstallApp): InstallAppIntentTarget {
+    val packageHint = action.packageHint?.trim()?.takeIf { it.isNotBlank() }
+    val searchQuery = action.searchQuery?.trim()?.takeIf { it.isNotBlank() }
+    return if (packageHint != null) {
+        val encodedPackage = packageHint.encodeUriComponent()
+        InstallAppIntentTarget(
+            marketUri = "market://details?id=$encodedPackage",
+            httpsUrl = "https://play.google.com/store/apps/details?id=$encodedPackage",
+        )
+    } else {
+        val encodedQuery = requireNotNull(searchQuery).encodeUriComponent()
+        InstallAppIntentTarget(
+            marketUri = "market://search?q=$encodedQuery&c=apps",
+            httpsUrl = "https://play.google.com/store/search?q=$encodedQuery&c=apps",
+        )
+    }
+}
+
+private fun String.encodeUriComponent(): String =
+    URLEncoder.encode(this, StandardCharsets.UTF_8.name())
+        .replace("+", "%20")
 
 private const val ACTION_ZEN_MODE_SETTINGS = "android.settings.ZEN_MODE_SETTINGS"
