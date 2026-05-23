@@ -87,6 +87,7 @@ class RuntimeRecipePackTest {
     @Test fun `runtime recipe pack includes high value app recipes`() {
         assertThat(AndroidRuntimeRecipes.defaultRecipes().map { it.id })
             .containsAtLeast(
+                "open_app",
                 "gmail_compose",
                 "whatsapp_reply",
                 "chrome",

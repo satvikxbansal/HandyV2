@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.os.Build
+import java.util.Locale
 import kotlin.math.min
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,7 +40,9 @@ class LaunchableAppIndex(
         val packageName: String,
         val label: String,
         val activityComponentFlat: String,
-    )
+    ) {
+        val appLabel: String get() = label
+    }
 
     private val state = MutableStateFlow<List<Entry>>(emptyList())
     val apps: StateFlow<List<Entry>> get() = state.asStateFlow()
@@ -80,39 +83,61 @@ class LaunchableAppIndex(
             )
         }
             .distinctBy { it.packageName }
-            .sortedBy { it.label.lowercase() }
+            .sortedBy { it.label.lowercase(Locale.US) }
 
         state.value = entries
     }
 
     /**
-     * Fuzzy resolve a free-form `hint` like `"gmail"` →
-     * `com.google.android.gm`. Priority order:
+     * Find launchable apps for a free-form `hint` like `"gmail"` →
+     * `com.google.android.gm`. Returns every match at the first non-empty
+     * priority tier:
      *  1. exact package match.
      *  2. exact label match (case-insensitive).
      *  3. label starts-with match.
      *  4. label contains match.
      *  5. package contains match.
      */
-    fun resolve(hint: String): Entry? {
+    fun find(hint: String): List<Entry> {
         val snapshot = state.value
-        if (snapshot.isEmpty() || hint.isBlank()) return null
-        val needle = hint.trim().lowercase()
+        if (snapshot.isEmpty() || hint.isBlank()) return emptyList()
+        val needle = hint.trim().lowercase(Locale.US)
 
-        snapshot.firstOrNull { it.packageName.equals(needle, ignoreCase = true) }?.let { return it }
-        snapshot.firstOrNull { it.label.equals(needle, ignoreCase = true) }?.let { return it }
-        snapshot.firstOrNull { it.label.lowercase().startsWith(needle) }?.let { return it }
-        snapshot.firstOrNull { it.label.lowercase().contains(needle) }?.let { return it }
-        snapshot.firstOrNull { it.packageName.lowercase().contains(needle) }?.let { return it }
+        snapshot.filter { it.packageName.equals(needle, ignoreCase = true) }
+            .takeIf { it.isNotEmpty() }
+            ?.let { return it }
+        snapshot.filter { it.label.equals(needle, ignoreCase = true) }
+            .takeIf { it.isNotEmpty() }
+            ?.let { return it }
+        snapshot.filter { it.label.lowercase(Locale.US).startsWith(needle) }
+            .takeIf { it.isNotEmpty() }
+            ?.let { return it }
+        snapshot.filter { it.label.lowercase(Locale.US).contains(needle) }
+            .takeIf { it.isNotEmpty() }
+            ?.let { return it }
+        snapshot.filter { it.packageName.lowercase(Locale.US).contains(needle) }
+            .takeIf { it.isNotEmpty() }
+            ?.let { return it }
 
         // Last resort: minimum edit distance within a small window.
         val cutoff = min(4, needle.length)
         return snapshot
-            .map { it to levenshtein(needle, it.label.lowercase()) }
+            .map { it to levenshtein(needle, it.label.lowercase(Locale.US)) }
             .filter { it.second <= cutoff }
-            .minByOrNull { it.second }
-            ?.first
+            .sortedWith(
+                compareBy<Pair<Entry, Int>> { it.second }
+                    .thenBy { it.first.label.lowercase(Locale.US) }
+                    .thenBy { it.first.packageName.lowercase(Locale.US) },
+            )
+            .map { it.first }
     }
+
+    /**
+     * Fuzzy resolve a free-form `hint` like `"gmail"` →
+     * `com.google.android.gm`. Returns the first deterministic match for
+     * legacy single-target callers; use [find] when ambiguity matters.
+     */
+    fun resolve(hint: String): Entry? = find(hint).firstOrNull()
 
     private fun registerPackageReceiver() {
         if (receiver != null) return
@@ -166,4 +191,3 @@ class LaunchableAppIndex(
         return prev[b.length]
     }
 }
-

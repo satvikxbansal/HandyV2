@@ -17,16 +17,21 @@ import kotlinx.serialization.json.jsonPrimitive
 data class UserGoal(
     val text: String,
     val requestedRecipe: RecipeInvocation? = null,
+    val requestedIntent: String? = null,
 ) {
     companion object {
         fun fromAssistantText(text: String): UserGoal =
             UserGoal(
                 text = stripRecipeDirective(text),
                 requestedRecipe = RecipeInvocation.parse(text),
+                requestedIntent = parseIntentDirective(text),
             )
 
         fun stripRecipeDirective(text: String): String =
-            RecipeInvocation.directiveRegex.replace(text, "")
+            intentDirectiveRegex.replace(
+                RecipeInvocation.directiveRegex.replace(text, ""),
+                "",
+            )
                 .replace(Regex("""[ \t]+\n"""), "\n")
                 .replace(Regex("""\n{3,}"""), "\n\n")
                 .trim()
@@ -47,6 +52,20 @@ data class UserGoal(
                 .replace(Regex("""[^a-z0-9\s]+"""), " ")
                 .replace(Regex("""\s+"""), " ")
                 .trim()
+
+        private fun parseIntentDirective(text: String): String? =
+            intentDirectiveRegex.findAll(text)
+                .lastOrNull()
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.trim()
+                ?.lowercase()
+                ?.takeIf { it.isNotBlank() }
+
+        private val intentDirectiveRegex = Regex(
+            pattern = """\[\s*INTENT\s*:\s*([a-zA-Z0-9_.-]+)\s*]""",
+            options = setOf(RegexOption.IGNORE_CASE),
+        )
 
         private val HELP_ONLY_PATTERNS = listOf(
             Regex("""\bhow\s+(do|can|should)\s+i\b"""),

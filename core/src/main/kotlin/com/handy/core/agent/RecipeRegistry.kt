@@ -6,10 +6,19 @@ import com.handy.core.screen.GroundingSnapshot
 class RecipeRegistry(
     private val recipes: List<AppRecipe> = defaultRecipes(),
 ) {
+    private val intentRouter = RecipeIntentRouter(recipes)
+
     fun propose(
         goal: UserGoal,
         grounding: GroundingSnapshot,
     ): RecipeProposal {
+        intentRouter.routeOrNull(goal)?.let { (_, recipe) ->
+            val invocation = goal.requestedRecipe
+                ?.copy(recipeId = recipe.id)
+                ?: RecipeInvocation(recipeId = recipe.id, args = emptyMap())
+            return recipe.propose(goal, invocation, grounding)
+        }
+
         val invocation = goal.requestedRecipe
             ?: return RecipeProposal.Refused("no-recipe-directive")
         val recipe = recipes.firstOrNull {

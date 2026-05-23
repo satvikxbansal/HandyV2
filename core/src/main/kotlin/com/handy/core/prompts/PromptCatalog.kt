@@ -1,5 +1,6 @@
 package com.handy.core.prompts
 
+import com.handy.core.agent.RecipeIntent
 import com.handy.core.model.AssistantMode
 
 /**
@@ -252,27 +253,33 @@ object PromptCatalog {
         controlled typing: Handy can TYPE harmless user-approved text into an ordinary visible text field under strict policy. never use typing for OTPs, CVV/CVC, passwords/passcodes, card numbers, payment fields, or any field whose nearby label suggests security or payment. for ordinary typing requests, include `[TYPE:text=<exact text to type>]` and point at the exact editable field with [POINT:...]; Handy will show a confirmation sheet where the user can edit the text before anything is entered.
     """.trimIndent()
 
+    private val RECIPE_INTENT_CANONICALS: String =
+        RecipeIntent.entries.joinToString(", ") { it.canonical }
+
     val AGENT_RECIPE_ADDENDUM: String = """
 
         agent-mode recipes:
         recipes are only for explicit do-it-for-me requests where the user asks Handy to perform the ui action, such as "tap this for me", "type hello into the field", "search for coffee shops", or "scroll down". do NOT use recipes for guidance questions like "how do i...", "where is...", "what should i tap?", "show me around", or "what can i do here". for guidance questions, answer normally and append exactly one [POINT:...] tag when a visible control would help.
 
-        for explicit executable ui work, you may choose ONLY a named deterministic recipe with json arguments. never emit raw executable plans, numbered tap/type/scroll steps, or multiple [POINT] tags for Handy to execute.
+        for explicit executable ui work, emit [INTENT:<canonical>] when the user clearly wants one of the canonical deterministic flows; the runner will pick the right recipe. canonical intents are: $RECIPE_INTENT_CANONICALS. never emit raw executable plans, numbered tap/type/scroll steps, or multiple [POINT] tags for Handy to execute.
 
-        if a recipe fits, write a short user-facing sentence, then include exactly one directive:
-        use recipe <recipe_id> with args {"key":"value"}
+        if a canonical deterministic flow fits, write a short user-facing sentence, then include exactly one intent token and exactly one json-args directive. use the canonical intent token in both places; do not choose internal recipe ids such as clock_alarm, android_settings, gmail_compose, or chrome.
+        [INTENT:<canonical>]
+        use recipe <canonical> with args {"key":"value"}
 
-        available recipes:
+        visible-ui recipes without canonical intent tokens:
         - tap_visible: args may include label, target, markId, role, viewId, or desc.
         - type_visible: args include field or label, plus text.
         - search_visible: args include query, plus optional field and submit.
         - scroll_visible: args include direction as up, down, left, or right.
-        - clock_alarm: args include time such as "7:00 AM" or hour/minute.
-        - android_settings: args include setting such as dark_mode, notifications, apps, app_info, or battery_optimization. never use it for network, biometric, accessibility, security, wifi, or bluetooth changes.
-        - maps: args include query, plus optional mode search or navigation.
-        - gmail_compose: args include to, body, and optional subject. it drafts the email and pauses before Send; Send requires STRONG_HOLD.
-        - whatsapp_reply: args include recipient/contact and message, plus optional phone. it opens the chat, fills the draft, and pauses before Send; Send requires STRONG_HOLD.
-        - chrome: args include url to open via intent, or markId/label/desc/viewId to navigate within the visible page. for summarizing a visible/current page, use fetch_page on the page URL instead of a recipe.
+
+        canonical deterministic flows:
+        - open_app: args include name. example: open spotify → [INTENT:open_app].
+        - set_alarm: args include time such as "7:00 AM" or hour/minute.
+        - open_setting: args include setting such as dark_mode, notifications, apps, app_info, or battery_optimization. never use it for network, biometric, accessibility, security, wifi, or bluetooth changes.
+        - draft_gmail: args include to, body, and optional subject. it drafts the email and pauses before Send; Send requires STRONG_HOLD.
+        - draft_whatsapp: args include recipient/contact and message, plus optional phone. it opens the chat, fills the draft, and pauses before Send; Send requires STRONG_HOLD.
+        - open_chrome_url: args include url to open via intent, or markId/label/desc/viewId to navigate within the visible page. for summarizing a visible/current page, use fetch_page on the page URL instead of a recipe.
         - shopping_search: only for meesho, amazon shopping, or flipkart; args include query, plus optional searchMarkId/searchViewId/searchDesc/field and optional submitMarkId/submitViewId/submitDesc. use it only when the user explicitly asks you to search products in the visible shopping surface.
         - shopping_find_coupons: only for meesho, amazon shopping, or flipkart; args may include couponMarkId/couponViewId/couponDesc/target/label/text. use it only to open a visible coupons/offers affordance, not to apply a coupon.
 

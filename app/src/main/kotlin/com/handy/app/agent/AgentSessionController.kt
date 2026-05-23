@@ -28,6 +28,7 @@ import com.handy.core.screen.TurnSource
 import com.handy.core.tool.ToolContext
 import com.handy.runtime.agent.recipes.AndroidRuntimeRecipes
 import com.handy.runtime.intent.AndroidIntentDispatcher
+import com.handy.runtime.intent.LaunchableAppIndex
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.delay
@@ -44,9 +45,10 @@ class AgentSessionController @Inject constructor(
     private val actionPerformer: ActionPerformer,
     private val policyEngine: ActionPolicyEngine,
     private val intentDispatcher: AndroidIntentDispatcher,
+    private val launchableAppIndex: LaunchableAppIndex,
 ) {
     private val registry = RecipeRegistry(
-        RecipeRegistry.defaultRecipes() + AndroidRuntimeRecipes.defaultRecipes(),
+        RecipeRegistry.defaultRecipes() + AndroidRuntimeRecipes.defaultRecipes(launchableAppIndex),
     )
     private val _progress = MutableStateFlow(AgentProgressBubbleState.Hidden)
     val progress: StateFlow<AgentProgressBubbleState> = _progress.asStateFlow()
@@ -59,7 +61,7 @@ class AgentSessionController @Inject constructor(
         toolContext: ToolContext,
     ): Boolean {
         val goal = UserGoal.fromAssistantText(assistantText)
-        if (goal.requestedRecipe == null) return false
+        if (goal.requestedRecipe == null && goal.requestedIntent == null) return false
         if (!UserGoal.allowsRecipeExecution(userText)) {
             Timber.d(
                 "AgentSessionController: ignored recipe directive for guidance-only user intent queryChars=%d",

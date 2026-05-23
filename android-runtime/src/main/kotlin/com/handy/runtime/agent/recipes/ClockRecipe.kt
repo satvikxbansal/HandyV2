@@ -9,10 +9,17 @@ import com.handy.core.agent.RecipeProposal
 import com.handy.core.agent.RecipeStep
 import com.handy.core.agent.UserGoal
 import com.handy.core.screen.GroundingSnapshot
+import com.handy.runtime.intent.LaunchableAppIndex
 import java.util.Locale
 
 object AndroidRuntimeRecipes {
-    fun defaultRecipes(): List<AppRecipe> = listOf(
+    fun defaultRecipes(launchableApps: LaunchableAppIndex): List<AppRecipe> =
+        defaultRecipes(launchableApps::find)
+
+    fun defaultRecipes(
+        findLaunchableApps: (String) -> List<LaunchableAppIndex.Entry> = { emptyList() },
+    ): List<AppRecipe> = listOf(
+        OpenAppRecipe(findLaunchableApps),
         ClockRecipe,
         AndroidSettingsRecipe,
         MapsRecipe,

@@ -18,6 +18,21 @@ class UserGoalTest {
         assertThat(goal.text).isEqualTo("i can do that.")
     }
 
+    @Test fun `parses and strips intent directive`() {
+        val text = """
+            i can do that.
+            [INTENT:set_alarm]
+            use recipe set_alarm with args {"time":"7am"}
+        """.trimIndent()
+
+        val goal = UserGoal.fromAssistantText(text)
+
+        assertThat(goal.requestedIntent).isEqualTo("set_alarm")
+        assertThat(goal.requestedRecipe?.recipeId).isEqualTo("set_alarm")
+        assertThat(goal.requestedRecipe?.arg("time")).isEqualTo("7am")
+        assertThat(goal.text).isEqualTo("i can do that.")
+    }
+
     @Test fun `guidance questions do not allow recipe execution`() {
         assertThat(UserGoal.allowsRecipeExecution("how do I add a new email address?")).isFalse()
         assertThat(UserGoal.allowsRecipeExecution("show me where to tap")).isFalse()

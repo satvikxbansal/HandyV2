@@ -147,7 +147,11 @@ class PromptCatalogTest {
             quickOverlayResponse = true,
         )
         assertThat(prompt).contains("agent-mode recipes:")
-        assertThat(prompt).contains("use recipe <recipe_id> with args")
+        assertThat(prompt).contains("[INTENT:<canonical>]")
+        assertThat(prompt).contains("use recipe <canonical> with args")
+        assertThat(prompt).contains("runner will pick the right recipe")
+        assertThat(prompt).contains("open_app, set_alarm, set_timer")
+        assertThat(prompt).contains("open spotify → [INTENT:open_app]")
         assertThat(prompt).contains("never emit raw executable plans")
         assertThat(prompt).contains("do NOT use recipes for guidance questions")
         assertThat(prompt).contains("answer normally and append exactly one [POINT:...] tag")
