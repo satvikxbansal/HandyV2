@@ -22,6 +22,7 @@ object AndroidRuntimeRecipes {
         OpenAppRecipe(findLaunchableApps),
         InstallAppRecipe,
         ClockRecipe,
+        TimerRecipe,
         AndroidSettingsRecipe,
         MapsRecipe,
         GmailRecipe,

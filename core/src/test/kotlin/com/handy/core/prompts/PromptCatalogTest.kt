@@ -153,6 +153,8 @@ class PromptCatalogTest {
         assertThat(prompt).contains("open_app, set_alarm, set_timer")
         assertThat(prompt).contains("open spotify → [INTENT:open_app]")
         assertThat(prompt).contains("install spotify → [INTENT:install_app]")
+        assertThat(prompt).contains("set a 10-minute timer → [INTENT:set_timer]")
+        assertThat(prompt).contains(""""seconds":600""")
         assertThat(prompt).contains("never emit raw executable plans")
         assertThat(prompt).contains("do NOT use recipes for guidance questions")
         assertThat(prompt).contains("answer normally and append exactly one [POINT:...] tag")
