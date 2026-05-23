@@ -62,6 +62,15 @@ object AndroidSettingsRecipe : AppRecipe {
                 requested.contains("night mode") -> SettingsRecipeTarget.DARK_MODE
             requested.contains("notification") -> SettingsRecipeTarget.NOTIFICATIONS
             requested.contains("battery") -> SettingsRecipeTarget.BATTERY_OPTIMIZATION
+            requested.contains("ringtone") ||
+                requested.contains("sound") -> SettingsRecipeTarget.RINGTONE
+            requested.contains("do not disturb") ||
+                requested.contains("dnd") ||
+                requested.contains("silent mode") -> SettingsRecipeTarget.DND
+            requested.contains("brightness") -> SettingsRecipeTarget.BRIGHTNESS
+            requested.contains("screen timeout") ||
+                requested.contains("sleep") ||
+                requested.contains("screen off") -> SettingsRecipeTarget.SCREEN_TIMEOUT
             requested.contains("app info") -> SettingsRecipeTarget.APP_INFO
             requested.contains("apps") || requested.contains("application") -> SettingsRecipeTarget.APPS
             requested.contains("accessibility") -> SettingsRecipeTarget.ACCESSIBILITY
@@ -99,5 +108,9 @@ object AndroidSettingsRecipe : AppRecipe {
         SECURITY(SettingsTarget.SECURITY, "security"),
         WIFI(SettingsTarget.WIFI, "network"),
         BLUETOOTH(SettingsTarget.BLUETOOTH, "Bluetooth"),
+        RINGTONE(SettingsTarget.RINGTONE, "ringtone"),
+        DND(SettingsTarget.DND, "do not disturb"),
+        BRIGHTNESS(SettingsTarget.BRIGHTNESS, "brightness"),
+        SCREEN_TIMEOUT(SettingsTarget.SCREEN_TIMEOUT, "screen timeout"),
     }
 }

@@ -122,6 +122,10 @@ class AndroidIntentDispatcher(
             SettingsTarget.SECURITY -> Settings.ACTION_SECURITY_SETTINGS
             SettingsTarget.BIOMETRIC -> Settings.ACTION_BIOMETRIC_ENROLL
             SettingsTarget.APPS -> Settings.ACTION_APPLICATION_SETTINGS
+            SettingsTarget.RINGTONE -> Settings.ACTION_SOUND_SETTINGS
+            SettingsTarget.DND -> ACTION_ZEN_MODE_SETTINGS
+            SettingsTarget.BRIGHTNESS -> Settings.ACTION_DISPLAY_SETTINGS
+            SettingsTarget.SCREEN_TIMEOUT -> Settings.ACTION_DISPLAY_SETTINGS
         }
         val intent = Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (target == SettingsTarget.APP_INFO) {
@@ -253,3 +257,5 @@ class AndroidIntentDispatcher(
 
 /** Uri.Builder.opaquePart is deprecated on newer SDKs; small shim for clarity. */
 private fun Uri.Builder.opaquePart(value: String): Uri.Builder = encodedOpaquePart(Uri.encode(value))
+
+private const val ACTION_ZEN_MODE_SETTINGS = "android.settings.ZEN_MODE_SETTINGS"

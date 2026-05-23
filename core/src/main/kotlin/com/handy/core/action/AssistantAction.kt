@@ -122,5 +122,9 @@ enum class SettingsTarget {
     @SerialName("security") SECURITY,
     @SerialName("biometric") BIOMETRIC,
     @SerialName("apps") APPS,
+    @SerialName("ringtone") RINGTONE,
+    @SerialName("dnd") DND,
+    @SerialName("brightness") BRIGHTNESS,
+    @SerialName("screen_timeout") SCREEN_TIMEOUT,
     ;
 }

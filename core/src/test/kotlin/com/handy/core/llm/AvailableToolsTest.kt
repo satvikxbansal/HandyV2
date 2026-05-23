@@ -1,6 +1,11 @@
 package com.handy.core.llm
 
 import com.google.common.truth.Truth.assertThat
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
 
 class AvailableToolsTest {
@@ -63,8 +68,28 @@ class AvailableToolsTest {
             intentDispatchEnabled = true,
         )
         tools.forEach { tool ->
-            val schema = kotlinx.serialization.json.Json.parseToJsonElement(tool.inputSchemaJson)
+            val schema = Json.parseToJsonElement(tool.inputSchemaJson)
             assertThat(schema).isNotNull()
         }
+    }
+
+    @Test fun `dispatch action schema advertises common settings targets`() {
+        val dispatchAction = availableTools(
+            webSearchEnabled = false,
+            hasBraveKey = false,
+            intentDispatchEnabled = true,
+        ).single()
+
+        val schema = Json.parseToJsonElement(dispatchAction.inputSchemaJson).jsonObject
+        val targetEnum = schema.getValue("properties")
+            .jsonObject
+            .getValue("target")
+            .jsonObject
+            .getValue("enum")
+            .jsonArray
+            .mapNotNull { it.jsonPrimitive.contentOrNull }
+
+        assertThat(targetEnum)
+            .containsAtLeast("ringtone", "dnd", "brightness", "screen_timeout")
     }
 }

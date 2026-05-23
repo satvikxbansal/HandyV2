@@ -198,7 +198,11 @@ class DefaultActionPolicyEngine(
         SettingsTarget.NOTIFICATIONS,
         SettingsTarget.BATTERY_OPTIMIZATION,
         SettingsTarget.DARK_MODE,
-        SettingsTarget.APPS -> false
+        SettingsTarget.APPS,
+        SettingsTarget.RINGTONE,
+        SettingsTarget.DND,
+        SettingsTarget.BRIGHTNESS,
+        SettingsTarget.SCREEN_TIMEOUT -> false
     }
 
     private fun AssistantAction.requiresStrongConfirmation(): Boolean =

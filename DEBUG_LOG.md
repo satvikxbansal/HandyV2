@@ -1213,3 +1213,35 @@ cross-references the one being superseded.
 | **Fix** | Added `LaunchableAppIndex.find(hint): List<Entry>` with first-non-empty-tier matching and kept `resolve(...)` as a first-match wrapper. Added `OpenAppRecipe`, wired it into `AndroidRuntimeRecipes` with the real index from `AgentSessionController`, mapped the proposed step to `AssistantAction.OpenApp(packageHint = packageName)`, and taught the prompt the `open spotify → [INTENT:open_app]` example. |
 | **Validation** | Focused recipe validation passed with `JAVA_HOME=$HOME/.cache/codex-jdk17 PATH=$HOME/.cache/codex-jdk17/bin:$PATH ./gradlew :android-runtime:testDebugUnitTest --tests 'com.handy.runtime.agent.recipes.OpenAppRecipeTest' --stacktrace`. Full requested validation passed with `JAVA_HOME=$HOME/.cache/codex-jdk17 PATH=$HOME/.cache/codex-jdk17/bin:$PATH ./gradlew :core:test :android-runtime:test :app:test :app:lint :app:assembleDebug --stacktrace`; Gradle reported `BUILD SUCCESSFUL in 2s` and `179 actionable tasks: 8 executed, 171 up-to-date`. `git diff --check` passed. |
 | **Prevention Rule** | Any recipe that resolves a user-provided app name must call `LaunchableAppIndex.find(...)`, refuse 0 matches as not found, and refuse 2+ matches as ambiguous before dispatching a package-backed `OpenApp` action. |
+
+---
+
+### DL-074 — Common settings requests lacked deterministic deep-links
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-05-23 |
+| **Tags** | `#android #settings #agent-recipes #intent-dispatch #policy` |
+| **Severity** | Logic Bug |
+| **File(s)** | `core/src/main/kotlin/com/handy/core/action/AssistantAction.kt`, `core/src/main/kotlin/com/handy/core/llm/AvailableTools.kt`, `core/src/test/kotlin/com/handy/core/llm/AvailableToolsTest.kt`, `android-runtime/src/main/kotlin/com/handy/runtime/intent/AndroidIntentDispatcher.kt`, `android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/AndroidSettingsRecipe.kt`, `android-runtime/src/main/kotlin/com/handy/runtime/action/DefaultActionPolicyEngine.kt`, `android-runtime/src/test/kotlin/com/handy/runtime/agent/recipes/AndroidSettingsRecipeTest.kt`, `android-runtime/src/test/kotlin/com/handy/runtime/action/DefaultActionPolicyEngineTest.kt`, `DEBUG_LOG.md` |
+| **Symptom** | Requests for ringtone, sound, Do Not Disturb, brightness, or screen-timeout settings had no deterministic Android Settings target, so the settings recipe refused them and the action tool schema did not advertise those targets. |
+| **Root Cause** | `SettingsTarget` only covered the original first recipe pack. New common Settings screens were never appended to the serialized enum, dispatcher, recipe matcher, policy allowlist, or tool schema. During validation, the requested `Settings.ACTION_ZEN_MODE_SETTINGS` branch also failed to compile because android-36 exposes the `android.settings.ZEN_MODE_SETTINGS` activity action but not a public `Settings` field for it. |
+| **Fix** | Appended `RINGTONE`, `DND`, `BRIGHTNESS`, and `SCREEN_TIMEOUT` with stable serial names; mapped them to Sound, Zen Mode, and Display settings intents; added keyword resolution; explicitly allowed them in `isTooSensitiveForSettingsRecipe`; and synced the `dispatch_action` schema. DND uses a local action-string constant for `android.settings.ZEN_MODE_SETTINGS` because the SDK jar does not expose a public field. |
+| **Validation** | Plain `./gradlew :core:test :android-runtime:test :app:test :app:lint :app:assembleDebug` first failed before Gradle because no Java runtime was on PATH. With the repo-local JDK, `JAVA_HOME=/Users/satvik.bansal/.cache/codex-jdk17 PATH=/Users/satvik.bansal/.cache/codex-jdk17/bin:$PATH ./gradlew :core:test :android-runtime:test :app:test :app:lint :app:assembleDebug` passed; Gradle reported `BUILD SUCCESSFUL in 27s` and `179 actionable tasks: 61 executed, 118 up-to-date`. `git diff --check` passed. |
+| **Prevention Rule** | When adding a new `SettingsTarget`, append the enum value, update the dispatcher, recipe matcher, policy allow/deny arm, and advertised `dispatch_action` schema in the same change; verify any Android Settings action against the compiled SDK jar because some activity actions exist without public `Settings.ACTION_*` constants. |
+
+---
+
+### DL-075 — AvailableToolsTest used unavailable JsonPrimitive.content import
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-05-23 |
+| **Tags** | `#core #tests #serialization #build` |
+| **Severity** | Build Error |
+| **File(s)** | `core/src/test/kotlin/com/handy/core/llm/AvailableToolsTest.kt`, `DEBUG_LOG.md` |
+| **Symptom** | After changing the dispatch-action schema assertion to parse JSON, `:core:compileTestKotlin` failed with `Unresolved reference 'content'`. |
+| **Root Cause** | This repo's kotlinx.serialization version exposes and already uses `JsonPrimitive.contentOrNull`, but the new test imported `kotlinx.serialization.json.content`, which is not available on the configured dependency version. |
+| **Fix** | Replaced the unavailable `content` import/property with `contentOrNull` and `mapNotNull`, matching the existing serialization idiom in the codebase. |
+| **Validation** | `JAVA_HOME=/Users/satvik.bansal/.cache/codex-jdk17 PATH=/Users/satvik.bansal/.cache/codex-jdk17/bin:$PATH ./gradlew :core:test :android-runtime:test :app:test :app:lint :app:assembleDebug` passed; Gradle reported `BUILD SUCCESSFUL in 1s` and `179 actionable tasks: 3 executed, 176 up-to-date`. |
+| **Prevention Rule** | When parsing kotlinx.serialization JSON in tests, use helpers already present in the repo (`contentOrNull`, `jsonObject`, `jsonArray`) instead of assuming newer extension properties are available. |

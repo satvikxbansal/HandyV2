@@ -6,6 +6,7 @@ import com.handy.core.action.ActionExecutionGate
 import com.handy.core.action.ActionRisk
 import com.handy.core.action.AssistantAction
 import com.handy.core.action.ConfirmationLevel
+import com.handy.core.action.SettingsTarget
 import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
 import com.handy.core.model.HandySettings
@@ -244,11 +245,11 @@ class DefaultActionPolicyEngineTest {
 
     @Test fun `high risk settings deep links are blocked`() {
         val blockedTargets = listOf(
-            com.handy.core.action.SettingsTarget.WIFI,
-            com.handy.core.action.SettingsTarget.BLUETOOTH,
-            com.handy.core.action.SettingsTarget.ACCESSIBILITY,
-            com.handy.core.action.SettingsTarget.SECURITY,
-            com.handy.core.action.SettingsTarget.BIOMETRIC,
+            SettingsTarget.WIFI,
+            SettingsTarget.BLUETOOTH,
+            SettingsTarget.ACCESSIBILITY,
+            SettingsTarget.SECURITY,
+            SettingsTarget.BIOMETRIC,
         )
 
         blockedTargets.forEach { target ->
@@ -262,6 +263,28 @@ class DefaultActionPolicyEngineTest {
             assertThat(decision.allowed).isFalse()
             assertThat(decision.reason).isEqualTo("settings-too-sensitive")
             assertThat(decision.risk).isEqualTo(ActionRisk.HIGH)
+        }
+    }
+
+    @Test fun `safe settings recipe deep links are allowed`() {
+        val allowedTargets = listOf(
+            SettingsTarget.RINGTONE,
+            SettingsTarget.DND,
+            SettingsTarget.BRIGHTNESS,
+            SettingsTarget.SCREEN_TIMEOUT,
+        )
+
+        allowedTargets.forEach { target ->
+            val decision = engine().decide(
+                action = AssistantAction.OpenSettings(target),
+                target = null,
+                grounding = grounding(packageName = "com.android.settings"),
+                sourceTrust = SourceTrust.TRUSTED_USER,
+            )
+
+            assertThat(decision.allowed).isTrue()
+            assertThat(decision.confirmation).isEqualTo(ConfirmationLevel.NONE)
+            assertThat(decision.risk).isEqualTo(ActionRisk.LOW)
         }
     }
 

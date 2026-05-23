@@ -101,7 +101,7 @@ private val DISPATCH_ACTION_INPUT_SCHEMA_JSON: String = """
     "endEpochMs": {"type": "integer", "description": "create_event: event end time in milliseconds since epoch."},
     "location": {"type": "string", "description": "create_event: event location."},
     "notes": {"type": "string", "description": "create_event: additional notes / description."},
-    "target": {"type": "string", "enum": ["app_info", "accessibility", "notifications", "battery_optimization", "dark_mode", "wifi", "bluetooth", "security", "biometric", "apps"], "description": "open_settings: which settings screen to open."}
+    "target": {"type": "string", "enum": ["app_info", "accessibility", "notifications", "battery_optimization", "dark_mode", "wifi", "bluetooth", "security", "biometric", "apps", "ringtone", "dnd", "brightness", "screen_timeout"], "description": "open_settings: which settings screen to open."}
   },
   "required": ["type"]
 }
