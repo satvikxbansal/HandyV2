@@ -66,6 +66,12 @@ documentation.
   shopping search/compare/coupon flows. The AI chooses the recipe and
   arguments; it does not invent arbitrary executable steps.
 
+- **Locked recipes after S-1..S-10**
+  The deterministic set is: open app, install app, alarm, timer, web
+  search, Chrome search, Android Settings (10 targets), Gmail draft,
+  WhatsApp draft, calendar event, ride-hailing prep only, and shopping
+  search/coupons.
+
 - **Intent-first system tasks**
   Handy prefers Android's own visible flows when available: alarms,
   calendar events, app launch, settings screens, app info, web search,

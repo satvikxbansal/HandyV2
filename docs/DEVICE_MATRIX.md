@@ -58,6 +58,13 @@ Use this checklist for every exact run row:
 - `OverlayChatPipeline` turn carries `TurnScreenContext` from the panel snapshot
   or live builder.
 - Accessibility pointer target resolves or fails closed.
+- OpenApp recipe launches the right app.
+- Install X opens the Play Store listing.
+- Timer recipe sets the right duration.
+- Calendar recipe opens compose UI with prefilled fields.
+- Ride-hailing recipe stops before Confirm.
+- Summarize-screen mode produces a 2-4 sentence answer with no tool calls and
+  no pointer.
 - No screenshot/image payload appears in crash or error logs.
 - Reduced-mode behavior is clear when accessibility/capture permissions are
   missing.
