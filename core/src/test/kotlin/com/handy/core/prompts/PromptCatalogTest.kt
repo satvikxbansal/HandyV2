@@ -156,6 +156,8 @@ class PromptCatalogTest {
         assertThat(prompt).contains("set a 10-minute timer → [INTENT:set_timer]")
         assertThat(prompt).contains(""""seconds":600""")
         assertThat(prompt).contains("google android 16 release notes → [INTENT:web_search]")
+        assertThat(prompt).contains("search chrome for cats → [INTENT:open_chrome_url]")
+        assertThat(prompt).contains("generic \"search the web\" stays [INTENT:web_search]")
         assertThat(prompt).contains("WEB_SEARCH intent vs tool")
         assertThat(prompt).contains("does not consume the web_search tool quota")
         assertThat(prompt).contains("never emit raw executable plans")

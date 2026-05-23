@@ -408,6 +408,25 @@ class DefaultActionPolicyEngineTest {
         assertThat(decision.reason).isEqualTo("sensitive-field")
     }
 
+    @Test fun `chrome url bar is not treated as a password context`() {
+        val decision = engine().decide(
+            action = AssistantAction.TypeText("cats"),
+            target = node(
+                markId = null,
+                role = "EditText",
+                viewId = "url_bar",
+                expectedPackage = "com.android.chrome",
+                resolverConfidence = 0.95f,
+            ),
+            grounding = grounding(packageName = "com.android.chrome"),
+            sourceTrust = SourceTrust.TRUSTED_RECIPE,
+        )
+
+        assertThat(decision.allowed).isTrue()
+        assertThat(decision.reason).isEqualTo("node-action-only")
+        assertThat(decision.confirmation).isEqualTo(ConfirmationLevel.NORMAL)
+    }
+
     @Test fun `app changed after grounding is blocked`() {
         val decision = engine().decide(
             action = AssistantAction.OpenApp("com.example.old"),
@@ -515,7 +534,9 @@ class DefaultActionPolicyEngineTest {
 
     private fun node(
         markId: String? = "m1",
+        role: String = "Button",
         text: String? = null,
+        viewId: String? = null,
         desc: String? = null,
         expectedPackage: String = "com.example.app",
         resolverConfidence: Float? = null,
@@ -523,9 +544,9 @@ class DefaultActionPolicyEngineTest {
     ): TapTarget.AtNode =
         TapTarget.AtNode(
             markId = markId,
-            role = "Button",
+            role = role,
             text = text,
-            viewId = null,
+            viewId = viewId,
             desc = desc,
             expectedPackage = expectedPackage,
             expectedWindowId = WINDOW_ID,

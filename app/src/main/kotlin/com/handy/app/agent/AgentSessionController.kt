@@ -1,13 +1,18 @@
 package com.handy.app.agent
 
 import com.handy.app.overlay.AgentProgressBubbleState
+import com.handy.app.overlay.BuddyFlightDriver
 import com.handy.app.overlay.OverlayPresenter
 import com.handy.app.screen.ScreenContextBuilder
+import com.handy.core.action.ActionCapability
 import com.handy.core.action.ActionPolicyEngine
 import com.handy.core.action.ActionRisk
 import com.handy.core.action.ActionPerformer
 import com.handy.core.action.ConfirmationLevel
+import com.handy.core.action.PerformResult
 import com.handy.core.action.PolicyDecision
+import com.handy.core.action.ScrollDirection
+import com.handy.core.action.TapTarget
 import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipePlanConfirmer
 import com.handy.core.agent.RecipeProposal
@@ -23,6 +28,7 @@ import com.handy.core.agent.RecipeSnapshotProvider
 import com.handy.core.agent.RecipeStep
 import com.handy.core.agent.RecipeStepPolicyCheck
 import com.handy.core.agent.UserGoal
+import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.screen.GroundingSnapshot
 import com.handy.core.screen.TurnSource
 import com.handy.core.tool.ToolContext
@@ -46,6 +52,7 @@ class AgentSessionController @Inject constructor(
     private val policyEngine: ActionPolicyEngine,
     private val intentDispatcher: AndroidIntentDispatcher,
     private val launchableAppIndex: LaunchableAppIndex,
+    private val flightDriver: BuddyFlightDriver,
 ) {
     private val registry = RecipeRegistry(
         RecipeRegistry.defaultRecipes() + AndroidRuntimeRecipes.defaultRecipes(launchableAppIndex),
@@ -159,21 +166,32 @@ class AgentSessionController @Inject constructor(
         source: TurnSource,
         toolContext: ToolContext,
     ) {
+        suspend fun recipeGrounding(): GroundingSnapshot =
+            screenContextBuilder.build(
+                userMessage = userText,
+                source = source,
+                toolContext = toolContext,
+                panelSnapshot = null,
+                preferFocusedWindow = false,
+            )
+
+        val snapshotProvider = RecipeSnapshotProvider { recipeGrounding() }
+        val performer = if (plan.recipeId == CHROME_RECIPE_ID) {
+            ChromeOmniboxFlightActionPerformer(
+                delegate = actionPerformer,
+                flightDriver = flightDriver,
+                snapshotProvider = ::recipeGrounding,
+            )
+        } else {
+            actionPerformer
+        }
         val runner = RecipeRunner(
-            performer = actionPerformer,
+            performer = performer,
             policy = policyEngine,
             intentDispatcher = RecipeIntentDispatcher { action ->
                 intentDispatcher.dispatch(action)
             },
-            snapshotProvider = RecipeSnapshotProvider {
-                screenContextBuilder.build(
-                    userMessage = userText,
-                    source = source,
-                    toolContext = toolContext,
-                    panelSnapshot = null,
-                    preferFocusedWindow = false,
-                )
-            },
+            snapshotProvider = snapshotProvider,
             planConfirmer = RecipePlanConfirmer { _, _, _ -> true },
             sensitiveStepConfirmer = RecipeSensitiveStepConfirmer { _, step, _, decision ->
                 requestSensitiveStepApproval(plan, step, decision)
@@ -299,10 +317,78 @@ class AgentSessionController @Inject constructor(
     }
 
     companion object {
+        private const val CHROME_RECIPE_ID = "chrome"
         private const val PLAN_CONFIRMATION_TIMEOUT_MS = 12_000L
         private const val STEP_CONFIRMATION_TIMEOUT_MS = 12_000L
         private const val PANEL_DISMISS_BEFORE_RECIPE_MS = 180L
         private const val PROGRESS_FINISH_DISPLAY_MS = 1_400L
         private const val MAX_CONFIRMATION_LABEL = 42
+    }
+}
+
+private class ChromeOmniboxFlightActionPerformer(
+    private val delegate: ActionPerformer,
+    private val flightDriver: BuddyFlightDriver,
+    private val snapshotProvider: suspend () -> GroundingSnapshot,
+) : ActionPerformer {
+
+    override val capabilities: Set<ActionCapability>
+        get() = delegate.capabilities
+
+    override suspend fun tap(target: TapTarget): PerformResult =
+        delegate.tap(target)
+
+    override suspend fun longPress(target: TapTarget): PerformResult =
+        delegate.longPress(target)
+
+    override suspend fun scroll(direction: ScrollDirection, target: TapTarget?): PerformResult =
+        delegate.scroll(direction, target)
+
+    override suspend fun typeText(target: TapTarget, text: String): PerformResult {
+        val node = target as? TapTarget.AtNode
+            ?: return delegate.typeText(target, text)
+        if (!node.isChromeOmniboxTarget()) {
+            return delegate.typeText(target, text)
+        }
+
+        val grounding = snapshotProvider().withChromeToolContext(node)
+        val landed = flightDriver.flyToAndType(
+            spec = AssistantMarkupParser.SemanticPoint(viewId = CHROME_OMNIBOX_VIEW_ID_SUFFIX),
+            text = text,
+            bubbleLabel = "Typing in Chrome",
+            targetLabel = "Chrome address bar",
+            fallbackMarks = grounding.panelSnapshot?.marks.orEmpty(),
+            groundingSnapshot = grounding,
+        )
+        return if (landed) PerformResult.Ok else PerformResult.Failed("chrome-omnibox-flight-failed")
+    }
+
+    private fun TapTarget.AtNode.isChromeOmniboxTarget(): Boolean {
+        val viewIdSuffix = viewId?.substringAfterLast('/') ?: return false
+        return viewIdSuffix.equals(CHROME_OMNIBOX_VIEW_ID_SUFFIX, ignoreCase = true) &&
+            expectedPackage.equals(CHROME_PACKAGE, ignoreCase = true)
+    }
+
+    private fun GroundingSnapshot.withChromeToolContext(node: TapTarget.AtNode): GroundingSnapshot {
+        val packageName = screenText?.packageName
+            ?: node.expectedPackage
+            ?: toolContext.packageName
+        if (packageName.equals(toolContext.packageName, ignoreCase = true)) return this
+        return copy(
+            toolContext = toolContext.copy(
+                packageName = packageName,
+                appLabel = if (packageName.equals(CHROME_PACKAGE, ignoreCase = true)) {
+                    "Chrome"
+                } else {
+                    packageName
+                },
+                umbrellaSiteLabel = null,
+            ),
+        )
+    }
+
+    private companion object {
+        const val CHROME_PACKAGE = "com.android.chrome"
+        const val CHROME_OMNIBOX_VIEW_ID_SUFFIX = "url_bar"
     }
 }
