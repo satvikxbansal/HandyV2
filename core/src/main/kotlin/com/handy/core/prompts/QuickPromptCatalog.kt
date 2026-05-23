@@ -20,12 +20,27 @@ object QuickPromptCatalog {
     /** Generic greeting for the panel banner above the chips. */
     const val FALLBACK_GREETING: String = "What would you like help with?"
 
-    /** Fallback chips for [AppCategory.UNKNOWN] or when no package is cached. */
-    val FALLBACK_PROMPTS: List<String> = listOf(
-        "Show me around",
-        "What can I do here?",
-        "Find the settings",
+    const val SUMMARIZE_SCREEN_TEXT: String = "Summarize this screen"
+
+    data class QuickPrompt(
+        val text: String,
+        val action: Action = Action.SUBMIT_TEXT,
     )
+
+    enum class Action {
+        SUBMIT_TEXT,
+        SUMMARIZE_SCREEN,
+    }
+
+    private val FALLBACK_QUICK_PROMPTS: List<QuickPrompt> = listOf(
+        QuickPrompt(SUMMARIZE_SCREEN_TEXT, Action.SUMMARIZE_SCREEN),
+        QuickPrompt("Show me around"),
+        QuickPrompt("What can I do here?"),
+        QuickPrompt("Find the settings"),
+    )
+
+    /** Fallback chips for [AppCategory.UNKNOWN] or when no package is cached. */
+    val FALLBACK_PROMPTS: List<String> = FALLBACK_QUICK_PROMPTS.map { it.text }
 
     enum class AppCategory {
         SETTINGS,
@@ -223,6 +238,12 @@ object QuickPromptCatalog {
         )
         AppCategory.UNKNOWN -> FALLBACK_PROMPTS
     }
+
+    fun quickPromptsFor(category: AppCategory): List<QuickPrompt> =
+        when (category) {
+            AppCategory.UNKNOWN -> FALLBACK_QUICK_PROMPTS
+            else -> promptsFor(category).map { QuickPrompt(it) }
+        }
 
     /**
      * App-specific greeting. Uses [appLabel] when available; falls back

@@ -52,6 +52,7 @@ import com.handy.app.R
 import com.handy.core.overlay.BuddyBubble
 import com.handy.core.overlay.OverlayPanelState
 import com.handy.core.overlay.PanelContent
+import com.handy.core.prompts.QuickPromptCatalog
 import com.handy.app.theme.HandMarkIcon
 import com.handy.app.theme.HandyColors
 import com.handy.app.theme.HandyDimens
@@ -155,7 +156,7 @@ fun OverlayChatPanelContent(
                         QuickPromptsRow(
                             prompts = chips,
                             onPick = { prompt ->
-                                callbacks.onSend(prompt)
+                                callbacks.onQuickPrompt(prompt)
                                 draft = ""
                             },
                         )
@@ -177,6 +178,7 @@ data class OverlayPanelCallbacks(
     val onDismiss: () -> Unit,
     val onExpand: () -> Unit,
     val onSend: (String) -> Unit,
+    val onQuickPrompt: (QuickPromptCatalog.QuickPrompt) -> Unit,
     val onVoiceStart: () -> Unit,
     val onVoiceStop: () -> Unit,
     val onConfirm: (Long, Boolean) -> Unit,
@@ -409,8 +411,8 @@ private fun InputRow(
 
 @Composable
 private fun QuickPromptsRow(
-    prompts: List<String>,
-    onPick: (String) -> Unit,
+    prompts: List<QuickPromptCatalog.QuickPrompt>,
+    onPick: (QuickPromptCatalog.QuickPrompt) -> Unit,
 ) {
     // Spec (`handy-overlay.jsx` `QuickChip`): padding 7dp vertical /
     // 12dp horizontal, RadiusPill, ChipBg + 0.5dp ChipBorder, 12sp
@@ -440,7 +442,7 @@ private fun QuickPromptsRow(
                     .padding(horizontal = HandyDimens.StackM, vertical = 7.dp),
             ) {
                 Text(
-                    text = prompt,
+                    text = prompt.text,
                     style = HandyType.CaptionSmall.copy(
                         fontWeight = FontWeight.Medium,
                     ),

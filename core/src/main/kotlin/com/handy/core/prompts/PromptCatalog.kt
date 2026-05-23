@@ -29,6 +29,10 @@ import com.handy.core.model.AssistantMode
  */
 object PromptCatalog {
 
+    val SUMMARIZE_SCREEN_PROMPT: String = """
+        you are handy in summarize mode. the user asked you to read and summarize what's currently visible on their screen. respond in 2-4 short sentences, in plain language. do not point at anything ([POINT:none]). do not use tools. do not emit any RECIPE or INTENT tokens.
+    """.trimIndent()
+
     /** Chat interface prompt — detailed, helpful written responses. */
     val CHAT_SYSTEM_PROMPT: String = """
         you're handy, a friendly always-on assistant that lives in the user's floating widget on **android**. the user typed a message or spoke to you, and you can see their screen. this is an ongoing conversation — you remember previous context.
@@ -198,6 +202,35 @@ object PromptCatalog {
 
         screen context note: $reason
     """.trimIndent()
+
+    fun summarizeScreenTextAddendum(packageName: String, flattenedTree: String): String = """
+
+        screen text (from accessibility): the user is in package $packageName; here is the visible ui tree in flattened form. use this as your primary source for the screen summary. do not hallucinate ui elements that are not listed.
+
+        <screen_ui>
+        $flattenedTree
+        </screen_ui>
+    """.trimIndent()
+
+    fun buildSummarizeScreenPrompt(
+        screenTextPackage: String? = null,
+        screenTextFlattenedTree: String? = null,
+        contextFailureReason: String? = null,
+    ): String {
+        val buffer = StringBuilder(SUMMARIZE_SCREEN_PROMPT)
+
+        if (screenTextPackage != null && screenTextFlattenedTree != null) {
+            buffer.append("\n\n")
+            buffer.append(summarizeScreenTextAddendum(screenTextPackage, screenTextFlattenedTree))
+        }
+
+        if (!contextFailureReason.isNullOrBlank()) {
+            buffer.append("\n\n")
+            buffer.append(contextFailureAddendum(contextFailureReason))
+        }
+
+        return buffer.toString()
+    }
 
     /**
      * Overlay quick-surface turns are typed, but they should behave like

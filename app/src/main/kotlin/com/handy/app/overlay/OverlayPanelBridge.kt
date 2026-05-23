@@ -2,6 +2,7 @@ package com.handy.app.overlay
 
 import com.handy.app.chat.ChatConfirmationBroker
 import com.handy.app.voice.VoiceController
+import com.handy.core.prompts.QuickPromptCatalog
 import com.handy.runtime.di.ApplicationScope
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -48,7 +49,11 @@ class OverlayPanelBridge @Inject constructor(
     private var voiceJob: Job? = null
 
     sealed class Submission {
-        data class Text(val text: String, val fromVoice: Boolean) : Submission()
+        data class Text(
+            val text: String,
+            val fromVoice: Boolean,
+            val quickPromptAction: QuickPromptCatalog.Action? = null,
+        ) : Submission()
     }
 
     fun submitFromPanel(text: String) {
@@ -56,6 +61,19 @@ class OverlayPanelBridge @Inject constructor(
         if (trimmed.isEmpty()) return
         if (!_submissions.tryEmit(Submission.Text(trimmed, fromVoice = false))) {
             Timber.w("OverlayPanelBridge: tryEmit failed (buffer full)")
+        }
+    }
+
+    fun submitQuickPrompt(prompt: QuickPromptCatalog.QuickPrompt) {
+        val trimmed = prompt.text.trim()
+        if (trimmed.isEmpty()) return
+        val submission = Submission.Text(
+            text = trimmed,
+            fromVoice = false,
+            quickPromptAction = prompt.action,
+        )
+        if (!_submissions.tryEmit(submission)) {
+            Timber.w("OverlayPanelBridge: quick prompt tryEmit failed (buffer full)")
         }
     }
 

@@ -8,6 +8,7 @@ import com.handy.core.llm.LlmClient
 import com.handy.core.llm.ToolRunner
 import com.handy.core.llm.availableTools
 import com.handy.core.model.LoadingVerbs
+import com.handy.core.orchestrator.ConversationMode
 import com.handy.core.orchestrator.ConversationOrchestrator
 import com.handy.core.orchestrator.OrchestrationEvent
 import com.handy.core.orchestrator.OrchestrationRequest
@@ -17,6 +18,7 @@ import com.handy.core.overlay.PanelSnapshot
 import com.handy.core.overlay.withStableMarkIds
 import com.handy.core.agent.UserGoal
 import com.handy.core.parsing.AssistantMarkupParser
+import com.handy.core.prompts.QuickPromptCatalog
 import com.handy.core.screen.TurnSource
 import com.handy.core.tool.ToolContext
 import com.handy.runtime.di.ApplicationScope
@@ -87,7 +89,11 @@ class OverlayChatPipeline @Inject constructor(
         collectJob = appScope.launch {
             bridge.submissions.filterIsInstance<OverlayPanelBridge.Submission.Text>()
                 .collectLatest { submission ->
-                    runTurn(submission.text, submission.fromVoice)
+                    runTurn(
+                        userText = submission.text,
+                        fromVoice = submission.fromVoice,
+                        mode = submission.quickPromptAction.toConversationMode(),
+                    )
                 }
         }
         // Mirror the confirmation broker into panel state so the teal
@@ -105,7 +111,11 @@ class OverlayChatPipeline @Inject constructor(
         }
     }
 
-    private suspend fun runTurn(userText: String, fromVoice: Boolean) {
+    private suspend fun runTurn(
+        userText: String,
+        fromVoice: Boolean,
+        mode: ConversationMode,
+    ) {
         val snapshot = presenter.state.value
         val panelSnapshot = snapshot.panel.snapshot
         if (panelSnapshot == null) {
@@ -120,11 +130,15 @@ class OverlayChatPipeline @Inject constructor(
         val hasBraveKey = withContext(Dispatchers.IO) {
             !keyStore.get(KeyStore.KEY_BRAVE).isNullOrBlank()
         }
-        val tools = availableTools(
-            webSearchEnabled = current.webSearchEnabled,
-            hasBraveKey = hasBraveKey,
-            intentDispatchEnabled = true,
-        )
+        val tools = if (mode == ConversationMode.SUMMARIZE_SCREEN) {
+            emptyList()
+        } else {
+            availableTools(
+                webSearchEnabled = current.webSearchEnabled,
+                hasBraveKey = hasBraveKey,
+                intentDispatchEnabled = true,
+            )
+        }
 
         presenter.onStreamingStart()
         startVerbRotation()
@@ -138,9 +152,10 @@ class OverlayChatPipeline @Inject constructor(
         )
         val groundedSnapshot = turnContext.panelSnapshot
         Timber.d(
-            "OverlayChatPipeline.runTurn: request=%s app=%s marks=%d screenText=%s captureMode=%s failure=%s queryChars=%d",
+            "OverlayChatPipeline.runTurn: request=%s app=%s mode=%s marks=%d screenText=%s captureMode=%s failure=%s queryChars=%d",
             turnContext.requestId,
             toolContext.packageName,
+            mode,
             groundedSnapshot?.marks?.size ?: 0,
             turnContext.screenText != null,
             turnContext.captureMode,
@@ -167,7 +182,7 @@ class OverlayChatPipeline @Inject constructor(
             var finalOverlaySpoken: String? = null
             var pointing: AssistantMarkupParser.PointingResult? = null
             runCatching {
-                orchestrator.converse(request).collect { event ->
+                orchestrator.converse(request, mode = mode).collect { event ->
                     when (event) {
                         is OrchestrationEvent.LoadingVerb ->
                             presenter.setLoadingVerb(event.verb)
@@ -213,6 +228,10 @@ class OverlayChatPipeline @Inject constructor(
                 ?: fallbackOverlayClamp(displayChatText)
             if (displayChatText.isNotBlank()) {
                 presenter.onResponseFinalized(displayOverlaySpoken, displayChatText)
+            }
+            if (mode == ConversationMode.SUMMARIZE_SCREEN) {
+                Timber.d("OverlayChatPipeline: summarize mode skips recipe and pointer routing")
+                return@launch
             }
             val fallbackMarks = groundedSnapshot?.marks.orEmpty().withStableMarkIds()
             val recipeHandled = agentSessionController.runIfRecipeRequested(
@@ -327,6 +346,13 @@ class OverlayChatPipeline @Inject constructor(
 
     private fun AssistantMarkupParser.SemanticPoint.logSummary(): String =
         "role=$role textChars=${text?.length ?: 0} viewId=$viewId descChars=${contentDescription?.length ?: 0}"
+
+    private fun QuickPromptCatalog.Action?.toConversationMode(): ConversationMode =
+        when (this) {
+            QuickPromptCatalog.Action.SUMMARIZE_SCREEN -> ConversationMode.SUMMARIZE_SCREEN
+            QuickPromptCatalog.Action.SUBMIT_TEXT,
+            null -> ConversationMode.NORMAL
+        }
 
     private companion object {
         const val VERB_ROTATION_MS: Long = 2500L

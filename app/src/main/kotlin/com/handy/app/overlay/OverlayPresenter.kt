@@ -114,7 +114,7 @@ class OverlayPresenter @Inject constructor(
             packageName = snapshot?.toolContext?.packageName,
             siteLabel = snapshot?.toolContext?.umbrellaSiteLabel,
         )
-        val prompts = QuickPromptCatalog.promptsFor(category)
+        val prompts = QuickPromptCatalog.quickPromptsFor(category)
         val greeting = QuickPromptCatalog.greetingFor(
             snapshot?.toolContext?.displayLabel,
             category,

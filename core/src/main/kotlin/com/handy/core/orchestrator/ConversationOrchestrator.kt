@@ -47,7 +47,10 @@ class ConversationOrchestrator(
     private val rng: Random = Random.Default,
 ) {
 
-    fun converse(request: OrchestrationRequest): Flow<OrchestrationEvent> = flow {
+    fun converse(
+        request: OrchestrationRequest,
+        mode: ConversationMode = ConversationMode.NORMAL,
+    ): Flow<OrchestrationEvent> = flow {
         emit(OrchestrationEvent.LoadingVerb(LoadingVerbs.random(rng)))
 
         val toolKey = request.toolContext.historyKey
@@ -94,29 +97,40 @@ class ConversationOrchestrator(
         // --- Screen-input routing -----------------------------------------------
         val treeQuality = screenText?.qualityScore() ?: 0
         val screenTextPresent = screenText != null
-        val mode = ScreenInputRouter.choose(
+        val inputMode = ScreenInputRouter.choose(
             userMessage = request.userMessage,
             treeQualityScore = treeQuality,
             screenTextPresent = screenTextPresent,
         )
 
-        val systemPrompt = PromptCatalog.buildSystemPrompt(
-            mode = request.settings.assistantMode,
-            fromVoice = request.fromVoice,
-            webSearchEnabled = request.settings.webSearchEnabled,
-            hasBraveKey = request.hasBraveKey,
-            screenTextPackage = screenText
-                ?.takeIf { mode != ScreenInputRouter.Mode.VisionOnly }
-                ?.packageName,
-            screenTextFlattenedTree = screenText
-                ?.takeIf { mode != ScreenInputRouter.Mode.VisionOnly }
-                ?.let { ScreenTextSerializer.flatten(it) },
-            intentToolEnabled = request.tools.any { it.name == "dispatch_action" },
-            quickOverlayResponse = request.quickOverlayResponse,
-            contextFailureReason = contextFailureReason?.promptText,
-        )
+        val effectiveTools = if (mode == ConversationMode.SUMMARIZE_SCREEN) {
+            emptyList()
+        } else {
+            request.tools
+        }
 
-        val sendImages = when (mode) {
+        val screenTextForPrompt = screenText?.takeIf { inputMode != ScreenInputRouter.Mode.VisionOnly }
+        val flattenedScreenText = screenTextForPrompt?.let { ScreenTextSerializer.flatten(it) }
+        val systemPrompt = when (mode) {
+            ConversationMode.NORMAL -> PromptCatalog.buildSystemPrompt(
+                mode = request.settings.assistantMode,
+                fromVoice = request.fromVoice,
+                webSearchEnabled = request.settings.webSearchEnabled,
+                hasBraveKey = request.hasBraveKey,
+                screenTextPackage = screenTextForPrompt?.packageName,
+                screenTextFlattenedTree = flattenedScreenText,
+                intentToolEnabled = effectiveTools.any { it.name == "dispatch_action" },
+                quickOverlayResponse = request.quickOverlayResponse,
+                contextFailureReason = contextFailureReason?.promptText,
+            )
+            ConversationMode.SUMMARIZE_SCREEN -> PromptCatalog.buildSummarizeScreenPrompt(
+                screenTextPackage = screenTextForPrompt?.packageName,
+                screenTextFlattenedTree = flattenedScreenText,
+                contextFailureReason = contextFailureReason?.promptText,
+            )
+        }
+
+        val sendImages = when (inputMode) {
             ScreenInputRouter.Mode.VisionOnly, ScreenInputRouter.Mode.Both -> true
             ScreenInputRouter.Mode.TextOnly -> false
         }
@@ -130,15 +144,18 @@ class ConversationOrchestrator(
             systemPrompt = systemPrompt,
             messages = priorHistory + userMessage,
             images = imageParts,
-            screenText = screenText.takeIf { mode != ScreenInputRouter.Mode.VisionOnly },
-            tools = request.tools,
+            screenText = screenTextForPrompt,
+            tools = effectiveTools,
             modelOverride = request.settings.cloudModelOverrideForSelectedProvider(),
         )
 
-        val introPrefix = IntroPrefix.forTurn(
-            toolName = request.toolContext.displayLabel,
-            existingMessageCount = priorHistory.size,
-        )
+        val introPrefix = when (mode) {
+            ConversationMode.NORMAL -> IntroPrefix.forTurn(
+                toolName = request.toolContext.displayLabel,
+                existingMessageCount = priorHistory.size,
+            )
+            ConversationMode.SUMMARIZE_SCREEN -> ""
+        }
 
         var accumulated = ""
         val collectedSearchTools = mutableListOf<String>()
@@ -162,19 +179,21 @@ class ConversationOrchestrator(
                         )
                     }
                     is LlmChunk.ToolCall -> {
-                        if (chunk.name !in collectedSearchTools) collectedSearchTools.add(chunk.name)
-                        emit(
-                            OrchestrationEvent.ToolCall(
-                                id = chunk.id,
-                                name = chunk.name,
-                                inputJson = chunk.inputJson,
-                            ),
-                        )
-                        emit(
-                            OrchestrationEvent.WebSearchStatus(
-                                WebSearchStatusText.statusFor(chunk.name),
-                            ),
-                        )
+                        if (mode == ConversationMode.NORMAL) {
+                            if (chunk.name !in collectedSearchTools) collectedSearchTools.add(chunk.name)
+                            emit(
+                                OrchestrationEvent.ToolCall(
+                                    id = chunk.id,
+                                    name = chunk.name,
+                                    inputJson = chunk.inputJson,
+                                ),
+                            )
+                            emit(
+                                OrchestrationEvent.WebSearchStatus(
+                                    WebSearchStatusText.statusFor(chunk.name),
+                                ),
+                            )
+                        }
                     }
                     is LlmChunk.Done -> {
                         finalize(
@@ -263,6 +282,11 @@ private fun HandySettings.cloudModelOverrideForSelectedProvider(): String? =
         CloudProvider.CLAUDE -> claudeModelOverride
         CloudProvider.GEMINI -> geminiModelOverride
     }
+
+enum class ConversationMode {
+    NORMAL,
+    SUMMARIZE_SCREEN,
+}
 
 data class OrchestrationRequest(
     val userMessage: String,

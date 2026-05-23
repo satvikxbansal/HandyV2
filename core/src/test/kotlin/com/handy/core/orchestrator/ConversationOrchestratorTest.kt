@@ -13,7 +13,11 @@ import com.handy.core.model.CloudProvider
 import com.handy.core.model.ConversationTurn
 import com.handy.core.model.HandySettings
 import com.handy.core.screen.CaptureResult
+import com.handy.core.screen.IntRect
 import com.handy.core.screen.SECURE_WINDOW_SYSTEM_MESSAGE
+import com.handy.core.screen.ScreenTextSnapshot
+import com.handy.core.screen.UiNode
+import com.handy.core.prompts.PromptCatalog
 import com.handy.core.tool.ToolContext
 import kotlin.random.Random
 import kotlinx.coroutines.flow.Flow
@@ -310,6 +314,63 @@ class ConversationOrchestratorTest {
         assertThat(llm.lastRequest?.modelOverride).isEqualTo("gemini-test-model")
     }
 
+    @Test fun `summarize screen mode uses summarize prompt empty tools and skips tool routing`() = runTest {
+        val store = FakeHistoryStore()
+        val llm = ToolRoutingLlm(
+            plainChunks = listOf(
+                LlmChunk.Text("this screen shows your inbox and a compose button. [POINT:none]"),
+                LlmChunk.Done("end_turn"),
+            ),
+            toolAwareChunks = listOf(
+                LlmChunk.Error(IllegalStateException("tool-aware path should not run")),
+            ),
+        )
+        val runner = RecordingToolRunner()
+        val orchestrator = ConversationOrchestrator(
+            llmClient = llm,
+            historyStore = store,
+            toolRunner = runner,
+            clock = { 8000L },
+            uuid = { "u-uid" },
+            rng = Random(seed = 0),
+        )
+
+        val events = orchestrator.converse(
+            OrchestrationRequest(
+                userMessage = "Summarize this screen",
+                toolContext = tool,
+                settings = settings.copy(webSearchEnabled = true),
+                fromVoice = false,
+                capture = null,
+                screenText = summarizeScreenText(),
+                hasBraveKey = true,
+                tools = listOf(
+                    ToolDefinition(name = "dispatch_action", description = "", inputSchemaJson = "{}"),
+                    ToolDefinition(name = "web_search", description = "", inputSchemaJson = "{}"),
+                ),
+                quickOverlayResponse = true,
+            ),
+            mode = ConversationMode.SUMMARIZE_SCREEN,
+        ).collectAll()
+
+        assertThat(llm.plainCallCount).isEqualTo(1)
+        assertThat(llm.toolAwareCallCount).isEqualTo(0)
+        assertThat(runner.beginTurnCount).isEqualTo(0)
+
+        val sent = llm.lastPlainRequest ?: error("plain LLM request was not captured")
+        assertThat(sent.tools).isEmpty()
+        assertThat(sent.systemPrompt).contains(PromptCatalog.SUMMARIZE_SCREEN_PROMPT)
+        assertThat(sent.systemPrompt).contains("screen text (from accessibility):")
+        assertThat(sent.systemPrompt).doesNotContain("quick overlay response:")
+        assertThat(sent.systemPrompt).doesNotContain("agent-mode recipes:")
+        assertThat(sent.systemPrompt).doesNotContain("direct actions:")
+
+        val finalized = events.filterIsInstance<OrchestrationEvent.AssistantTurnFinalized>().single()
+        assertThat(finalized.chatText).doesNotContain("so we are working")
+        assertThat(finalized.pointing.isNone).isTrue()
+        assertThat(finalized.searchToolsUsed).isEmpty()
+    }
+
     @Test fun `llm errors surface as Error event, not a throw`() = runTest {
         val store = FakeHistoryStore()
         val llm = ThrowingLlm(IllegalStateException("kaboom"))
@@ -427,9 +488,12 @@ class ConversationOrchestratorTest {
         override val modelId: String = "tool-routing"
         var plainCallCount: Int = 0
         var toolAwareCallCount: Int = 0
+        var lastPlainRequest: LlmRequest? = null
+        var lastToolAwareRequest: LlmRequest? = null
 
         override fun streamChat(request: LlmRequest): Flow<LlmChunk> {
             plainCallCount++
+            lastPlainRequest = request
             return plainChunks.asFlow()
         }
 
@@ -438,6 +502,7 @@ class ConversationOrchestratorTest {
             runner: ToolRunner,
         ): Flow<LlmChunk> {
             toolAwareCallCount++
+            lastToolAwareRequest = request
             return toolAwareChunks.asFlow()
         }
     }
@@ -455,6 +520,24 @@ class ConversationOrchestratorTest {
             return ToolResult.Ok("stub-result")
         }
     }
+
+    private fun summarizeScreenText(): ScreenTextSnapshot =
+        ScreenTextSnapshot(
+            packageName = "com.google.android.gm",
+            timestampEpochMs = 0L,
+            root = UiNode(
+                role = "Root",
+                boundsInScreen = IntRect(0, 0, 1080, 2200),
+                children = listOf(
+                    UiNode(markId = "m1", role = "Text", text = "Primary"),
+                    UiNode(markId = "m2", role = "Text", text = "Inbox"),
+                    UiNode(markId = "m3", role = "Button", text = "Compose", clickable = true),
+                    UiNode(markId = "m4", role = "Text", text = "Receipt from Cafe"),
+                    UiNode(markId = "m5", role = "Text", text = "Team standup notes"),
+                    UiNode(markId = "m6", role = "Button", text = "Search in mail", clickable = true),
+                ),
+            ),
+        )
 }
 
 private fun <T> flowThatThrows(t: Throwable): Flow<T> = kotlinx.coroutines.flow.flow {

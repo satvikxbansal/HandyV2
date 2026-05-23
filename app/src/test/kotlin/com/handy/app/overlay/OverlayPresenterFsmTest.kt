@@ -67,9 +67,10 @@ class OverlayPresenterFsmTest {
         presenter.onWidgetTap()
 
         val panel = presenter.state.value.panel
+        val promptTexts = panel.quickPrompts.map { it.text }
         assertThat(panel.greeting).contains("Meesho")
-        assertThat(panel.quickPrompts).contains("Similar se compare karo / Compare with similar")
-        assertThat(panel.quickPrompts).contains("Coupon dhoondo / Find coupons")
+        assertThat(promptTexts).contains("Similar se compare karo / Compare with similar")
+        assertThat(promptTexts).contains("Coupon dhoondo / Find coupons")
     }
 
     @Test

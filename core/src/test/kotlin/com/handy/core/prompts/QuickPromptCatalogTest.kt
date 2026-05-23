@@ -37,4 +37,11 @@ class QuickPromptCatalogTest {
         assertThat(prompts).contains("Similar se compare karo / Compare with similar")
         assertThat(prompts).contains("Price sahi hai? / Is this a good price?")
     }
+
+    @Test fun `summarize screen quick prompt is marked and reachable`() {
+        val prompt = QuickPromptCatalog.quickPromptsFor(QuickPromptCatalog.AppCategory.UNKNOWN)
+            .single { it.text == QuickPromptCatalog.SUMMARIZE_SCREEN_TEXT }
+
+        assertThat(prompt.action).isEqualTo(QuickPromptCatalog.Action.SUMMARIZE_SCREEN)
+    }
 }
