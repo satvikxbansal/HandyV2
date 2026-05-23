@@ -69,8 +69,9 @@ import dagger.hilt.android.AndroidEntryPoint
  * Handy's launcher entry point.
  *
  * Flow:
- *  1. If `fullyReady`, short-circuit to [ChatActivity] (DL-016).
- *  2. Otherwise walk Splash -> Value -> Permissions. The Play-required
+ *  1. Always show the branded splash first.
+ *  2. If `fullyReady`, continue to [ChatActivity] after the splash.
+ *  3. Otherwise walk Splash -> Value -> Permissions. The Play-required
  *     disclosure remains available from the Value screen's privacy
  *     callout instead of occupying the first screen.
  *
@@ -122,18 +123,16 @@ class OnboardingActivity : ComponentActivity() {
                     }
                 }
 
-                LaunchedEffect(state.fullyReady) {
-                    if (state.fullyReady) {
-                        goToChat()
-                    }
-                }
-
                 OnboardingScreen(
                     step = step,
                     state = state,
                     onSplashDone = {
                         if (step == OnboardingStep.Splash) {
-                            step = OnboardingStep.Value
+                            if (state.fullyReady) {
+                                goToChat()
+                            } else {
+                                step = OnboardingStep.Value
+                            }
                         }
                     },
                     onValueGetStarted = {

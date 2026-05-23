@@ -36,7 +36,7 @@
     <!-- New onboarding flow -->
     <string name="splash_built_by_line">Built with love by Satvik Bansal</string>
     <string name="splash_title">Handy</string>
-    <string name="splash_subtitle">Your on-screen copilot</string>
+    <string name="splash_subtitle">Your on-screen copilot.</string>
     <string name="value_screen_title">Three things Handy does for you.</string>
     <string name="value_screen_usp1_title">See what\'s on screen</string>
     <string name="value_screen_usp1_body">Handy reads visible text and UI so you can ask about anything you see.</string>
