@@ -63,6 +63,8 @@ class DataStoreSettings(private val context: Context) {
             // V2 keys
             p[USE_OVERLAY_CHAT_PANEL] = next.useOverlayChatPanel
             p[TAP_FOR_ME_ENABLED] = next.tapForMeEnabled
+            p[TYPE_FOR_ME_ENABLED] = next.typeForMeEnabled
+            p[RECIPES_ENABLED] = next.recipesEnabled
             p[ACTION_DISCLOSURE_VERSION_ACCEPTED] = next.actionDisclosureVersionAccepted
             p[TAP_FOR_ME_FIRST_USE_PROMPT_SHOWN] = next.tapForMeFirstUsePromptShown
             p[TAP_FOR_ME_MUTED_UNTIL_EPOCH_MS] = next.tapForMeMutedUntilEpochMs
@@ -146,6 +148,8 @@ class DataStoreSettings(private val context: Context) {
             reducedModeAcknowledged = this[REDUCED_MODE_ACK] ?: false,
             useOverlayChatPanel = this[USE_OVERLAY_CHAT_PANEL] ?: true,
             tapForMeEnabled = this[TAP_FOR_ME_ENABLED] ?: false,
+            typeForMeEnabled = this[TYPE_FOR_ME_ENABLED] ?: true,
+            recipesEnabled = this[RECIPES_ENABLED] ?: true,
             actionDisclosureVersionAccepted = this[ACTION_DISCLOSURE_VERSION_ACCEPTED] ?: 0,
             tapForMeFirstUsePromptShown = this[TAP_FOR_ME_FIRST_USE_PROMPT_SHOWN] ?: false,
             tapForMeMutedUntilEpochMs = this[TAP_FOR_ME_MUTED_UNTIL_EPOCH_MS] ?: 0L,
@@ -190,6 +194,8 @@ class DataStoreSettings(private val context: Context) {
         // V2 keys (appended; schema is additive)
         val USE_OVERLAY_CHAT_PANEL = booleanPreferencesKey("use_overlay_chat_panel")
         val TAP_FOR_ME_ENABLED = booleanPreferencesKey("tap_for_me_enabled")
+        val TYPE_FOR_ME_ENABLED = booleanPreferencesKey("type_for_me_enabled")
+        val RECIPES_ENABLED = booleanPreferencesKey("recipes_enabled")
         val ACTION_DISCLOSURE_VERSION_ACCEPTED = intPreferencesKey("action_disclosure_version_accepted")
         val TAP_FOR_ME_FIRST_USE_PROMPT_SHOWN = booleanPreferencesKey("tap_for_me_first_use_prompt_shown")
         val TAP_FOR_ME_MUTED_UNTIL_EPOCH_MS = longPreferencesKey("tap_for_me_muted_until_epoch_ms")

@@ -1,90 +1,96 @@
 package com.handy.app.settings
 
+import android.Manifest
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
-import androidx.annotation.DrawableRes
-import androidx.annotation.StringRes
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import com.handy.app.BuildConfig
-import com.handy.app.R
+import com.handy.app.accessibility.AccessibilityStateMonitor
+import com.handy.app.design.HandyDesign
+import com.handy.app.diagnostics.AuditReviewActivity
+import com.handy.app.notifications.HandyNotificationListenerService
 import com.handy.app.onboarding.ActionDisclosureActivity
-import com.handy.app.theme.HandyColors
-import com.handy.app.theme.HandyDimens
+import com.handy.app.settings.design.DisabledAppEntry
+import com.handy.app.settings.sections.AutomationsSection
+import com.handy.app.settings.sections.BrainSection
+import com.handy.app.settings.sections.CapabilitiesSection
+import com.handy.app.settings.sections.ModelPickerSheet
+import com.handy.app.settings.sections.PrivacySection
+import com.handy.app.settings.sections.SettingsFooter
+import com.handy.app.settings.sections.SettingsHeader
+import com.handy.app.settings.sections.colorForPackage
+import com.handy.app.settings.sections.friendlyAppLabelOrPackage
 import com.handy.app.theme.HandyTheme
-import com.handy.app.theme.HandyType
 import com.handy.core.action.ActionExecutionGate
 import com.handy.core.model.HandySettings
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class SettingsActivity : ComponentActivity() {
 
+    @Inject lateinit var accessibilityStateMonitor: AccessibilityStateMonitor
+
     private val viewModel: SettingsViewModel by viewModels()
+    private val micLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) {
+        lifecycleScope.launch { accessibilityStateMonitor.refresh() }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
             HandyTheme(darkTheme = true) {
+                val context = LocalContext.current
                 val state by viewModel.state.collectAsState()
                 val snackbarHostState = remember { SnackbarHostState() }
+
+                LaunchedEffect(Unit) {
+                    accessibilityStateMonitor.refresh()
+                }
 
                 // Surface one-shot key-save toasts — DL-007.
                 LaunchedEffect(Unit) {
@@ -119,14 +125,26 @@ class SettingsActivity : ComponentActivity() {
                     },
                     onClearHistory = viewModel::clearAllHistory,
                     onBack = { finish() },
+                    onTypeForMeToggle = viewModel::setTypeForMeEnabled,
+                    onRecipesToggle = viewModel::setRecipesEnabled,
+                    onClipboardAssistToggle = viewModel::setClipboardAssistEnabled,
+                    onOpenActivityLog = { AuditReviewActivity.open(context) },
+                    onRequestMic = {
+                        micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    },
                 )
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        lifecycleScope.launch { accessibilityStateMonitor.refresh() }
+    }
 }
 
 @Composable
-private fun SettingsScreen(
+internal fun SettingsScreen(
     state: SettingsUiState,
     snackbarHostState: SnackbarHostState,
     onClaudeKeyChange: (String) -> Unit,
@@ -144,1192 +162,213 @@ private fun SettingsScreen(
     onReviewActionDisclosure: () -> Unit,
     onClearHistory: () -> Unit,
     onBack: () -> Unit,
+    onTypeForMeToggle: (Boolean) -> Unit = {},
+    onRecipesToggle: (Boolean) -> Unit = {},
+    onClipboardAssistToggle: (Boolean) -> Unit = {},
+    onOpenActivityLog: () -> Unit = {},
+    onRequestMic: () -> Unit = {},
 ) {
-    val useHaiku = state.settings?.claudeModelOverride == HandySettings.DEFAULT_CLAUDE_HAIKU_MODEL
+    var capabilitiesOpen by rememberSaveable { mutableStateOf(true) }
+    var automationsOpen by rememberSaveable { mutableStateOf(false) }
+    var privacyOpen by rememberSaveable { mutableStateOf(false) }
+    var brainSheetOpen by rememberSaveable { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val settingsActivity = context.findSettingsActivity()
+    val fallbackAccessibilityEnabled = state.settings?.accessibilityDisclosureAcknowledged == true
+    var accessibilityEnabled = fallbackAccessibilityEnabled
+    if (settingsActivity != null) {
+        val monitoredAccessibility by settingsActivity.accessibilityStateMonitor.isEnabled.collectAsState()
+        accessibilityEnabled = monitoredAccessibility
+    }
+    var micGranted by remember(context) { mutableStateOf(isRecordAudioGranted(context)) }
+    var notificationsOn by remember(context) {
+        mutableStateOf(HandyNotificationListenerService.isGranted(context))
+    }
+
+    fun refreshPermissionRows() {
+        micGranted = isRecordAudioGranted(context)
+        notificationsOn = HandyNotificationListenerService.isGranted(context)
+    }
+
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                refreshPermissionRows()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(context) {
+        refreshPermissionRows()
+        settingsActivity?.accessibilityStateMonitor?.refresh()
+    }
+
+    val tapForMeMuted =
+        (state.settings?.tapForMeMutedUntilEpochMs ?: 0L) > System.currentTimeMillis()
     val actionDisclosureAccepted =
         (state.settings?.actionDisclosureVersionAccepted ?: 0) >=
             ActionExecutionGate.REQUIRED_DISCLOSURE_VERSION
-    val tapForMeMuted =
-        (state.settings?.tapForMeMutedUntilEpochMs ?: 0L) > System.currentTimeMillis()
-    val revokedPackages = state.settings
-        ?.tapForMeUserDenylistedPackages
-        .orEmpty()
-        .toList()
-        .sorted()
+    val tapForMeAvailable = actionDisclosureAccepted && !tapForMeMuted
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(HandyColors.Background),
-    ) {
+    val useHaiku = state.settings?.claudeModelOverride == HandySettings.DEFAULT_CLAUDE_HAIKU_MODEL
+    val selectedModelLabel = if (useHaiku) "Claude Haiku 4.5" else "Claude Sonnet 4.5"
+    val selectedModelId = if (useHaiku) "haiku-4-5" else "sonnet-4-5"
+
+    val disabledApps = remember(state.settings?.tapForMeUserDenylistedPackages, context) {
+        val pm = context.packageManager
+        state.settings?.tapForMeUserDenylistedPackages.orEmpty()
+            .toList()
+            .sorted()
+            .map { pkg ->
+                DisabledAppEntry(
+                    label = friendlyAppLabelOrPackage(pkg, pm),
+                    packageName = pkg,
+                    initialColor = colorForPackage(pkg),
+                )
+            }
+    }
+
+    Box(Modifier.fillMaxSize().background(HandyDesign.Colors.PageBg)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding(),
         ) {
-            SettingsTopBar(onBack = onBack)
+            SettingsHeader(onBack = onBack)
+
             Column(
                 modifier = Modifier
+                    .weight(1f)
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = HandyDimens.Gutter)
-                    .padding(bottom = HandyDimens.StackL),
-                verticalArrangement = Arrangement.spacedBy(HandyDimens.SectionY),
+                    .verticalScroll(rememberScrollState()),
             ) {
-                /* ---- Brain ---- */
-                SectionHeaderWithIcon(
-                    iconRes = R.drawable.ic_brain,
-                    title = "Brain",
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    BrainModelCard(
-                        title = "Claude Sonnet 4.5",
-                        subtitle = "Best reasoning · Anthropic",
-                        selected = !useHaiku,
-                        disabled = false,
-                        ready = state.claudeKeyMasked != null && !useHaiku,
-                        onSelect = { onClaudeModelVariant(false) },
-                        inlineContent = if (!useHaiku) {
-                            InlineContent.KeyField(
-                                label = "ANTHROPIC API KEY",
-                                placeholder = "sk-ant-…",
-                                savedMasked = state.claudeKeyMasked,
-                                onCommit = onClaudeKeyChange,
-                            )
-                        } else InlineContent.None,
-                    )
-                    BrainModelCard(
-                        title = "Claude Haiku 4.5",
-                        subtitle = "Faster · lower cost · Anthropic",
-                        selected = useHaiku,
-                        disabled = false,
-                        // Haiku never shows its own READY pill — the key
-                        // is shared with Sonnet. When Haiku is selected,
-                        // show the `ReuseNote` if a key is already saved;
-                        // otherwise fall through to a full key field so
-                        // the user can still configure one here.
-                        ready = false,
-                        onSelect = { onClaudeModelVariant(true) },
-                        inlineContent = if (!useHaiku) {
-                            InlineContent.None
-                        } else if (state.claudeKeyMasked != null) {
-                            InlineContent.ReuseNote(text = "Uses the same key as Sonnet")
-                        } else {
-                            InlineContent.KeyField(
-                                label = "ANTHROPIC API KEY",
-                                placeholder = "sk-ant-…",
-                                savedMasked = null,
-                                onCommit = onClaudeKeyChange,
-                            )
-                        },
-                    )
-                    BrainModelCard(
-                        title = "Gemini 2.5 Pro",
-                        subtitle = "Google · Coming soon",
-                        selected = false,
-                        disabled = true,
-                        ready = false,
-                        onSelect = {},
-                        inlineContent = InlineContent.None,
-                    )
-                }
-
-                /* ---- Modes ---- */
-                SectionHeaderWithIcon(
-                    iconRes = R.drawable.ic_modes,
-                    title = "Modes",
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ToggleCard(
-                        title = "Assistant",
-                        subtitle = "General help & questions",
-                        checked = true,
-                        enabled = false,
-                        onCheckedChange = {},
-                    )
-                    ToggleCard(
-                        title = "Tutor",
-                        subtitle = "Explains as you go, nudges you",
-                        checked = state.settings?.tutorModeEnabled == true,
-                        enabled = true,
-                        onCheckedChange = onTutorModeToggle,
-                    )
-                }
-
-                /* ---- Current capability disclosure ---- */
-                SectionHeaderWithIcon(
-                    iconRes = R.drawable.ic_shield,
-                    title = stringResource(R.string.settings_capabilities_header),
-                )
-                CapabilityPolicySection(
-                    rows = buildCapabilityPolicyRows(
-                        settings = state.settings,
-                        actionDisclosureAccepted = actionDisclosureAccepted,
-                        tapForMeMuted = tapForMeMuted,
-                    ),
-                )
-
-                /* ---- Triggers ---- */
-                SectionHeaderWithIcon(
-                    iconRes = R.drawable.ic_bolt,
-                    title = "Triggers",
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ToggleCard(
-                        title = "Long-press floating widget",
-                        subtitle = "Start voice capture",
-                        checked = true,
-                        enabled = false,
-                        onCheckedChange = {},
-                    )
-                    ToggleCard(
-                        title = "Volume-down hold",
-                        subtitle = "Global hotkey",
-                        checked = false,
-                        enabled = false,
-                        onCheckedChange = {},
-                        badge = "Coming soon",
-                    )
-                    ToggleCard(
-                        title = "\u201CHey Handy\u201D",
-                        subtitle = "Hotword detection \u00b7 uses more battery",
-                        checked = false,
-                        enabled = false,
-                        onCheckedChange = {},
-                        badge = "Coming soon",
-                    )
-                }
-
-                /* ---- Actions ---- */
-                SectionHeaderWithIcon(
-                    iconRes = R.drawable.ic_pointer_hand,
-                    title = stringResource(R.string.settings_actions_header),
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (actionDisclosureAccepted) {
-                        ToggleCard(
-                            title = stringResource(R.string.settings_tap_for_me_title),
-                            subtitle = if (tapForMeMuted) {
-                                stringResource(R.string.settings_tap_for_me_muted_desc)
-                            } else {
-                                stringResource(R.string.settings_tap_for_me_desc)
-                            },
-                            checked = state.settings?.tapForMeEnabled == true,
-                            enabled = true,
-                            onCheckedChange = onTapForMeToggle,
-                        )
-                        ToggleCard(
-                            title = "Block Chrome Incognito actions",
-                            subtitle = "Prevents recipes, taps, and native actions in Incognito tabs",
-                            checked = state.settings?.noActionsInIncognito != false,
-                            enabled = true,
-                            onCheckedChange = onNoActionsInIncognitoToggle,
-                        )
-                        ActionButtonCard(
-                            title = stringResource(R.string.settings_tap_for_me_panic_title),
-                            subtitle = stringResource(R.string.settings_tap_for_me_panic_desc),
-                            actionLabel = stringResource(R.string.settings_tap_for_me_panic_action),
-                            onClick = onTapForMePanicMute,
-                        )
-                        ActionButtonCard(
-                            title = stringResource(R.string.settings_tap_for_me_revoke_title),
-                            subtitle = stringResource(R.string.settings_tap_for_me_revoke_desc),
-                            actionLabel = stringResource(R.string.settings_tap_for_me_revoke_action),
-                            danger = true,
-                            onClick = onTapForMeStopUntilTurnedBackOn,
-                        )
-                        RevokedPackageList(
-                            packages = revokedPackages,
-                            onRestorePackage = onTapForMeRestorePackage,
-                        )
-                    } else {
-                        ActionButtonCard(
-                            title = stringResource(R.string.settings_tap_for_me_review_title),
-                            subtitle = stringResource(R.string.settings_tap_for_me_review_desc),
-                            actionLabel = stringResource(R.string.settings_tap_for_me_review_action),
-                            onClick = onReviewActionDisclosure,
-                        )
-                    }
-                }
-
-                /* ---- Web Tools ---- */
-                SectionHeaderWithIcon(
-                    iconRes = R.drawable.ic_globe,
-                    title = "Web Tools",
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ToggleCard(
-                        title = "Enable web search",
-                        subtitle = "Claude can call web_search / fetch_page",
-                        checked = state.settings?.webSearchEnabled == true,
-                        enabled = true,
-                        onCheckedChange = onWebSearchToggle,
-                    )
-                    // Nested key fields — spec (`handy-settings.jsx`
-                    // Web Tools): left padding 8dp, marginTop 4dp,
-                    // gap 8dp. Indentation visually signals the keys
-                    // belong to the Enable toggle above.
-                    Column(
-                        modifier = Modifier
-                            .padding(start = 8.dp, top = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        CompactKeyField(
-                            label = "Brave Search",
-                            placeholder = "Paste your key",
-                            savedMasked = state.braveKeyMasked,
-                            onCommit = onBraveKeyChange,
-                        )
-                        CompactKeyField(
-                            label = "Jina Reader",
-                            placeholder = "Optional \u00b7 raises rate limits",
-                            savedMasked = state.jinaKeyMasked,
-                            onCommit = onJinaKeyChange,
-                        )
-                        CompactKeyField(
-                            label = "GitHub",
-                            placeholder = "Optional \u00b7 for code search",
-                            savedMasked = state.githubKeyMasked,
-                            onCommit = onGithubKeyChange,
-                        )
-                    }
-                }
-
-                /* ---- Clear history + footer ---- */
-                Spacer(Modifier.height(HandyDimens.StackL))
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(HandyDimens.RadiusPill))
-                        .background(HandyColors.Danger.copy(alpha = 0.10f))
-                        .border(
-                            0.5.dp,
-                            HandyColors.Danger.copy(alpha = 0.35f),
-                            RoundedCornerShape(HandyDimens.RadiusPill),
-                        )
-                        .clickable(onClick = onClearHistory)
-                        .padding(vertical = HandyDimens.StackM),
-                    contentAlignment = Alignment.Center,
+                        .padding(horizontal = 16.dp, vertical = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    Text(
-                        text = "Clear all chat history",
-                        style = HandyType.BodyStrong,
-                        color = HandyColors.Danger,
+                    BrainSection(
+                        selectedModelLabel = selectedModelLabel,
+                        providerLine = if (useHaiku) {
+                            "Faster · Anthropic"
+                        } else {
+                            "Best reasoning · Anthropic"
+                        },
+                        apiKeyMasked = state.claudeKeyMasked,
+                        onApiKeyChange = onClaudeKeyChange,
+                        requestsTodayLabel = "—",
+                        connected = state.claudeKeyMasked != null,
+                        onOpenPicker = { brainSheetOpen = true },
+                    )
+                    CapabilitiesSection(
+                        expanded = capabilitiesOpen,
+                        onToggleExpanded = { capabilitiesOpen = !capabilitiesOpen },
+                        screenReadingOn = accessibilityEnabled,
+                        voiceInputOn = micGranted,
+                        notificationsOn = notificationsOn,
+                        onOpenAccessibilitySettings = {
+                            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        },
+                        onRequestMic = onRequestMic,
+                        onOpenNotificationListenerSettings = {
+                            context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                        },
+                        webSearchOn = state.settings?.webSearchEnabled == true,
+                        onWebSearchToggle = onWebSearchToggle,
+                        braveKeyMasked = state.braveKeyMasked,
+                        jinaKeyMasked = state.jinaKeyMasked,
+                        githubKeyMasked = state.githubKeyMasked,
+                        onBraveKeyChange = onBraveKeyChange,
+                        onJinaKeyChange = onJinaKeyChange,
+                        onGithubKeyChange = onGithubKeyChange,
+                        tutorOn = state.settings?.tutorModeEnabled == true,
+                        onTutorToggle = onTutorModeToggle,
+                    )
+                    AutomationsSection(
+                        expanded = automationsOpen,
+                        onToggleExpanded = { automationsOpen = !automationsOpen },
+                        tapForMeOn = state.settings?.tapForMeEnabled == true,
+                        onTapForMeToggle = onTapForMeToggle,
+                        typeForMeOn = state.settings?.typeForMeEnabled != false,
+                        onTypeForMeToggle = onTypeForMeToggle,
+                        recipesOn = state.settings?.recipesEnabled != false,
+                        onRecipesToggle = onRecipesToggle,
+                        tapForMeAvailable = tapForMeAvailable,
+                        onPanic1Hr = onTapForMePanicMute,
+                        onStopUntilBackOn = onTapForMeStopUntilTurnedBackOn,
+                        disabledApps = disabledApps,
+                        onRestorePackage = onTapForMeRestorePackage,
+                    )
+                    PrivacySection(
+                        expanded = privacyOpen,
+                        onToggleExpanded = { privacyOpen = !privacyOpen },
+                        blockInIncognito = state.settings?.noActionsInIncognito != false,
+                        onBlockInIncognitoToggle = onNoActionsInIncognitoToggle,
+                        clipboardAssist = state.settings?.clipboardAssistEnabled == true,
+                        onClipboardAssistToggle = onClipboardAssistToggle,
+                        auditEntriesCount = 0,
+                        onOpenActivityLog = onOpenActivityLog,
+                        onClearHistory = onClearHistory,
                     )
                 }
-                Text(
-                    text = "Handy \u00b7 ${BuildConfig.VERSION_NAME} \u00b7 Made for Android",
-                    style = HandyType.CaptionSmall,
-                    color = HandyColors.TextMuted,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = HandyDimens.StackS),
-                    textAlign = TextAlign.Center,
-                )
+
+                SettingsFooter(versionName = BuildConfig.VERSION_NAME)
             }
         }
+
         SnackbarHost(
             snackbarHostState,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(HandyDimens.StackM),
+                .padding(16.dp),
         ) { data ->
             Snackbar(
-                containerColor = HandyColors.GlassTint,
-                contentColor = HandyColors.TextPrimary,
+                containerColor = HandyDesign.Colors.SurfaceElevated,
+                contentColor = HandyDesign.Colors.TextPrimary,
                 snackbarData = data,
             )
         }
-    }
-}
 
-private data class CapabilityPolicyRow(
-    @StringRes val titleRes: Int,
-    @StringRes val bodyRes: Int,
-    @StringRes val wontRes: Int,
-    val status: CapabilityStatus,
-)
-
-private enum class CapabilityStatus {
-    ON,
-    OFF,
-    LIMITED,
-    BLOCKED,
-    REDUCED,
-    AVAILABLE,
-    NEEDS_ACCESSIBILITY,
-    NEEDS_DISCLOSURE,
-    MUTED,
-}
-
-private fun buildCapabilityPolicyRows(
-    settings: HandySettings?,
-    actionDisclosureAccepted: Boolean,
-    tapForMeMuted: Boolean,
-): List<CapabilityPolicyRow> {
-    val s = settings ?: HandySettings()
-    val tapForMeAllowed = ActionExecutionGate.gesturesAllowed(s)
-
-    return listOf(
-        CapabilityPolicyRow(
-            titleRes = R.string.settings_capability_brain_title,
-            bodyRes = R.string.settings_capability_brain_body,
-            wontRes = R.string.settings_capability_brain_wont,
-            status = CapabilityStatus.ON,
-        ),
-        CapabilityPolicyRow(
-            titleRes = R.string.settings_capability_screen_title,
-            bodyRes = if (s.accessibilityDisclosureAcknowledged) {
-                R.string.settings_capability_screen_body_on
-            } else {
-                R.string.settings_capability_screen_body_off
-            },
-            wontRes = R.string.settings_capability_screen_wont,
-            status = if (s.accessibilityDisclosureAcknowledged) {
-                CapabilityStatus.AVAILABLE
-            } else {
-                CapabilityStatus.NEEDS_ACCESSIBILITY
-            },
-        ),
-        CapabilityPolicyRow(
-            titleRes = R.string.settings_capability_tap_title,
-            bodyRes = if (tapForMeAllowed) {
-                R.string.settings_capability_tap_body_on
-            } else {
-                R.string.settings_capability_tap_body_off
-            },
-            wontRes = R.string.settings_capability_tap_wont,
-            status = when {
-                tapForMeAllowed -> CapabilityStatus.ON
-                tapForMeMuted -> CapabilityStatus.MUTED
-                !actionDisclosureAccepted -> CapabilityStatus.NEEDS_DISCLOSURE
-                else -> CapabilityStatus.OFF
-            },
-        ),
-        CapabilityPolicyRow(
-            titleRes = R.string.settings_capability_incognito_title,
-            bodyRes = if (s.noActionsInIncognito) {
-                R.string.settings_capability_incognito_body_on
-            } else {
-                R.string.settings_capability_incognito_body_off
-            },
-            wontRes = R.string.settings_capability_incognito_wont,
-            status = if (s.noActionsInIncognito) CapabilityStatus.ON else CapabilityStatus.OFF,
-        ),
-        CapabilityPolicyRow(
-            titleRes = R.string.settings_capability_recipes_title,
-            bodyRes = if (tapForMeAllowed) {
-                R.string.settings_capability_recipes_body_on
-            } else {
-                R.string.settings_capability_recipes_body_off
-            },
-            wontRes = R.string.settings_capability_recipes_wont,
-            status = if (tapForMeAllowed) CapabilityStatus.LIMITED else CapabilityStatus.BLOCKED,
-        ),
-        CapabilityPolicyRow(
-            titleRes = R.string.settings_capability_web_title,
-            bodyRes = if (s.webSearchEnabled) {
-                R.string.settings_capability_web_body_on
-            } else {
-                R.string.settings_capability_web_body_off
-            },
-            wontRes = R.string.settings_capability_web_wont,
-            status = if (s.webSearchEnabled) CapabilityStatus.ON else CapabilityStatus.OFF,
-        ),
-        CapabilityPolicyRow(
-            titleRes = R.string.settings_capability_entry_title,
-            bodyRes = R.string.settings_capability_entry_body,
-            wontRes = R.string.settings_capability_entry_wont,
-            status = CapabilityStatus.AVAILABLE,
-        ),
-        CapabilityPolicyRow(
-            titleRes = R.string.settings_capability_notifications_title,
-            bodyRes = if (s.notificationListenerEnabled) {
-                R.string.settings_capability_notifications_body_on
-            } else {
-                R.string.settings_capability_notifications_body_off
-            },
-            wontRes = R.string.settings_capability_notifications_wont,
-            status = if (s.notificationListenerEnabled) CapabilityStatus.LIMITED else CapabilityStatus.OFF,
-        ),
-        CapabilityPolicyRow(
-            titleRes = R.string.settings_capability_clipboard_title,
-            bodyRes = if (s.clipboardAssistEnabled) {
-                R.string.settings_capability_clipboard_body_on
-            } else {
-                R.string.settings_capability_clipboard_body_off
-            },
-            wontRes = R.string.settings_capability_clipboard_wont,
-            status = if (s.clipboardAssistEnabled) CapabilityStatus.ON else CapabilityStatus.OFF,
-        ),
-        CapabilityPolicyRow(
-            titleRes = R.string.settings_capability_tutor_title,
-            bodyRes = if (s.tutorModeEnabled) {
-                R.string.settings_capability_tutor_body_on
-            } else {
-                R.string.settings_capability_tutor_body_off
-            },
-            wontRes = R.string.settings_capability_tutor_wont,
-            status = if (s.tutorModeEnabled) CapabilityStatus.ON else CapabilityStatus.OFF,
-        ),
-    )
-}
-
-@Composable
-private fun CapabilityPolicySection(rows: List<CapabilityPolicyRow>) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        rows.forEach { row ->
-            CapabilityPolicyCard(row)
-        }
-    }
-}
-
-@Composable
-private fun CapabilityPolicyCard(row: CapabilityPolicyRow) {
-    val shape = RoundedCornerShape(HandyDimens.RadiusLg)
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(HandyColors.ChipBg)
-            .border(0.5.dp, HandyColors.ChipBorder, shape)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
-        ) {
-            Text(
-                text = stringResource(row.titleRes),
-                style = HandyType.Body.copy(fontWeight = FontWeight.Medium),
-                color = HandyColors.TextPrimary,
-                modifier = Modifier.weight(1f),
-            )
-            CapabilityStatusPill(row.status)
-        }
-        Text(
-            text = stringResource(row.bodyRes),
-            style = HandyType.CaptionSmall,
-            color = HandyColors.TextSecondary,
-        )
-        Text(
-            text = stringResource(
-                R.string.settings_capability_wont_prefix,
-                stringResource(row.wontRes),
-            ),
-            style = HandyType.CaptionSmall,
-            color = HandyColors.TextMuted,
-        )
-    }
-}
-
-@Composable
-private fun CapabilityStatusPill(status: CapabilityStatus) {
-    val labelRes = when (status) {
-        CapabilityStatus.ON -> R.string.settings_capability_status_on
-        CapabilityStatus.OFF -> R.string.settings_capability_status_off
-        CapabilityStatus.LIMITED -> R.string.settings_capability_status_limited
-        CapabilityStatus.BLOCKED -> R.string.settings_capability_status_blocked
-        CapabilityStatus.REDUCED -> R.string.settings_capability_status_reduced
-        CapabilityStatus.AVAILABLE -> R.string.settings_capability_status_available
-        CapabilityStatus.NEEDS_ACCESSIBILITY -> R.string.settings_capability_status_needs_accessibility
-        CapabilityStatus.NEEDS_DISCLOSURE -> R.string.settings_capability_status_needs_disclosure
-        CapabilityStatus.MUTED -> R.string.settings_capability_status_muted
-    }
-    val color = when (status) {
-        CapabilityStatus.ON,
-        CapabilityStatus.AVAILABLE -> HandyColors.Success
-        CapabilityStatus.LIMITED,
-        CapabilityStatus.REDUCED,
-        CapabilityStatus.NEEDS_ACCESSIBILITY,
-        CapabilityStatus.NEEDS_DISCLOSURE,
-        CapabilityStatus.MUTED -> HandyColors.Accent
-        CapabilityStatus.OFF -> HandyColors.TextMuted
-        CapabilityStatus.BLOCKED -> HandyColors.Danger
-    }
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(HandyDimens.RadiusPill))
-            .background(color.copy(alpha = 0.14f))
-            .border(
-                0.5.dp,
-                color.copy(alpha = 0.36f),
-                RoundedCornerShape(HandyDimens.RadiusPill),
-            )
-            .padding(horizontal = 9.dp, vertical = 5.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = stringResource(labelRes),
-            style = HandyType.Overline.copy(letterSpacing = 0.sp),
-            color = color,
-            maxLines = 1,
-        )
-    }
-}
-
-/* ---------- Top bar ---------- */
-
-@Composable
-private fun SettingsTopBar(onBack: () -> Unit) {
-    // Spec (`handy-settings.jsx`): padding `18dp 20dp 14dp`, gap 12dp,
-    // bottom border 0.5dp Divider, sticky. Back button 34dp circle
-    // with 0.5dp ChipBorder; chevron svg 16dp TextPrimary. Title
-    // "Settings" 20sp / **600** / -0.3 letter-spacing.
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(HandyColors.Background),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .background(HandyColors.ChipBg)
-                    .border(0.5.dp, HandyColors.ChipBorder, CircleShape)
-                    .clickable(onClick = onBack),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_chevron_back),
-                    contentDescription = "Back",
-                    tint = HandyColors.TextPrimary,
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-            Text(
-                text = "Settings",
-                style = HandyType.SettingsTitle,
-                color = HandyColors.TextPrimary,
-            )
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(0.5.dp)
-                .background(HandyColors.Divider),
-        )
-    }
-}
-
-/* ---------- Section header ---------- */
-
-@Composable
-private fun SectionHeaderWithIcon(
-    @DrawableRes iconRes: Int,
-    title: String,
-) {
-    // Spec (`handy-settings.jsx` `Section`): padding `22dp 20dp 4dp`,
-    // header row gap 10dp, icon bubble 28dp radius 8 AccentSoft (no
-    // border), icon 18dp Accent. Title 16sp/600/-0.2. marginBottom 12dp
-    // before children.
-    Column {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(RoundedCornerShape(HandyDimens.RadiusSm))
-                    .background(HandyColors.AccentSoft),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(iconRes),
-                    contentDescription = null,
-                    tint = HandyColors.Accent,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-            Text(
-                text = title,
-                style = HandyType.SectionHeader,
-                color = HandyColors.TextPrimary,
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-    }
-}
-
-/* ---------- Brain card ---------- */
-
-/**
- * Content rendered inline under the selected [BrainModelCard] — either
- * a full key-entry field (Sonnet, or Haiku when no key is saved) or a
- * read-only reuse note (Haiku when Sonnet's key is already saved), or
- * nothing (unselected / disabled cards).
- */
-private sealed interface InlineContent {
-    data object None : InlineContent
-    data class KeyField(
-        val label: String,
-        val placeholder: String,
-        val savedMasked: String?,
-        val onCommit: (String) -> Unit,
-    ) : InlineContent
-    data class ReuseNote(val text: String) : InlineContent
-}
-
-@Composable
-private fun BrainModelCard(
-    title: String,
-    subtitle: String,
-    selected: Boolean,
-    disabled: Boolean,
-    ready: Boolean,
-    onSelect: () -> Unit,
-    inlineContent: InlineContent,
-) {
-    // Spec (`handy-settings.jsx` `ModelCard`): radius 16dp, AccentSoft
-    // fill when selected / ChipBg otherwise, 0.5dp Accent border
-    // selected / 0.5dp ChipBorder otherwise. Opacity 0.55 when disabled.
-    // Row padding `14dp 14dp`, gap 12dp. Inline key block separated by
-    // a **0.5dp dashed** top border. Paddings and borders match the
-    // design verbatim so the card hierarchy reads right.
-    val shape = RoundedCornerShape(HandyDimens.RadiusXl)
-    val bg = if (selected) HandyColors.AccentSoft else HandyColors.ChipBg
-    val borderColor = if (selected) HandyColors.Accent else HandyColors.ChipBorder
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .alpha(if (disabled) 0.55f else 1f)
-            .clip(shape)
-            .background(bg)
-            .border(0.5.dp, borderColor, shape)
-            .then(if (disabled) Modifier else Modifier.clickable(onClick = onSelect)),
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
-        ) {
-            RadioDot(selected = selected, disabled = disabled)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = HandyType.BodyStrong,
-                    color = HandyColors.TextPrimary,
-                )
-                Spacer(Modifier.height(1.dp))
-                Text(
-                    text = subtitle,
-                    style = HandyType.CaptionSmall,
-                    color = HandyColors.TextSecondary,
-                )
-            }
-            if (ready) ReadyPill()
-        }
-
-        if (selected && !disabled && inlineContent !is InlineContent.None) {
-            DashedDivider()
-            when (inlineContent) {
-                is InlineContent.KeyField -> Column(
-                    modifier = Modifier.padding(
-                        start = 14.dp,
-                        end = 14.dp,
-                        top = 12.dp,
-                        bottom = 14.dp,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(
-                        text = inlineContent.label,
-                        style = HandyType.Overline,
-                        color = HandyColors.TextSecondary,
-                    )
-                    CompactKeyPill(
-                        placeholder = inlineContent.placeholder,
-                        savedMasked = inlineContent.savedMasked,
-                        onCommit = inlineContent.onCommit,
-                    )
-                }
-                is InlineContent.ReuseNote -> Row(
-                    modifier = Modifier.padding(
-                        start = 14.dp,
-                        end = 14.dp,
-                        top = 10.dp,
-                        bottom = 14.dp,
-                    ),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackS),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_check),
-                        contentDescription = null,
-                        tint = HandyColors.Success,
-                        modifier = Modifier.size(12.dp),
-                    )
-                    Text(
-                        text = inlineContent.text,
-                        style = HandyType.CaptionSmall,
-                        color = HandyColors.TextMuted,
-                    )
-                }
-                InlineContent.None -> Unit
-            }
-        }
-    }
-}
-
-/**
- * 0.5dp dashed top divider — separates the selected model card's
- * radio row from its inline API key block. Canvas + PathEffect so we
- * don't fight Compose's `Divider` which only does solid lines.
- */
-@Composable
-private fun DashedDivider() {
-    androidx.compose.foundation.Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(0.5.dp),
-    ) {
-        val dash = 4.dp.toPx()
-        val gap = 4.dp.toPx()
-        val y = size.height / 2f
-        drawLine(
-            color = HandyColors.Divider,
-            start = androidx.compose.ui.geometry.Offset(0f, y),
-            end = androidx.compose.ui.geometry.Offset(size.width, y),
-            strokeWidth = size.height,
-            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(
-                floatArrayOf(dash, gap),
-            ),
-        )
-    }
-}
-
-/**
- * 18dp outer circle with 1.5dp border, 8dp Accent inner dot when
- * selected. Spec (`handy-settings.jsx` `ModelCard` radio).
- */
-@Composable
-private fun RadioDot(selected: Boolean, disabled: Boolean) {
-    val outerColor = when {
-        disabled -> HandyColors.TextMuted
-        selected -> HandyColors.Accent
-        else -> HandyColors.TextMuted
-    }
-    Box(
-        modifier = Modifier
-            .size(18.dp)
-            .clip(CircleShape)
-            .border(1.5.dp, outerColor, CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (selected && !disabled) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(HandyColors.Accent),
-            )
-        }
-    }
-}
-
-/**
- * "✓ READY" green pill — 24dp tall, 999 corner, Success@15% fill,
- * Success text 10.5sp/600 uppercase +0.4 letter-spacing.
- */
-@Composable
-private fun ReadyPill() {
-    Row(
-        modifier = Modifier
-            .height(24.dp)
-            .clip(RoundedCornerShape(HandyDimens.RadiusPill))
-            .background(HandyColors.Success.copy(alpha = 0.15f))
-            .padding(horizontal = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_check),
-            contentDescription = null,
-            tint = HandyColors.Success,
-            modifier = Modifier.size(11.dp),
-        )
-        Text(
-            text = "READY",
-            style = HandyType.Overline,
-            color = HandyColors.Success,
-        )
-    }
-}
-
-@Composable
-private fun RevokedPackageList(
-    packages: List<String>,
-    onRestorePackage: (String) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = stringResource(R.string.settings_tap_for_me_disabled_apps_title),
-            style = HandyType.Caption.copy(fontWeight = FontWeight.Medium),
-            color = HandyColors.TextSecondary,
-            modifier = Modifier.padding(start = 2.dp, top = 4.dp),
-        )
-        if (packages.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(HandyDimens.RadiusLg))
-                    .background(HandyColors.ChipBg)
-                    .border(0.5.dp, HandyColors.ChipBorder, RoundedCornerShape(HandyDimens.RadiusLg))
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.settings_tap_for_me_disabled_apps_empty),
-                    style = HandyType.CaptionSmall,
-                    color = HandyColors.TextMuted,
-                )
-            }
-        } else {
-            packages.forEach { packageName ->
-                RevokedPackageRow(
-                    packageName = packageName,
-                    onRestorePackage = onRestorePackage,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun RevokedPackageRow(
-    packageName: String,
-    onRestorePackage: (String) -> Unit,
-) {
-    val shape = RoundedCornerShape(HandyDimens.RadiusLg)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(HandyColors.ChipBg)
-            .border(0.5.dp, HandyColors.ChipBorder, shape)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
-    ) {
-        Text(
-            text = packageName,
-            style = HandyType.Caption,
-            color = HandyColors.TextPrimary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(10.dp))
-                .background(HandyColors.Accent.copy(alpha = 0.14f))
-                .border(0.5.dp, HandyColors.Accent.copy(alpha = 0.40f), RoundedCornerShape(10.dp))
-                .clickable { onRestorePackage(packageName) }
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = stringResource(R.string.settings_tap_for_me_disabled_apps_restore),
-                style = HandyType.Overline.copy(letterSpacing = 0.sp),
-                color = HandyColors.Accent,
-            )
-        }
-    }
-}
-
-/* ---------- Toggle card ---------- */
-
-@Composable
-private fun ActionButtonCard(
-    title: String,
-    subtitle: String,
-    actionLabel: String,
-    onClick: () -> Unit,
-    danger: Boolean = false,
-) {
-    val shape = RoundedCornerShape(HandyDimens.RadiusLg)
-    val accent = if (danger) HandyColors.Danger else HandyColors.Accent
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(HandyColors.ChipBg)
-            .border(0.5.dp, HandyColors.ChipBorder, shape)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = HandyType.Body.copy(fontWeight = FontWeight.Medium),
-                color = HandyColors.TextPrimary,
-            )
-            Spacer(Modifier.height(1.dp))
-            Text(
-                text = subtitle,
-                style = HandyType.CaptionSmall,
-                color = HandyColors.TextSecondary,
-            )
-        }
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(10.dp))
-                .background(accent.copy(alpha = if (danger) 0.16f else 1f))
-                .border(0.5.dp, accent.copy(alpha = if (danger) 0.40f else 1f), RoundedCornerShape(10.dp))
-                .clickable(onClick = onClick)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = actionLabel,
-                style = HandyType.Overline.copy(letterSpacing = 0.sp),
-                color = if (danger) HandyColors.Danger else HandyColors.AccentInk,
-            )
-        }
-    }
-}
-
-@Composable
-private fun ToggleCard(
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    enabled: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    badge: String? = null,
-) {
-    // Spec (`handy-settings.jsx` `ToggleRow`): padding `12dp 14dp`,
-    // 14dp corner, ChipBg + 0.5dp ChipBorder. Title 14sp/**500**
-    // (Medium, not SemiBold). Detail 12sp TextSecondary marginTop 1dp.
-    val shape = RoundedCornerShape(HandyDimens.RadiusLg)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(HandyColors.ChipBg)
-            .border(0.5.dp, HandyColors.ChipBorder, shape)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = HandyType.Body.copy(fontWeight = FontWeight.Medium),
-                color = if (enabled || checked) HandyColors.TextPrimary else HandyColors.TextMuted,
-            )
-            Spacer(Modifier.height(1.dp))
-            Text(
-                text = subtitle,
-                style = HandyType.CaptionSmall,
-                color = HandyColors.TextSecondary,
-            )
-        }
-        if (badge != null) {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(HandyDimens.RadiusPill))
-                    .background(HandyColors.ChipBg.copy(alpha = 0.75f))
-                    .border(
-                        0.5.dp,
-                        HandyColors.ChipBorder,
-                        RoundedCornerShape(HandyDimens.RadiusPill),
-                    )
-                    .padding(horizontal = HandyDimens.StackM, vertical = 4.dp),
-            ) {
-                Text(
-                    text = badge,
-                    style = HandyType.Overline,
-                    color = HandyColors.TextMuted,
-                )
-            }
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = if (enabled) onCheckedChange else null,
-            enabled = enabled,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = HandyColors.AccentInk,
-                checkedTrackColor = HandyColors.Accent,
-                checkedBorderColor = HandyColors.Accent,
-                uncheckedThumbColor = HandyColors.TextPrimary,
-                uncheckedTrackColor = HandyColors.ChipBg,
-                uncheckedBorderColor = HandyColors.ChipBorder,
-                disabledCheckedThumbColor = HandyColors.AccentInk,
-                disabledCheckedTrackColor = HandyColors.Accent.copy(alpha = 0.85f),
-                disabledCheckedBorderColor = HandyColors.Accent.copy(alpha = 0.55f),
-                disabledUncheckedThumbColor = HandyColors.TextMuted,
-                disabledUncheckedTrackColor = HandyColors.ChipBg,
-                disabledUncheckedBorderColor = HandyColors.ChipBorder,
-            ),
-        )
-    }
-}
-
-/* ---------- Compact key row (Web Tools) ---------- */
-
-@Composable
-private fun CompactKeyField(
-    label: String,
-    placeholder: String,
-    savedMasked: String?,
-    onCommit: (String) -> Unit,
-) {
-    // Spec (`handy-settings.jsx` `KeyField` non-inline): label 12sp/500
-    // TextSecondary marginBottom 6dp; field as spec'd below.
-    Column {
-        Text(
-            text = label,
-            style = HandyType.CaptionSmall.copy(fontWeight = FontWeight.Medium),
-            color = HandyColors.TextSecondary,
-        )
-        Spacer(Modifier.height(6.dp))
-        CompactKeyPill(
-            placeholder = placeholder,
-            savedMasked = savedMasked,
-            onCommit = onCommit,
-        )
-    }
-}
-
-/**
- * A single-line dark pill with placeholder, show/hide eye, and paste-from-clipboard.
- *
- * The "placeholder" text shown when empty is:
- *  - `savedMasked` (e.g. `sk-••••abcd`) if a key is already on disk, so the
- *    user can see at a glance that a key is saved;
- *  - otherwise [placeholder] (e.g. "Paste your key").
- *
- * On `Ime.Done` or a successful paste, we commit the trimmed value through
- * [onCommit] (the VM persists it and re-emits `savedMasked`), then clear
- * the local buffer so the field returns to the "saved" preview state.
- */
-@Composable
-private fun CompactKeyPill(
-    placeholder: String,
-    savedMasked: String?,
-    onCommit: (String) -> Unit,
-) {
-    val clipboard = LocalClipboardManager.current
-    var value by remember { mutableStateOf("") }
-    var visible by remember { mutableStateOf(false) }
-
-    // Spec (`handy-settings.jsx` `KeyField` field container):
-    //   padding `0 4dp 0 14dp`, height **42dp**, radius 12,
-    //   background `rgba(0,0,0,0.25)`, 0.5dp ChipBorder, gap 6dp.
-    //   Value uses monospace; placeholder uses regular Inter Body.
-    //   Eye + copy buttons 30x30 radius 8, icons 14dp TextSecondary.
-    val shape = RoundedCornerShape(12.dp)
-    val effectivePlaceholder = savedMasked ?: placeholder
-    val valueFieldBg = Color(0x40000000) // rgba(0,0,0,0.25)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(42.dp)
-            .clip(shape)
-            .background(valueFieldBg)
-            .border(0.5.dp, HandyColors.ChipBorder, shape)
-            .padding(start = 14.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Box(
-            modifier = Modifier.weight(1f),
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            if (value.isEmpty()) {
-                Text(
-                    text = effectivePlaceholder,
-                    style = HandyType.Caption.copy(fontSize = 13.sp),
-                    color = if (savedMasked != null) HandyColors.TextSecondary else HandyColors.TextMuted,
-                )
-            }
-            BasicTextField(
-                value = value,
-                onValueChange = { value = it },
-                singleLine = true,
-                textStyle = HandyType.Caption.copy(
-                    color = HandyColors.TextPrimary,
-                    fontSize = 13.sp,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                ),
-                cursorBrush = SolidColor(HandyColors.Accent),
-                visualTransformation = if (visible) {
-                    VisualTransformation.None
-                } else {
-                    PasswordVisualTransformation()
+        if (brainSheetOpen) {
+            ModelPickerSheet(
+                selectedModelId = selectedModelId,
+                onSelect = { id ->
+                    when (id) {
+                        "sonnet-4-5" -> {
+                            onClaudeModelVariant(false)
+                            brainSheetOpen = false
+                        }
+                        "haiku-4-5" -> {
+                            onClaudeModelVariant(true)
+                            brainSheetOpen = false
+                        }
+                        else -> Unit
+                    }
                 },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Done,
-                    autoCorrectEnabled = false,
-                ),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        val trimmed = value.trim()
-                        if (trimmed.isNotEmpty()) onCommit(trimmed)
-                        value = ""
-                        visible = false
-                    },
-                ),
-                modifier = Modifier.fillMaxWidth(),
+                onDismiss = { brainSheetOpen = false },
             )
         }
-        KeyFieldIconBtn(
-            iconRes = R.drawable.ic_eye,
-            description = if (visible) "Hide key" else "Show key",
-            onClick = { visible = !visible },
-        )
-        KeyFieldIconBtn(
-            iconRes = R.drawable.ic_copy,
-            description = "Paste from clipboard",
-            onClick = {
-                val pasted = clipboard.getText()?.text?.trim().orEmpty()
-                if (pasted.isNotEmpty()) {
-                    onCommit(pasted)
-                    value = ""
-                    visible = false
-                }
-            },
-        )
     }
 }
 
-/**
- * Key-field trailing icon button — spec 30x30 square, radius 8,
- * transparent bg, icon 14dp TextSecondary.
- */
-@Composable
-private fun KeyFieldIconBtn(
-    @DrawableRes iconRes: Int,
-    description: String,
-    onClick: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .size(30.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            painter = painterResource(iconRes),
-            contentDescription = description,
-            tint = HandyColors.TextSecondary,
-            modifier = Modifier.size(14.dp),
-        )
+private tailrec fun Context.findSettingsActivity(): SettingsActivity? =
+    when (this) {
+        is SettingsActivity -> this
+        is ContextWrapper -> baseContext.findSettingsActivity()
+        else -> null
     }
-}
+
+private fun isRecordAudioGranted(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.RECORD_AUDIO,
+    ) == PackageManager.PERMISSION_GRANTED

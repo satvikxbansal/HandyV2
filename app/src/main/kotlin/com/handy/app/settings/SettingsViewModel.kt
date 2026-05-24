@@ -74,6 +74,18 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun setTypeForMeEnabled(enabled: Boolean) {
+        updateSettings { it.copy(typeForMeEnabled = enabled) }
+    }
+
+    fun setRecipesEnabled(enabled: Boolean) {
+        updateSettings { it.copy(recipesEnabled = enabled) }
+    }
+
+    fun setClipboardAssistEnabled(enabled: Boolean) {
+        updateSettings { it.copy(clipboardAssistEnabled = enabled) }
+    }
+
     fun muteTapForMeForOneHour() {
         viewModelScope.launch {
             settings.setTapForMeMutedUntilEpochMs(System.currentTimeMillis() + ONE_HOUR_MS)

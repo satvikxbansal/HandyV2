@@ -546,6 +546,34 @@ class DefaultActionPolicyEngineTest {
         assertThat(decision.reason).isEqualTo("muted")
     }
 
+    @Test fun `type-for-me disabled blocks type text actions with explicit reason`() {
+        val decision = engine(
+            settings = openSettings.copy(typeForMeEnabled = false),
+        ).decide(
+            action = AssistantAction.TypeText("cats"),
+            target = node(role = "EditText", text = "Search", resolverConfidence = 0.95f),
+            grounding = grounding(),
+            sourceTrust = SourceTrust.TRUSTED_RECIPE,
+        )
+
+        assertThat(decision.allowed).isFalse()
+        assertThat(decision.reason).isEqualTo("type-for-me-disabled")
+    }
+
+    @Test fun `recipes disabled blocks trusted recipe actions with explicit reason`() {
+        val decision = engine(
+            settings = openSettings.copy(recipesEnabled = false),
+        ).decide(
+            action = AssistantAction.OpenApp("com.example.app"),
+            target = node(text = "Continue", resolverConfidence = 0.95f),
+            grounding = grounding(),
+            sourceTrust = SourceTrust.TRUSTED_RECIPE,
+        )
+
+        assertThat(decision.allowed).isFalse()
+        assertThat(decision.reason).isEqualTo("recipes-disabled")
+    }
+
     private fun engine(
         settings: HandySettings = openSettings,
         userDenylist: Set<String> = emptySet(),

@@ -55,6 +55,14 @@ class DefaultActionPolicyEngine(
             return denied(ActionRisk.CRITICAL, "denylisted")
         }
 
+        if (action is AssistantAction.TypeText && !settings.typeForMeEnabled) {
+            return denied(ActionRisk.HIGH, "type-for-me-disabled")
+        }
+
+        if (sourceTrust == SourceTrust.TRUSTED_RECIPE && !settings.recipesEnabled) {
+            return denied(ActionRisk.HIGH, "recipes-disabled")
+        }
+
         if (settings.noActionsInIncognito && grounding.isChromeIncognito()) {
             return denied(ActionRisk.HIGH, "incognito-actions-disabled")
         }

@@ -154,6 +154,12 @@ data class HandySettings(
      */
     val tapForMeEnabled: Boolean = false,
 
+    /** Master switch for Type-for-me text insertion actions. */
+    val typeForMeEnabled: Boolean = true,
+
+    /** Master switch for trusted recipe automation paths. */
+    val recipesEnabled: Boolean = true,
+
     /**
      * Versioned acceptance of the tap/scroll/gesture disclosure. Kept at
      * zero until the action phase deliberately ships the new capability and

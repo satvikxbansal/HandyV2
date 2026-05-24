@@ -256,11 +256,19 @@ fun SwitchRow(
     onCheckedChange: (Boolean) -> Unit,
     trailing: (@Composable () -> Unit)? = null,
 ) {
+    val rowToggleModifier = if (trailing == null) {
+        Modifier.clickable(enabled = enabled, role = Role.Switch) {
+            onCheckedChange(!checked)
+        }
+    } else {
+        Modifier
+    }
     Column {
         SectionRowDivider()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .then(rowToggleModifier)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -352,7 +360,10 @@ fun NavRow(
             if (value != null) {
                 Text(
                     text = value,
-                    style = HandyDesignType.Caption.copy(fontSize = 13.sp),
+                    style = HandyDesignType.Caption.copy(
+                        fontSize = 13.sp,
+                        lineHeight = 13.sp,
+                    ),
                     color = HandyDesign.Colors.TextMuted,
                 )
             }
@@ -382,7 +393,7 @@ fun PillSelectRow(title: String, options: List<PillOption>) {
         Column(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 14.dp),
         ) {
             Text(
                 text = title,
@@ -436,6 +447,7 @@ private fun Pill(opt: PillOption) {
                 text = "\u00B7 ${tag.uppercase(Locale.ROOT)}",
                 style = HandyDesignType.Overline.copy(
                     fontSize = 9.sp,
+                    lineHeight = 9.sp,
                     letterSpacing = 0.08.em,
                 ),
                 color = HandyDesign.Colors.TextMuted,
@@ -526,13 +538,14 @@ fun DisabledAppsRow(
         Column(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 14.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "Disabled apps",
                     style = HandyDesignType.BodyStrong.copy(
                         fontSize = 14.sp,
+                        lineHeight = 16.8.sp,
                         fontWeight = FontWeight.Medium,
                     ),
                     color = HandyDesign.Colors.TextPrimary,
@@ -542,8 +555,10 @@ fun DisabledAppsRow(
                     text = if (apps.isEmpty()) "None" else apps.size.toString(),
                     style = HandyDesignType.Overline.copy(
                         fontSize = 12.sp,
+                        lineHeight = 12.sp,
                         fontWeight = FontWeight.Normal,
                         letterSpacing = 0.em,
+                        fontFamily = FontFamily.Monospace,
                     ),
                     color = HandyDesign.Colors.TextMuted,
                 )
@@ -595,7 +610,10 @@ private fun DisabledAppChip(
         Column(Modifier.weight(1f)) {
             Text(
                 text = entry.label,
-                style = HandyDesignType.BodyStrong.copy(fontSize = 13.sp),
+                style = HandyDesignType.BodyStrong.copy(
+                    fontSize = 13.sp,
+                    lineHeight = 15.6.sp,
+                ),
                 color = HandyDesign.Colors.TextPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -604,6 +622,7 @@ private fun DisabledAppChip(
                 text = entry.packageName,
                 style = HandyDesignType.Caption.copy(
                     fontSize = 11.sp,
+                    lineHeight = 14.3.sp,
                     fontFamily = FontFamily.Monospace,
                 ),
                 color = HandyDesign.Colors.TextMuted,
@@ -615,6 +634,7 @@ private fun DisabledAppChip(
             text = "Allow again",
             style = HandyDesignType.BodyStrong.copy(
                 fontSize = 11.sp,
+                lineHeight = 11.sp,
                 fontWeight = FontWeight.Medium,
             ),
             color = HandyDesign.Colors.Point,
@@ -628,7 +648,7 @@ private fun DisabledAppChip(
 @Composable
 fun CompactKeyField(
     providerInitial: String,
-    providerColor: Color,
+    @DrawableRes providerIconRes: Int? = null,
     label: String,
     placeholder: String,
     savedMasked: String?,
@@ -655,28 +675,34 @@ fun CompactKeyField(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Box(
-                Modifier
-                    .size(18.dp)
-                    .clip(RoundedCornerShape(5.dp))
-                    .background(providerColor.copy(alpha = 0.13f))
-                    .border(0.5.dp, providerColor.copy(alpha = 0.27f), RoundedCornerShape(5.dp)),
+                Modifier.size(18.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = providerInitial.take(1).uppercase(Locale.ROOT),
-                    style = HandyDesignType.Overline.copy(
-                        fontSize = 10.sp,
-                        lineHeight = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.em,
-                    ),
-                    color = providerColor,
-                )
+                if (providerIconRes != null) {
+                    Icon(
+                        painter = painterResource(providerIconRes),
+                        contentDescription = null,
+                        tint = HandyDesign.Colors.TextMuted,
+                        modifier = Modifier.size(15.dp),
+                    )
+                } else {
+                    Text(
+                        text = providerInitial.take(1).uppercase(Locale.ROOT),
+                        style = HandyDesignType.Overline.copy(
+                            fontSize = 10.sp,
+                            lineHeight = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.em,
+                        ),
+                        color = HandyDesign.Colors.TextMuted,
+                    )
+                }
             }
             Text(
                 text = label.uppercase(Locale.ROOT),
                 style = HandyDesignType.Overline.copy(
                     fontSize = 11.sp,
+                    lineHeight = 11.sp,
                     letterSpacing = 0.10.em,
                     fontFamily = FontFamily.Monospace,
                 ),
@@ -694,6 +720,7 @@ fun CompactKeyField(
                         text = "Optional",
                         style = HandyDesignType.Overline.copy(
                             fontSize = 9.sp,
+                            lineHeight = 9.sp,
                             letterSpacing = 0.08.em,
                         ),
                         color = HandyDesign.Colors.TextMuted,
