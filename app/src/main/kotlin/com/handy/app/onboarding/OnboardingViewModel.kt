@@ -114,8 +114,17 @@ class OnboardingViewModel @Inject constructor(
     fun acknowledgeReducedMode() {
         _state.update { it.copy(reducedModeAcknowledged = true) }
         viewModelScope.launch {
-            settings.update { it.copy(reducedModeAcknowledged = true) }
+            persistReducedModeAcknowledged()
         }
+    }
+
+    suspend fun acknowledgeReducedModeAndAwait() {
+        _state.update { it.copy(reducedModeAcknowledged = true) }
+        persistReducedModeAcknowledged()
+    }
+
+    private suspend fun persistReducedModeAcknowledged() {
+        settings.update { it.copy(reducedModeAcknowledged = true) }
     }
 
     private fun isAccessibilityServiceEnabled(context: Context): Boolean {

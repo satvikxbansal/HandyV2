@@ -52,7 +52,6 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -65,7 +64,6 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -253,9 +251,9 @@ private fun USPHeroCard(
         baseModifier.drawBehind {
             val baseRadius = HandyDesign.Dimens.CornerCardLarge.toPx()
             val glowLayers = listOf(
-                18.dp to 0.08f,
-                36.dp to 0.045f,
-                60.dp to 0.025f,
+                10.dp to 0.045f,
+                24.dp to 0.025f,
+                40.dp to 0.012f,
             )
             glowLayers.forEach { (spreadDp, alpha) ->
                 val spread = spreadDp.toPx()
@@ -711,13 +709,18 @@ private fun PrivacyFooter(onLinkClick: () -> Unit) {
 
 @Composable
 private fun ScaledHeroBox(content: @Composable ScaledHeroBoxScope.() -> Unit) {
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
         val density = LocalDensity.current
-        var measuredSize by remember { mutableStateOf(IntSize.Zero) }
-        val widthPx = measuredSize.width.takeIf { it > 0 }?.toFloat()
-            ?: constraints.maxWidth.toFloat().coerceAtLeast(HERO_WIDTH)
-        val heightPx = measuredSize.height.takeIf { it > 0 }?.toFloat()
-            ?: constraints.maxHeight.toFloat().coerceAtLeast(HERO_HEIGHT)
+        val widthPx = minOf(
+            constraints.maxWidth.toFloat(),
+            constraints.maxHeight.toFloat() * HERO_ASPECT_RATIO,
+        )
+        val heightPx = widthPx / HERO_ASPECT_RATIO
+        val widthDp = with(density) { widthPx.toDp() }
+        val heightDp = with(density) { heightPx.toDp() }
         val scope = remember(density, widthPx, heightPx) {
             ScaledHeroBoxScope(
                 density = density,
@@ -727,9 +730,7 @@ private fun ScaledHeroBox(content: @Composable ScaledHeroBoxScope.() -> Unit) {
         }
 
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .onSizeChanged { measuredSize = it },
+            modifier = Modifier.size(width = widthDp, height = heightDp),
         ) {
             scope.content()
         }
@@ -783,5 +784,6 @@ private fun DrawScope.drawStatusTick(
 
 private const val HERO_WIDTH = 288f
 private const val HERO_HEIGHT = 260f
+private val HERO_ASPECT_RATIO = HERO_WIDTH / HERO_HEIGHT
 private val CARD_WIDTH = 288.dp
 private const val PRIVACY_LINK_TAG = "see"

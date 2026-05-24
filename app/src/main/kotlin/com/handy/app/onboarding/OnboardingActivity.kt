@@ -55,6 +55,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.lifecycleScope
 import com.handy.app.R
 import com.handy.app.chat.ChatActivity
 import com.handy.app.service.AssistantForegroundService
@@ -64,6 +65,7 @@ import com.handy.app.theme.HandyDimens
 import com.handy.app.theme.HandyTheme
 import com.handy.app.theme.HandyType
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 
 /**
  * Handy's launcher entry point.
@@ -140,8 +142,10 @@ class OnboardingActivity : ComponentActivity() {
                         step = OnboardingStep.Permissions
                     },
                     onSkipFromValue = {
-                        viewModel.acknowledgeReducedMode()
-                        goToChat()
+                        lifecycleScope.launch {
+                            viewModel.acknowledgeReducedModeAndAwait()
+                            goToChat()
+                        }
                     },
                     onRequestMic = {
                         micLauncher.launch(Manifest.permission.RECORD_AUDIO)
