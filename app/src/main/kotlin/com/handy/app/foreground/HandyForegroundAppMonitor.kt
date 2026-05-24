@@ -58,6 +58,11 @@ class HandyForegroundAppMonitor @Inject constructor(
                 old.umbrellaSiteLabel == new.umbrellaSiteLabel
         }
 
+    @Volatile
+    private var lastSnapshot: ForegroundAppSnapshot? = null
+
+    fun lastKnownSnapshot(): ForegroundAppSnapshot? = lastSnapshot
+
     /**
      * Called from `HandyAccessibilityService.onAccessibilityEvent`. We
      * only care about `TYPE_WINDOW_STATE_CHANGED` — the event fires when
@@ -76,10 +81,17 @@ class HandyForegroundAppMonitor @Inject constructor(
     ) {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val pkg = event.packageName?.toString()?.takeIf { it.isNotBlank() } ?: return
-        if (isSelfPackage(pkg) || isInputMethod(pkg) || isLauncher(pkg)) return
+        if (isSelfPackage(pkg) || isInputMethod(pkg)) return
+        if (isLauncher(pkg)) {
+            lastSnapshot = null
+            return
+        }
 
         val snapshot = buildSnapshot(pkg, rootInActiveWindow)
-        if (snapshot != null) _flow.tryEmit(snapshot)
+        if (snapshot != null) {
+            lastSnapshot = snapshot
+            _flow.tryEmit(snapshot)
+        }
     }
 
     /**
@@ -104,13 +116,19 @@ class HandyForegroundAppMonitor @Inject constructor(
             .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
             .sortedByDescending { it.layer }
 
+        var sawLauncher = false
         for (w in candidates) {
             val root = runCatching { w.root }.getOrNull() ?: continue
             try {
                 val pkg = root.packageName?.toString()?.takeIf { it.isNotBlank() }
                     ?: continue
-                if (isSelfPackage(pkg) || isInputMethod(pkg) || isLauncher(pkg)) continue
+                if (isSelfPackage(pkg) || isInputMethod(pkg)) continue
+                if (isLauncher(pkg)) {
+                    sawLauncher = true
+                    continue
+                }
                 val snapshot = buildSnapshot(pkg, root) ?: continue
+                lastSnapshot = snapshot
                 _flow.tryEmit(snapshot)
                 Timber.d(
                     "ForegroundAppMonitor.refreshNow: emitted %s (pkg=%s site=%s)",
@@ -122,6 +140,7 @@ class HandyForegroundAppMonitor @Inject constructor(
                 runCatching { root.recycle() }
             }
         }
+        if (sawLauncher) lastSnapshot = null
         Timber.d("ForegroundAppMonitor.refreshNow: no non-launcher app window visible")
         return null
     }

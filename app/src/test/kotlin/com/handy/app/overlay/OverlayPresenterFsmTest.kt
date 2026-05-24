@@ -54,23 +54,50 @@ class OverlayPresenterFsmTest {
     }
 
     @Test
-    fun `widget tap on browser shopping site shows shopping prompts`() {
+    fun `widget tap uses foreground display label in panel greeting`() {
         val monitor = mockk<HandyForegroundAppMonitor>(relaxed = true)
         every { monitor.refreshNow() } returns ForegroundAppSnapshot(
-            packageName = "com.android.chrome",
-            appLabel = "Chrome",
-            umbrellaSiteLabel = "Meesho",
-            umbrellaSiteUrl = "https://www.meesho.com/kurti/p/abc123",
+            packageName = "com.google.android.apps.photos",
+            appLabel = "Photos",
         )
         val presenter = OverlayPresenter(monitor)
 
         presenter.onWidgetTap()
 
         val panel = presenter.state.value.panel
-        val promptTexts = panel.quickPrompts.map { it.text }
-        assertThat(panel.greeting).contains("Meesho")
-        assertThat(promptTexts).contains("Similar se compare karo / Compare with similar")
-        assertThat(promptTexts).contains("Coupon dhoondo / Find coupons")
+        assertThat(panel.greeting).isEqualTo("In Photos. What can I help you with?")
+        assertThat(panel.snapshot?.toolContext?.displayLabel).isEqualTo("Photos")
+    }
+
+    @Test
+    fun `widget tap reuses last known foreground when refresh misses`() {
+        val monitor = mockk<HandyForegroundAppMonitor>(relaxed = true)
+        every { monitor.refreshNow() } returns null
+        every { monitor.lastKnownSnapshot() } returns ForegroundAppSnapshot(
+            packageName = "com.google.android.apps.photos",
+            appLabel = "Photos",
+        )
+        val presenter = OverlayPresenter(monitor)
+
+        presenter.onWidgetTap()
+
+        val panel = presenter.state.value.panel
+        assertThat(panel.greeting).isEqualTo("In Photos. What can I help you with?")
+        assertThat(panel.snapshot?.toolContext?.packageName)
+            .isEqualTo("com.google.android.apps.photos")
+    }
+
+    @Test
+    fun `widget tap uses neutral greeting when foreground is unavailable`() {
+        val monitor = mockk<HandyForegroundAppMonitor>(relaxed = true)
+        every { monitor.refreshNow() } returns null
+        every { monitor.lastKnownSnapshot() } returns null
+        val presenter = OverlayPresenter(monitor)
+
+        presenter.onWidgetTap()
+
+        assertThat(presenter.state.value.panel.greeting)
+            .isEqualTo("What can I help you with?")
     }
 
     @Test

@@ -13,7 +13,6 @@ import com.handy.core.overlay.PanelContent
 import com.handy.core.overlay.PanelSnapshot
 import com.handy.core.overlay.TapForMeConfirmation
 import com.handy.core.overlay.TapForMeConfirmationDecision
-import com.handy.core.prompts.QuickPromptCatalog
 import com.handy.core.tool.ToolContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -110,22 +109,13 @@ class OverlayPresenter @Inject constructor(
         clock: () -> Long = { System.currentTimeMillis() },
     ) {
         val snapshot = captureSnapshot(marksProvider, clock)
-        val category = QuickPromptCatalog.categorize(
-            packageName = snapshot?.toolContext?.packageName,
-            siteLabel = snapshot?.toolContext?.umbrellaSiteLabel,
-        )
-        val prompts = QuickPromptCatalog.quickPromptsFor(category)
-        val greeting = QuickPromptCatalog.greetingFor(
-            snapshot?.toolContext?.displayLabel,
-            category,
-        )
+        val greeting = panelGreetingFor(snapshot)
         setState(event = "onWidgetTap") { it.copy(
             mode = OverlayMode.ChatPanel,
             buddyState = BuddyState.DOCKED,
             isFlying = false,
             panel = PanelContent(
                 snapshot = snapshot,
-                quickPrompts = prompts,
                 greeting = greeting,
             ),
             tapForMeConfirmation = null,
@@ -133,9 +123,9 @@ class OverlayPresenter @Inject constructor(
             bubble = null,
         ) }
         Timber.d(
-            "OverlayPresenter: panel open, pkg=%s category=%s marks=%d",
+            "OverlayPresenter: panel open, pkg=%s label=%s marks=%d",
             snapshot?.toolContext?.packageName,
-            category,
+            snapshot?.toolContext?.displayLabel,
             snapshot?.marks?.size ?: 0,
         )
     }
@@ -709,6 +699,7 @@ class OverlayPresenter @Inject constructor(
         val fg: ForegroundAppSnapshot? = runCatching { foregroundAppMonitor.refreshNow() }
             .onFailure { Timber.w(it, "OverlayPresenter: foreground refresh failed") }
             .getOrNull()
+            ?: foregroundAppMonitor.lastKnownSnapshot()
         val context = fg?.let {
             ToolContext(
                 packageName = it.packageName,
@@ -730,5 +721,18 @@ class OverlayPresenter @Inject constructor(
     private fun String.takeTrimmed(n: Int): String {
         val trimmed = trim()
         return if (trimmed.length <= n) trimmed else trimmed.take(n).trimEnd() + "…"
+    }
+}
+
+private const val FALLBACK_PANEL_GREETING = "What can I help you with?"
+
+internal fun panelGreetingFor(snapshot: PanelSnapshot?): String {
+    val label = snapshot?.toolContext?.displayLabel
+        ?.trim()
+        ?.takeIf { it.isNotBlank() && !it.equals("Handy", ignoreCase = true) }
+    return if (label != null) {
+        "In $label. What can I help you with?"
+    } else {
+        FALLBACK_PANEL_GREETING
     }
 }

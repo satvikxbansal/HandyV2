@@ -4,7 +4,6 @@ import com.handy.core.action.ActionRisk
 import com.handy.core.action.AssistantAction
 import com.handy.core.action.ConfirmationLevel
 import com.handy.core.parsing.AssistantMarkupParser
-import com.handy.core.prompts.QuickPromptCatalog
 import com.handy.core.screen.IntRect
 import com.handy.core.tool.ToolContext
 
@@ -145,8 +144,7 @@ sealed class BuddyBubble {
 /** Panel content when [OverlayPanelState.mode] is [OverlayMode.ChatPanel]. */
 data class PanelContent(
     val snapshot: PanelSnapshot? = null,
-    val quickPrompts: List<QuickPromptCatalog.QuickPrompt> = emptyList(),
-    val greeting: String = "What would you like help with?",
+    val greeting: String = "What can I help you with?",
     val draftInput: String = "",
     val isListening: Boolean = false,
     val partialTranscript: String = "",

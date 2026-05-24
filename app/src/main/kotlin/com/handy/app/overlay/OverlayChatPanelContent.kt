@@ -5,7 +5,6 @@ import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -52,7 +50,6 @@ import com.handy.app.R
 import com.handy.core.overlay.BuddyBubble
 import com.handy.core.overlay.OverlayPanelState
 import com.handy.core.overlay.PanelContent
-import com.handy.core.prompts.QuickPromptCatalog
 import com.handy.app.theme.HandMarkIcon
 import com.handy.app.theme.HandyColors
 import com.handy.app.theme.HandyDimens
@@ -63,7 +60,7 @@ import com.handy.app.theme.noRippleClickable
 /**
  * Overlay chat panel Compose tree. Glassmorphism per cursorbuddy
  * recipe #8, IME choreography per recipe #5 (DL-027: full-screen overlay
- * + `imePadding()`, no auto-focus), quick-prompt chips per recipe #9.
+ * + `imePadding()`, no auto-focus).
  */
 @Composable
 fun OverlayChatPanelContent(
@@ -74,7 +71,7 @@ fun OverlayChatPanelContent(
 ) {
     if (!state.isPanelVisible) return
     val panel: PanelContent = state.panel
-    val appLabel = panel.snapshot?.toolContext?.appLabel
+    val toolLabel = panel.snapshot?.toolContext?.displayLabel
 
     val focusRequester = remember { FocusRequester() }
     var draft by remember { mutableStateOf(panel.draftInput) }
@@ -110,7 +107,7 @@ fun OverlayChatPanelContent(
             ) {
                 PanelHeader(
                     greeting = panel.greeting,
-                    appLabel = appLabel,
+                    toolLabel = toolLabel,
                     onDismiss = callbacks.onDismiss,
                     onExpand = callbacks.onExpand,
                 )
@@ -151,16 +148,6 @@ fun OverlayChatPanelContent(
                         onVoiceStart = callbacks.onVoiceStart,
                         focusRequester = focusRequester,
                     )
-                    val chips = panel.quickPrompts.take(2)
-                    if (chips.isNotEmpty()) {
-                        QuickPromptsRow(
-                            prompts = chips,
-                            onPick = { prompt ->
-                                callbacks.onQuickPrompt(prompt)
-                                draft = ""
-                            },
-                        )
-                    }
                 }
 
                 val responsePreview = panel.recentResponsePreview
@@ -178,7 +165,6 @@ data class OverlayPanelCallbacks(
     val onDismiss: () -> Unit,
     val onExpand: () -> Unit,
     val onSend: (String) -> Unit,
-    val onQuickPrompt: (QuickPromptCatalog.QuickPrompt) -> Unit,
     val onVoiceStart: () -> Unit,
     val onVoiceStop: () -> Unit,
     val onConfirm: (Long, Boolean) -> Unit,
@@ -190,7 +176,7 @@ data class OverlayPanelCallbacks(
 @Composable
 private fun PanelHeader(
     greeting: String,
-    appLabel: String?,
+    toolLabel: String?,
     onDismiss: () -> Unit,
     onExpand: () -> Unit,
 ) {
@@ -216,7 +202,7 @@ private fun PanelHeader(
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                text = greetingWithLabelAccent(greeting, appLabel),
+                text = greetingWithLabelAccent(greeting, toolLabel),
                 style = HandyType.Caption,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -237,18 +223,18 @@ private fun PanelHeader(
 
 /**
  * Renders [greeting] in muted grey, with any case-insensitive match of
- * [appLabel] re-coloured to [HandyColors.Accent]. Matches the design
+ * [toolLabel] re-coloured to [HandyColors.Accent]. Matches the design
  * screenshots where only the app-label word is amber; the surrounding
  * copy ("I see", "On", "Browsing in", punctuation) stays muted.
  *
- * When [appLabel] is blank, missing, or "Handy" (our own app label in
+ * When [toolLabel] is blank, missing, or "Handy" (our own app label in
  * launcher foreground), the whole greeting is muted.
  */
 internal fun greetingWithLabelAccent(
     greeting: String,
-    appLabel: String?,
+    toolLabel: String?,
 ): AnnotatedString {
-    val label = appLabel?.trim().orEmpty()
+    val label = toolLabel?.trim().orEmpty()
     val shouldAccent = label.isNotEmpty() && !label.equals("Handy", ignoreCase = true)
     if (!shouldAccent) {
         return buildAnnotatedString {
@@ -405,50 +391,6 @@ private fun InputRow(
                 tint = if (sendEnabled) HandyColors.AccentInk else HandyColors.TextMuted,
                 modifier = Modifier.size(17.dp),
             )
-        }
-    }
-}
-
-@Composable
-private fun QuickPromptsRow(
-    prompts: List<QuickPromptCatalog.QuickPrompt>,
-    onPick: (QuickPromptCatalog.QuickPrompt) -> Unit,
-) {
-    // Spec (`handy-overlay.jsx` `QuickChip`): padding 7dp vertical /
-    // 12dp horizontal, RadiusPill, ChipBg + 0.5dp ChipBorder, 12sp
-    // Medium (500) label in TextPrimary. Wraps to next line at 10dp
-    // gap; we use horizontalScroll as a pragmatic substitute since
-    // the panel is at most 2 chips wide in practice.
-    val scroll = rememberScrollState()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(scroll),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        prompts.forEach { prompt ->
-            Box(
-                modifier = Modifier
-                    .background(
-                        HandyColors.ChipBg,
-                        RoundedCornerShape(HandyDimens.RadiusPill),
-                    )
-                    .border(
-                        0.5.dp,
-                        HandyColors.ChipBorder,
-                        RoundedCornerShape(HandyDimens.RadiusPill),
-                    )
-                    .clickable { onPick(prompt) }
-                    .padding(horizontal = HandyDimens.StackM, vertical = 7.dp),
-            ) {
-                Text(
-                    text = prompt.text,
-                    style = HandyType.CaptionSmall.copy(
-                        fontWeight = FontWeight.Medium,
-                    ),
-                    color = HandyColors.TextPrimary,
-                )
-            }
         }
     }
 }

@@ -187,7 +187,6 @@ class OverlayChatPanelService : LifecycleService() {
             presenter.dismissPanel()
         },
         onSend = { text -> panelBridge.submitFromPanel(text) },
-        onQuickPrompt = { prompt -> panelBridge.submitQuickPrompt(prompt) },
         onVoiceStart = { panelBridge.startVoiceFromPanel() },
         onVoiceStop = { panelBridge.stopVoiceFromPanel() },
         onConfirm = { id, approved -> panelBridge.respondToConfirmation(id, approved) },
