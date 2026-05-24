@@ -271,6 +271,21 @@ Gemini remains a non-interactive “coming soon” card — cloud routing is
 still governed by `CloudProvider` elsewhere; do not imply Gemini is
 selectable until parity tests land.
 
+## Claude-orange onboarding token package (DL-086, May 2026)
+
+The new onboarding redesign ships as a parallel
+`com.handy.app.design` package instead of mutating
+`com.handy.app.theme`. The existing app theme remains the warm-amber
+glass system used by chat, settings, overlay, and the current
+onboarding flow; the new package mirrors
+`handy-new-design-handoff/project/src/tokens.jsx` for P-1..P-4 only.
+
+This is deliberate token divergence: the new handoff uses Claude orange
+`#D97757`, plus cobalt/emerald/violet USP colors and plum/honey
+atmospherics. Keeping the package scene-local lets onboarding migrate
+screen by screen without forcing a global palette rewrite or making the
+rest of the app read two incompatible meanings from `HandyColors`.
+
 ---
 
 ## Performance budget (enforced in Phase 4 pass)
