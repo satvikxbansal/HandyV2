@@ -50,23 +50,29 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.handy.app.R
-import com.handy.app.theme.HandyType
+import com.handy.app.design.HandyDesign
+import com.handy.app.design.HandyDesignTheme
+import com.handy.app.design.HandyDesignType
 import com.handy.app.theme.noRippleClickable
 import kotlinx.coroutines.delay
 import java.util.Locale
 
 private const val SPLASH_ADVANCE_MS = 5_000L
 
-private val SplashPageBg = Color(0xFF08090B)
-private val SplashAccent = Color(0xFFD97757)
-private val SplashAccentDark = Color(0xFFC76547)
-private val SplashAccentInk = Color(0xFF1A0E07)
-private val SplashTextPrimary = Color(0xFFF4F2EE)
-private val SplashTextSecondary = Color(0xFFA8A39B)
-private val SplashTextMuted = Color(0xFF6E6A63)
+private val SplashPageBg = HandyDesign.Colors.PageBg
+private val SplashAccent = HandyDesign.Colors.Accent
+private val SplashAccentDark = HandyDesign.Colors.AccentDeep
+private val SplashAccentInk = HandyDesign.Colors.AccentInk
+private val SplashTextPrimary = HandyDesign.Colors.TextPrimary
+private val SplashTextSecondary = HandyDesign.Colors.TextSecondary
+private val SplashTextMuted = HandyDesign.Colors.TextMuted
 
+/**
+ * Splash reads its palette from HandyDesign.Colors and typography from HandyDesignType.
+ */
 @Composable
 fun SplashScreen(
     onDone: () -> Unit,
@@ -85,55 +91,57 @@ fun SplashScreen(
         advance()
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(SplashPageBg)
-            .noRippleClickable(onClick = ::advance),
-    ) {
-        SplashAmberWash(Modifier.fillMaxSize())
-        SplashTopVignette(Modifier.fillMaxSize())
-
-        Column(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .padding(horizontal = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+    HandyDesignTheme {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(SplashPageBg)
+                .noRippleClickable(onClick = ::advance),
         ) {
-            SplashMark()
-            Spacer(Modifier.height(56.dp))
-            Text(
-                text = stringResource(R.string.splash_title),
-                style = HandyType.Display.copy(
-                    fontSize = 76.sp,
-                    lineHeight = 76.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 0.sp,
-                ),
-                color = SplashTextPrimary,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(14.dp))
-            SplashTagline()
-        }
+            SplashAmberWash(Modifier.fillMaxSize())
+            SplashTopVignette(Modifier.fillMaxSize())
 
-        Text(
-            text = stringResource(R.string.splash_built_by_line).uppercase(Locale.ROOT),
-            style = HandyType.Overline.copy(
-                fontSize = 10.sp,
-                lineHeight = 14.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 1.8.sp,
-            ),
-            color = SplashTextMuted,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom))
-                .padding(horizontal = 32.dp)
-                .padding(bottom = 28.dp),
-        )
+            Column(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(horizontal = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                SplashMark()
+                Spacer(Modifier.height(56.dp))
+                Text(
+                    text = stringResource(R.string.splash_title),
+                    style = HandyDesignType.Display.copy(
+                        fontSize = 76.sp,
+                        lineHeight = 76.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = (-0.035).em,
+                    ),
+                    color = SplashTextPrimary,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(14.dp))
+                SplashTagline()
+            }
+
+            Text(
+                text = stringResource(R.string.splash_built_by_line).uppercase(Locale.ROOT),
+                style = HandyDesignType.Overline.copy(
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 1.8.sp,
+                ),
+                color = SplashTextMuted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom))
+                    .padding(horizontal = 32.dp)
+                    .padding(bottom = 28.dp),
+            )
+        }
     }
 }
 
@@ -328,11 +336,11 @@ private fun SplashTagline() {
             }
             append(tagline.substring(accentEnd))
         },
-        style = HandyType.Body.copy(
+        style = HandyDesignType.Body.copy(
             fontSize = 17.sp,
             lineHeight = 24.sp,
             fontWeight = FontWeight.Normal,
-            letterSpacing = 0.sp,
+            letterSpacing = (-0.005).em,
         ),
         color = SplashTextSecondary,
         textAlign = TextAlign.Center,

@@ -1439,3 +1439,19 @@ cross-references the one being superseded.
 | **Fix** | Added new, non-destructive drawable resources for the remaining read-first glyph sources: Phosphor mic, Phosphor paper-plane send, Lucide camera, and Lucide timer. No existing `res/drawable` file was modified, preserving the old onboarding/runtime assets until the new scenes explicitly migrate. |
 | **Validation** | `git diff --check` passed. `JAVA_HOME=/Users/satvik.bansal/.cache/codex-jdk17 PATH=/Users/satvik.bansal/.cache/codex-jdk17/bin:$PATH ./gradlew :app:assembleDebug --stacktrace` passed, proving the additional vector pathData parses. The first `:app:test :app:lint` run hit the known intermittent Android lint FIR-resolution crash while analyzing existing test files (`CoexistenceSmokeTests.kt` / `AccessibilityGestureActionPerformerTypeTextTest.kt`); rerunning the exact same command passed with `BUILD SUCCESSFUL in 8s`. |
 | **Prevention Rule** | For design-handoff asset tasks, build an explicit two-column checklist from every source-path mention and every requested output filename before editing. If the prompt contains both a read-first source list and an output-file list, reconcile them and either add the missing source-backed assets or record why each omitted source is intentionally covered by an existing resource. |
+
+---
+
+### DL-088 — Splash migrated to HandyDesign tokens; tightened wordmark + tagline letter-spacing to match JSX (-0.035em / -0.005em).
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-05-24 |
+| **Tags** | `#android #compose #onboarding #design-system #handoff-parity` |
+| **Severity** | Logic Bug / Regression Risk |
+| **File(s)** | `app/src/main/kotlin/com/handy/app/onboarding/SplashScreen.kt`, `DEBUG_LOG.md` |
+| **Symptom** | The splash screen rendered with file-local color and typography literals even though P-0 introduced shared HandyDesign tokens for the onboarding redesign. The wordmark and tagline also missed the JSX letter-spacing values, so the title was looser than the design canvas. |
+| **Root Cause** | The splash was shipped before the shared P-0 token package existed, leaving it with duplicated `Color(0x...)` values and legacy `HandyType` references. The JSX handoff's `em` letter-spacing values on `scenes-onboarding.jsx` lines 82-100 were not carried over during the first splash implementation. |
+| **Fix** | Tokens are now sourced from `HandyDesign.Colors` / `HandyDesignType`, and the composable is wrapped in `HandyDesignTheme` so downstream `LocalHandyDesignColors` readers inherit the same accent values. There is no behavior change: advance timing, ring animation timing/easing/repeat/offsets, layer order, drawable, and gesture are unchanged; letter-spacing is fixed to match `scenes-onboarding.jsx` lines 82-100. |
+| **Validation** | Plain `./gradlew :app:assembleDebug --stacktrace` is still blocked by the host's missing system Java runtime, so validation used the repo-local JDK. `JAVA_HOME=/Users/satvik.bansal/.cache/codex-jdk17 PATH=/Users/satvik.bansal/.cache/codex-jdk17/bin:$PATH ./gradlew :app:assembleDebug --stacktrace` passed. `JAVA_HOME=/Users/satvik.bansal/.cache/codex-jdk17 PATH=/Users/satvik.bansal/.cache/codex-jdk17/bin:$PATH ./gradlew :app:test :app:lint --stacktrace` passed. Installed `app-debug.apk` on `emulator-5554`, launched `com.handy.android/com.handy.app.onboarding.OnboardingActivity`, visually confirmed the splash composition and advance, verified process pid `25845` stayed alive, and fresh `AndroidRuntime:E ActivityTaskManager:E Handy:E` logcat output was empty. |
+| **Prevention Rule** | When a screen ships with file-local `Color` / `TextStyle` literals, migrate it to shared tokens in the next prompt so the literals never get edited independently. |
