@@ -139,6 +139,10 @@ class OnboardingActivity : ComponentActivity() {
                         viewModel.acknowledgeDisclosure()
                         step = OnboardingStep.Permissions
                     },
+                    onSkipFromValue = {
+                        viewModel.acknowledgeReducedMode()
+                        goToChat()
+                    },
                     onRequestMic = {
                         micLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     },
@@ -202,6 +206,7 @@ private fun OnboardingScreen(
     state: OnboardingUiState,
     onSplashDone: () -> Unit,
     onValueGetStarted: () -> Unit,
+    onSkipFromValue: () -> Unit,
     onRequestMic: () -> Unit,
     onRequestNotifications: () -> Unit,
     onRequestOverlay: () -> Unit,
@@ -217,7 +222,10 @@ private fun OnboardingScreen(
         when (step) {
             null -> Box(Modifier.fillMaxSize())
             OnboardingStep.Splash -> SplashScreen(onDone = onSplashDone)
-            OnboardingStep.Value -> ValueScreen(onGetStarted = onValueGetStarted)
+            OnboardingStep.Value -> ValueScreen(
+                onGetStarted = onValueGetStarted,
+                onSkip = onSkipFromValue,
+            )
             OnboardingStep.Permissions,
             OnboardingStep.Reduced -> PostDisclosureStep(
                 state = state,
