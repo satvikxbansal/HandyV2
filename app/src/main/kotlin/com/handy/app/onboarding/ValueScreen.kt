@@ -1,8 +1,5 @@
 package com.handy.app.onboarding
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -39,7 +36,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -243,31 +239,9 @@ private fun USPHeroCard(
     active: Boolean,
 ) {
     val shape = RoundedCornerShape(HandyDesign.Dimens.CornerCardLarge)
-    val baseModifier = Modifier
+    val cardModifier = Modifier
         .width(CARD_WIDTH)
         .fillMaxHeight()
-
-    val cardModifier = (if (active) {
-        baseModifier.drawBehind {
-            val baseRadius = HandyDesign.Dimens.CornerCardLarge.toPx()
-            val glowLayers = listOf(
-                10.dp to 0.045f,
-                24.dp to 0.025f,
-                40.dp to 0.012f,
-            )
-            glowLayers.forEach { (spreadDp, alpha) ->
-                val spread = spreadDp.toPx()
-                drawRoundRect(
-                    color = card.accent.copy(alpha = alpha),
-                    topLeft = Offset(-spread, -spread),
-                    size = Size(size.width + spread * 2f, size.height + spread * 2f),
-                    cornerRadius = CornerRadius(baseRadius + spread, baseRadius + spread),
-                )
-            }
-        }
-    } else {
-        baseModifier
-    })
         .clip(shape)
         .background(HandyDesign.Colors.Surface)
         .background(
@@ -639,11 +613,7 @@ private fun PagerDots(activePage: Int) {
     ) {
         USP_CARDS.indices.forEach { index ->
             val active = index == activePage
-            val width by animateDpAsState(
-                targetValue = if (active) 22.dp else 5.dp,
-                animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing),
-                label = "pager-dot-width",
-            )
+            val width = if (active) 22.dp else 5.dp
             Box(
                 modifier = Modifier
                     .height(5.dp)
