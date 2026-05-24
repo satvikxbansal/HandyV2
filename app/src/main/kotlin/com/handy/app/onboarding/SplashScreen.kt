@@ -61,6 +61,7 @@ import kotlinx.coroutines.delay
 import java.util.Locale
 
 private const val SPLASH_ADVANCE_MS = 5_000L
+private const val SPLASH_RING_PULSE_MS = 2_400
 
 private val SplashPageBg = HandyDesign.Colors.PageBg
 private val SplashAccent = HandyDesign.Colors.Accent
@@ -205,7 +206,7 @@ private fun BreathingRing(
         targetValue = baseAlpha * 1.4f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = 3_600,
+                durationMillis = SPLASH_RING_PULSE_MS,
                 easing = FastOutSlowInEasing,
             ),
             repeatMode = RepeatMode.Reverse,
@@ -218,7 +219,7 @@ private fun BreathingRing(
         targetValue = 1.06f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = 3_600,
+                durationMillis = SPLASH_RING_PULSE_MS,
                 easing = FastOutSlowInEasing,
             ),
             repeatMode = RepeatMode.Reverse,
