@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import androidx.annotation.DrawableRes
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -28,7 +29,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
@@ -44,27 +44,32 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.handy.app.R
 import com.handy.app.chat.ChatActivity
+import com.handy.app.design.HandyDesign
+import com.handy.app.design.HandyDesignTheme
+import com.handy.app.design.HandyDesignType
+import com.handy.app.design.PrimaryButton
 import com.handy.app.service.AssistantForegroundService
-import com.handy.app.theme.HandMarkIcon
 import com.handy.app.theme.HandyColors
-import com.handy.app.theme.HandyDimens
 import com.handy.app.theme.HandyTheme
-import com.handy.app.theme.HandyType
 import dagger.hilt.android.AndroidEntryPoint
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 /**
@@ -171,7 +176,12 @@ class OnboardingActivity : ComponentActivity() {
                         viewModel.acknowledgeReducedMode()
                         step = OnboardingStep.Reduced
                     },
-                    onFinish = { goToChat() },
+                    onFinish = {
+                        if (!viewModel.state.value.accessibilityEnabled) {
+                            viewModel.acknowledgeReducedMode()
+                        }
+                        goToChat()
+                    },
                 )
             }
         }
@@ -244,8 +254,9 @@ private fun OnboardingScreen(
     }
 }
 
-/* ---------- Permissions step (design-match permissions list) ---------- */
+/* ---------- Permissions step (JSX 03 / 03b permissions) ---------- */
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 private fun PostDisclosureStep(
     state: OnboardingUiState,
@@ -256,454 +267,293 @@ private fun PostDisclosureStep(
     onAcknowledgeReducedMode: () -> Unit,
     onFinish: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .systemBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = HandyDimens.Gutter, vertical = HandyDimens.StackL),
-        verticalArrangement = Arrangement.spacedBy(HandyDimens.StackL),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        OnboardingLensHero()
-        Text(
-            text = stringResource(R.string.permissions_title),
-            style = HandyType.Display,
-            color = HandyColors.TextPrimary,
-            textAlign = TextAlign.Center,
-        )
-        Text(
-            text = stringResource(R.string.permissions_tagline),
-            style = HandyType.Body,
-            color = HandyColors.TextSecondary,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(HandyDimens.StackS))
-
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
-        ) {
-            PermissionRow(
-                title = stringResource(R.string.onboarding_mic_title),
-                description = stringResource(R.string.onboarding_mic_desc),
-                status = statusFor(state.micGranted),
-                onAction = onRequestMic,
-            )
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                PermissionRow(
-                    title = stringResource(R.string.onboarding_notifications_title),
-                    description = stringResource(R.string.onboarding_notifications_desc),
-                    status = statusFor(state.notificationsGranted),
-                    onAction = onRequestNotifications,
-                )
-            }
-            PermissionRow(
-                title = stringResource(R.string.onboarding_overlay_short_title),
-                description = stringResource(R.string.onboarding_overlay_desc),
-                status = statusFor(state.overlayGranted),
-                onAction = onRequestOverlay,
-            )
-            PermissionRow(
-                title = stringResource(R.string.onboarding_accessibility_short_title),
-                description = stringResource(R.string.onboarding_accessibility_desc),
-                status = if (state.accessibilityEnabled) {
-                    PermissionStatus.Granted
-                } else {
-                    PermissionStatus.PendingCritical
-                },
-                onAction = onRequestAccessibility,
-            )
-        }
-
-        PrivacyCallout()
-
-        Spacer(Modifier.height(HandyDimens.StackS))
-
-        PrimaryButton(
-            text = "Open Handy",
-            enabled = state.fullyReady,
-            onClick = onFinish,
-        )
-
-        if (!state.accessibilityEnabled && !state.reducedModeAcknowledged) {
-            Text(
-                text = "Enable accessibility above so Handy can detect your app and point at UI. Or continue without it.",
-                style = HandyType.CaptionSmall,
-                color = HandyColors.TextSecondary,
-                textAlign = TextAlign.Center,
-            )
-            SecondaryTextButton(
-                text = "Use without app detection",
-                onClick = onAcknowledgeReducedMode,
-            )
-        } else if (!state.accessibilityEnabled && state.reducedModeAcknowledged) {
-            Text(
-                text = "Running in reduced mode. You can enable accessibility anytime from the chat banner.",
-                style = HandyType.CaptionSmall,
-                color = HandyColors.TextSecondary,
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
+    PermissionsStep(
+        state = state,
+        onRequestMic = onRequestMic,
+        onRequestNotifications = onRequestNotifications,
+        onRequestOverlay = onRequestOverlay,
+        onRequestAccessibility = onRequestAccessibility,
+        onFinish = onFinish,
+    )
 }
 
-private fun statusFor(granted: Boolean): PermissionStatus =
-    if (granted) PermissionStatus.Granted else PermissionStatus.Pending
-
-/* ---------- Hero ---------- */
-
-/**
- * Onboarding hero — spec (`handy-permissions.jsx`):
- *   - 72dp circle.
- *   - Fill: `radial-gradient(circle at 35% 25%, GlassHighlight → transparent @ 55%), AccentSoft`.
- *   - Stroke: 1.5dp `Accent @ 53%` ≈ `Accent.copy(alpha = 0.53f)`.
- *   - Box-shadow: `0 0 40px Accent@44` (outer glow) + `inset 0 1.5px 0 GlassHighlight`.
- *   - Inner: `HandMark` 32dp, Accent.
- *
- * Outer glow is approximated with a slightly larger blurred circle
- * behind the hero; Compose can't render the exact `box-shadow` spec
- * without `Modifier.shadow` on a circular shape, which crops to the
- * shape and doesn't extend outward beyond the shape bounds.
- */
 @Composable
-fun OnboardingLensHero(
-    modifier: Modifier = Modifier,
-    lensSize: Dp = HandyDimens.WidgetSize,
-    handSize: Dp = 32.dp,
-    topPadding: Dp = HandyDimens.StackS,
-    bottomPadding: Dp = HandyDimens.StackL,
+private fun PermissionsStep(
+    state: OnboardingUiState,
+    onRequestMic: () -> Unit,
+    onRequestNotifications: () -> Unit,
+    onRequestOverlay: () -> Unit,
+    onRequestAccessibility: () -> Unit,
+    onFinish: () -> Unit,
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(top = topPadding, bottom = bottomPadding),
-        contentAlignment = Alignment.Center,
-    ) {
-        // Outer soft glow - 112dp by default (72 + 40 blur) at ~27% accent.
+    HandyDesignTheme {
         Box(
             modifier = Modifier
-                .size(lensSize + 40.dp)
-                .clip(CircleShape)
-                .background(HandyColors.Accent.copy(alpha = 0.12f)),
-        )
-        Box(
-            modifier = Modifier
-                .size(lensSize)
-                .clip(CircleShape)
-                .background(HandyColors.AccentSoft)
-                .border(
-                    width = 1.5.dp,
-                    color = HandyColors.Accent.copy(alpha = 0.53f),
-                    shape = CircleShape,
-                ),
-            contentAlignment = Alignment.Center,
+                .fillMaxSize()
+                .background(HandyDesign.Colors.PageBg)
+                .systemBarsPadding(),
         ) {
-            HandMarkIcon(size = handSize, tint = HandyColors.Accent)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 24.dp, top = 32.dp, end = 24.dp, bottom = 156.dp),
+            ) {
+                Text(
+                    text = buildAnnotatedString {
+                        append("One more ")
+                        withStyle(
+                            SpanStyle(
+                                color = HandyDesign.Colors.Accent,
+                                fontWeight = FontWeight.SemiBold,
+                            ),
+                        ) {
+                            append("step.")
+                        }
+                    },
+                    style = HandyDesignType.Display.copy(
+                        fontSize = 36.sp,
+                        lineHeight = 37.sp,
+                        letterSpacing = (-0.030).em,
+                    ),
+                    color = HandyDesign.Colors.TextPrimary,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                Text(
+                    text = "Handy needs these to work. You can disable any of them later.",
+                    style = HandyDesignType.Body,
+                    color = HandyDesign.Colors.TextSecondary,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 28.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    PermissionRow(
+                        iconRes = R.drawable.ic_phosphor_mic,
+                        color = HandyDesign.Colors.See,
+                        title = stringResource(R.string.onboarding_mic_title),
+                        caption = stringResource(R.string.onboarding_mic_desc),
+                        granted = state.micGranted,
+                        onEnable = onRequestMic,
+                    )
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        PermissionRow(
+                            iconRes = R.drawable.ic_lucide_bell,
+                            color = HandyDesign.Colors.Violet,
+                            title = stringResource(R.string.onboarding_notifications_title),
+                            caption = stringResource(R.string.onboarding_notifications_desc),
+                            granted = state.notificationsGranted,
+                            onEnable = onRequestNotifications,
+                        )
+                    }
+                    PermissionRow(
+                        iconRes = R.drawable.ic_lucide_overlay,
+                        color = HandyDesign.Colors.Point,
+                        title = stringResource(R.string.onboarding_overlay_short_title),
+                        caption = stringResource(R.string.onboarding_overlay_desc),
+                        granted = state.overlayGranted,
+                        onEnable = onRequestOverlay,
+                    )
+                    PermissionRow(
+                        iconRes = R.drawable.ic_lucide_a11y,
+                        color = HandyDesign.Colors.Act,
+                        title = stringResource(R.string.onboarding_accessibility_short_title),
+                        caption = stringResource(R.string.onboarding_accessibility_desc),
+                        granted = state.accessibilityEnabled,
+                        onEnable = onRequestAccessibility,
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(HandyDesign.Colors.PageBg),
+            ) {
+                PrivacyFooterStrip(
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
+                Box(
+                    modifier = Modifier.padding(
+                        start = 20.dp,
+                        end = 20.dp,
+                        bottom = 20.dp,
+                    ),
+                ) {
+                    PrimaryButton(
+                        label = "Open Handy",
+                        enabled = true,
+                        onClick = onFinish,
+                    )
+                }
+            }
         }
     }
-}
-
-/* ---------- Permission row ---------- */
-
-private enum class PermissionStatus {
-    /** All done, show green check + "Granted" pill. */
-    Granted,
-    /** Not granted, low-priority (mic / notifications / overlay). */
-    Pending,
-    /** Not granted, the big remaining step (accessibility). */
-    PendingCritical,
 }
 
 @Composable
 private fun PermissionRow(
     title: String,
-    description: String,
-    status: PermissionStatus,
-    onAction: () -> Unit,
+    caption: String,
+    @DrawableRes iconRes: Int,
+    color: Color,
+    granted: Boolean,
+    onEnable: () -> Unit,
 ) {
-    // Spec (`handy-permissions.jsx` `PermRow`):
-    //   padding 14dp vertical / 16dp horizontal, 16dp corner,
-    //   ChipBg fill, 0.5dp ChipBorder (or Success@30% if granted),
-    //   gap 12dp between leading icon + content + trailing control.
-    val shape = RoundedCornerShape(HandyDimens.RadiusXl)
-    val borderColor = when (status) {
-        PermissionStatus.Granted -> HandyColors.Success.copy(alpha = 0.30f)
-        else -> HandyColors.ChipBorder
-    }
+    val shape = RoundedCornerShape(HandyDesign.Dimens.CornerRow)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(HandyColors.ChipBg)
-            .border(0.5.dp, borderColor, shape)
-            .padding(horizontal = HandyDimens.Gutter, vertical = HandyDimens.RowPad),
+            .background(HandyDesign.Colors.Surface)
+            .border(1.dp, HandyDesign.Colors.BorderSubtle, shape)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        StatusIndicator(status)
-        Column(modifier = Modifier.weight(1f)) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(11.dp))
+                .background(color.copy(alpha = 0.14f))
+                .border(1.dp, color.copy(alpha = 0.20f), RoundedCornerShape(11.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(22.dp),
+            )
+        }
+
+        Column(
+            modifier = Modifier.weight(1f),
+        ) {
             Text(
                 text = title,
-                style = HandyType.BodyStrong,
-                color = HandyColors.TextPrimary,
+                style = HandyDesignType.BodyStrong.copy(
+                    fontSize = 15.sp,
+                    lineHeight = 19.5.sp,
+                    letterSpacing = (-0.005).em,
+                ),
+                color = HandyDesign.Colors.TextPrimary,
             )
-            Spacer(Modifier.height(1.dp))
+            Spacer(Modifier.height(2.dp))
             Text(
-                text = description,
-                style = HandyType.CaptionSmall,
-                color = HandyColors.TextSecondary,
+                text = caption,
+                style = HandyDesignType.Caption.copy(
+                    fontSize = 13.sp,
+                    lineHeight = 18.85.sp,
+                ),
+                color = HandyDesign.Colors.TextSecondary,
             )
         }
-        StatusAffordance(status = status, onAction = onAction)
-    }
-}
 
-@Composable
-private fun StatusIndicator(status: PermissionStatus) {
-    // Spec: 36dp square with 10dp corner. Granted → Success@12% fill +
-    // Success check (16dp). Pending → AccentSoft fill + filled circle
-    // 9dp (`r="4.5"`) Accent. We differentiate PendingCritical (the
-    // accessibility row) with a slightly brighter AccentSoft fill; the
-    // spec treats all pending alike so it's a small, intentional
-    // addition for UX clarity.
-    val shape = RoundedCornerShape(10.dp)
-    val bg = when (status) {
-        PermissionStatus.Granted -> HandyColors.Success.copy(alpha = 0.12f)
-        else -> HandyColors.AccentSoft
-    }
-    Box(
-        modifier = Modifier
-            .size(36.dp)
-            .clip(shape)
-            .background(bg),
-        contentAlignment = Alignment.Center,
-    ) {
-        when (status) {
-            PermissionStatus.Granted -> Icon(
-                painter = painterResource(R.drawable.ic_check),
-                contentDescription = null,
-                tint = HandyColors.Success,
-                modifier = Modifier.size(16.dp),
-            )
-            else -> Box(
-                modifier = Modifier
-                    .size(9.dp)
-                    .clip(CircleShape)
-                    .background(HandyColors.Accent),
-            )
+        if (granted) {
+            GrantedPill(color = color)
+        } else {
+            EnableButton(color = color, onClick = onEnable)
         }
     }
 }
 
 @Composable
-private fun StatusAffordance(status: PermissionStatus, onAction: () -> Unit) {
-    when (status) {
-        PermissionStatus.Granted -> GrantedPill()
-        else -> EnableButton(onClick = onAction)
-    }
-}
-
-/**
- * Green "Granted" pill — spec `0 10px 28dp` pill, Success@14% fill,
- * Success-coloured 11sp/600 label.
- */
-@Composable
-private fun GrantedPill() {
-    Box(
+private fun GrantedPill(color: Color) {
+    Row(
         modifier = Modifier
-            .height(28.dp)
-            .clip(RoundedCornerShape(HandyDimens.RadiusPill))
-            .background(HandyColors.Success.copy(alpha = 0.14f))
+            .height(26.dp)
+            .clip(RoundedCornerShape(13.dp))
+            .background(color.copy(alpha = 0.14f))
             .padding(horizontal = 10.dp),
-        contentAlignment = Alignment.Center,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_check),
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(11.dp),
+        )
+        Spacer(Modifier.width(4.dp))
         Text(
-            text = stringResource(R.string.onboarding_row_granted),
-            style = HandyType.Overline.copy(letterSpacing = 0.sp),
-            color = HandyColors.Success,
+            text = stringResource(R.string.onboarding_row_granted).uppercase(Locale.ROOT),
+            style = HandyDesignType.Overline.copy(
+                fontSize = 11.sp,
+                letterSpacing = 0.08.em,
+                fontWeight = FontWeight.SemiBold,
+            ),
+            color = color,
         )
     }
 }
 
-/**
- * Amber "Enable" button — spec `0 14px 32dp` pill with **10dp** corner
- * (NOT RadiusPill). Accent fill, AccentInk label, 12sp/600.
- */
 @Composable
-private fun EnableButton(onClick: () -> Unit) {
+private fun EnableButton(
+    color: Color,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(11.dp)
     Box(
         modifier = Modifier
             .height(32.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(HandyColors.Accent)
-            .clickable(onClick = onClick)
+            .shadow(
+                elevation = 6.dp,
+                shape = shape,
+                spotColor = color.copy(alpha = 0.55f),
+                ambientColor = color.copy(alpha = 0.55f),
+            )
+            .clip(shape)
+            .background(color)
+            .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = stringResource(R.string.onboarding_row_enable),
-            style = HandyType.Overline.copy(
+            style = HandyDesignType.BodyStrong.copy(
                 fontSize = 12.sp,
-                letterSpacing = 0.sp,
+                lineHeight = 32.sp,
+                letterSpacing = 0.01.em,
             ),
-            color = HandyColors.AccentInk,
+            color = Color(0xFF0D0F12),
         )
     }
 }
 
-/* ---------- Privacy callout ---------- */
-
-/**
- * Privacy-callout card — spec (`handy-permissions.jsx`):
- *   margin 16dp sides / top, padding 12dp vertical / 14dp horizontal,
- *   14dp radius, Success@8% fill + 0.5dp Success@22% border, gap 10dp,
- *   12sp TextSecondary line-height 1.5. Copy:
- *   **"Your data stays yours."** Handy talks directly to Anthropic
- *   using *your* API key. No servers of ours in the middle.
- */
 @Composable
-fun PrivacyCallout(
-    title: String? = null,
-    body: String? = null,
-    linkText: String? = null,
-    onClick: (() -> Unit)? = null,
+private fun PrivacyFooterStrip(
+    modifier: Modifier = Modifier,
 ) {
-    val resolvedTitle = title ?: "Your data stays yours."
-    val resolvedBody = body ?: stringResource(R.string.onboarding_privacy_callout)
-    val shape = RoundedCornerShape(14.dp)
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(HandyColors.Success.copy(alpha = 0.08f))
-            .border(0.5.dp, HandyColors.Success.copy(alpha = 0.22f), shape)
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable(onClick = onClick)
-                } else {
-                    Modifier
-                },
-            )
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.Top,
+            .drawBehind {
+                drawLine(
+                    color = HandyDesign.Colors.BorderSubtle,
+                    start = Offset.Zero,
+                    end = Offset(size.width, 0f),
+                    strokeWidth = 1.dp.toPx(),
+                )
+            }
+            .padding(top = 14.dp, bottom = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Icon(
-            painter = painterResource(R.drawable.ic_shield),
+            painter = painterResource(R.drawable.ic_phosphor_shield),
             contentDescription = null,
-            tint = HandyColors.Success,
-            modifier = Modifier
-                .padding(top = 1.dp)
-                .size(16.dp),
+            tint = HandyDesign.Colors.Accent,
+            modifier = Modifier.size(16.dp),
         )
         Text(
-            text = buildAnnotatedString {
-                withStyle(
-                    SpanStyle(
-                        color = HandyColors.TextPrimary,
-                        fontWeight = FontWeight.SemiBold,
-                    ),
-                ) {
-                    append(resolvedTitle)
-                    append(" ")
-                }
-                append(resolvedBody)
-                linkText?.takeIf { it.isNotBlank() }?.let {
-                    append("\n")
-                    withStyle(
-                        SpanStyle(
-                            color = HandyColors.Success,
-                            fontWeight = FontWeight.SemiBold,
-                        ),
-                    ) { append(it) }
-                }
-            },
-            style = HandyType.CaptionSmall.copy(lineHeight = 18.sp),
-            color = HandyColors.TextSecondary,
-        )
-    }
-}
-
-/* ---------- Buttons ---------- */
-
-@Composable
-fun PrimaryButton(
-    text: String,
-    enabled: Boolean = true,
-    onClick: () -> Unit,
-) {
-    // Spec (`handy-permissions.jsx` CTA):
-    //   52dp tall, 16dp corner (NOT pill), Accent fill, AccentInk
-    //   label, fontSize 15sp / weight 600, trailing arrow icon, shadow
-    //   `0 10 24 -8 Accent@88`. We approximate the shadow via
-    //   Modifier.shadow on the rounded-corner shape with the Accent as
-    //   ambient / spot colour.
-    val shape = RoundedCornerShape(HandyDimens.RadiusXl)
-    val bgColor = if (enabled) HandyColors.Accent else HandyColors.ChipBg
-    val fgColor = if (enabled) HandyColors.AccentInk else HandyColors.TextMuted
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .then(
-                if (enabled) {
-                    Modifier.shadow(
-                        elevation = 10.dp,
-                        shape = shape,
-                        ambientColor = HandyColors.Accent,
-                        spotColor = HandyColors.Accent,
-                    )
-                } else {
-                    Modifier
-                },
-            )
-            .clip(shape)
-            .background(bgColor)
-            .then(
-                if (!enabled) {
-                    Modifier.border(0.5.dp, HandyColors.ChipBorder, shape)
-                } else {
-                    Modifier
-                },
-            )
-            .clickable(enabled = enabled, onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            text = text,
-            style = HandyType.BodyStrong.copy(fontSize = 15.sp),
-            color = fgColor,
-        )
-        if (enabled) {
-            Spacer(Modifier.width(HandyDimens.StackS))
-            Icon(
-                painter = painterResource(R.drawable.ic_chevron_right),
-                contentDescription = null,
-                tint = fgColor,
-                modifier = Modifier.size(16.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun SecondaryTextButton(
-    text: String,
-    onClick: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = HandyDimens.StackM),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = text,
-            style = HandyType.BodyStrong,
-            color = HandyColors.TextSecondary,
+            text = "Your data stays yours. Handy talks directly to your AI.",
+            style = HandyDesignType.Caption,
+            color = HandyDesign.Colors.TextSecondary,
         )
     }
 }

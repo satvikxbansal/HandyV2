@@ -51,6 +51,23 @@
     <string name="permissions_title">One more step</string>
     <string name="permissions_tagline">Handy needs these to work.</string>
     <string name="privacy_details_close">Close disclosure</string>
+    <string name="privacy_sheet_title">Privacy Disclosure</string>
+    <string name="privacy_sheet_understand">I understand</string>
+    <string name="privacy_sheet_section1_eyebrow">What Handy can read</string>
+    <string name="privacy_sheet_section1_title">Active screen context</string>
+    <string name="privacy_sheet_section1_body">Handy uses Android\'s Accessibility Services to parse the text and layout of your current screen. This lets it understand what you\'re looking at and offer help in context.</string>
+    <string name="privacy_sheet_section2_eyebrow">Where data goes</string>
+    <string name="privacy_sheet_section2_title">Direct to AI Brain</string>
+    <string name="privacy_sheet_section2_body">Your data travels directly from your device to Anthropic\'s servers using your own API key. Handy\'s developers never see your screen context or chat history.</string>
+    <string name="privacy_sheet_section2_bold">your own API key</string>
+    <string name="privacy_sheet_section3_eyebrow">What Handy won\'t do</string>
+    <string name="privacy_sheet_section3_title">No silent monitoring</string>
+    <string name="privacy_sheet_section3_bullet1">Will not store your screen snapshots locally.</string>
+    <string name="privacy_sheet_section3_bullet2">Will not record audio without your active hold.</string>
+    <string name="privacy_sheet_section3_bullet3">Will not share your data with 3rd-party advertisers.</string>
+    <string name="privacy_sheet_section4_eyebrow">Your controls</string>
+    <string name="privacy_sheet_section4_title">Always in charge</string>
+    <string name="privacy_sheet_section4_body">You can revoke any permission or clear all history at any time from system settings. Handy only acts when you trigger it — never on its own.</string>
 
     <!-- Post-disclosure permissions screen (design-match copy) -->
     <string name="onboarding_title_post">A few permissions,\nand you\'re set.</string>
