@@ -73,7 +73,7 @@ fun ChatTopBarV2(
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            ChatHeaderIcon(R.drawable.ic_expand, "Minimise", onMinimise)
+            ChatHeaderIcon(R.drawable.ic_minimize_2, "Minimise", onMinimise)
             ChatHeaderIcon(R.drawable.ic_settings, "Settings", onOpenSettings)
         }
     }

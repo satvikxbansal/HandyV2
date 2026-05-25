@@ -1,5 +1,6 @@
 package com.handy.app.chat.design
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.StartOffset
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -43,7 +45,12 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -54,6 +61,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.handy.app.R
 import com.handy.app.design.HandyDesign
@@ -264,6 +272,51 @@ fun ThinkingDots(modifier: Modifier = Modifier) {
 }
 
 @Composable
+fun ContextBarClusterV2(
+    app: String,
+    onCommit: (String) -> Unit,
+    onMinimize: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        MinimizeButtonV2(onClick = onMinimize)
+        ContextBarPillV2(
+            app = app,
+            onCommit = onCommit,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+    }
+}
+
+@Composable
+private fun MinimizeButtonV2(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(HandyDesign.Colors.ContextBarSurface)
+            .border(0.5.dp, HandyDesign.Colors.ContextBarBorderSubtle, CircleShape)
+            .clickable(
+                role = Role.Button,
+                onClickLabel = "Minimise chat",
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_minimize_2),
+            contentDescription = "Minimise chat",
+            tint = HandyDesign.Colors.TextSecondary,
+            modifier = Modifier.size(14.dp),
+        )
+    }
+}
+
+@Composable
 fun ContextBarPillV2(
     app: String,
     onCommit: (String) -> Unit,
@@ -273,13 +326,27 @@ fun ContextBarPillV2(
     var draft by remember(app) { mutableStateOf(app) }
     val focusRequester = remember { FocusRequester() }
     val pillShape = RoundedCornerShape(999.dp)
+    val view = LocalView.current
+    val verticalPadding = if (editing) 3.dp else 8.dp
+    val borderColor by animateColorAsState(
+        targetValue = if (editing) {
+            HandyDesign.Colors.PointHair
+        } else {
+            HandyDesign.Colors.ContextBarBorderSubtle
+        },
+        animationSpec = tween(200, easing = FastOutSlowInEasing),
+        label = "pill-border",
+    )
 
     LaunchedEffect(app) {
         if (!editing) draft = app
     }
 
     LaunchedEffect(editing) {
-        if (editing) focusRequester.requestFocus()
+        if (editing) {
+            focusRequester.requestFocus()
+            view.announceForAccessibility("Editing context name. Current value: $app")
+        }
     }
 
     val commit = {
@@ -290,10 +357,16 @@ fun ContextBarPillV2(
 
     Row(
         modifier = modifier
+            .height(38.dp)
             .clip(pillShape)
-            .background(Color(0xC7181A1F))
-            .border(0.5.dp, Color.White.copy(alpha = 0.12f), pillShape)
-            .padding(start = 8.dp, top = 8.dp, end = 14.dp, bottom = 8.dp),
+            .background(HandyDesign.Colors.ContextBarSurface)
+            .border(0.5.dp, borderColor, pillShape)
+            .padding(
+                start = 8.dp,
+                top = verticalPadding,
+                end = if (editing) 6.dp else 14.dp,
+                bottom = verticalPadding,
+            ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(if (editing) 8.dp else 10.dp),
     ) {
@@ -307,6 +380,8 @@ fun ContextBarPillV2(
                     fontSize = 13.sp,
                     lineHeight = 16.sp,
                     color = HandyDesign.Colors.TextPrimary,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = (-0.005).em,
                 ),
                 cursorBrush = SolidColor(HandyDesign.Colors.Point),
                 keyboardOptions = KeyboardOptions.Default.copy(
@@ -321,7 +396,7 @@ fun ContextBarPillV2(
                     .padding(horizontal = 10.dp),
                 decorationBox = { inner ->
                     Box(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.CenterStart,
                     ) {
                         if (draft.isEmpty()) {
@@ -330,6 +405,8 @@ fun ContextBarPillV2(
                                 style = HandyDesignType.Body.copy(
                                     fontSize = 13.sp,
                                     lineHeight = 16.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    letterSpacing = 0.em,
                                 ),
                                 color = HandyDesign.Colors.TextMuted,
                             )
@@ -339,28 +416,47 @@ fun ContextBarPillV2(
                 },
             )
             Text(
-                text = "Done",
+                text = "Cancel",
                 style = HandyDesignType.Caption.copy(
                     fontSize = 11.sp,
                     lineHeight = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Medium,
                 ),
-                color = HandyDesign.Colors.Point,
-                modifier = Modifier
-                    .clickable { commit() }
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-            )
-            Text(
-                text = "Cancel",
-                style = HandyDesignType.Caption.copy(fontSize = 11.sp, lineHeight = 11.sp),
                 color = HandyDesign.Colors.TextMuted,
                 modifier = Modifier
+                    .semantics {
+                        contentDescription = "Cancel editing"
+                        role = Role.Button
+                    }
                     .clickable {
                         editing = false
                         draft = app
                     }
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
             )
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(HandyDesign.Colors.Point)
+                    .semantics {
+                        contentDescription = "Save context name"
+                        role = Role.Button
+                    }
+                    .clickable(role = Role.Button) { commit() }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "Done",
+                    style = HandyDesignType.Caption.copy(
+                        fontSize = 11.sp,
+                        lineHeight = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.02.em,
+                    ),
+                    color = Color.White,
+                )
+            }
         } else {
             Text(
                 text = buildAnnotatedString {
@@ -389,6 +485,10 @@ fun ContextBarPillV2(
                 ),
                 color = HandyDesign.Colors.Point,
                 modifier = Modifier
+                    .semantics {
+                        contentDescription = "Edit context name"
+                        role = Role.Button
+                    }
                     .clickable {
                         draft = app
                         editing = true

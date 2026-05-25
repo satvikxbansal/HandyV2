@@ -40,7 +40,7 @@ import com.handy.app.chat.design.ChatEmptyHeroV2
 import com.handy.app.chat.design.ChatReducedHeroV2
 import com.handy.app.chat.design.ChatTopBarV2
 import com.handy.app.chat.design.ConfirmActionSheetV2
-import com.handy.app.chat.design.ContextBarPillV2
+import com.handy.app.chat.design.ContextBarClusterV2
 import com.handy.app.chat.design.DaySeparatorV2
 import com.handy.app.chat.design.ErrorBannerV2
 import com.handy.app.chat.design.FloatingComposerV2
@@ -265,9 +265,10 @@ internal fun ChatScreen(
                 onVoiceStop = onVoiceStop,
                 bottomChrome = if (showContextBar) {
                     {
-                        ContextBarPillV2(
+                        ContextBarClusterV2(
                             app = state.currentToolName,
                             onCommit = onSetToolName,
+                            onMinimize = onMinimiseToOverlay,
                         )
                     }
                 } else {

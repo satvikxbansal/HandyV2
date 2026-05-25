@@ -17,10 +17,12 @@ object HandyDesign {
         val Surface = Color(0xFF111317)
         val SurfaceElevated = Color(0xFF181A1F)
         val SurfaceGlass = Color(0x14FFFFFF) // overlay only - 8% white
+        val ContextBarSurface = Color(0xC7181A1F) // 78% dark glass
 
         // Borders
         val BorderSubtle = Color(0x14FFFFFF) // 8% white
         val BorderStrong = Color(0x24FFFFFF) // 14% white
+        val ContextBarBorderSubtle = Color(0x1FFFFFFF) // 12% white
 
         // Text
         val TextPrimary = Color(0xFFF4F2EE)
@@ -45,6 +47,7 @@ object HandyDesign {
         val SeeSoft = Color(0x24D97757) // 14%
         val Point = Color(0xFF3B82F6) // chart-4 blue
         val PointSoft = Color(0x333B82F6) // 20%
+        val PointHair = Color(0x4D3B82F6) // 30%
         val PointHairline = Color(0x4D3B82F6) // 30%
         val Act = Color(0xFF7FB069) // emerald
         val ActSoft = Color(0x247FB069) // 14%
