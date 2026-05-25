@@ -42,18 +42,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -80,7 +73,6 @@ import com.handy.app.overlay.PanelGreetingCategory
 import com.handy.app.overlay.panelGreetingCategoryFor
 import com.handy.core.overlay.BuddyBubble
 import com.handy.core.overlay.OverlayPanelState
-import kotlin.math.min
 
 @Suppress("UNUSED_PARAMETER")
 @Composable
@@ -178,27 +170,7 @@ fun OverlayQuickChatPanelV2(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = maxPanelHeight)
-                    .drawBehind {
-                        val radiusPx = SheetTopCornerRadius.toPx()
-                        val glowPath = topSheetOutlinePath(size, radiusPx)
-                        drawPath(
-                            path = glowPath,
-                            color = HandyDesign.Colors.Accent.copy(alpha = 0.08f),
-                            style = Stroke(
-                                width = 22.dp.toPx(),
-                                cap = StrokeCap.Round,
-                            ),
-                        )
-                        drawPath(
-                            path = glowPath,
-                            color = HandyDesign.Colors.Accent.copy(alpha = 0.14f),
-                            style = Stroke(
-                                width = 10.dp.toPx(),
-                                cap = StrokeCap.Round,
-                            ),
-                        )
-                    },
+                    .heightIn(max = maxPanelHeight),
             ) {
                 Box(
                     modifier = Modifier
@@ -209,22 +181,11 @@ fun OverlayQuickChatPanelV2(
                             onClick = {},
                         )
                         .clip(sheetShape)
-                        .drawWithContent {
-                            drawContent()
-                            val strokeWidthPx = 1.dp.toPx()
-                            drawPath(
-                                path = topSheetOutlinePath(
-                                    size = size,
-                                    radiusPx = SheetTopCornerRadius.toPx(),
-                                    insetPx = strokeWidthPx / 2f,
-                                ),
-                                color = HandyDesign.Colors.AccentHairline,
-                                style = Stroke(
-                                    width = strokeWidthPx,
-                                    cap = StrokeCap.Round,
-                                ),
-                            )
-                        },
+                        .border(
+                            width = 0.5.dp,
+                            color = HandyDesign.Colors.AccentHairline,
+                            shape = sheetShape,
+                        ),
                 ) {
                     if (backdropSnapshot != null) {
                         PanelBackdrop(
@@ -297,51 +258,6 @@ fun OverlayQuickChatPanelV2(
                 }
             }
         }
-    }
-}
-
-private val SheetTopCornerRadius = 28.dp
-
-private fun topSheetOutlinePath(
-    size: Size,
-    radiusPx: Float,
-    insetPx: Float = 0f,
-): Path {
-    val left = insetPx
-    val top = insetPx
-    val right = (size.width - insetPx).coerceAtLeast(left)
-    val maxRadius = ((right - left) / 2f).coerceAtLeast(0f)
-    val radius = min(radiusPx, maxRadius)
-    return Path().apply {
-        if (radius <= 0f) {
-            moveTo(left, top)
-            lineTo(right, top)
-            return@apply
-        }
-        moveTo(left, top + radius)
-        arcTo(
-            rect = Rect(
-                left = left,
-                top = top,
-                right = left + radius * 2f,
-                bottom = top + radius * 2f,
-            ),
-            startAngleDegrees = 180f,
-            sweepAngleDegrees = 90f,
-            forceMoveTo = false,
-        )
-        lineTo(right - radius, top)
-        arcTo(
-            rect = Rect(
-                left = right - radius * 2f,
-                top = top,
-                right = right,
-                bottom = top + radius * 2f,
-            ),
-            startAngleDegrees = 270f,
-            sweepAngleDegrees = 90f,
-            forceMoveTo = false,
-        )
     }
 }
 
