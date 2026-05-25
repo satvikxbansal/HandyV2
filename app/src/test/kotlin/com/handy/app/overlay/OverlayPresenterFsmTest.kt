@@ -65,7 +65,7 @@ class OverlayPresenterFsmTest {
         presenter.onWidgetTap()
 
         val panel = presenter.state.value.panel
-        assertThat(panel.greeting).isEqualTo("In Photos. What can I help you with?")
+        assertThat(panel.greeting).isEqualTo("In Photos. Describe a photo or find one?")
         assertThat(panel.snapshot?.toolContext?.displayLabel).isEqualTo("Photos")
     }
 
@@ -128,7 +128,7 @@ class OverlayPresenterFsmTest {
         presenter.onWidgetTap()
 
         val panel = presenter.state.value.panel
-        assertThat(panel.greeting).isEqualTo("In Photos. What can I help you with?")
+        assertThat(panel.greeting).isEqualTo("In Photos. Describe a photo or find one?")
         assertThat(panel.snapshot?.toolContext?.packageName)
             .isEqualTo("com.google.android.apps.photos")
     }

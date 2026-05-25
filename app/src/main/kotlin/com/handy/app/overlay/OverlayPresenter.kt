@@ -731,25 +731,44 @@ internal fun panelGreetingFor(snapshot: PanelSnapshot?): String {
     val label = context.displayLabel
         .trim()
         .takeIf { it.isNotBlank() && !it.equals("Handy", ignoreCase = true) }
-    return when (panelGreetingCategoryFor(context.packageName, context.umbrellaSiteLabel)) {
+    val category = panelGreetingCategoryFor(context.packageName, context.umbrellaSiteLabel)
+    return when (category) {
         PanelGreetingCategory.SETTINGS -> "In Settings. What do you need?"
         PanelGreetingCategory.BROWSER -> label?.let { "Browsing in $it. Need help with this page?" }
-            ?: FALLBACK_PANEL_GREETING
-        PanelGreetingCategory.PHOTOS -> label?.let { "In $it. What can I help you with?" }
-            ?: FALLBACK_PANEL_GREETING
-        PanelGreetingCategory.EMAIL -> label?.let { "In $it. Need help with your email?" }
-            ?: FALLBACK_PANEL_GREETING
-        PanelGreetingCategory.MAPS -> label?.let { "In $it. Where do you need to go?" }
-            ?: "Where do you need to go?"
+            ?: "Browsing the web. Need help with this page?"
+        PanelGreetingCategory.EMAIL -> label?.let { "In $it. Want me to read or reply?" }
+            ?: "In your inbox. Want me to read or reply?"
+        PanelGreetingCategory.MAPS -> label?.let { "In $it. Where to?" }
+            ?: "Where to?"
         PanelGreetingCategory.CAMERA -> label?.let { "${it}'s open. Want a photography tip?" }
             ?: "Camera's open. Want a photography tip?"
-        PanelGreetingCategory.PHONE -> label?.let { "In $it. What do you need?" }
-            ?: "In the Phone app. What do you need?"
-        PanelGreetingCategory.SHOPPING -> label?.let {
-            "Shopping in $it. Compare, coupons, or returns?"
-        } ?: "Shopping. What should I check?"
-        PanelGreetingCategory.DEFAULT -> label?.let {
-            "In $it. What can I help you with?"
-        } ?: FALLBACK_PANEL_GREETING
+        PanelGreetingCategory.PHONE -> label?.let { "In $it. Help with this call?" }
+            ?: "On a call. Anything I can do?"
+        PanelGreetingCategory.SHOPPING -> label?.let { "Shopping in $it. Compare, coupons, or returns?" }
+            ?: "Shopping. Compare, coupons, or returns?"
+        PanelGreetingCategory.PHOTOS -> label?.let { "In $it. Describe a photo or find one?" }
+            ?: "Browsing your photos. Want me to describe one?"
+        PanelGreetingCategory.MUSIC -> label?.let { "In $it. Set the mood or queue something?" }
+            ?: "Music's on. Set the mood or queue something?"
+        PanelGreetingCategory.VIDEO -> label?.let { "In $it. Summarise or pick what's next?" }
+            ?: "Watching something. Summarise or pick what's next?"
+        PanelGreetingCategory.MESSAGING -> label?.let { "In $it. Draft, summarise, or translate?" }
+            ?: "Messaging. Draft, summarise, or translate?"
+        PanelGreetingCategory.SOCIAL -> label?.let { "In $it. Summarise the feed or draft a post?" }
+            ?: "On social. Summarise the feed or draft a post?"
+        PanelGreetingCategory.CALENDAR -> label?.let { "In $it. Find time or summarise a day?" }
+            ?: "Planning your day. Find time or summarise?"
+        PanelGreetingCategory.NOTES -> label?.let { "In $it. Summarise, expand, or rewrite?" }
+            ?: "In your notes. Summarise, expand, or rewrite?"
+        // Keep banking neutral on PII-sensitive screens; do not accent the label.
+        PanelGreetingCategory.BANKING -> "Banking app open. I'll keep things general."
+        PanelGreetingCategory.FOOD -> label?.let { "In $it. Find food or track an order?" }
+            ?: "Ordering food. What sounds good?"
+        PanelGreetingCategory.RIDE -> label?.let { "In $it. Book a ride or check arrival?" }
+            ?: "Hailing a ride. Book or check arrival?"
+        PanelGreetingCategory.FILES -> label?.let { "In $it. Find or organise something?" }
+            ?: "In Files. Find or organise something?"
+        PanelGreetingCategory.DEFAULT -> label?.let { "In $it. What can I help with?" }
+            ?: FALLBACK_PANEL_GREETING
     }
 }
