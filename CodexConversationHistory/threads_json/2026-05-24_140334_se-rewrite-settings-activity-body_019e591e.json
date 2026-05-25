@@ -1,0 +1,346 @@
+{
+  "metadata": {
+    "thread_id": "019e591e-3da6-7c03-b890-36afd1b41ee8",
+    "title": "SE: Rewrite settings activity body",
+    "created_local": "2026-05-24 14:03:34 IST",
+    "updated_local": "2026-05-24 14:56:19 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/24/rollout-2026-05-24T14-03-34-019e591e-3da6-7c03-b890-36afd1b41ee8.jsonl",
+    "recorded_git_sha_at_start": "1a34da321d829679d0b132de07b132c936af52d3",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 55,
+    "summary": "This conversation focused on: 1) Build the Privacy & data accordion (4 rows). 2) Build the new SettingsHeader (40 dp back tile + title) and SettingsFooter (Handy mark + version line). 3) Rewrite SettingsScreen / SettingsActivity body to use the 4 accordion sections + M… Likely related git changes: 2028fb9 S (C+D+E): settings page redesign - all done!; 1f95269 bug fixes.",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "2028fb9062458ab332aaf712353597d374e0932f",
+        "short": "2028fb9",
+        "author_time": "2026-05-24 14:36:30 IST",
+        "subject": "S (C+D+E): settings page redesign - all done!",
+        "confidence": "medium",
+        "score": 6,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words done, settings"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/action/DefaultActionPolicyEngine.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/storage/DataStoreSettings.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/action/DefaultActionPolicyEngineTest.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SettingsViewModel.kt",
+          "app/src/main/kotlin/com/handy/app/settings/design/SettingsPrimitives.kt",
+          "app/src/main/kotlin/com/handy/app/settings/sections/AutomationsSection.kt",
+          "app/src/main/kotlin/com/handy/app/settings/sections/BrainSection.kt",
+          "app/src/main/kotlin/com/handy/app/settings/sections/CapabilitiesSection.kt",
+          "app/src/main/kotlin/com/handy/app/settings/sections/ModelPickerSheet.kt",
+          "app/src/main/kotlin/com/handy/app/settings/sections/PrivacySection.kt"
+        ]
+      },
+      {
+        "hash": "1f95269e7e04e52d9afac2eeb52667f498f89f23",
+        "short": "1f95269",
+        "author_time": "2026-05-24 15:00:03 IST",
+        "subject": "bug fixes",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/kotlin/com/handy/app/foreground/HandyForegroundAppMonitor.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPanelContent.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPanelService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPanelBridge.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/OverlayPresenterFsmTest.kt",
+          "core/src/main/kotlin/com/handy/core/overlay/OverlayPanelState.kt",
+          "core/src/main/kotlin/com/handy/core/prompts/QuickPromptCatalog.kt",
+          "core/src/test/kotlin/com/handy/core/prompts/QuickPromptCatalogTest.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-24T08:33:37.041Z",
+      "role": "user",
+      "text": "Read the universal rules. Single-pass. THIS IS THE BIG ONE — the\nwhole SettingsActivity body gets rewritten.\n\nGOAL\n1) Build the Privacy & data accordion (4 rows).\n2) Build the new SettingsHeader (40 dp back tile + title) and\n   SettingsFooter (Handy mark + version line).\n3) Rewrite SettingsScreen / SettingsActivity body to use the 4\n   accordion sections + ModelPickerSheet. Delete the old\n   CapabilityPolicySection (the \"What Handy can do today\" wall) —\n   its content is now distributed across the 4 accordions.\n4) Wire every callback to its existing SettingsViewModel function.\n\nFILES TO READ FIRST (in full)\n- handy-new-design-handoff/project/src/scenes-settings.jsx (entire\n  file — re-read; especially 30–80 for Header/Footer, 554–577 for\n  PrivacyCard, 587–625 for SettingsAccordion assembly)\n- app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt\n  (whole file — confirm every callback name; the activity body\n  will be rewritten but EVERY callback name passed today must\n  still be passed)\n- app/src/main/kotlin/com/handy/app/settings/SettingsViewModel.kt\n  (no changes beyond S-D additions)\n- app/src/main/kotlin/com/handy/app/settings/sections/*  (S-B/C/D)\n- app/src/main/kotlin/com/handy/app/settings/design/SettingsPrimitives.kt\n  (S-A)\n\nCREATE — one new section file\napp/src/main/kotlin/com/handy/app/settings/sections/PrivacySection.kt\n\nPublic signature:\n  @Composable\n  fun PrivacySection(\n    expanded: Boolean, onToggleExpanded: () -> Unit,\n    blockInIncognito: Boolean,\n    onBlockInIncognitoToggle: (Boolean) -> Unit,\n    clipboardAssist: Boolean,\n    onClipboardAssistToggle: (Boolean) -> Unit,\n    auditEntriesCount: Int,\n    onOpenActivityLog: () -> Unit,\n    onClearHistory: () -> Unit,\n  )\n\nLayout per JSX 554–577:\n  SectionCard(tone = SectionTone.EmeraldPrivacy, glow = expanded) {\n    SectionHead(R.drawable.ic_phosphor_shield, EmeraldPrivacy,\n                \"Privacy & data\", \"Controls, audit, and clearing data\",\n                expanded, onToggleExpanded)\n    if (expanded) {\n      SwitchRow(\"Block in Incognito\", checked = blockInIncognito,\n                onCheckedChange = onBlockInIncognitoToggle)\n      SwitchRow(\"Clipboard assist\",   checked = clipboardAssist,\n                onCheckedChange = onClipboardAssistToggle)\n      NavRow(\"Activity log\",\n             value = if (auditEntriesCount > 0) \"$auditEntriesCount entries\" else null,\n             onClick = onOpenActivityLog)\n      NavRow(\"Clear chat history\", danger = true, onClick = onClearHistory)\n    }\n  }\n\nCREATE — header + footer file\napp/src/main/kotlin/com/handy/app/settings/sections/SettingsChrome.kt\n\n  @Composable\n  fun SettingsHeader(onBack: () -> Unit) {\n    Column {\n      Row(\n        modifier = Modifier.fillMaxWidth()\n          .padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 16.dp),\n        verticalAlignment = Alignment.CenterVertically,\n        horizontalArrangement = Arrangement.spacedBy(14.dp),\n      ) {\n        Box(\n          Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))\n            .background(HandyDesign.Colors.Surface)\n            .clickable(onClick = onBack),\n          contentAlignment = Alignment.Center,\n        ) {\n          Icon(painterResource(R.drawable.ic_chevron_back),\n               contentDescription = \"Back\",\n               tint = HandyDesign.Colors.TextPrimary,\n               modifier = Modifier.size(18.dp))\n        }\n        Text(\"Settings\",\n             style = HandyDesignType.Display.copy(\n               fontSize = 26.sp, lineHeight = 26.sp,\n               fontWeight = FontWeight.SemiBold,\n               letterSpacing = (-0.022).em),\n             color = HandyDesign.Colors.TextPrimary)\n      }\n      Box(Modifier.fillMaxWidth().height(1.dp)\n          .background(HandyDesign.Colors.BorderSubtle))\n    }\n  }\n\n  @Composable\n  fun SettingsFooter(versionName: String) {\n    Column(\n      modifier = Modifier.fillMaxWidth()\n        .padding(top = 28.dp, start = 20.dp, end = 20.dp, bottom = 20.dp),\n      horizontalAlignment = Alignment.CenterHorizontally,\n      verticalArrangement = Arrangement.spacedBy(8.dp),\n    ) {\n      Row(verticalAlignment = Alignment.CenterVertically,\n          horizontalArrangement = Arrangement.spacedBy(8.dp),\n          modifier = Modifier.alpha(0.45f)) {\n        Icon(painterResource(R.drawable.ic_phosphor_hand_palm_outline),\n             contentDescription = null,\n             tint = HandyDesign.Colors.TextMuted,\n             modifier = Modifier.size(18.dp))\n        Text(\"HANDY\",\n             style = HandyDesignType.Display.copy(\n               fontSize = 12.sp, lineHeight = 12.sp,\n               fontWeight = FontWeight.SemiBold,\n               letterSpacing = 0.18.em),\n             color = HandyDesign.Colors.TextMuted)\n      }\n      Text(\"Version $versionName · Made for Android\",\n           style = HandyDesignType.Overline.copy(\n             fontSize = 10.sp, lineHeight = 10.sp,\n             fontWeight = FontWeight.Normal,\n             letterSpacing = 0.10.em,\n             fontFamily = FontFamily.Monospace).copy(\n             color = HandyDesign.Colors.TextMuted))\n    }\n  }\n\nREWRITE SettingsScreen body (replace lines ~128–446 of\nSettingsActivity.kt) — preserve the signature exactly. Activity\ncontainer stays.\n\n  @Composable\n  internal fun SettingsScreen(\n      state: SettingsUiState,\n      snackbarHostState: SnackbarHostState,\n      onClaudeKeyChange: (String) -> Unit,\n      onBraveKeyChange: (String) -> Unit,\n      onJinaKeyChange: (String) -> Unit,\n      onGithubKeyChange: (String) -> Unit,\n      onWebSearchToggle: (Boolean) -> Unit,\n      onClaudeModelVariant: (Boolean) -> Unit,\n      onTutorModeToggle: (Boolean) -> Unit,\n      onTapForMeToggle: (Boolean) -> Unit,\n      onNoActionsInIncognitoToggle: (Boolean) -> Unit,\n      onTapForMePanicMute: () -> Unit,\n      onTapForMeStopUntilTurnedBackOn: () -> Unit,\n      onTapForMeRestorePackage: (String) -> Unit,\n      onReviewActionDisclosure: () -> Unit,\n      onClearHistory: () -> Unit,\n      onBack: () -> Unit,\n      // NEW callbacks (add to SettingsActivity setContent block too):\n      onTypeForMeToggle: (Boolean) -> Unit = {},\n      onRecipesToggle: (Boolean) -> Unit = {},\n      onClipboardAssistToggle: (Boolean) -> Unit = {},\n      onOpenActivityLog: () -> Unit = {},\n      onRequestMic: () -> Unit = {},\n  ) {\n    // Section expansion state\n    var capabilitiesOpen by rememberSaveable { mutableStateOf(true) }\n    var automationsOpen  by rememberSaveable { mutableStateOf(false) }\n    var privacyOpen      by rememberSaveable { mutableStateOf(false) }\n    var brainSheetOpen   by rememberSaveable { mutableStateOf(false) }\n\n    val context = LocalContext.current\n    val accessibilityEnabled = state.settings?.accessibilityDisclosureAcknowledged == true\n      && /* live a11y state from monitor */ true  // wire via existing\n                                                  // AccessibilityStateMonitor\n                                                  // injection if available\n    val micGranted = remember {\n      ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==\n        PackageManager.PERMISSION_GRANTED\n    }\n    val notifsOn = state.settings?.notificationListenerEnabled == true\n\n    val tapForMeMuted =\n      (state.settings?.tapForMeMutedUntilEpochMs ?: 0L) > System.currentTimeMillis()\n    val actionDisclosureAccepted =\n      (state.settings?.actionDisclosureVersionAccepted ?: 0) >=\n        ActionExecutionGate.REQUIRED_DISCLOSURE_VERSION\n    val tapForMeAvailable = actionDisclosureAccepted && !tapForMeMuted\n\n    val useHaiku = state.settings?.claudeModelOverride ==\n      HandySettings.DEFAULT_CLAUDE_HAIKU_MODEL\n    val selectedModelLabel = if (useHaiku) \"Claude Haiku 4.5\"\n                             else          \"Claude Sonnet 4.5\"\n    val selectedModelId    = if (useHaiku) \"haiku-4-5\" else \"sonnet-4-5\"\n\n    val disabledApps = remember(state.settings?.tapForMeUserDenylistedPackages) {\n      val pm = context.packageManager\n      state.settings?.tapForMeUserDenylistedPackages.orEmpty()\n        .toList().sorted().map { pkg ->\n          DisabledAppEntry(\n            label = friendlyAppLabelOrPackage(pkg, pm),\n            packageName = pkg,\n            initialColor = colorForPackage(pkg),\n          )\n        }\n    }\n\n    Box(Modifier.fillMaxSize().background(HandyDesign.Colors.PageBg)) {\n      Column(\n        Modifier.fillMaxSize()\n          .statusBarsPadding()\n          .navigationBarsPadding(),\n      ) {\n        SettingsHeader(onBack = onBack)\n\n        Column(\n          Modifier.fillMaxWidth().verticalScroll(rememberScrollState())\n            .padding(horizontal = 16.dp, vertical = 18.dp),\n          verticalArrangement = Arrangement.spacedBy(14.dp),\n        ) {\n          BrainSection(\n            selectedModelLabel = selectedModelLabel,\n            providerLine = if (useHaiku) \"Faster · Anthropic\"\n                           else          \"Best reasoning · Anthropic\",\n            apiKeyMasked = state.claudeKeyMasked,\n            onApiKeyChange = onClaudeKeyChange,\n            requestsTodayLabel = \"—\",  // optional; pass empty if unknown\n            connected = state.claudeKeyMasked != null,\n            onOpenPicker = { brainSheetOpen = true },\n          )\n          CapabilitiesSection(\n            expanded = capabilitiesOpen,\n            onToggleExpanded = { capabilitiesOpen = !capabilitiesOpen },\n            screenReadingOn = accessibilityEnabled,\n            voiceInputOn = micGranted,\n            notificationsOn = notifsOn,\n            onOpenAccessibilitySettings = {\n              context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))\n            },\n            onRequestMic = onRequestMic,\n            onOpenNotificationListenerSettings = {\n              context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))\n            },\n            webSearchOn = state.settings?.webSearchEnabled == true,\n            onWebSearchToggle = onWebSearchToggle,\n            braveKeyMasked = state.braveKeyMasked,\n            jinaKeyMasked = state.jinaKeyMasked,\n            githubKeyMasked = state.githubKeyMasked,\n            onBraveKeyChange = onBraveKeyChange,\n            onJinaKeyChange = onJinaKeyChange,\n            onGithubKeyChange = onGithubKeyChange,\n            tutorOn = state.settings?.tutorModeEnabled == true,\n            onTutorToggle = onTutorModeToggle,\n          )\n          AutomationsSection(\n            expanded = automationsOpen,\n            onToggleExpanded = { automationsOpen = !automationsOpen },\n            tapForMeOn = state.settings?.tapForMeEnabled == true,\n            onTapForMeToggle = onTapForMeToggle,\n            typeForMeOn = state.settings?.typeForMeEnabled != false,\n            onTypeForMeToggle = onTypeForMeToggle,\n            recipesOn = state.settings?.recipesEnabled != false,\n            onRecipesToggle = onRecipesToggle,\n            tapForMeAvailable = tapForMeAvailable,\n            onPanic1Hr = onTapForMePanicMute,\n            onStopUntilBackOn = onTapForMeStopUntilTurnedBackOn,\n            disabledApps = disabledApps,\n            onRestorePackage = onTapForMeRestorePackage,\n          )\n          PrivacySection(\n            expanded = privacyOpen,\n            onToggleExpanded = { privacyOpen = !privacyOpen },\n            blockInIncognito = state.settings?.noActionsInIncognito != false,\n            onBlockInIncognitoToggle = onNoActionsInIncognitoToggle,\n            clipboardAssist = state.settings?.clipboardAssistEnabled == true,\n            onClipboardAssistToggle = onClipboardAssistToggle,\n            auditEntriesCount = 0,    // TODO: thread from AuditStore if\n                                      // a cheap count is available; else 0\n            onOpenActivityLog = onOpenActivityLog,\n            onClearHistory = onClearHistory,\n          )\n        }\n\n        SettingsFooter(versionName = BuildConfig.VERSION_NAME)\n      }\n\n      SnackbarHost(snackbarHostState, modifier = Modifier\n        .align(Alignment.BottomCenter).navigationBarsPadding()\n        .padding(16.dp)) { data ->\n        Snackbar(containerColor = HandyDesign.Colors.SurfaceElevated,\n                 contentColor = HandyDesign.Colors.TextPrimary,\n                 snackbarData = data)\n      }\n\n      if (brainSheetOpen) {\n        ModelPickerSheet(\n          selectedModelId = selectedModelId,\n          onSelect = { id ->\n            when (id) {\n              \"sonnet-4-5\" -> onClaudeModelVariant(false)\n              \"haiku-4-5\"  -> onClaudeModelVariant(true)\n              else         -> Unit   // coming-soon\n            }\n          },\n          onDismiss = { brainSheetOpen = false },\n        )\n      }\n    }\n  }\n\nACTIVITY (SettingsActivity.kt setContent block):\nForward the 5 new lambdas to the screen, wiring to the viewmodel:\n  onTypeForMeToggle = viewModel::setTypeForMeEnabled,\n  onRecipesToggle = viewModel::setRecipesEnabled,\n  onClipboardAssistToggle = { enabled ->\n    viewModel.updateSettings { it.copy(clipboardAssistEnabled = enabled) }\n  },\n  onOpenActivityLog = { AuditReviewActivity.open(context) },\n  onRequestMic = { micLauncher.launch(Manifest.permission.RECORD_AUDIO) },\n\nWhere `micLauncher` is:\n  private val micLauncher = registerForActivityResult(\n    ActivityResultContracts.RequestPermission()) { /* refresh */ }\n\nDELETE\n- The old SectionHeaderWithIcon(...) calls (no longer used).\n- The CapabilityPolicySection composable + buildCapabilityPolicyRows\n  helper + CapabilityPolicyRow / CapabilityStatus types.\n  REMOVE these completely — they're dead code after the rewrite.\n- The old BrainModelCard / ToggleCard / ActionButtonCard /\n  RevokedPackageList / RevokedPackageRow / DashedDivider / RadioDot\n  / ReadyPill composables, ALL of which are replaced by the new\n  primitives + sections. They're now dead.\n- The standalone \"Clear all chat history\" red pill at the bottom is\n  REMOVED from the body (it's now a NavRow inside Privacy section).\n- The bottom version Text line — REMOVED (now in SettingsFooter).\n\nKEEP\n- Every string resource id referenced anywhere. Re-use them in\n  the new composables where their text matches.\n- The SnackbarHost + the viewmodel.messages subscription that\n  drives it. The Settings still surfaces toast confirmations.\n\nDON'T DO\n- Don't remove any string resource even if the composable that used\n  it is deleted — leave them in res/values/strings.xml for legacy.\n- Don't change the public SettingsActivity callback names.\n- Don't change SettingsViewModel except the 2 setters from S-D + a\n  setter for clipboardAssistEnabled if not present.\n\nSELF-VERIFY\n1. ./gradlew :app:assembleDebug — green.\n2. ./gradlew :app:test :app:lint\n3. Manual on Pixel 9:\n   - Open Settings from chat. Confirm the new 4-section accordion:\n     Brain (open), Capabilities (open), Automations (closed),\n     Privacy & data (closed).\n   - Expand Automations. Toggle Type-for-me OFF, attempt a recipe\n     that types — confirm it's blocked.\n   - Expand Privacy. Tap \"Clear chat history\" — confirm Snackbar\n     fires and history is wiped.\n   - Tap \"Change\" on Brain card → ModelPickerSheet slides up. Tap\n     \"Claude Haiku 4.5\" → sheet dismisses, card updates to\n     \"Claude Haiku 4.5\". Key field still shows the same masked key.\n\nSTOP CONDITIONS (revert + report only)\n- AccessibilityStateMonitor's `isEnabled` flow can't be observed\n  from SettingsActivity (not injected here). Add a Hilt-injected\n  field if straightforward; otherwise leave screenReadingOn as\n  `state.settings?.accessibilityDisclosureAcknowledged == true` and\n  document the limitation in the DEBUG_LOG.\n\nDEBUG_LOG ENTRY (DL-###)\nTitle: \"Settings rewritten into 4 colour-coded accordion sections\n+ ModelPickerSheet. Capability-disclosure wall removed; per-section\ndisclosure now lives inside each accordion's expanded state.\"\nPrevention rule: when a screen's information architecture changes\nfundamentally, every dead composable from the old IA must be deleted\nin the same PR — leaving them as \"reference\" creates drift. \n\nAdditional stuff\nA) Mention the change the code brings to the application - the before and after with real life practical examples if possible. \nB) Share an indepth end to end manual testing plan of the changes done - be practical and ensure all aspects are tested well before we proceed.   \nC) ENSURE THERE ARE NO BUILDS ERRORS OR APP CRASHES. AUDIOT THE CODE COMPLETELY AND FIX ANY ERRORS"
+    },
+    {
+      "timestamp": "2026-05-24T08:33:49.372Z",
+      "role": "assistant",
+      "text": "I’ll treat this as a surgical rewrite, starting by reading the handoff and current settings code before touching anything. I’m going to locate the universal rules/debug log too so the implementation lands in the project’s expected paper trail."
+    },
+    {
+      "timestamp": "2026-05-24T08:34:01.162Z",
+      "role": "assistant",
+      "text": "The worktree is already dirty, including the settings files and new section files. I’ll preserve what’s there and layer this pass on top, so any S-A/B/C/D work stays intact."
+    },
+    {
+      "timestamp": "2026-05-24T08:34:11.695Z",
+      "role": "assistant",
+      "text": "I found the settings pass already has Hilt-injected `AccessibilityStateMonitor` and live mic/notification refresh machinery, which means the stop-condition path is avoidable: we can keep the UI rows wired to real OS state instead of falling back to the disclosure flag."
+    },
+    {
+      "timestamp": "2026-05-24T08:34:31.024Z",
+      "role": "assistant",
+      "text": "I’ve re-read the JSX regions for Header/Footer, PrivacyCard, and the SettingsAccordion assembly. The Kotlin primitives already expose the exact `SectionCard`, `SectionHead`, `SwitchRow`, and `NavRow` building blocks needed for the new privacy section."
+    },
+    {
+      "timestamp": "2026-05-24T08:35:19.680Z",
+      "role": "assistant",
+      "text": "The rule files are under Karpathy/Handy names rather than a literal `universal` filename, so I’m reading the always-apply rule set from `.cursor/rules` now and using the DEBUG_LOG rule that already applies to this change."
+    },
+    {
+      "timestamp": "2026-05-24T08:37:38.913Z",
+      "role": "assistant",
+      "text": "Plan\n\nPhase: V2 settings surface consolidation, covering the SettingsActivity surface from V2 scope §2 plus tap-for-me audit/privacy controls from §4.3 and clipboard controls from §9. Acceptance check advanced: Settings exposes the new four-section IA, toggles route to their backed settings/policy paths, model switching works without restart, and stale old-IA composables are gone.\n\nFiles I’ll touch:\n- `app/src/main/kotlin/com/handy/app/settings/sections/PrivacySection.kt`: add the emerald Privacy & data accordion.\n- `app/src/main/kotlin/com/handy/app/settings/sections/SettingsChrome.kt`: add the new 40dp back-tile header and Handy/version footer.\n- `app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt`: rewrite the SettingsScreen body around Brain, Capabilities, Automations, Privacy, and ModelPickerSheet; wire all callbacks through the existing Activity/ViewModel path.\n- `app/src/main/kotlin/com/handy/app/settings/SettingsViewModel.kt`: only add the missing clipboard-assist setter.\n- `DEBUG_LOG.md`: append the requested DL entry, sequentially after DL-098.\n\nInterfaces I will not change:\n- No string resource deletion.\n- No public SettingsActivity callback names removed; legacy callbacks like `onReviewActionDisclosure` stay in the screen signature even though the old disclosure wall is gone.\n- No changes to `HandySettings`, `DataStoreSettings`, policy engine, or existing section public signatures beyond adding the requested new section/chrome files.\n\nRisks and checks:\n- Compose import drift and dead private UI helpers: catch with `:app:assembleDebug`, `:app:test`, `:app:lint`, and symbol greps for deleted helper names.\n- Permission rows regressing from live OS state: keep the existing `AccessibilityStateMonitor` path and refresh mic/notification state from lifecycle.\n- UI callback miswiring: verify each row maps to the existing ViewModel function or explicit Activity launcher, then run Gradle and, if an emulator/device is attached, smoke Settings."
+    },
+    {
+      "timestamp": "2026-05-24T08:37:40.341Z",
+      "role": "assistant",
+      "text": "I’m going to add the two small section files first, then rewrite the activity around them. After that I’ll do the cleanup grep so we’re not leaving old private UI machinery hidden in the file."
+    },
+    {
+      "timestamp": "2026-05-24T08:41:44.096Z",
+      "role": "assistant",
+      "text": "The activity is now centered on the new information architecture. I’m adding the tiny ViewModel setter for clipboard assist next, then I’ll run the symbol audit for the removed old Settings components."
+    },
+    {
+      "timestamp": "2026-05-24T08:42:28.298Z",
+      "role": "assistant",
+      "text": "The dead-code grep only found the legacy string resource, which the prompt explicitly says to keep. I’m moving into build verification now; based on the repo’s recent log I’ll use the local JDK path if the host JRE is still absent."
+    },
+    {
+      "timestamp": "2026-05-24T08:42:37.640Z",
+      "role": "assistant",
+      "text": "Plain Gradle is still blocked before Gradle starts because macOS can’t find a system Java runtime. I’m rerunning the same checks with the repo-local JDK that this project’s DEBUG_LOG already uses for validation."
+    },
+    {
+      "timestamp": "2026-05-24T08:42:59.269Z",
+      "role": "assistant",
+      "text": "`assembleDebug` is green with the local JDK, so the new section files and activity rewrite compile. I’m running the unit/lint lane now; if lint catches any stale import or Compose issue, I’ll fix it before moving on."
+    },
+    {
+      "timestamp": "2026-05-24T08:43:28.047Z",
+      "role": "assistant",
+      "text": "The requested Gradle lanes are green with the local JDK: assemble, tests, and lint. I’m doing the final diff/audit pass now, then I’ll append the sequential DEBUG_LOG entry with the validation details."
+    },
+    {
+      "timestamp": "2026-05-24T08:43:47.580Z",
+      "role": "assistant",
+      "text": "The APK built, but `adb` is not on PATH. I’ll look for the SDK-bundled `adb`; if it’s available I’ll do the Settings smoke on the attached emulator/device, otherwise I’ll record that manual Pixel validation is blocked by tooling/device access."
+    },
+    {
+      "timestamp": "2026-05-24T08:44:30.247Z",
+      "role": "assistant",
+      "text": "An emulator is attached, so I’m going to do a pragmatic smoke pass there: install the debug APK, open Settings directly, verify the visible accordion labels via UI dump, exercise the Brain sheet and Privacy clear-history path, and check logcat for runtime crashes."
+    },
+    {
+      "timestamp": "2026-05-24T08:49:02.395Z",
+      "role": "assistant",
+      "text": "The emulator smoke is clean: Settings opens through Chat, the four sections render, Privacy expands, Clear chat history fires the Snackbar, the Brain sheet opens and selecting Haiku dismisses it and updates the card. I couldn’t perform the “attempt a real recipe that types” part on this emulator because the action-disclosure gate is not accepted/configured for a real recipe flow here; the policy denial path is already covered by the existing tests from S-D."
+    },
+    {
+      "timestamp": "2026-05-24T08:49:56.457Z",
+      "role": "assistant",
+      "text": "One cleanup grep found `RadioDot`, but it’s the active model-picker selector, not the old SettingsActivity helper. To keep the old-IA symbol fully gone, I’m renaming that helper to a sheet-specific name and rebuilding."
+    },
+    {
+      "timestamp": "2026-05-24T08:50:11.081Z",
+      "role": "assistant",
+      "text": "The old-IA symbol grep is clean now. Since that rename touched Kotlin, I’m rerunning the requested Gradle lanes once more so the final state, not the earlier state, is what’s validated."
+    },
+    {
+      "timestamp": "2026-05-24T08:50:54.008Z",
+      "role": "assistant",
+      "text": "The final Kotlin state is green again after the selector rename. I’m doing one quick reinstall/logcat smoke with the rebuilt APK so the emulator crash check matches the final artifact."
+    },
+    {
+      "timestamp": "2026-05-24T08:51:42.953Z",
+      "role": "assistant",
+      "text": "Implemented the Settings rewrite.\n\nChanged:\n- [SettingsActivity.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt): now renders Brain, Capabilities, Automations, Privacy & data, plus `ModelPickerSheet`.\n- [PrivacySection.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/settings/sections/PrivacySection.kt): new emerald privacy accordion.\n- [SettingsChrome.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/settings/sections/SettingsChrome.kt): new 40dp back-tile header and Handy/version footer.\n- [SettingsViewModel.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/settings/SettingsViewModel.kt): added `setClipboardAssistEnabled`.\n- [ModelPickerSheet.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/settings/sections/ModelPickerSheet.kt): renamed the active picker dot helper so the old `RadioDot` symbol is gone.\n- [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md): appended `DL-099`.\n\nBefore/after in app terms: Settings used to feel like a wall of permissions and policy copy. Now a user can think “change the brain,” “turn on what Handy can see/hear,” “control automations,” or “privacy/data cleanup” and go straight to that section. Example: “Clear chat history” is no longer a lonely red pill at the bottom; it lives under Privacy & data next to Activity log, Incognito blocking, and Clipboard assist.\n\nVerification:\n- Plain `./gradlew :app:assembleDebug --stacktrace` is blocked on this machine by missing system Java.\n- Local JDK `:app:assembleDebug` passed.\n- Local JDK `:app:test :app:lint` passed.\n- `git diff --check` passed.\n- Old-IA symbol grep is clean for `CapabilityPolicySection`, `SectionHeaderWithIcon`, `ToggleCard`, `ReadyPill`, `RadioDot`, etc.\n- Emulator smoke on `emulator-5554`: Settings opened from Chat, default sections rendered, Privacy expanded, Clear chat history showed `Chat history cleared`, Brain picker opened, Haiku selection dismissed sheet and updated card, final APK relaunched with no `E/AndroidRuntime`, `FATAL EXCEPTION`, or `E ActivityTaskManager`.\n\nManual Test Plan:\n1. Fresh install or upgrade, open Chat, tap Settings.\n2. Confirm first view: Brain open, Capabilities open, Automations collapsed, Privacy & data collapsed.\n3. Verify header back tile returns to Chat; scroll to footer and confirm Handy mark plus version line.\n4. Brain: tap Change, verify provider groups and `Soon` rows, select Haiku/Sonnet, confirm sheet dismisses and masked API key stays.\n5. Capabilities: tap disabled Screen reading / Voice input / Notifications rows and confirm they open the correct Android grant flows; toggle Web search and verify Brave/Jina/GitHub fields.\n6. Automations: with action disclosure accepted, toggle Type-for-me off, attempt a recipe that types, confirm policy blocks it; test panic 1h and stop-until-back-on.\n7. Privacy: toggle Block in Incognito and Clipboard assist, open Activity log, tap Clear chat history, confirm Snackbar and empty chat history.\n8. Kill/reopen app and confirm model/accordion-independent settings persist.\n9. Run final logcat check for crashes after each flow.\n\nOnly limitation: I could not complete the physical Pixel 9 recipe-typing manual path here because only `emulator-5554` is attached and its action-disclosure/real recipe flow is not configured."
+    },
+    {
+      "timestamp": "2026-05-24T08:51:43.195Z",
+      "role": "user",
+      "text": "Can you do a deep audit of the code we have done so far in the settings screen with all the UI, the spacing, the elements, the font, the colors, etc.? In some of the lower sections of the settings, I feel the last row spacing is bad. Not sure if this is the case in other places too. Have a very high attention to detail and an eye for detail and spacings, and please ensure all the spacings are perfect."
+    },
+    {
+      "timestamp": "2026-05-24T08:52:03.344Z",
+      "role": "assistant",
+      "text": "I’ll treat this as a visual QA pass, not a quick skim. I’m going to inspect the current Settings code, capture the screen states on the emulator, compare the spacing against the JSX contract, then tighten any real inconsistencies I find."
+    },
+    {
+      "timestamp": "2026-05-24T08:52:24.157Z",
+      "role": "assistant",
+      "text": "I’ve got the code shape in view. Next I’m capturing the important screen states, especially fully expanded Automations and Privacy where row endings and footer spacing are easiest to get subtly wrong."
+    },
+    {
+      "timestamp": "2026-05-24T08:55:30.430Z",
+      "role": "assistant",
+      "text": "I’ve got the audit thread back in hand. I’m going to finish this as a true polish pass: inspect the expanded lower sections visually, make the spacing corrections in the primitives if the screenshots confirm it, then rebuild and smoke-test so we’re not just making it prettier but keeping it solid."
+    },
+    {
+      "timestamp": "2026-05-24T08:55:40.096Z",
+      "role": "assistant",
+      "text": "Plan for the audit pass:\n- Compare the implemented Settings primitives against the design handoff spacing and typography, with special focus on expanded lower rows.\n- Visually inspect emulator screenshots for default, Automations expanded, and Privacy expanded states.\n- Make only targeted spacing/fidelity edits, then rerun `assembleDebug`, `test`, `lint`, diff checks, and an emulator no-crash smoke.\n- Add a DEBUG_LOG entry with what changed and how it was verified."
+    },
+    {
+      "timestamp": "2026-05-24T08:55:52.841Z",
+      "role": "assistant",
+      "text": "I’m checking the actual primitive implementations now, because the spacing bug is most likely not in one section’s code but in the reusable row building blocks. The handoff points at a couple of asymmetric row paddings, so I’m looking for places where the Android implementation flattened those into symmetric padding."
+    },
+    {
+      "timestamp": "2026-05-24T08:56:06.872Z",
+      "role": "assistant",
+      "text": "The Automations lower screenshot confirms the hunch: the final two “content-heavy” rows are using the same 12dp vertical padding on top and bottom, while the source design gives those rows a little extra bottom padding. It is a small number, but it changes the optical balance at the card edge."
+    },
+    {
+      "timestamp": "2026-05-24T08:57:09.602Z",
+      "role": "assistant",
+      "text": "The dead old Settings UI symbols are gone, which is good: there isn’t a hidden second design path fighting the current one. I’m widening the audit to Brain, Capabilities, and the picker now so the spacing fix doesn’t miss a nearby mismatch."
+    },
+    {
+      "timestamp": "2026-05-24T08:58:29.301Z",
+      "role": "assistant",
+      "text": "I found a few real fidelity issues worth fixing: `PillSelectRow`, the Web Search key block, and `DisabledAppsRow` were close but not exact to the handoff. I’m going to tighten those shared primitives now, including line heights for small mono/count text so the lower rows sit cleaner at the card edge."
+    },
+    {
+      "timestamp": "2026-05-24T08:59:05.671Z",
+      "role": "assistant",
+      "text": "The edits are now in the shared layer, so Automations, Privacy, and any future section using these rows inherit the polish. I’m moving into the mechanical checks now: diff sanity first, then Gradle and emulator."
+    },
+    {
+      "timestamp": "2026-05-24T08:59:32.834Z",
+      "role": "assistant",
+      "text": "`assembleDebug` is green after the spacing edits. There’s only an existing Compose deprecation warning around `LocalClipboardManager`; no build failure. Next up is the wider `:app:test :app:lint` pass."
+    },
+    {
+      "timestamp": "2026-05-24T08:59:54.105Z",
+      "role": "assistant",
+      "text": "The full app test/lint sweep is green too. I’m installing the debug build on the emulator now and re-opening Settings so I can verify the adjusted rows on-device and check logcat for crashes."
+    },
+    {
+      "timestamp": "2026-05-24T09:00:54.606Z",
+      "role": "assistant",
+      "text": "The emulator tap hit Web Search instead of Automations, so I also got a useful look at the nested key-field block after its padding correction. It still lays out cleanly; I’ll toggle it back before I’m done so I don’t leave that test state changed."
+    },
+    {
+      "timestamp": "2026-05-24T09:02:56.434Z",
+      "role": "assistant",
+      "text": "The emulator pass is clean: after the fix, the lower Automations rows sit better, the Privacy final rows still have good breathing room, and the expanded Web Search block is still stable. I’m adding the required audit log entry now with the exact checks run."
+    },
+    {
+      "timestamp": "2026-05-24T09:04:03.417Z",
+      "role": "assistant",
+      "text": "That last restore tap landed on the notification-permission row and opened Android Settings. I’m backing out and restoring the Settings test state explicitly so the emulator isn’t left halfway through a system settings screen."
+    },
+    {
+      "timestamp": "2026-05-24T09:06:33.011Z",
+      "role": "assistant",
+      "text": "Done. I found the spacing issue you were feeling: the lower accordion rows were visually close, but `PillSelectRow`, `DisabledAppsRow`, and the expanded Web Search key block had lost the JSX’s asymmetric `12dp top / 14dp bottom` padding. That made terminal rows like `Disabled apps` feel a little pinched against the rounded card edge.\n\nI tightened that in [SettingsPrimitives.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/settings/design/SettingsPrimitives.kt:390) and [CapabilitiesSection.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/settings/sections/CapabilitiesSection.kt:148), plus corrected small text line-heights for pill tags, optional badges, nav values, disabled-app counts, and disabled-app chips. Practically: Automations’ `Triggers` / `Disabled apps` area now breathes correctly, Privacy’s final `Clear chat history` row still lands cleanly, and Web Search’s nested key fields keep their spacing without bloating the card.\n\nValidation passed:\n- `./gradlew :app:assembleDebug --stacktrace` with repo-local JDK: green\n- `./gradlew :app:test :app:lint --stacktrace` with repo-local JDK: green\n- `git diff --check`: green\n- Installed on `emulator-5554`, opened Settings, checked default/Automations/Privacy/Web Search states visually\n- Error-level logcat: no Handy crashes, no `AndroidRuntime`, no `FATAL EXCEPTION`\n\nI also added [DL-100](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md:1637) documenting the audit and prevention rule.\n\nManual pass before proceeding should cover: default first-open state, expand/collapse each accordion, Web Search on/off with all key fields visible, Automations lower rows with and without disabled apps, Privacy clear-history snackbar, Brain picker select/dismiss, and a quick rotation/font-scale check if you want the polish pass to be extra mean."
+    },
+    {
+      "timestamp": "2026-05-24T09:06:33.263Z",
+      "role": "user",
+      "text": "# Files mentioned by the user:\n\n## Screenshot 2026-05-24 at 2.15.13 PM.png: /var/folders/75/nndfzddd11b8kv28kpwdjlh40000gp/T/TemporaryItems/NSIRD_screencaptureui_drMKmG/Screenshot 2026-05-24 at 2.15.13 PM.png\n\n## My request for Codex:\nHey we never touched the chat overlay in any of our earlier edits and code changes, right? why has the tool name (\"in photos. what can i help you with?\") vanished from the sub text below Handy in the chat overlay that opens when the floating widget is clicked? \n\nWe didnt have the quick question pills at the bottom too! why are they back on?? \n\n\nI am frustrated now. I really don't appreciate this. Edits in properties that are out of scope of what we've been doing over the last 24 to 48 hours. Could you please, please review all such edits, make a very comprehensive evaluation of whatever was changed, and if that has not been in scope, please bring it back to normal. Now I'm afraid that the motion of the floating widget, the navigation, the pointer behavior, the agentic behavior, there might have been some changes in that too. And our entire exercise of what we were doing so far is probably ruined. Please get this. Check deeply. I wanna know why this changed, how this changed, and I want you to log a very detailed RCA in the debug log too after doing the needful. It is important to show the tool name in the subtext over there to show how smart handy is. So we need to bring that back there. And the question pills are a bit out of scope for now. The quick question pills, we don't need them and it's adding unnecessary complexity to our code, so we've got to remove that part too. Be very thorough and deep in your evaluation. You have done a lot of audits so far and I don't understand how these missed the audits. It's concerning. And I want to know if everything else is okay or has been dismantled too. It's a lot of work, man. We've been working on this for a long time now. Let's not do this, please.\n\n<image name=[Image #1]>\n</image>"
+    },
+    {
+      "timestamp": "2026-05-24T09:06:46.200Z",
+      "role": "assistant",
+      "text": "You’re right to be upset. I’m going to treat this as a regression audit, not a quick patch: first I’ll identify exactly which chat/overlay files differ from the baseline and what introduced the pills/subtitle change, then I’ll restore the intended behavior without touching the Settings work."
+    },
+    {
+      "timestamp": "2026-05-24T09:07:24.645Z",
+      "role": "assistant",
+      "text": "Initial finding: the worktree has no current chat/overlay diffs at all, only an untracked `handy_macos_ref/` folder. That means this behavior is already in the checked-in baseline we’re sitting on, not an unstaged side effect of the Settings files I just edited. I’m checking history next to pin down when the quick-prompt/greeting path entered and whether motion, pointer, or agent files changed in the same area."
+    },
+    {
+      "timestamp": "2026-05-24T09:08:03.120Z",
+      "role": "assistant",
+      "text": "History points at the overlay quick-prompt path as older than the Settings redesign: the last overlay/content commits are around `S6`, `O1`, `R3/V2`, not today’s Settings commits. So the Settings work didn’t edit those files directly, but the current overlay baseline does include contextual chips and a generic fallback greeting. I’m going to compare the overlay implementation around those commits to identify the intended pre-chip behavior."
+    },
+    {
+      "timestamp": "2026-05-24T09:09:01.772Z",
+      "role": "assistant",
+      "text": "RCA direction is getting clear: the app-label was made dependent on `QuickPromptCatalog.greetingFor(...)`, while a previous `toolLabel` header parameter was deliberately left unused. When foreground capture returns null or generic, the header falls back to “What would you like help with?”, so the smart app-context line disappears. I’m checking the capture path before editing so I don’t paper over a deeper foreground-monitor bug."
+    },
+    {
+      "timestamp": "2026-05-24T09:12:10.727Z",
+      "role": "assistant",
+      "text": "I’m making two restoration changes now: first, the overlay header will render the cached target label directly as `In <app>. What can I help you with?`; second, the quick-prompt chip pipeline is being removed from the panel path rather than merely hidden. I’m also adding a last-known foreground fallback so a transient `refreshNow()` miss does not collapse the subtitle to generic copy when the widget was tapped over a real app."
+    },
+    {
+      "timestamp": "2026-05-24T09:15:07.812Z",
+      "role": "assistant",
+      "text": "I’ve got the thread context back. I’m going to continue from the audit path we were on: finish the overlay fix, remove the quick-prompt plumbing completely, then run searches and builds so we’re not relying on vibes here."
+    },
+    {
+      "timestamp": "2026-05-24T09:15:18.019Z",
+      "role": "assistant",
+      "text": "The key thing I’ve confirmed so far: the Settings rewrite did not directly edit the floating widget motion, pointer, or overlay panel files. The visible overlay issue is coming from older quick-prompt/context plumbing that was still in the code path and became obvious in this screenshot; I’m removing that path rather than papering over the UI."
+    },
+    {
+      "timestamp": "2026-05-24T09:15:29.450Z",
+      "role": "assistant",
+      "text": "I’m at the edit point now. I’m going to make the smallest overlay-facing changes: deterministic contextual subtitle, no quick chips, no quick-prompt action path, and a last-known foreground fallback so “Photos” survives the overlay taking focus."
+    },
+    {
+      "timestamp": "2026-05-24T09:17:16.877Z",
+      "role": "assistant",
+      "text": "The quick-prompt symbols are now gone from main code; the only remaining “Summarize this screen” hit is a core orchestrator test string, not the overlay chips. I’m tightening one edge case before builds: if the real foreground is the launcher, the cached app label should clear so we don’t show stale context on the home screen."
+    },
+    {
+      "timestamp": "2026-05-24T09:17:37.888Z",
+      "role": "assistant",
+      "text": "The overlay change is now scoped and explicit. I’m moving into verification: first a symbol sweep, then assemble/tests/lint; any compile failure from the deletion will get fixed instead of left for you to discover."
+    },
+    {
+      "timestamp": "2026-05-24T09:18:07.900Z",
+      "role": "assistant",
+      "text": "`assembleDebug` is green after the overlay changes. I’m running the heavier verification now, including app tests/lint and core tests because the quick prompt catalog lived in `core`."
+    },
+    {
+      "timestamp": "2026-05-24T09:18:39.958Z",
+      "role": "assistant",
+      "text": "The requested Gradle checks are green: `:core:test :app:test :app:lint` all passed, with `assembleDebug` already passed. I’m doing one more practical sweep now: diff scope, installed-device availability, and then I’ll add the RCA to the debug log."
+    },
+    {
+      "timestamp": "2026-05-24T09:20:58.055Z",
+      "role": "assistant",
+      "text": "Manual smoke on the emulator now matches the intent: with Google Photos foreground, tapping the floating widget opens the panel with `In Photos. What can I help you with?`, and the quick question pills are gone. Logcat has no `AndroidRuntime` or fatal errors from that smoke."
+    },
+    {
+      "timestamp": "2026-05-24T09:21:27.251Z",
+      "role": "assistant",
+      "text": "I’ve got enough evidence for the RCA now: settings-era tracked commits did not touch overlay/widget/pointer files, but the overlay had an older quick-prompt implementation and fragile greeting generation. I’m adding that as a proper DL entry with the actual fix and validation."
+    },
+    {
+      "timestamp": "2026-05-24T09:23:27.567Z",
+      "role": "assistant",
+      "text": "One more cleanup surfaced from the audit: after removing the pills, the overlay pipeline still had an unreachable summarize-screen branch that only those pills could enter. I’m removing that dead branch too so the compact panel has one normal typed/voice path again."
+    },
+    {
+      "timestamp": "2026-05-24T09:23:52.899Z",
+      "role": "assistant",
+      "text": "That dead overlay branch is gone. I’m rerunning the compile/test lane after the cleanup so the final state, not the previous state, is what we certify."
+    },
+    {
+      "timestamp": "2026-05-24T09:24:32.299Z",
+      "role": "assistant",
+      "text": "Final build and test lane is green after the dead-branch cleanup. I’m reinstalling that exact APK and repeating the Photos widget tap once more so the manual smoke corresponds to the final build artifact."
+    },
+    {
+      "timestamp": "2026-05-24T09:26:19.477Z",
+      "role": "assistant",
+      "text": "I hear you. You were right to call this out.\n\nI did a scope audit first: I did **not** find evidence that the recent Settings work edited the floating-widget motion, pointer behavior, navigation flight, or agentic action flow. The visible overlay issue came from older V2 overlay quick-prompt plumbing, not the Settings rewrite. The problem was that the panel subtitle depended on a generated greeting, and when foreground capture briefly missed the app during overlay focus changes, it fell back to generic text. The quick pills were also still wired from that older path.\n\nI fixed it properly:\n\n- Restored contextual subtitle: `In Photos. What can I help you with?`\n- Removed quick question pills from the compact overlay.\n- Deleted the quick-prompt catalog and dead plumbing end to end.\n- Added a last-known foreground fallback so app context survives the overlay opening.\n- Kept launcher/home safe by clearing cached context on launcher foreground.\n- Added regression tests for Photos greeting, fallback snapshot, and neutral fallback.\n- Added detailed RCA as `DL-101` in [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md:1653).\n\nManual smoke on the final installed APK now looks like this:\n\n![Fixed Handy Photos overlay](/tmp/handy-photos-overlay-final.png)\n\nValidation passed:\n\n- `git diff --check`\n- `./gradlew :app:assembleDebug --stacktrace`\n- `./gradlew :core:test :android-runtime:test :app:test :app:lint --stacktrace`\n- Symbol sweep confirms no remaining overlay quick-prompt symbols.\n- Installed on `emulator-5554`, opened Google Photos, tapped widget, verified subtitle + no pills.\n- Fresh error-level logcat had no `AndroidRuntime`, `FATAL EXCEPTION`, `ActivityTaskManager:E`, or Handy errors.\n\nOne note: physical Pixel 9 was not attached here, so the manual device smoke was on the emulator. The behavior path is now covered by both unit tests and the emulator overlay screenshot."
+    }
+  ]
+}

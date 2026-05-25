@@ -1,0 +1,81 @@
+# Fix CTA pointer regression
+
+## Metadata
+
+- Thread ID: `019e4a51-f6a4-7200-bf5a-a9fd480858c3`
+- Created: 2026-05-21 17:05:46 IST
+- Updated: 2026-05-21 17:19:25 IST
+- CWD: `/Users/satvik.bansal/Desktop/Handy.android/HandyV2`
+- Source rollout: `/Users/satvik.bansal/.codex/sessions/2026/05/21/rollout-2026-05-21T17-05-46-019e4a51-f6a4-7200-bf5a-a9fd480858c3.jsonl`
+- Recorded git branch at start: `main`
+- Recorded git SHA at start: `b2b44d79fb1275209b81e443ebd47859b51f292d`
+- Messages exported: 9
+
+## Brief Summary
+
+This conversation focused on: Fix CTA pointer regression No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.
+
+## Git Commit Linkage
+
+Commit links are heuristic: Codex records the starting git SHA, while likely related commits are inferred from timing plus title/commit-subject matching. Review the commit list before treating it as authoritative.
+
+- Base SHA recorded by Codex: `b2b44d79fb1275209b81e443ebd47859b51f292d`
+- Likely related commits: none found
+
+## Conversation
+
+### USER 2026-05-21T11:36:49.280Z
+
+# Files mentioned by the user:
+
+## Screenshot 2026-05-21 at 5.04.09 PM.png: /var/folders/75/nndfzddd11b8kv28kpwdjlh40000gp/T/TemporaryItems/NSIRD_screencaptureui_0tdA5K/Screenshot 2026-05-21 at 5.04.09 PM.png
+
+## My request for Codex:
+Hey, I think in the process of converting Handy Android into a full-on agent that can now open apps and type, no clicking implemented yet, we have fucked up the original functionality which was flying and pointing to a CTA. For example, I opened Gmail and asked Handy, how do I add a new email address? It didn't fly and point. It just stayed where it was, showed an ugly text box, and the reasoning tool in the Handy minimized window, and did nothing. Why have we messed up this? Can you please, please, please deeply analyze the recent commits we have done in the last 24 to 48 hours, analyze the code before it, and please make sure that the new commits do not ruin anything that we had already built with a lot of care. Deeply evaluate, analyze, be very thorough and detailed in your research, and please fix this in depth. Try to identify any more such issues, do a complete audit, and fix that too. Be very detailed again, very careful, be thorough in your evaluation and use your highest level of reasoning and thinking possible. Log the detailed rcas in the debug log
+
+<image name=[Image #1]>
+</image>
+
+### ASSISTANT 2026-05-21T11:37:05.400Z
+
+I’ll dig through the last couple of days of commits against the pre-agent baseline, then trace the runtime path for “ask -> find CTA -> fly/point” versus the newer agent path. I’ll keep the edits focused and add the RCA notes into whatever debug logging system the app already uses, so this doesn’t become a silent fix with no trail.
+
+### ASSISTANT 2026-05-21T11:37:19.844Z
+
+I can already see the current worktree has both committed changes from today and uncommitted agent files/edits. I’m going to treat all of that as live user work, so the audit will compare behavior without blindly rolling anything back.
+
+### ASSISTANT 2026-05-21T11:38:20.185Z
+
+The first concrete regression candidate is a control-flow one: the overlay now finalizes the text bubble, then gives the new agent controller a chance to “handle” recipe directives, and if that happens it returns before the old pointer flight block. I’m checking whether the prompt is encouraging recipes for ordinary “how do I…” questions, because that would explain “text showed, no flight” almost exactly.
+
+### ASSISTANT 2026-05-21T11:39:49.992Z
+
+There’s a second, bigger issue from the 16:40 typing/action commit: the normal `[POINT:...]` path was changed from “fly and point” to `flyToAndTap`, so every ordinary instructional pointer became eligible for tap-for-me confirmation. That’s a product contract regression even when it doesn’t fully execute, so I’m going to split “pointing” back out from “acting” and leave action/typing only for explicit action markup or recipes.
+
+### ASSISTANT 2026-05-21T11:41:26.108Z
+
+The repair shape is clear now: restore a safe markId-based fallback for missed pointer tags, stop normal pointers from escalating into tap actions, and gate recipes so “how do I / where is / show me” stays in guidance mode. Then I’ll run the focused core/app tests and append a real RCA entry to `DEBUG_LOG.md`.
+
+### ASSISTANT 2026-05-21T11:44:44.650Z
+
+I’ve made the first pass of fixes in code: runtime gating for recipes, fallback mark inference, and point-only flight for normal guidance. I’m going to compile/test this now; the interesting part will be catching Kotlin type/API fallout from changing the flight path back to point-only.
+
+### ASSISTANT 2026-05-21T11:45:58.823Z
+
+The focused tests and app compile are green after the first fix pass. I’m doing a broader test sweep next, then I’ll write the RCA into `DEBUG_LOG.md` with the exact regression chain: recipe prompt/gate, removed fallback, and tap escalation.
+
+### ASSISTANT 2026-05-21T11:49:25.312Z
+
+Fixed the regression. The recent break was real: agent recipes and tap-for-me plumbing were leaking into ordinary guidance questions, and the old fallback pointer recovery had been removed without a guarded replacement.
+
+What changed:
+- Guidance questions like “how do I…” no longer trigger agent recipes unless the user explicitly asks Handy to act “for me”: [UserGoal.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/UserGoal.kt:34), [AgentSessionController.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt:58)
+- Normal `[POINT:...]` answers are back to point-only flight, not tap/action confirmation: [OverlayChatPipeline.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt:270), [FullChatActionLauncher.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/chat/FullChatActionLauncher.kt:66)
+- Added a safe fallback that can recover “Add an email address” from cached accessibility marks if Claude omits or botches the pointer tag: [FallbackPointInferer.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/overlay/FallbackPointInferer.kt:13)
+- Strengthened the quick overlay prompt to prefer a visible matching CTA over hidden menu paths, and to reserve recipes for explicit do-it-for-me requests: [PromptCatalog.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/prompts/PromptCatalog.kt:213)
+- Logged the detailed RCA as DL-063: [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md:1041)
+
+Validation passed:
+`./gradlew :core:test :android-runtime:test :app:test --stacktrace`
+
+I also checked for whitespace issues with `git diff --check`. I could not do a live Gmail device smoke from this shell because `adb` is not on PATH, but the exact failing behavior is now covered by focused tests for recipe gating and fallback CTA inference. Note: existing untracked `handy_macos_ref/` is still untouched.

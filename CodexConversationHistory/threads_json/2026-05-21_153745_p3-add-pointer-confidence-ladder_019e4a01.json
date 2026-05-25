@@ -1,0 +1,92 @@
+{
+  "metadata": {
+    "thread_id": "019e4a01-6219-7f01-8f28-d8d28e1463f4",
+    "title": "P3: Add pointer confidence ladder",
+    "created_local": "2026-05-21 15:37:45 IST",
+    "updated_local": "2026-05-21 15:52:40 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/21/rollout-2026-05-21T15-37-45-019e4a01-6219-7f01-8f28-d8d28e1463f4.jsonl",
+    "recorded_git_sha_at_start": "9bf3b0c7531180e8befd1a6b6fefd08f7ad918e8",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 9,
+    "summary": "This conversation focused on: ladder pointer behaviour by confidence; offer alternatives Likely related git changes: bddd08e P2+P3: Support candidate options and audit review.",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "bddd08e58b175858df12dc51c29cc04d8ba239a7",
+        "short": "bddd08e",
+        "author_time": "2026-05-21 15:54:29 IST",
+        "subject": "P2+P3: Support candidate options and audit review",
+        "confidence": "low",
+        "score": 5,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words candidate"
+        ],
+        "files": [
+          "android-runtime/src/main/kotlin/com/handy/runtime/action/DefaultActionPolicyEngine.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/storage/DataStoreSettings.kt",
+          "app/src/androidTest/kotlin/com/handy/app/diagnostics/AuditReviewActivityTest.kt",
+          "app/src/main/AndroidManifest.xml",
+          "app/src/main/kotlin/com/handy/app/chat/ChatViewModel.kt",
+          "app/src/main/kotlin/com/handy/app/diagnostics/AuditReviewActivity.kt",
+          "app/src/main/kotlin/com/handy/app/diagnostics/DiagnosticsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/CandidateChipsBar.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPanelBridge.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-21T10:08:01.759Z",
+      "role": "user",
+      "text": "Goal: ladder pointer behaviour by confidence; offer alternatives\nwhen ambiguous; let the user correct by voice without a new LLM\nround trip.\n\nFiles to touch:\n- app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt\n  (apply tier ladder)\n- app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt\n- (new) app/src/main/kotlin/com/handy/app/overlay/CandidateChipsBar.kt\n- core/src/main/kotlin/com/handy/core/overlay/OverlayPanelState.kt\n  (CandidateOptions field)\n- (new) core/src/main/kotlin/com/handy/core/agent/CorrectionIntent.kt\n  + tiny classifier matching \"no\", \"other one\", \"next\", \"previous\",\n  \"the popup one\"\n- app/src/main/kotlin/com/handy/app/voice/VoiceController.kt\n  (route corrections while POINTING)\n\nAcceptance:\n- Manual: ambiguous screen → chip row appears (0.4-0.7 band);\n  tapping a chip flies to that target.\n- Sticky pointing → \"no, the other Continue\" hops to the runner-up\n  candidate from ResolvedPointTarget.debugCandidates.\n\nAdditional stuff\nA) Mention the change the code brings to the application - the before and after with real life practical examples if possible. \nB) Share an indepth end to end manual testing plan of the changes done - be practical and ensure all aspects are tested well before we proceed.   \n\nTests:\n- CorrectionIntentTest."
+    },
+    {
+      "timestamp": "2026-05-21T10:08:09.475Z",
+      "role": "assistant",
+      "text": "I’ll trace the existing overlay and voice flow first, then wire the ladder in the smallest shape that matches the current architecture. After that I’ll add the classifier test and give you the before/after plus a practical manual pass."
+    },
+    {
+      "timestamp": "2026-05-21T10:08:20.124Z",
+      "role": "assistant",
+      "text": "There are unrelated local changes already in the worktree, so I’ll leave those alone and only touch the requested overlay, voice, and core files plus the new test. I’ve found the main classes and am reading their actual state transitions now."
+    },
+    {
+      "timestamp": "2026-05-21T10:10:09.836Z",
+      "role": "assistant",
+      "text": "The existing sticky pointer already has a “wrong one?” manual fallback, but it doesn’t yet carry the resolver’s runner-up list forward. I’m going to make the candidate list first-class overlay state, then let both chip taps and correction phrases reuse the same “fly to candidate” path."
+    },
+    {
+      "timestamp": "2026-05-21T10:12:56.632Z",
+      "role": "assistant",
+      "text": "I’ve got the shape now: high confidence flies as before, middle/ambiguous results publish candidate options instead of guessing, and low confidence keeps falling back to manual selection. I’m starting the state/model edits, then I’ll wire the UI and voice correction path."
+    },
+    {
+      "timestamp": "2026-05-21T10:18:52.459Z",
+      "role": "assistant",
+      "text": "The UI path is wired now: ambiguous candidates render as a touchable overlay row near the pointer, while the old manual fallback stays available when there aren’t explicit alternatives. I’m tightening the correction flow and then I’ll run the focused test/build checks."
+    },
+    {
+      "timestamp": "2026-05-21T10:19:54.888Z",
+      "role": "assistant",
+      "text": "The code shape looks consistent on review. I’m running the new core classifier test first, then I’ll compile the app unit-test target to catch Compose/Hilt/Kotlin wiring issues."
+    },
+    {
+      "timestamp": "2026-05-21T10:20:06.897Z",
+      "role": "assistant",
+      "text": "The focused test didn’t start because this shell can’t see a Java runtime. I’m going to look for the Android Studio/Gradle JDK that’s often installed alongside Android projects and rerun with `JAVA_HOME` if it’s present."
+    },
+    {
+      "timestamp": "2026-05-21T10:22:40.874Z",
+      "role": "assistant",
+      "text": "Implemented the confidence ladder and correction path.\n\n**What Changed**\nBefore: when Handy saw ambiguous targets like two visible `Continue` buttons, it either refused the pointer and fell into manual fallback, or landed on one target with no lightweight way to correct it. Saying “no, the other Continue” during sticky pointing would become a normal voice turn and could trigger another LLM round trip.\n\nAfter:\n- `>= 0.70` confidence: Handy flies as before, but stores runner-up candidates for correction.\n- `0.40 - 0.70` or resolver `AMBIGUOUS`: Handy shows candidate chips from `ResolvedPointTarget.debugCandidates`.\n- `< 0.40`: Handy keeps the existing manual fallback path.\n- Tapping a chip flies directly to that candidate.\n- While sticky pointing, voice phrases like `no`, `other one`, `next`, `previous`, and `the popup one` are classified locally and routed to the stored candidates without submitting to the LLM.\n\nKey files:\n- [BuddyFlightDriver.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt)\n- [OverlayPanelState.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/overlay/OverlayPanelState.kt)\n- [CandidateChipsBar.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/CandidateChipsBar.kt)\n- [CorrectionIntent.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/CorrectionIntent.kt)\n\nI also touched `FloatingWidgetOverlayService`, `OverlayPanelBridge`, and `ChatViewModel` so chips actually mount and consumed correction transcripts do not continue into chat submission.\n\n**Manual Test Plan**\n1. Build/install debug, grant overlay, accessibility, and microphone permissions.\n2. Open a screen with one clear target, e.g. one `Continue` button. Ask Handy to point at it. Expected: no chip row, Buddy flies normally.\n3. Open a screen with two similar targets, e.g. page `Continue` and popup `Continue`. Ask Handy to point to `Continue`. Expected: chip row appears near Buddy in the ambiguous band.\n4. Tap each candidate chip. Expected: Buddy flies to that chip’s corresponding target; selected chip updates.\n5. While Buddy is sticky-pointing at the first `Continue`, long-press Buddy and say `no, the other Continue`. Expected: Buddy hops to the runner-up candidate, no panel stream starts.\n6. Repeat with `next`, `previous`, and `the popup one`. Expected: local candidate hop each time.\n7. Test a very weak/unclear target. Expected: no candidate chips; existing `Wrong one?` manual fallback appears.\n8. Confirm normal voice still works when Buddy is not pointing. Expected: transcript opens/submits through the normal overlay chat path.\n9. Confirm tap-for-me still requires confirmation after a confident landing. Expected: no automatic tap bypass.\n10. Rotate screen or open keyboard during pointing. Expected: stale target cancellation still returns Buddy safely.\n\n**Verification**\n- `git diff --check` passed.\n- I added [CorrectionIntentTest.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/test/kotlin/com/handy/core/agent/CorrectionIntentTest.kt), but could not run Gradle tests because this shell has no Java runtime: `Unable to locate a Java Runtime.`"
+    }
+  ]
+}

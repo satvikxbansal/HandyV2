@@ -1,0 +1,87 @@
+{
+  "metadata": {
+    "thread_id": "019e5598-fe88-7bd1-856f-5ab993d64356",
+    "title": "Update README with latest Handy",
+    "created_local": "2026-05-23 21:39:10 IST",
+    "updated_local": "2026-05-23 21:45:13 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/23/rollout-2026-05-23T21-39-10-019e5598-fe88-7bd1-856f-5ab993d64356.jsonl",
+    "recorded_git_sha_at_start": "60fd40ee32a42d8ca91be1171eac3ea0aa1a63f1",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 9,
+    "summary": "This conversation focused on: Update README with latest Handy Likely related git changes: 60fd40e [audit] bug fixes.",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "60fd40ee32a42d8ca91be1171eac3ea0aa1a63f1",
+        "short": "60fd40e",
+        "author_time": "2026-05-23 21:35:24 IST",
+        "subject": "[audit] bug fixes",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/kotlin/com/handy/app/chat/ChatViewModel.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt",
+          "core/src/main/kotlin/com/handy/core/agent/UserGoal.kt",
+          "core/src/main/kotlin/com/handy/core/orchestrator/ConversationOrchestrator.kt",
+          "core/src/main/kotlin/com/handy/core/prompts/PromptCatalog.kt",
+          "core/src/test/kotlin/com/handy/core/agent/UserGoalTest.kt",
+          "core/src/test/kotlin/com/handy/core/prompts/PromptCatalogTest.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-23T16:10:00.139Z",
+      "role": "user",
+      "text": "can you update the readme with the latest on Handy? be very comprehensive in your evaluation of the currenr read me, the code changed, upgrades and then add the new stuff. follow similar language and style"
+    },
+    {
+      "timestamp": "2026-05-23T16:10:11.296Z",
+      "role": "assistant",
+      "text": "I’ll take a full pass through the current README and the app surface, then compare that against the actual code and recent changes so the README update reflects what Handy is now, not just what it used to say."
+    },
+    {
+      "timestamp": "2026-05-23T16:10:18.753Z",
+      "role": "assistant",
+      "text": "I see the working tree is clean except for an untracked `handy_macos_ref/` reference folder. I’ll leave that alone unless it contains source material that helps explain the Android app."
+    },
+    {
+      "timestamp": "2026-05-23T16:10:35.799Z",
+      "role": "assistant",
+      "text": "The existing README is already written in a policy-first, plain-spoken style. Now I’m checking the actual feature inventory and tests so I can expand it without drifting into brochure language or claiming capabilities the build does not really have."
+    },
+    {
+      "timestamp": "2026-05-23T16:11:57.817Z",
+      "role": "assistant",
+      "text": "A couple of important deltas are showing up: the README knows about the main policy posture, but the code has grown more specific around Sonnet/Haiku selection, Chrome omnibox handling, app install handoff, calendar events, ride prep, incognito blocking, per-app Tap-for-me revoke/restore, and a much broader eval/test harness. I’m going to fold those into the README rather than treating them as side notes."
+    },
+    {
+      "timestamp": "2026-05-23T16:12:25.245Z",
+      "role": "assistant",
+      "text": "I’ve got enough context to edit now. The README’s shape is right, so I’m going to keep the same safety-first voice and expand the parts that are now under-described: the newest deterministic recipes, reduced-mode enforcement, brain/model picker, action controls, test coverage, and release blockers."
+    },
+    {
+      "timestamp": "2026-05-23T16:14:42.202Z",
+      "role": "assistant",
+      "text": "README is updated now. I’m doing a tight verification pass for obvious markdown issues, stale claims, and accidental formatting churn before I call it done."
+    },
+    {
+      "timestamp": "2026-05-23T16:15:05.028Z",
+      "role": "assistant",
+      "text": "The markdown diff is clean (`git diff --check` passed), and the referenced docs/artifact paths exist. Since this is documentation-only, I’m not running the Android build; the README now points at the build/test lanes that should be used for code or release validation."
+    },
+    {
+      "timestamp": "2026-05-23T16:15:13.509Z",
+      "role": "assistant",
+      "text": "Updated [README.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/README.md) with a much fuller current-state pass.\n\nI kept the existing safety-first voice and expanded the README around the latest Handy changes: canonical recipe routing, S-1..S-10 inventory, install-app Play Store handoff, timer/calendar/ride-hailing recipes, Chrome omnibox support, reduced-mode enforcement, Sonnet/Haiku model picker, manual target recovery, privacy/action controls, release gaps, and the current test/validation surface.\n\nVerification: `git diff --check` passed, and the referenced docs/artifact paths exist. I did not run the Android build since this was docs-only. The untracked `handy_macos_ref/` folder was left untouched."
+    }
+  ]
+}

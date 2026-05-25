@@ -1,0 +1,64 @@
+{
+  "metadata": {
+    "thread_id": "019e457a-59b5-7f22-94bd-de5b5b45a366",
+    "title": "Sync README active gaps",
+    "created_local": "2026-05-20 18:31:46 IST",
+    "updated_local": "2026-05-20 18:33:25 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/20/rollout-2026-05-20T18-31-46-019e457a-59b5-7f22-94bd-de5b5b45a366.jsonl",
+    "recorded_git_sha_at_start": "9549a8659d3a0242cebe62879eb44a231b1b6ebd",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 5,
+    "summary": "This conversation focused on: README.md → \"Known active gaps (important)\" is stale. Three of Likely related git changes: e07fa9b Some fixes.",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "e07fa9bab2e0f0a7422b908e00a0b56560a7118c",
+        "short": "e07fa9b",
+        "author_time": "2026-05-20 18:41:29 IST",
+        "subject": "Some fixes",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "README.md",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/OverlayPresenterFsmTest.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-20T13:01:50.840Z",
+      "role": "user",
+      "text": "You are working on Handy Android.\n\nGoal: README.md → \"Known active gaps (important)\" is stale. Three of\nthe seven listed gaps were closed today by phases G1, M1, and M2, and\none (MediaProjection) is partially closed. Re-sync so the README\nmatches HEAD reality.\n\nFiles to touch:\n- README.md\n\nRequired changes:\n- REMOVE the \"markId is still not preserved into TapTarget …\" bullet —\n  M1 (commit 7145d1e) added markId/expectedPackage/expectedWindowId/\n  snapshotHash to TapTarget.AtNode and routes resolved.markId through\n  buildTapTargetForResolved + AccessibilityGestureActionPerformer.\n- REMOVE the \"Debug candidate output is still not fully redacted …\"\n  bullet — M2 added ScreenRedactor calls at RuntimeCandidate.fromNode/\n  fromMark and at TargetCandidate construction; DiagnosticsActivity\n  also redacts audit rows.\n- REMOVE the \"Capture is still effectively window-blind …\" bullet —\n  G1 threads activeWindowIdHint through ScreenContextBuilder ->\n  ScreenCapturePipeline (takeByWindow / takeByAccessibility /\n  takeByMediaProjection).\n- REWRITE the \"MediaProjection is still unwired …\" bullet to:\n  \"MediaProjection capture (API 26–29) has an implementation\n  (MediaProjectionCaptureSourceImpl) and DI wiring, but no Activity\n  yet calls MediaProjectionManager.createScreenCaptureIntent() to\n  start the foreground service, so it returns CaptureResult.Unsupported\n  on those API levels until Phase 4 lands the consent flow.\"\n- ADD a new bullet:\n  \"Tap-for-me consent UI is still missing: ActionExecutionGate exists\n  and stays closed; canPerformGestures='true' has not been added to\n  accessibility_service_config.xml yet (deferred to Phase 4 / P1).\"\n- Leave the BrainRouter and UI-polish bullets as-is.\n\nDo NOT:\n- Touch any production Kotlin code in this prompt.\n- Reorder unrelated sections.\n\nAfter-edit RCA logging (append to DEBUG_LOG.md):\n- New entry titled \"DL-### README staleness after intra-session phase\n  landings (D1 sync ran before G1/M1/M2)\".\n- Root cause: D1's README rewrite (commit a8da5bd) ran chronologically\n  earlier in the same session than G1/M1/M2. The \"Known active gaps\"\n  bullets were correct at commit time but went stale within ~4 hours\n  as later phases shipped. No re-sync was scheduled.\n- Prevention rule: any session that lands multiple phases must end\n  with a \"docs reconciliation\" pass: README, scope doc, and Play\n  matrix re-checked against the final HEAD. Add to .cursor/rules if\n  the team agrees.\n\nTests: none (docs only). Confirm with: git diff README.md."
+    },
+    {
+      "timestamp": "2026-05-20T13:01:56.563Z",
+      "role": "assistant",
+      "text": "I’ll make this as a docs-only sync: first I’ll inspect the current README gap section and the existing debug log format, then patch just `README.md` and append the RCA entry to `DEBUG_LOG.md`."
+    },
+    {
+      "timestamp": "2026-05-20T13:02:07.146Z",
+      "role": "assistant",
+      "text": "I found the stale section and the log already uses numbered `DL-###` table entries. I’m going to preserve the section order, remove only the three closed bullets, rewrite the MediaProjection bullet, and append the new consent bullet next to the related action-consent gap."
+    },
+    {
+      "timestamp": "2026-05-20T13:03:08.135Z",
+      "role": "assistant",
+      "text": "The README edit and RCA entry are in place. I’m doing the requested confirmation now with `git diff README.md`, and I’ll also sanity-check that only docs files moved."
+    },
+    {
+      "timestamp": "2026-05-20T13:03:25.955Z",
+      "role": "assistant",
+      "text": "Updated [README.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/README.md:47) so the active gaps now match HEAD: removed the M1/M2/G1-closed bullets, rewrote MediaProjection as partially implemented but consent-flow blocked, and added the tap-for-me consent/config gap. BrainRouter and UI polish bullets were left as-is.\n\nAppended [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md) with `DL-055` for the README staleness RCA.\n\nValidation: ran `git diff README.md` as requested and `git diff --check README.md DEBUG_LOG.md`. No tests run, docs-only. Only `README.md` and `DEBUG_LOG.md` were modified; existing untracked `handy_macos_ref/` was left untouched."
+    }
+  ]
+}

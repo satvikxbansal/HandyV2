@@ -1,0 +1,71 @@
+# Document floating widget states
+
+## Metadata
+
+- Thread ID: `019e5578-ae73-71a0-91b3-89bec713a434`
+- Created: 2026-05-23 21:03:52 IST
+- Updated: 2026-05-23 21:07:29 IST
+- CWD: `/Users/satvik.bansal/Desktop/Handy.android/HandyV2`
+- Source rollout: `/Users/satvik.bansal/.codex/sessions/2026/05/23/rollout-2026-05-23T21-03-52-019e5578-ae73-71a0-91b3-89bec713a434.jsonl`
+- Recorded git branch at start: `main`
+- Recorded git SHA at start: `2b78200b3b9c2bc8616aeba06da583ea9de52650`
+- Messages exported: 5
+
+## Brief Summary
+
+This conversation focused on: Document floating widget states No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.
+
+## Git Commit Linkage
+
+Commit links are heuristic: Codex records the starting git SHA, while likely related commits are inferred from timing plus title/commit-subject matching. Review the commit list before treating it as authoritative.
+
+- Base SHA recorded by Codex: `2b78200b3b9c2bc8616aeba06da583ea9de52650`
+- Likely related commits: none found
+
+## Conversation
+
+### USER 2026-05-23T15:33:55.071Z
+
+Hey, so I want to give a prompt in my cloud design or sleek.design for them to come up with a good iteration of the floating widget when it flies and the text bubbles that come next to it. So can you please read the entire code in extreme depth, understand it, draw patterns, connect the dots, and give me a detailed sort of a note on the different states of the text bubble that we have near the floating widget? What are all the possible different states, the current UI for each of them, and share a prompt that I can give them. Again, not a very big prompt, but the prompt should tell them that this is what is the current state, but we want the app to kind of redesign this, make it cleaner, and do it as per the theme of the rest of the screens that the designing agent has already done. Not to stick to the colors or the layouts that we have in the, that we have described in the prompt basis, the current code that we have, but to use that as a reference of the functionalities and what we tend to, what we want to achieve and do the designing for that. Be very comprehensive in your evaluation of this. Scope again is limited to the states of the text box near the floating widget, all the possible states of the text box, the thinking, the web search, the voice transcribe, the response that is spoken, and others if I'm missing.
+
+### ASSISTANT 2026-05-23T15:34:00.344Z
+
+I’ll map the widget and bubble code first, then I’ll distill it into design-facing states rather than code jargon. I’ll read broadly enough to catch hidden state transitions, but keep the final artifact focused on the floating widget text bubble scope.
+
+### ASSISTANT 2026-05-23T15:34:11.604Z
+
+I found the relevant surface area: `app/overlay` for the buddy bubble/presenter/flight, `app/widget` for the lens itself, and a few `core/model` helpers for loading and web-search status text. I’m going to read those together now so the state taxonomy matches the actual code paths, not just filenames.
+
+### ASSISTANT 2026-05-23T15:34:46.815Z
+
+One important pattern already popped out: the “bubble next to the floating widget” is not one component with many variants. The app has a strict `BuddyBubble` taxonomy for side chips, plus separate overlays for agent progress, correction chips, candidate chips, and confirmation sheets. I’m checking the chat pipeline next because some states like web search may exist in orchestration but never reach the side bubble today.
+
+### ASSISTANT 2026-05-23T15:37:29.059Z
+
+I read the widget, overlay presenter, flight driver, chat pipeline, and the design handoff. The key thing: the text next to the floating widget is driven by one nullable `BuddyBubble` field, so only one main side bubble can exist at a time. The renderer is [WidgetBubbleChip](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/widget/WidgetContent.kt:252), attached as a separate non-touchable overlay window in [FloatingWidgetOverlayService](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt:415). It follows the widget during drag, snap, and flight.
+
+**Current Bubble States**
+| State | Trigger | Current UI | Notes |
+|---|---|---|---|
+| Hidden / idle | Docked, tap opens panel, drag, error, returning to dock, streaming start | No text bubble | Thinking and streaming clear the side bubble today. |
+| Voice transcript | Widget long-press or panel mic | Yellow solid chip, dark text, 8dp radius, 10x5dp padding, 12sp medium, max 2 lines | Starts as empty, so no chip until partial transcript arrives. See [OverlayPresenter](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt:149). |
+| Thinking / processing | Voice released, request in flight | No side bubble. Widget shows amber rotating arc; panel shows spinner + loading verb | Loading verbs include “Analyzing your screen...”, “Reading the interface...”, etc. in [LoadingVerbs](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/model/LoadingVerbs.kt:13). |
+| Web/tool search | Tool call emits `WebSearchStatus` | No floating side bubble today | Core emits “Searching the web...”, “Searching GitHub...”, “Reading page...”, but overlay pipeline ignores it at [OverlayChatPipeline](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt:208). Full chat uses it, floating widget does not. |
+| Spoken assistant response | Assistant finalizes | Green chip with the spoken/overlay-clamped answer, max 110 chars | Source is `[SPOKEN]...[/SPOKEN]`; clamped in [AssistantMarkupParser](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/parsing/AssistantMarkupParser.kt:264). |
+| Navigation / pointer flight | Model returns `[POINT:...]` or fallback inference finds target | Blue chip follows the widget during flight and sticky pointing | Label is usually the short spoken answer, otherwise target label. Set in [OverlayPresenter](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt:341). |
+| Action in progress | Tap-for-me or type-for-me after confirmation | Teal chip: “tapping X” or “typing in X” | This is the only current teal `BuddyBubble.Action`; web search does not use teal yet. See [OverlayPresenter](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt:585). |
+| Ambiguous target | Pointer resolver finds alternatives | Separate blue candidate chip bar, not the main bubble | Glass box with up to 5 chips, selected chip blue. See [CandidateChipsBar](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/CandidateChipsBar.kt:26). |
+| Wrong target fallback | Sticky pointing, no alternatives | Separate “Wrong one?” chip under/above widget | Lets user manually pick a target. Not part of `BuddyBubble`. |
+| Recipe / multi-step agent | Explicit do-it-for-me recipe | Separate progress bubble with title, detail, count, progress bar | States: Review recipe, Confirm step, Starting recipe, Running recipe, Step complete, Recipe complete, Recipe stopped. See [AgentProgressBubble](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/AgentProgressBubble.kt:27). |
+| Error | Pipeline/recipe failure | No side bubble | Errors go to panel banner or recipe progress bubble; presenter clears `bubble`. |
+
+The main design gap is that “thinking” and “web search” are not true floating side-bubble states today. They exist as widget motion or panel/full-chat loading rows. If you want them next to the flying widget, the design should specify whether teal becomes a general “tool/status” bubble or stays reserved for direct actions.
+
+**Prompt For Design Agent**
+```text
+Redesign Handy’s floating-widget side bubble system. Handy is an Android on-screen AI assistant with a draggable glass widget that can listen, think, answer, fly to UI targets, point, and perform approved actions. Use the current code only as a functionality/state reference, not as a visual constraint.
+
+Current states to design: no bubble/idle; live voice transcript; thinking/processing; web/tool status (“Searching the web”, “Searching GitHub”, “Reading page”); spoken assistant response; navigation/pointing label while the widget flies and lands; action-in-progress (“tapping X”, “typing in X”); ambiguous target choices; wrong-target/manual correction; multi-step recipe progress; error/failed state.
+
+The rest of the app already uses a refined dark glass, warm accent, Inter-based design system. Make these bubbles cleaner, more premium, more readable, and consistent with that broader app theme. Do not blindly preserve the current solid yellow/teal/green/blue chips, dimensions, or layout. Preserve the meaning and behavior of the states, keep the UI compact and glanceable over other apps, and design responsive placement for left/right docked widget, flight motion, landing near targets, and small screens.
+```

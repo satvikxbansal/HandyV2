@@ -1,0 +1,154 @@
+{
+  "metadata": {
+    "thread_id": "019e4f83-07e8-7ea3-bc82-56998d5f17ce",
+    "title": "FIX-A: Refine beta-blocked phrases",
+    "created_local": "2026-05-22 17:17:27 IST",
+    "updated_local": "2026-05-22 17:28:53 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/22/rollout-2026-05-22T17-17-27-019e4f83-07e8-7ea3-bc82-56998d5f17ce.jsonl",
+    "recorded_git_sha_at_start": "0498e619cd0d4fe18d6f3848ff83d9246379c245",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 23,
+    "summary": "This conversation focused on: DefaultActionPolicyEngine.BETA_BLOCKED_TERMS currently contains Likely related git changes: df10120 Fix-A: Tighten BETA_BLOCKED_TERMS so legitimate recipes don't get refused.",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "df10120d6315dd88fe221e53985bd5a2d9cffbf9",
+        "short": "df10120",
+        "author_time": "2026-05-22 17:29:39 IST",
+        "subject": "Fix-A: Tighten BETA_BLOCKED_TERMS so legitimate recipes don't get refused",
+        "confidence": "high",
+        "score": 15,
+        "reasons": [
+          "inside/near active thread window",
+          "matched phase/tag fixa",
+          "matched words beta, blocked, legitimate, recipes, refused"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/action/DefaultActionPolicyEngine.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/action/DefaultActionPolicyEngineTest.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-22T11:47:48.312Z",
+      "role": "user",
+      "text": "You are working on Handy Android (multi-module Gradle).\n\nGoal: DefaultActionPolicyEngine.BETA_BLOCKED_TERMS currently contains\nwords (\"delete\", \"remove\", \"transfer\", \"send money\") that match\nsubstrings inside ordinary recipe targets, causing R3 Gmail/WhatsApp\nrecipes and shopping recipes to be silently refused with reason\n\"beta-blocked\" even when the user explicitly confirms.\n\nFiles to touch:\n- android-runtime/src/main/kotlin/com/handy/runtime/action/DefaultActionPolicyEngine.kt\n\nRequired changes:\n- Replace BETA_BLOCKED_TERMS with two narrower lists:\n  - UI_BETA_BLOCKED_PHRASES: only match phrases (whole-word, multi-token\n    when relevant), restricted to surfaces that look financial / payment.\n    Use: \"buy now\", \"place order\", \"complete purchase\", \"pay now\",\n    \"checkout\", \"send money\", \"transfer money\", \"wire transfer\".\n  - DELETE_HARD_BLOCKED_PHRASES: only block when the target text matches\n    one of these *and* the action source trust is not TRUSTED_RECIPE.\n    Use: \"delete account\", \"close account\", \"factory reset\".\n- Update isBetaBlocked() to take the SourceTrust as a parameter, and:\n  * If TRUSTED_RECIPE: only block on UI_BETA_BLOCKED_PHRASES (the\n    payment/checkout surfaces) and DELETE_HARD_BLOCKED_PHRASES.\n  * If anything else: keep current behaviour for UI_BETA_BLOCKED_PHRASES\n    only.\n- Move the URL-side beta-block (upi: + payment terms in URL) to a\n  separate isPaymentUrl() check that runs regardless of sourceTrust.\n- Add 3 new unit tests in DefaultActionPolicyEngineTest:\n  * Gmail recipe step \"Delete email\" is allowed when SourceTrust =\n    TRUSTED_RECIPE.\n  * \"delete account\" target is blocked regardless of SourceTrust.\n  * Shopping \"Buy now\" target is blocked with reason \"beta-blocked\".\n\nDo NOT:\n- Remove the payment/purchase block.\n- Allow \"send\" as a standalone word (it's already not in the list;\n  keep it that way).\n- Touch the sensitive-field path (OTP / password / card) — that\n  stays as-is.\n\nRCA log entry (DEBUG_LOG.md):\n- Title: \"DL-### BETA_BLOCKED_TERMS over-matched ordinary recipe text\"\n- Root cause: Initial OPS1/P0 list used single-word terms that\n  substring-match legitimate UI text inside Gmail/WhatsApp/Shopping\n  recipes (\"delete email\", \"remove from cart\", \"transfer photos\").\n  Recipes confirmed by the user were silently refused.\n- Prevention rule: any blocklist that matches against UI text must\n  use whole-word multi-token phrases, and must accept a SourceTrust\n  parameter so TRUSTED_RECIPE flows can opt into narrower checks.\n\nTests: ./gradlew :core:test :android-runtime:test \n\nAdditional stuff\nA) Mention the change the code brings to the application - the before and after with real life practical examples if possible. \nB) Share an indepth end to end manual testing plan of the changes done - be practical and ensure all aspects are tested well before we proceed.   \nC) ENSURE THERE ARE NO BUILDS ERRORS OR APP CRASHES. AUDIOT THE CODE COMPLETELY AND FIX ANY ERRORS."
+    },
+    {
+      "timestamp": "2026-05-22T11:47:54.464Z",
+      "role": "assistant",
+      "text": "I’ll make the policy change and tests, then run the requested Gradle tasks. I’ll first inspect the policy engine, its tests, and the RCA log so the edits land cleanly in the existing style."
+    },
+    {
+      "timestamp": "2026-05-22T11:48:03.291Z",
+      "role": "assistant",
+      "text": "I found the policy engine already has the over-broad beta scan in both URL and tap target paths, plus a long existing test file around `SourceTrust`. Next I’m reading the relevant blocks so I can make the smallest patch and avoid disturbing the sensitive-field logic."
+    },
+    {
+      "timestamp": "2026-05-22T11:48:33.461Z",
+      "role": "assistant",
+      "text": "There’s one small ambiguity in the wording: one bullet says the hard delete phrases are blocked only when trust is not `TRUSTED_RECIPE`, while the required test says “delete account” is blocked regardless of `SourceTrust`. I’m following the test and product-safety intent: account deletion/reset remains blocked for trusted recipes too."
+    },
+    {
+      "timestamp": "2026-05-22T11:50:22.878Z",
+      "role": "assistant",
+      "text": "I’m about to patch the policy in one place: split the phrase lists, add whole-phrase matching, keep URL payment blocking separate, and add the three regression tests alongside the existing policy tests."
+    },
+    {
+      "timestamp": "2026-05-22T11:51:29.149Z",
+      "role": "assistant",
+      "text": "The code patch is in place now. I’m adding the RCA entry as `DL-067`, then I’ll compile/test so any Kotlin or behavior mistakes get caught before I hand this back."
+    },
+    {
+      "timestamp": "2026-05-22T11:52:09.272Z",
+      "role": "assistant",
+      "text": "The RCA entry is appended. I’m doing a quick local audit of the diff now, especially around the new regex helpers and the policy order, before running Gradle."
+    },
+    {
+      "timestamp": "2026-05-22T11:52:52.690Z",
+      "role": "assistant",
+      "text": "The diff now has one explicit URL-payment regression and the new shopping target test owns the `Buy now` case, which keeps the suite a bit cleaner. I’m running the focused policy test first, plus a whitespace check, then I’ll run the full requested `:core:test :android-runtime:test`."
+    },
+    {
+      "timestamp": "2026-05-22T11:53:00.885Z",
+      "role": "assistant",
+      "text": "The whitespace check passed. The focused Gradle run hit the local shell’s missing default Java runtime, so I’m switching to the repo’s cached JDK path that prior builds used on this machine and rerunning."
+    },
+    {
+      "timestamp": "2026-05-22T11:53:17.973Z",
+      "role": "assistant",
+      "text": "Gradle’s aggregate `:android-runtime:test` task doesn’t accept `--tests`, so I’m using the concrete unit-test task for the focused run and will still run the exact aggregate command the user requested afterward."
+    },
+    {
+      "timestamp": "2026-05-22T11:53:35.924Z",
+      "role": "assistant",
+      "text": "The focused policy test passed after compiling `android-runtime`. I’m running the requested full test command now; if it comes back clean I’ll do one app compile pass as an extra crash/build sanity check."
+    },
+    {
+      "timestamp": "2026-05-22T11:53:51.715Z",
+      "role": "assistant",
+      "text": "The requested `:core:test :android-runtime:test` command passed cleanly. I’m doing the extra `:app:compileDebugKotlin` pass now so the app-side dependency graph sees the changed runtime code too."
+    },
+    {
+      "timestamp": "2026-05-22T11:54:34.245Z",
+      "role": "assistant",
+      "text": "One small cleanup before final validation: the trust-aware branch was explicit but duplicated. I’m tightening that and adding plural URL terms (`payments`, `purchases`) to keep the URL payment/purchase guard conservative without broadening UI text matching."
+    },
+    {
+      "timestamp": "2026-05-22T11:54:45.873Z",
+      "role": "assistant",
+      "text": "That cleanup is in. I’m rerunning the requested tests and app compile once more after the final edit, so the final status reflects the actual patch."
+    },
+    {
+      "timestamp": "2026-05-22T11:55:04.193Z",
+      "role": "assistant",
+      "text": "Final validation is green: requested tests passed and the app debug Kotlin compile passed too. I’m updating the RCA validation row to reflect the actual commands, then I’ll do one final diff/status check."
+    },
+    {
+      "timestamp": "2026-05-22T11:55:29.640Z",
+      "role": "assistant",
+      "text": "The diff check is clean. I see an unrelated untracked `handy_macos_ref/` directory that I’m leaving alone. I’m going one step further with `:app:assembleDebug`, and if a device/emulator is attached I’ll do a basic launch crash smoke too."
+    },
+    {
+      "timestamp": "2026-05-22T11:55:45.660Z",
+      "role": "assistant",
+      "text": "`assembleDebug` passed. The shell doesn’t have `adb` on `PATH`, so I can’t do a device launch smoke from here without discovering SDK tools; I’ll check the repo’s `local.properties` for the SDK path before deciding whether that’s available."
+    },
+    {
+      "timestamp": "2026-05-22T11:56:03.678Z",
+      "role": "assistant",
+      "text": "A device is attached (`emulator-5554`), so I can do the basic install/launch crash smoke after all. I’m checking the launcher activity and then I’ll install the debug APK, launch, and scan fresh logcat for fatal crashes."
+    },
+    {
+      "timestamp": "2026-05-22T11:56:24.510Z",
+      "role": "assistant",
+      "text": "Install succeeded, but launching by namespace failed because the debug `applicationId` is different from the namespace. I’m checking the Gradle application id and will relaunch with the installed package name."
+    },
+    {
+      "timestamp": "2026-05-22T11:56:53.073Z",
+      "role": "assistant",
+      "text": "The emulator launch smoke came back clean: install succeeded, the real launch component started, and fresh logcat had no crash/error matches. I’m recording that in the RCA validation row."
+    },
+    {
+      "timestamp": "2026-05-22T11:57:38.485Z",
+      "role": "assistant",
+      "text": "I’m tightening the “regardless of source trust” test to include `UNTRUSTED_TOOL` too. For that one the policy may fail earlier as `tool-suggestion-only`, but it still proves the target cannot pass under any source trust."
+    },
+    {
+      "timestamp": "2026-05-22T11:57:48.322Z",
+      "role": "assistant",
+      "text": "That test now covers all three trust values. I’m rerunning the requested test command one last time after this test-only adjustment."
+    },
+    {
+      "timestamp": "2026-05-22T11:58:53.425Z",
+      "role": "assistant",
+      "text": "Implemented the policy narrowing in [DefaultActionPolicyEngine.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/action/DefaultActionPolicyEngine.kt:82), added the requested regressions in [DefaultActionPolicyEngineTest.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/test/kotlin/com/handy/runtime/action/DefaultActionPolicyEngineTest.kt:180), and appended RCA entry [DL-067](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md:1106).\n\n**Behavior Change**\nBefore: recipe UI targets like `Delete email`, `remove from cart`, or `transfer photos` could match broad single-word substrings and get refused as `beta-blocked`, even after user confirmation.\n\nAfter: UI matching is whole-phrase based. `Delete email` in a trusted Gmail recipe is allowed, while actual risky surfaces still block:\n- Still blocked: `Buy now`, `Pay now`, `Checkout`, `Complete purchase`, `Send money`, `Transfer money`, `Wire transfer`.\n- Still blocked: `Delete account`, `Close account`, `Factory reset`.\n- Still blocked: `upi:` and payment/purchase URLs.\n- Not added: standalone `send`.\n\nSensitive-field handling for OTP/password/card stayed intact.\n\n**Validation**\nPassed:\n```bash\n./gradlew :core:test :android-runtime:test --stacktrace\n./gradlew :app:compileDebugKotlin --stacktrace\n./gradlew :app:assembleDebug --stacktrace\ngit diff --check\n```\n\nAlso installed `app-debug.apk` on `emulator-5554`, launched `com.handy.android/com.handy.app.onboarding.OnboardingActivity`, and fresh logcat had no `AndroidRuntime`, `FATAL EXCEPTION`, or Handy exception/error matches.\n\n**Manual Test Plan**\n1. Gmail trusted recipe: run a confirmed recipe step targeting `Delete email`; expect normal confirmation/action flow, not `beta-blocked`.\n2. Gmail hard block: target `Delete account`; expect refused with `beta-blocked`.\n3. Shopping safe text: target `Remove from cart`; expect not blocked by beta phrase policy.\n4. Shopping purchase text: target `Buy now`, `Checkout`, `Place order`, `Complete purchase`, `Pay now`; expect `beta-blocked`.\n5. WhatsApp/general recipe: target `Send` or `Transfer photos`; expect no beta block from standalone words.\n6. WhatsApp/payments: target `Send money` or `Transfer money`; expect `beta-blocked`.\n7. URL path: dispatch `upi://pay?...`, `/complete-purchase`, `/payments`; expect `beta-blocked` for all source trusts.\n8. Non-payment URL: dispatch a normal URL without payment terms; expect existing non-UI URL behavior.\n9. Sensitive fields: type OTP/password/card-like values; expect `sensitive-field`, confirming that path was untouched.\n10. Smoke app: install debug APK, launch onboarding, verify no fatal logcat entries and no startup crash.\n\nNote: there is an existing untracked `handy_macos_ref/` directory; I left it untouched."
+    }
+  ]
+}

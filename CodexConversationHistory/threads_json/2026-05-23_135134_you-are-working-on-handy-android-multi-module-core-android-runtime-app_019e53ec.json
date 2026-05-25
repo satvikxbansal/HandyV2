@@ -1,0 +1,137 @@
+{
+  "metadata": {
+    "thread_id": "019e53ec-e434-7611-b89b-1f51a3079d02",
+    "title": "You are working on Handy Android (multi-module: :core, :android-runtime, :app).",
+    "created_local": "2026-05-23 13:51:34 IST",
+    "updated_local": "2026-05-23 14:04:44 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/23/rollout-2026-05-23T13-51-34-019e53ec-e434-7611-b89b-1f51a3079d02.jsonl",
+    "recorded_git_sha_at_start": "93754259560473853c03421ed3f1e0ba7089d498",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 18,
+    "summary": "This conversation focused on: Before adding S-1..S-10 recipes, introduce a tiny intent-routing layer so that \"open Spotify\", \"set a timer for 10 minutes\", \"search the web for X\", \"install X from Play Store\", \"remind me at 6 PM\" each map to exactly one recipe without LL… Likely related git changes: 9a3b522 Add deterministic open app recipe.",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "9a3b522b86a93b8d5ae3bc4b101b7ff5d4cc3ca0",
+        "short": "9a3b522",
+        "author_time": "2026-05-23 14:22:07 IST",
+        "subject": "Add deterministic open app recipe",
+        "confidence": "medium",
+        "score": 7,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words deterministic, open, recipe"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ClockRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/OpenAppRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/intent/LaunchableAppIndex.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/agent/recipes/OpenAppRecipeTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/agent/recipes/RuntimeRecipePackTest.kt",
+          "app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt",
+          "core/src/main/kotlin/com/handy/core/agent/RecipeIntent.kt",
+          "core/src/main/kotlin/com/handy/core/agent/RecipeIntentRouter.kt",
+          "core/src/main/kotlin/com/handy/core/agent/RecipeRegistry.kt",
+          "core/src/main/kotlin/com/handy/core/agent/UserGoal.kt",
+          "core/src/main/kotlin/com/handy/core/prompts/PromptCatalog.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-23T08:21:36.888Z",
+      "role": "user",
+      "text": "You are working on Handy Android (multi-module: :core, :android-runtime, :app).\nRepo guardrails live under .cursor/rules/.\n\nGOAL\nBefore adding S-1..S-10 recipes, introduce a tiny intent-routing layer\nso that \"open Spotify\", \"set a timer for 10 minutes\", \"search the web\nfor X\", \"install X from Play Store\", \"remind me at 6 PM\" each map to\nexactly one recipe without LLM-side ambiguity. Today RecipeRegistry\nwalks recipes in order and the first non-Refused wins; with 6 more\nrecipes that becomes a coin-flip when prompts overlap.\n\nEVALUATION (DO NOT WRITE CODE YET — REPORT FINDINGS FIRST)\n1. Open and re-read in full:\n   - core/src/main/kotlin/com/handy/core/agent/UserGoal.kt\n   - core/src/main/kotlin/com/handy/core/agent/RecipeRegistry.kt\n   - core/src/main/kotlin/com/handy/core/agent/AppRecipe.kt\n   - core/src/main/kotlin/com/handy/core/agent/RecipeRunner.kt\n   - android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/*.kt\n2. Identify how UserGoal.fromAssistantText currently maps the LLM's\n   directive (e.g. `[RECIPE:clock_alarm]`) to a recipe id.\n3. Confirm there is no central \"intent → recipe id\" lookup today and\n   that recipe selection happens by walking recipes in registry order.\n4. Confirm that all existing recipes use `propose()` which returns\n   either Refused(reason) or Proposed(plan).\n5. Report back in chat: the file paths, the exact selection mechanism\n   today, and your proposed minimal addition. Wait for confirmation\n   before implementing.\n\nIMPLEMENTATION (after evaluation is acknowledged)\nFiles to add:\n- (new) core/src/main/kotlin/com/handy/core/agent/RecipeIntent.kt\n- (new) core/src/main/kotlin/com/handy/core/agent/RecipeIntentRouter.kt\n- (new) core/src/test/kotlin/com/handy/core/agent/RecipeIntentRouterTest.kt\n\nFiles to touch:\n- core/src/main/kotlin/com/handy/core/agent/RecipeRegistry.kt\n- core/src/main/kotlin/com/handy/core/agent/UserGoal.kt (only if a new\n  helper is needed; otherwise leave alone)\n- core/src/main/kotlin/com/handy/core/prompts/PromptCatalog.kt (update\n  the recipe instruction line to teach the LLM to emit the canonical\n  intent token list)\n\nWhat RecipeIntent looks like:\n    enum class RecipeIntent(val canonical: String) {\n        OPEN_APP(\"open_app\"),\n        SET_ALARM(\"set_alarm\"),\n        SET_TIMER(\"set_timer\"),\n        WEB_SEARCH(\"web_search\"),\n        INSTALL_APP(\"install_app\"),\n        OPEN_SETTING(\"open_setting\"),\n        CREATE_CALENDAR_EVENT(\"create_calendar_event\"),\n        DRAFT_GMAIL(\"draft_gmail\"),\n        DRAFT_WHATSAPP(\"draft_whatsapp\"),\n        OPEN_CHROME_URL(\"open_chrome_url\"),\n        SHOPPING_SEARCH(\"shopping_search\"),\n        SHOPPING_FIND_COUPONS(\"shopping_find_coupons\"),\n        BOOK_RIDE(\"book_ride\"),\n    }\n\nWhat RecipeIntentRouter does:\n- A single fun `routeOrNull(goal: UserGoal): Pair<RecipeIntent, AppRecipe>?`\n- Has a static map: RecipeIntent → recipe id (read by the registry).\n- Looks at `goal.requestedRecipe` and `goal.requestedIntent` (add\n  this field to UserGoal if missing — it's just the canonical string\n  the LLM emitted via [INTENT:foo]).\n- Returns the (intent, recipe) pair or null.\n\nUpdate RecipeRegistry.propose() to:\n1. First consult the router. If the router resolves to a single\n   recipe, use it directly.\n2. Otherwise fall back to current behavior (walk recipes in order).\n\nUpdate PromptCatalog: replace the current \"[RECIPE:<id>]\" hint with\n\"emit [INTENT:<canonical>] when the user clearly wants the deterministic\nflow; the runner will pick the right recipe.\" Provide the canonical\nlist in the prompt.\n\nTests:\n- RecipeIntentRouterTest covers:\n  * Router returns the right recipe for every intent in the enum.\n  * Router returns null for unknown intent.\n  * Registry.propose falls back to legacy walk when router returns null.\n\nDON'T BREAK\n- Every existing AppRecipe must still propose() unchanged.\n- Existing RecipeRunner tests must pass.\n- Confirm with: ./gradlew :core:test :android-runtime:test :app:test\n\nRCA log entry (DEBUG_LOG.md):\nTitle: \"DL-### RecipeIntentRouter added to prevent recipe ambiguity\nbefore 6 new recipes land\"\nRoot cause: Original RecipeRegistry walked recipes in declaration\norder; adding overlapping recipes (open_app vs install_app, alarm vs\ntimer) would have made selection brittle.\nPrevention rule: any new recipe family added in the future must\nregister a RecipeIntent enum value first.\n\nREPORT BACK after implementation: confirm all 5 universal invariants\nplus this prompt's test, and paste the test output."
+    },
+    {
+      "timestamp": "2026-05-23T08:21:43.196Z",
+      "role": "assistant",
+      "text": "I’ll do the evaluation pass only first. I’m going to read the guardrails and the agent/recipe files, then I’ll report the current routing mechanics and the smallest change I’d make before touching code."
+    },
+    {
+      "timestamp": "2026-05-23T08:22:02.133Z",
+      "role": "assistant",
+      "text": "I see one unrelated untracked directory, `handy_macos_ref/`; I’ll leave it alone. Next I’m reading the rules and the exact files named in the prompt, with line numbers so the selection path is easy to verify."
+    },
+    {
+      "timestamp": "2026-05-23T08:22:20.348Z",
+      "role": "assistant",
+      "text": "The relevant guardrails here are the pure-`:core` boundary, the intent-dispatch rule against free-text regex inference, and the V2 “no multi-step runner” fence. This proposed router can stay tiny and deterministic inside `:core`, which fits that shape."
+    },
+    {
+      "timestamp": "2026-05-23T08:23:30.954Z",
+      "role": "assistant",
+      "text": "**Evaluation Findings**\n\nI re-read the requested files:\n\n- [UserGoal.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/UserGoal.kt)\n- [RecipeRegistry.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/RecipeRegistry.kt)\n- [AppRecipe.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/AppRecipe.kt)\n- [RecipeRunner.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/RecipeRunner.kt)\n- Runtime recipes under [android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes)\n\nCurrent mechanism:\n\n- `UserGoal.fromAssistantText()` does **not** parse `[RECIPE:clock_alarm]` today. It parses the text form:\n  `use recipe <recipe_id> with args {...}`\n- The recipe id is extracted by `RecipeInvocation.directiveRegex` in [UserGoal.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/UserGoal.kt:87), then stored as `goal.requestedRecipe.recipeId`.\n- [PromptCatalog.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/prompts/PromptCatalog.kt:262) currently teaches the LLM to emit that `use recipe <recipe_id> with args` directive.\n\nOne important correction: I **cannot confirm** that `RecipeRegistry` currently walks recipes in order and picks the first non-`Refused`. Current [RecipeRegistry.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/RecipeRegistry.kt:13) does exact lookup by `requestedRecipe.recipeId` using `recipes.firstOrNull { it.id.equals(...) }`, then calls only that recipe’s `propose()`. Registry order only matters if duplicate ids exist.\n\nI did confirm there is no central `intent -> recipe id` lookup today: no `RecipeIntent`, no `requestedIntent`, and no canonical intent routing layer. `RecipeIntentDispatcher` in [RecipeRunner.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/RecipeRunner.kt:205) is unrelated; it dispatches native actions during recipe execution.\n\nAll existing `AppRecipe` implementations use `propose(goal, invocation, grounding)` and return the sealed `RecipeProposal`: either `Proposed(plan)` or `Refused(reason)`.\n\n**Proposed Minimal Addition**\n\nAdd a tiny canonical intent layer without changing existing recipe `propose()` implementations:\n\n- Add `RecipeIntent` enum with the canonical strings.\n- Add `requestedIntent: String?` to `UserGoal`, parsed from `[INTENT:foo]`, while preserving existing `requestedRecipe`.\n- Add `RecipeIntentRouter`, backed by a static `RecipeIntent -> recipeId` map and the registry’s recipe list.\n- Update `RecipeRegistry.propose()` to consult the router first, then fall back to the current exact recipe-id behavior.\n- Update `PromptCatalog` so the model emits `[INTENT:<canonical>]` plus the existing JSON recipe args/directive shape as needed, or we need to decide whether `[INTENT]` replaces the recipe directive entirely.\n\nOne spec mismatch to confirm before implementation: the requested canonical enum has no explicit `REMINDER` intent, but the goal examples include “remind me at 6 PM.” Should that route to `CREATE_CALENDAR_EVENT`, or should the enum include a reminder-specific intent?"
+    },
+    {
+      "timestamp": "2026-05-23T08:26:47.773Z",
+      "role": "user",
+      "text": "Continue building"
+    },
+    {
+      "timestamp": "2026-05-23T08:26:58.709Z",
+      "role": "assistant",
+      "text": "Phase 4 / V2 pre-S-recipes hardening: I’ll implement the deterministic recipe-intent routing layer and its tests, keeping `:core` Android-free and leaving every existing recipe’s `propose()` behavior intact. First I’m checking the debug log numbering and any relevant prevention rules, then I’ll post the required Plan block before editing."
+    },
+    {
+      "timestamp": "2026-05-23T08:27:14.916Z",
+      "role": "assistant",
+      "text": "The last debug-log rule that touches this area is DL-063: action plumbing must stay opt-in and must not hijack guidance questions. I’m going to preserve that gate and make `[INTENT]` a selector for deterministic recipe directives, not a new free-text inference path."
+    },
+    {
+      "timestamp": "2026-05-23T08:27:42.078Z",
+      "role": "assistant",
+      "text": "**Plan**\n\n1. User-visible goal: add a tiny canonical `[INTENT:<token>]` routing layer so overlapping future recipes resolve to one recipe id before proposal logic runs.\n\n2. Files I will touch:\n   - `core/src/main/kotlin/com/handy/core/agent/RecipeIntent.kt`: new canonical intent enum.\n   - `core/src/main/kotlin/com/handy/core/agent/RecipeIntentRouter.kt`: new deterministic intent-to-recipe resolver.\n   - `core/src/main/kotlin/com/handy/core/agent/UserGoal.kt`: parse and strip `[INTENT:foo]` into `requestedIntent`, while preserving existing recipe directive parsing.\n   - `core/src/main/kotlin/com/handy/core/agent/RecipeRegistry.kt`: consult the router first, then fall back to current exact recipe-id lookup.\n   - `core/src/main/kotlin/com/handy/core/prompts/PromptCatalog.kt`: teach the LLM the canonical intent token list alongside the existing recipe args directive.\n   - `core/src/test/kotlin/com/handy/core/agent/RecipeIntentRouterTest.kt`: cover enum routing, unknown intent, and legacy fallback.\n   - Existing prompt/user-goal tests as needed for the new marker text.\n   - `DEBUG_LOG.md`: append DL-072 per the user’s requested RCA entry.\n\n3. Interfaces I will not change:\n   - `AppRecipe.propose(...)` stays exactly the same.\n   - Existing runtime recipe objects stay unchanged.\n   - `RecipeRunner` execution, policy checks, confirmations, and `RecipeIntentDispatcher` stay unchanged.\n   - No Android imports enter `:core`.\n\n4. Risks and checks:\n   - Risk: `[INTENT]` accidentally bypasses DL-063 guidance gating. Catch: `AgentSessionController` still gates on recipe execution wording; I’ll also keep existing recipe directives compatible.\n   - Risk: future intent ids map to recipes not present yet. Catch: router returns `null` if the mapped recipe id is absent, so legacy fallback still works.\n   - Risk: prompt test expectations drift. Catch: update focused tests and run `./gradlew :core:test :android-runtime:test :app:test`.\n\nAdvanced Phase 4 / pre-S-recipes routing hardening — acceptance check: deterministic intent-to-recipe selection before overlapping S recipes land — status: IN PROGRESS."
+    },
+    {
+      "timestamp": "2026-05-23T08:28:54.456Z",
+      "role": "assistant",
+      "text": "I’m starting the file edits now. The core trick is small: `[INTENT:set_alarm]` selects `clock_alarm`, while the existing JSON args directive remains the argument carrier, so old recipe directives still work."
+    },
+    {
+      "timestamp": "2026-05-23T08:30:12.978Z",
+      "role": "assistant",
+      "text": "The first implementation pass is in place. I’m doing a compile-oriented read now, especially around the new prompt string and router tests, because tiny parser changes love to fail in deeply boring ways."
+    },
+    {
+      "timestamp": "2026-05-23T08:30:21.104Z",
+      "role": "assistant",
+      "text": "The focused test command immediately hit the machine’s missing default Java runtime, not Kotlin errors. I’ve seen this repo use a bundled JDK path in prior log entries, so I’m locating that and rerunning with `JAVA_HOME` pinned."
+    },
+    {
+      "timestamp": "2026-05-23T08:31:28.895Z",
+      "role": "assistant",
+      "text": "The focused tests are green now. I’m appending the requested RCA entry as DL-072, then I’ll run the full requested module test set."
+    },
+    {
+      "timestamp": "2026-05-23T08:32:07.052Z",
+      "role": "assistant",
+      "text": "Core’s full test pass has completed inside the requested run; the eval/replay metrics are still green. Gradle is now compiling and running the Android runtime/app unit test slices, so I’m letting that finish before touching anything else."
+    },
+    {
+      "timestamp": "2026-05-23T08:32:27.514Z",
+      "role": "assistant",
+      "text": "The requested full test command passed across `:core`, `:android-runtime`, and `:app`. I’m just replacing the “pending” validation line in the DL entry with the actual command/output, then I’ll do a final diff sanity check."
+    },
+    {
+      "timestamp": "2026-05-23T08:33:20.197Z",
+      "role": "assistant",
+      "text": "One prompt wording issue popped out in the sanity grep: the canonical intent list does not include the low-level visible UI recipes, so I’m tightening that paragraph to distinguish intent-routed flows from the existing tap/type/search/scroll primitives. That keeps old recipes usable without asking the model to invent canonical tokens that do not exist."
+    },
+    {
+      "timestamp": "2026-05-23T08:33:53.667Z",
+      "role": "assistant",
+      "text": "The targeted tests are green again after the prompt tightening and the extra registry-first assertion. I’m rerunning the full requested command once more so the recorded validation matches the final diff, not the previous version."
+    },
+    {
+      "timestamp": "2026-05-23T08:34:44.513Z",
+      "role": "assistant",
+      "text": "Implemented the intent-routing layer and kept the recipe execution surface stable.\n\nAdded [RecipeIntent.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/RecipeIntent.kt) and [RecipeIntentRouter.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/RecipeIntentRouter.kt), wired [RecipeRegistry.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/RecipeRegistry.kt) to consult it first, and taught [UserGoal.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/UserGoal.kt) to parse `[INTENT:...]`. Existing recipe directives still work as fallback. I also updated [PromptCatalog.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/prompts/PromptCatalog.kt) so canonical deterministic flows use `[INTENT:<canonical>]`, while low-level visible UI recipes remain explicit recipe ids.\n\nAdded [RecipeIntentRouterTest.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/test/kotlin/com/handy/core/agent/RecipeIntentRouterTest.kt) covering every enum route, unknown intent, router-first registry behavior, and legacy fallback. AppRecipe `propose()` implementations and `RecipeRunner` were not changed. RCA entry added as `DL-072` in [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md).\n\nUniversal invariants confirmed: OS-1 foreground services untouched, OS-2 overlay/chat untouched, OS-3 capture untouched, OS-4 overlay Compose lifecycle untouched, OS-5 secure-capture handling untouched. The unrelated untracked `handy_macos_ref/` directory is still untouched.\n\nRequested test output:\n\n```text\n$ JAVA_HOME=$HOME/.cache/codex-jdk17 PATH=$HOME/.cache/codex-jdk17/bin:$PATH ./gradlew :core:test :android-runtime:test :app:test --stacktrace\n\n> Task :core:test\nModel eval DuplicateTarget pass rate: 2/2 (100.0%)\nModel eval HindiHinglish pass rate: 3/3 (100.0%)\nModel eval IntentFirst pass rate: 3/3 (100.0%)\nModel eval MarkIdSelection pass rate: 3/3 (100.0%)\nModel eval NoContextHonesty pass rate: 2/2 (100.0%)\nModel eval SecureWindow pass rate: 2/2 (100.0%)\nModel eval SensitiveAction pass rate: 3/3 (100.0%)\nModel eval ToolInjection pass rate: 1/1 (100.0%)\nPointer replay accuracy: all replay groups passed\n\n> Task :android-runtime:test\n> Task :app:test\n\nBUILD SUCCESSFUL in 7s\n125 actionable tasks: 21 executed, 104 up-to-date\n```\n\n`git diff --check` also passed.\n\nAdvanced Phase 4 / pre-S-recipes routing hardening — acceptance check: deterministic intent-to-recipe selection before overlapping S recipes land — status: PASS."
+    }
+  ]
+}

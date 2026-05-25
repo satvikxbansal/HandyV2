@@ -1,0 +1,100 @@
+{
+  "metadata": {
+    "thread_id": "019e4fa4-3e1d-7be2-a7f9-452c81dfa15e",
+    "title": "Fix-E: Skip system overlay taps",
+    "created_local": "2026-05-22 17:53:44 IST",
+    "updated_local": "2026-05-22 18:04:06 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/22/rollout-2026-05-22T17-53-44-019e4fa4-3e1d-7be2-a7f9-452c81dfa15e.jsonl",
+    "recorded_git_sha_at_start": "72b969e944ad7befc7b65e32b36da02630351da7",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 12,
+    "summary": "This conversation focused on: Skip Android system overlays too (status bar, nav bar, system UI) Likely related git changes: 0a8f0a3 FIX-E: Tighten ManualTargetSelector package skip-list.",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "0a8f0a357f04e960565685059394fc0a9daecfbc",
+        "short": "0a8f0a3",
+        "author_time": "2026-05-22 18:05:14 IST",
+        "subject": "FIX-E: Tighten ManualTargetSelector package skip-list",
+        "confidence": "high",
+        "score": 15,
+        "reasons": [
+          "inside/near active thread window",
+          "matched phase/tag fixe",
+          "matched words list, manualtargetselector, package, skip"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/androidTest/kotlin/com/handy/app/overlay/ManualTargetSelectorTest.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/ManualTargetSelector.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/ManualTargetSelectorSkipListTest.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-22T12:28:11.637Z",
+      "role": "user",
+      "text": "Goal: Skip Android system overlays too (status bar, nav bar, system UI)\nin addition to Handy's own package.\n\nFiles to touch:\n- app/src/main/kotlin/com/handy/app/overlay/ManualTargetSelector.kt\n\nRequired changes:\n- In handleAccessibilityEvent: skip when sourcePackage.equals(...)\n  any of: appPackageName, \"com.android.systemui\", \"android\",\n  \"com.android.launcher3\", and any package starting with\n  \"com.google.android.inputmethod\" or \"com.android.inputmethod\".\n- Extract the skip-list to a companion-object Set<String> for clarity.\n- Add a unit test ManualTargetSelectorSkipListTest:\n  * captureNodeForTest with sourcePackage=\"com.android.systemui\"\n    while active returns true (acknowledged) but does NOT capture.\n\nDo NOT:\n- Use AccessibilityNodeInfo.packageName for the comparison (it's\n  unreliable); stick with event.packageName.\n\nRCA log entry:\n- Title: \"DL-### ManualTargetSelector accepted system-overlay taps\"\n- Root cause: Skip-list only excluded Handy's own package. Some OEM\n  frameworks emit TYPE_VIEW_CLICKED from systemui windows when the\n  user taps the status bar; selector would resume flight to that\n  node.\n- Prevention rule: any code that captures a node from a foreign\n  package must explicitly enumerate the trustworthy packages, not\n  just deny one.\n\nTests: ./gradlew :app:test \n\nAdditional stuff\nA) Mention the change the code brings to the application - the before and after with real life practical examples if possible. \nB) Share an indepth end to end manual testing plan of the changes done - be practical and ensure all aspects are tested well before we proceed.   \nC) ENSURE THERE ARE NO BUILDS ERRORS OR APP CRASHES. AUDIOT THE CODE COMPLETELY AND FIX ANY ERRORS."
+    },
+    {
+      "timestamp": "2026-05-22T12:28:20.477Z",
+      "role": "assistant",
+      "text": "I’ll inspect the selector and test layout first, then make the smallest code/test change and run the app unit tests. I’ll also look for the repo’s RCA/log convention before adding that entry."
+    },
+    {
+      "timestamp": "2026-05-22T12:28:31.300Z",
+      "role": "assistant",
+      "text": "I found the existing instrumentation coverage and the debug log. Next I’m reading the selector and test scaffolding so the new skip-list test lands in the right test source set without fighting Android framework limitations."
+    },
+    {
+      "timestamp": "2026-05-22T12:29:35.304Z",
+      "role": "assistant",
+      "text": "I’m going to make the selector treat the Android/system overlay packages as “handled but not captured” while a manual selection is active. That keeps the selection mode alive when the user hits the status bar or keyboard area, instead of letting that system node become Buddy’s target."
+    },
+    {
+      "timestamp": "2026-05-22T12:30:14.346Z",
+      "role": "assistant",
+      "text": "The local unit test is in place, and I updated the existing instrumentation assertion to match the new “active selector acknowledged this event” behavior. I’m running the requested app unit test task now; if anything shakes loose, I’ll fix it before the RCA entry gets finalized."
+    },
+    {
+      "timestamp": "2026-05-22T12:30:23.923Z",
+      "role": "assistant",
+      "text": "The first Gradle invocation hit the host’s missing default Java runtime, which this repo has worked around before with its cached JDK 17. I’m switching to that pinned JDK path and rerunning the same task."
+    },
+    {
+      "timestamp": "2026-05-22T12:30:56.581Z",
+      "role": "assistant",
+      "text": "The requested `:app:test` task is green. I noticed the new test was noisy because `AccessibilityNodeInfo.recycle()` is deprecated in the mockable Android API, so I’m adding the same file-level suppression pattern this repo already uses around accessibility tests and then I’ll do a final verification pass."
+    },
+    {
+      "timestamp": "2026-05-22T12:31:31.350Z",
+      "role": "assistant",
+      "text": "The RCA entry is appended as `DL-071`. I’m doing a final build/test sweep now, including debug APK assembly, then I’ll check the working diff and device availability for a launch smoke test if an emulator is attached."
+    },
+    {
+      "timestamp": "2026-05-22T12:32:04.351Z",
+      "role": "assistant",
+      "text": "Whitespace diff checks are clean. `adb` is not on PATH, so I’m checking the usual Android SDK location before deciding whether a launch smoke test is available on this machine."
+    },
+    {
+      "timestamp": "2026-05-22T12:32:15.276Z",
+      "role": "assistant",
+      "text": "An emulator is attached, so I’m going one step further than compile-only: install the debug APK, cold-launch the onboarding activity, and scan fresh logcat for runtime crashes."
+    },
+    {
+      "timestamp": "2026-05-22T12:33:22.141Z",
+      "role": "assistant",
+      "text": "I made a tiny readability cleanup after the audit pass, so I’m rerunning the requested unit-test task once more against the final files."
+    },
+    {
+      "timestamp": "2026-05-22T12:34:06.545Z",
+      "role": "assistant",
+      "text": "Implemented the system-overlay skip fix.\n\nChanged [ManualTargetSelector.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/ManualTargetSelector.kt) so manual target capture now ignores, using `event.packageName` only:\n\n`com.handy.android`, `com.android.systemui`, `android`, `com.android.launcher3`, plus prefixes `com.google.android.inputmethod*` and `com.android.inputmethod*`.\n\nBefore: if the user entered “Tap the right one” mode and accidentally tapped the status bar, nav bar, launcher, or keyboard area, Handy could capture that system node and resume Buddy flight to the wrong place.\n\nAfter: those taps are acknowledged while selection remains active, but no node is captured. Practical example: user tries to select a button in Gmail, brushes the status bar first, and Handy now waits for the real Gmail target instead of flying toward a SystemUI/status-bar node.\n\nAdded [ManualTargetSelectorSkipListTest.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/test/kotlin/com/handy/app/overlay/ManualTargetSelectorSkipListTest.kt), covering the requested `captureNodeForTest(..., \"com.android.systemui\")` case: returns true, stays active, does not capture. Also updated the existing instrumentation expectation for skipped own-package clicks.\n\nAdded RCA entry `DL-071 — ManualTargetSelector accepted system-overlay taps` in [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md).\n\n**Verification**\n- `./gradlew :app:test --stacktrace` passed.\n- `./gradlew :app:test :app:assembleDebug --stacktrace` passed.\n- `./gradlew :app:installDebug --stacktrace` installed on `emulator-5554`.\n- Cold-launched `OnboardingActivity`: `Status: ok`, process stayed alive.\n- Fresh logcat scan found no `AndroidRuntime`, `FATAL EXCEPTION`, `am_crash`, or Handy exception/error matches.\n- `git diff --check` passed.\n\n**Manual Test Plan**\n1. Enable Handy accessibility and overlay permissions.\n2. Open any app with a visible tappable target, for example Gmail “Compose” or Chrome search field.\n3. Start manual target selection from the chip or widget long-press.\n4. Tap the status bar, clock area, notification shade edge, navigation bar, launcher area, and keyboard area.\n5. Confirm Handy does not pulse/capture those system areas and selection mode remains active.\n6. Tap the real app target after each system tap and confirm Buddy captures that target normally.\n7. Repeat with Gboard visible, then with the launcher visible.\n8. Repeat in gesture nav and 3-button nav if available.\n9. Watch logcat for `ManualTargetSelector: captured pkg=` and confirm captures only happen for the real foreground app package, not `com.android.systemui`, `android`, launcher, or input method packages.\n\nNote: `handy_macos_ref/` was already untracked and I left it untouched."
+    }
+  ]
+}

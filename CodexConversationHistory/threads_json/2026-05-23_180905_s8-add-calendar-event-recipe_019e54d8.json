@@ -1,0 +1,126 @@
+{
+  "metadata": {
+    "thread_id": "019e54d8-a6fb-79d0-9961-e91747b17d03",
+    "title": "S8: Add calendar event recipe",
+    "created_local": "2026-05-23 18:09:05 IST",
+    "updated_local": "2026-05-23 18:20:12 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/23/rollout-2026-05-23T18-09-05-019e54d8-a6fb-79d0-9961-e91747b17d03.jsonl",
+    "recorded_git_sha_at_start": "f31c22ac96689c5f396c07b3e8aa928ad88de054",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 16,
+    "summary": "This conversation focused on: Add CalendarEventRecipe + a bounded DateTimeParser. The recipe never auto-creates events; it always opens the OS Calendar compose UI with prefilled fields. User taps Save. FILES TO KNOW - core/src/main/kotlin/com/handy/core/action/Assistan… Likely related git changes: 6c2a51c S8: Calendar event recipe with bounded date/time parser.",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "6c2a51cf3b26bfb9f6e984a74e4d59c6b6910d4a",
+        "short": "6c2a51c",
+        "author_time": "2026-05-23 18:33:13 IST",
+        "subject": "S8: Calendar event recipe with bounded date/time parser",
+        "confidence": "high",
+        "score": 15,
+        "reasons": [
+          "inside/near active thread window",
+          "matched phase/tag s8",
+          "matched words bounded, calendar, event, parser, recipe"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/CalendarEventRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ClockRecipe.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/action/DefaultActionPolicyEngineTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/agent/recipes/CalendarEventRecipeTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/agent/recipes/RuntimeRecipePackTest.kt",
+          "core/src/main/kotlin/com/handy/core/agent/parsing/DateTimeParser.kt",
+          "core/src/main/kotlin/com/handy/core/prompts/PromptCatalog.kt",
+          "core/src/test/kotlin/com/handy/core/agent/parsing/DateTimeParserTest.kt",
+          "core/src/test/kotlin/com/handy/core/prompts/PromptCatalogTest.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-23T12:39:26.918Z",
+      "role": "user",
+      "text": "Read the standing rules. Single-pass.\n\nGOAL\nAdd CalendarEventRecipe + a bounded DateTimeParser. The recipe never\nauto-creates events; it always opens the OS Calendar compose UI with\nprefilled fields. User taps Save.\n\nFILES TO KNOW\n- core/src/main/kotlin/com/handy/core/action/AssistantAction.kt\n  (CreateCalendarEvent shape: title, startEpochMs?, endEpochMs?,\n  location?, notes?)\n- android-runtime/src/main/kotlin/com/handy/runtime/intent/AndroidIntentDispatcher.kt\n  (how Calendar insert intent is fired today)\n- android-runtime/src/main/kotlin/com/handy/runtime/action/DefaultActionPolicyEngine.kt\n  (confirm CreateCalendarEvent is allowed)\n\nIf S-2 created core/.../parsing/DurationParser.kt, sit a new\nDateTimeParser.kt alongside it.\n\nIMPLEMENT\n- core/src/main/kotlin/com/handy/core/agent/parsing/DateTimeParser.kt\n  Return type Result<Long?> so the caller distinguishes \"no time\"\n  from \"parse error\".\n  Required cases (table-driven test):\n    * \"tomorrow 3 pm\"\n    * \"next Monday 9 am\"\n    * \"this Friday 6:30 pm\"\n    * \"in 2 hours\" / \"in 30 minutes\"\n    * \"at 6\" (next-occurrence within 12h)\n    * \"2026-06-01 14:00\" (ISO)\n    * \"Saturday\" (next-occurrence at default 9 am)\n    * unparseable → Result.failure\n  Bounds:\n    * Refuse > 1 year future.\n    * Refuse in past.\n    * Local timezone (system default ZoneId).\n\n- android-runtime/.../recipes/CalendarEventRecipe.kt\n  * arg \"title\" or text after \"schedule\" / \"calendar event\" /\n    \"remind me of\" / \"add to calendar\".\n  * Refuse missing title with \"missing-title\".\n  * Optional: parsed start time. If parser fails → recipe still\n    proposes (Calendar opens with no time prefilled); if parser\n    refuses (negative case like \"1990\") → Refused(\"invalid-time\").\n  * Optional: location (\"at <place>\"), notes (the rest).\n  * Single-step NativeAction CreateCalendarEvent.\n  * displayName \"Create calendar event\".\n  * KDoc: the recipe NEVER fires the event silently.\n\n- Register in AndroidRuntimeRecipes.\n- Router: CREATE_CALENDAR_EVENT → CalendarEventRecipe.id.\n- PromptCatalog: add intent example with parser-friendly phrasing.\n\nTests:\n- DateTimeParserTest table over the cases above.\n- CalendarEventRecipeTest:\n  * happy path with parseable time.\n  * happy path with no time (parser returns null).\n  * Refused on missing title.\n  * Refused on invalid time.\n\nSELF-VERIFY\n./gradlew :core:test :android-runtime:test :app:test :app:lint :app:assembleDebug\n\nSTOP CONDITIONS (revert + report only)\n- CreateCalendarEvent's intent path in AndroidIntentDispatcher does\n  not honor startEpochMs the way we assume.\n\nDEBUG_LOG ENTRY: standard, plus prevention rule \"any recipe that\nparses natural-language time must include a table-driven parser\ntest covering the 7 cases above and must refuse on parse error with\nexplicit reason.\" \n\nAdditional stuff\nA) Mention the change the code brings to the application - the before and after with real life practical examples if possible. \nB) Share an indepth end to end manual testing plan of the changes done - be practical and ensure all aspects are tested well before we proceed.   \nC) ENSURE THERE ARE NO BUILDS ERRORS OR APP CRASHES. AUDIOT THE CODE COMPLETELY AND FIX ANY ERRORS."
+    },
+    {
+      "timestamp": "2026-05-23T12:39:37.615Z",
+      "role": "assistant",
+      "text": "I’ll do this as a single implementation pass: first I’m going to read the local rules and the existing action/recipe/test patterns, then patch the parser, recipe registration, routing, prompts, tests, and debug log before running the full verification command."
+    },
+    {
+      "timestamp": "2026-05-23T12:39:44.395Z",
+      "role": "assistant",
+      "text": "I found the project debug protocol and a dirty untracked `handy_macos_ref/` directory that I won’t touch unless it is directly relevant. Next I’m reading the prevention rules and the existing recipe/action shape so the new calendar path fits what’s already there."
+    },
+    {
+      "timestamp": "2026-05-23T12:40:08.657Z",
+      "role": "assistant",
+      "text": "The standing rules that matter here are: keep `:core` Android-free, route every new recipe through `RecipeIntentRouter` plus runtime registration, add focused tests in the same change, and append a new DEBUG_LOG entry before calling it complete. I’m now checking the existing calendar dispatcher first because your stop condition depends on that path honoring `startEpochMs`."
+    },
+    {
+      "timestamp": "2026-05-23T12:40:19.007Z",
+      "role": "assistant",
+      "text": "The stop condition is clear: `AndroidIntentDispatcher.fireCreateEvent` already uses `CalendarContract.EXTRA_EVENT_BEGIN_TIME` and `EXTRA_EVENT_END_TIME`, so `startEpochMs` is honored by the OS calendar compose intent. That means it’s safe to proceed with the recipe layer instead of reverting/reporting."
+    },
+    {
+      "timestamp": "2026-05-23T12:42:43.769Z",
+      "role": "assistant",
+      "text": "**Plan**\n\nPhase 4 hardening / deterministic action recipes. Plan sections advanced: agent-mode recipes, direct intent handoffs, and DEBUG_LOG prevention. Acceptance check: calendar requests become a safe OS-compose handoff, never a silent event creation, with parser and recipe tests.\n\nFiles I’ll touch:\n- `core/src/main/kotlin/com/handy/core/agent/parsing/DateTimeParser.kt`: new bounded natural-language time parser, pure JVM.\n- `core/src/test/kotlin/com/handy/core/agent/parsing/DateTimeParserTest.kt`: table-driven coverage for the required phrases and bounds.\n- `android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/CalendarEventRecipe.kt`: new single-step calendar compose recipe.\n- `android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ClockRecipe.kt`: register the recipe in the runtime pack.\n- `android-runtime/src/test/kotlin/com/handy/runtime/agent/recipes/CalendarEventRecipeTest.kt` and `RuntimeRecipePackTest.kt`: recipe behavior and pack registration.\n- `android-runtime/src/test/kotlin/com/handy/runtime/action/DefaultActionPolicyEngineTest.kt`: confirm `CreateCalendarEvent` remains allowed.\n- `core/src/main/kotlin/com/handy/core/prompts/PromptCatalog.kt` and its test: add a parser-friendly calendar intent example.\n- `DEBUG_LOG.md`: append DL-081 with the requested prevention rule after validation.\n\nInterfaces I will not change:\n- `AssistantAction.CreateCalendarEvent` shape stays exactly `title, startEpochMs?, endEpochMs?, location?, notes?`.\n- `AndroidIntentDispatcher.fireCreateEvent` stays as-is because it already pre-fills `EXTRA_EVENT_BEGIN_TIME`.\n- `DefaultActionPolicyEngine` production policy stays as-is unless a test exposes a real denial.\n\nRisks and checks:\n- Natural-language time can over-match locations like “at cafe”; I’ll keep parsing bounded and treat no time as `Result.success(null)`.\n- Past/far-future times must be explicit refusals so the recipe returns `invalid-time`.\n- Full verification will be the requested `./gradlew :core:test :android-runtime:test :app:test :app:lint :app:assembleDebug`, using the repo-local JDK if plain Java is still missing from PATH."
+    },
+    {
+      "timestamp": "2026-05-23T12:42:49.273Z",
+      "role": "assistant",
+      "text": "I’m going to make the parser intentionally small and boring: recognize the seven supported forms, validate against the local system zone, and expose typed failures so the calendar recipe can tell “bad/past time” apart from “I didn’t find a usable time.”"
+    },
+    {
+      "timestamp": "2026-05-23T12:45:42.343Z",
+      "role": "assistant",
+      "text": "The recipe patch is next. I’m keeping it to a single native action so policy and execution remain the same as the existing timer/web-search handoffs: it proposes a plan, opens Calendar’s draft UI, and leaves the final Save under the user’s finger."
+    },
+    {
+      "timestamp": "2026-05-23T12:46:25.755Z",
+      "role": "assistant",
+      "text": "The core pieces are in place now. I’m doing a focused scan and test pass first, because natural-language parser bugs usually show up as tiny compile errors or over-eager regex behavior before they show up in the full Gradle run."
+    },
+    {
+      "timestamp": "2026-05-23T12:46:53.899Z",
+      "role": "assistant",
+      "text": "Focused tests passed for the new parser, recipe, pack registration, prompt copy, and policy check. I’m moving to the full requested Gradle lane now; if anything shakes loose there, I’ll fix it before writing the DEBUG_LOG entry."
+    },
+    {
+      "timestamp": "2026-05-23T12:47:25.586Z",
+      "role": "assistant",
+      "text": "The full requested Gradle lane passed cleanly. I’m doing the extra hygiene pass now: diff whitespace check, then I’ll try a launch smoke test if an emulator/device is available so we can catch obvious startup crashes too."
+    },
+    {
+      "timestamp": "2026-05-23T12:47:40.674Z",
+      "role": "assistant",
+      "text": "Install succeeded, but my smoke command scoped `PATH` too narrowly and the follow-up `adb` calls weren’t found. That’s a command wrapper mistake, not an app failure; I’m rerunning the launch/logcat part with `adb` exported for the whole shell."
+    },
+    {
+      "timestamp": "2026-05-23T12:47:54.850Z",
+      "role": "assistant",
+      "text": "The app launch smoke is clean too: installDebug succeeded, `OnboardingActivity` cold-launched with `Status: ok`, the app process stayed alive, and the logcat crash scan returned no matches. I’m writing the DEBUG_LOG entry now with the parser-specific prevention rule you asked for."
+    },
+    {
+      "timestamp": "2026-05-23T12:48:25.325Z",
+      "role": "assistant",
+      "text": "The DEBUG_LOG entry is appended as DL-081. I’m doing one final diff/status pass now so the close-out can be precise and not hand-wavey."
+    },
+    {
+      "timestamp": "2026-05-23T12:48:50.026Z",
+      "role": "assistant",
+      "text": "I added one extra recipe regression for the subtle branch: a parser failure like “next someday” still opens a Calendar draft with no time, while hard refusals like past dates return `invalid-time`. I’m rerunning the focused and full lanes so the final validation reflects the actual final diff."
+    },
+    {
+      "timestamp": "2026-05-23T12:50:12.399Z",
+      "role": "assistant",
+      "text": "Implemented the Calendar event flow end to end.\n\n**What Changed**\nAdded [DateTimeParser.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/parsing/DateTimeParser.kt:21) with bounded local-time parsing for the required phrases, plus [CalendarEventRecipe.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/CalendarEventRecipe.kt:19). The recipe opens Android Calendar’s compose UI only. It never silently creates an event.\n\nBefore: “schedule dentist tomorrow 3 pm” had no deterministic runtime recipe path, so it could fall back to chat guidance or depend on a model-supplied epoch.\nAfter: Handy proposes “Create calendar event”, opens Calendar with title/start/location/notes prefilled, and the user taps Save.\n\nPractical examples:\n- “schedule dentist tomorrow 3 pm at Smile Dental notes bring card” opens a draft with title, time, location, and notes.\n- “schedule team sync” opens a title-only draft with no time prefilled.\n- “schedule checkup 1990” is refused as `invalid-time`.\n- “schedule tomorrow 3 pm” is refused as `missing-title`.\n\nRegistered it in `AndroidRuntimeRecipes`, kept `CREATE_CALENDAR_EVENT -> create_calendar_event`, and added parser-friendly prompt guidance in [PromptCatalog.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/prompts/PromptCatalog.kt:316). Added DL-081 to [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md).\n\n**Verification**\nPassed:\n```bash\nJAVA_HOME=/Users/satvik.bansal/.cache/codex-jdk17 PATH=/Users/satvik.bansal/.cache/codex-jdk17/bin:$PATH ./gradlew :core:test :android-runtime:test :app:test :app:lint :app:assembleDebug\n```\n\nAlso passed focused parser/recipe/policy tests, `git diff --check`, `:app:installDebug`, and a launch smoke on `emulator-5554`. `OnboardingActivity` cold-launched with `Status: ok`, process stayed alive, and logcat had no `AndroidRuntime`, `FATAL EXCEPTION`, `am_crash`, or Handy crash matches.\n\n**Manual Testing Plan**\n1. From full chat and overlay, ask: “schedule dentist tomorrow 3 pm”. Approve the plan. Verify Calendar opens, fields are prefilled, and no event exists until Save is tapped.\n2. Cancel/back out of Calendar. Verify no event was created.\n3. Save once. Verify the event appears at the correct local time.\n4. Test all parser phrases: “next Monday 9 am”, “this Friday 6:30 pm”, “in 2 hours”, “in 30 minutes”, “at 6”, “2026-06-01 14:00”, and “Saturday”.\n5. Test no-time path: “schedule team sync”. Calendar should open with no start time prefilled.\n6. Test refusal paths: “schedule checkup 1990”, a date more than one year out, and “schedule tomorrow 3 pm”.\n7. Test location/notes: “schedule dentist tomorrow 3 pm at Smile Dental notes bring card”.\n8. Disable/remove Calendar handler if possible and verify Handy does not crash.\n\nNote: pre-existing untracked `handy_macos_ref/` is still untouched.\n\nAdvanced Phase 4 / agent-mode recipes plus direct intent handoffs. Acceptance check: calendar compose handoff with bounded parser and tests. Status: PASS."
+    }
+  ]
+}

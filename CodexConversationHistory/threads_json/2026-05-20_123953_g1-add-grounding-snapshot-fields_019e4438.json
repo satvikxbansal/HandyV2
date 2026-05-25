@@ -1,0 +1,110 @@
+{
+  "metadata": {
+    "thread_id": "019e4438-2ef2-7311-9a21-ef25347fd76e",
+    "title": "G1: Add grounding snapshot fields",
+    "created_local": "2026-05-20 12:39:53 IST",
+    "updated_local": "2026-05-20 12:56:14 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/20/rollout-2026-05-20T12-39-53-019e4438-2ef2-7311-9a21-ef25347fd76e.jsonl",
+    "recorded_git_sha_at_start": "811f07048dbf510e2e550fef603125c3dad54695",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 13,
+    "summary": "This conversation focused on: 1) Extend TurnScreenContext into GroundingSnapshot (added fields: windowId, displayId, orientation, windowBounds, safeInsets, imeVisible, imeBounds, densityDpi, locale, uiMode, rootBoundsHash, treeHash, capturedAtMs, privacyFlags). Keep Tu… Likely related git changes: 796f32d Add MediaProjection capture source and grounding.",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "796f32dc75b1d0abc3735e28858887421f18ee48",
+        "short": "796f32d",
+        "author_time": "2026-05-20 13:18:09 IST",
+        "subject": "Add MediaProjection capture source and grounding",
+        "confidence": "low",
+        "score": 5,
+        "reasons": [
+          "near thread time window",
+          "matched words capture, grounding, mediaprojection"
+        ],
+        "files": [
+          "android-runtime/src/main/kotlin/com/handy/runtime/capture/MediaProjectionCaptureSourceImpl.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/capture/ScreenCapturePipeline.kt",
+          "app/src/main/kotlin/com/handy/app/chat/ChatViewModel.kt",
+          "app/src/main/kotlin/com/handy/app/di/AppRuntimeBindings.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt",
+          "app/src/main/kotlin/com/handy/app/screen/ScreenContextBuilder.kt",
+          "app/src/main/kotlin/com/handy/app/service/MediaProjectionCaptureService.kt",
+          "app/src/test/kotlin/com/handy/app/screen/ScreenContextBuilderBudgetTest.kt",
+          "core/src/main/kotlin/com/handy/core/orchestrator/ConversationOrchestrator.kt",
+          "core/src/test/kotlin/com/handy/core/screen/GroundingSnapshotTest.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-20T07:09:56.693Z",
+      "role": "user",
+      "text": "Goal:\n1) Extend TurnScreenContext into GroundingSnapshot (added fields:\n   windowId, displayId, orientation, windowBounds, safeInsets,\n   imeVisible, imeBounds, densityDpi, locale, uiMode, rootBoundsHash,\n   treeHash, capturedAtMs, privacyFlags). Keep TurnScreenContext as a\n   type alias for back-compat.\n2) Thread activeWindowIdHint into capturePipeline.capture(...).\n3) Wire a real MediaProjectionCaptureSource so API 26-29 stops\n   returning Unsupported. If you can't ship a full MediaProjection\n   wire-up in this prompt, instead surface CaptureResult.Unsupported\n   honestly in the UI text and keep the foreground-service shell.\n4) Add a 200ms per-step withTimeoutOrNull around marks/tree/capture\n   in ScreenContextBuilder.\n\nFiles to touch:\n- (new) core/src/main/kotlin/com/handy/core/screen/GroundingSnapshot.kt\n- core/src/main/kotlin/com/handy/core/screen/TurnScreenContext.kt\n  (deprecate; typealias TurnScreenContext = GroundingSnapshot)\n- app/src/main/kotlin/com/handy/app/screen/ScreenContextBuilder.kt\n- android-runtime/src/main/kotlin/com/handy/runtime/capture/ScreenCapturePipeline.kt\n  (read activeWindowIdHint properly on all tiers)\n- (new) android-runtime/src/main/kotlin/com/handy/runtime/capture/MediaProjectionCaptureSourceImpl.kt\n- app/src/main/kotlin/com/handy/app/service/MediaProjectionCaptureService.kt\n- app/src/main/kotlin/com/handy/app/di/AppRuntimeBindings.kt\n- core/src/main/kotlin/com/handy/core/orchestrator/ConversationOrchestrator.kt\n  (downstream rename only)\n\nImplementation notes:\n- safeInsets via WindowMetrics + WindowInsets.Type.systemBars() |\n  displayCutout() | ime(). For API < 30, fall back to the\n  current resource-id approach but mark `unreliable=true` in the\n  PrivacyFlags / InsetsSnapshot.\n- rootBoundsHash: hash(windowBounds + IME state + topmost-window id) —\n  cheap, used for stale-screen detection.\n- treeHash: optional, hash of (mark count, top 10 mark labels)\n  — used by Phase 2's stale-screen check.\n- Budget timeouts: each of (marks, tree, capture) gets its own 200ms\n  withTimeoutOrNull. If capture exceeds budget, log Timber.w and\n  return CaptureResult.Failed(\"budget-exceeded\"); never block the\n  whole turn.\n\nAcceptance:\n- Every OrchestrationRequest carries a GroundingSnapshot with\n  non-null windowId/displayId when accessibility is connected.\n- Manual: ask Handy a question with Settings → Sound visible; the\n  Diagnostics log shows capture windowId == grounding windowId.\n- An API 28 emulator either returns Image OR honestly surfaces\n  Unsupported in the UI text (not silently null).\n- Slow-pipeline fake test confirms 200ms cap.\n\nTests:\n- New ScreenContextBuilderBudgetTest, GroundingSnapshotTest.\n- ./gradlew :core:test :android-runtime:test :app:test"
+    },
+    {
+      "timestamp": "2026-05-20T07:10:05.232Z",
+      "role": "assistant",
+      "text": "I’ll make the requested code changes end to end. I’m starting by mapping the current screen/capture types and test layout so the new snapshot lands where the repo already expects it."
+    },
+    {
+      "timestamp": "2026-05-20T07:10:17.183Z",
+      "role": "assistant",
+      "text": "I found the existing shape: `TurnScreenContext` is still a compact core DTO, while `ScreenContextBuilder` already has most of the runtime signals nearby. Next I’m reading the implementation and tests so I can preserve current call sites while widening the snapshot."
+    },
+    {
+      "timestamp": "2026-05-20T07:13:54.528Z",
+      "role": "assistant",
+      "text": "I’m going to add the core snapshot now, keeping the old constructor name through a typealias. I’m also putting the hash helpers in core so app code and tests use the same deterministic rules."
+    },
+    {
+      "timestamp": "2026-05-20T07:14:34.868Z",
+      "role": "assistant",
+      "text": "Now I’m updating the capture pipeline so the window hint is honored where Android allows it: direct window capture on API 34+, matching display capture on API 30-33, and propagation into the MediaProjection tier for API 26-29."
+    },
+    {
+      "timestamp": "2026-05-20T07:17:19.611Z",
+      "role": "assistant",
+      "text": "I’ve got the capture source in place. The next edit is the builder: it will gather the active window metadata, give marks/tree/capture independent 200 ms budgets, pass the active window id into capture, and return the widened snapshot."
+    },
+    {
+      "timestamp": "2026-05-20T07:19:46.405Z",
+      "role": "assistant",
+      "text": "The orchestration request now carries the grounding object directly while keeping the old `capture`/`screenText` fields alive for compatibility. I’m going to do a compile pass next, then I’ll add the focused tests against whatever the compiler tells us."
+    },
+    {
+      "timestamp": "2026-05-20T07:19:55.460Z",
+      "role": "assistant",
+      "text": "The first Gradle call hit the local macOS Java picker, so I’m rerunning with the repo’s known Gradle JDK path."
+    },
+    {
+      "timestamp": "2026-05-20T07:22:29.522Z",
+      "role": "assistant",
+      "text": "The budget test is in place around a deliberately slow capture pipeline. I’m running the requested module tests now; if a local test harness detail fights us, I’ll tighten that up rather than hand-wave it."
+    },
+    {
+      "timestamp": "2026-05-20T07:23:14.265Z",
+      "role": "assistant",
+      "text": "The new app budget test passes after a small JUnit rule visibility fix. I’m rerunning the full requested test set cleanly now."
+    },
+    {
+      "timestamp": "2026-05-20T07:23:33.348Z",
+      "role": "assistant",
+      "text": "All requested test modules are green. I’m doing one final diff/readback pass now to catch any accidental churn and summarize the exact files touched."
+    },
+    {
+      "timestamp": "2026-05-20T07:24:49.223Z",
+      "role": "assistant",
+      "text": "I spotted one stale capture-pipeline comment while reviewing and corrected it to match the display-id behavior. Since that touches compiled source, I’m rerunning the requested tests once more."
+    },
+    {
+      "timestamp": "2026-05-20T07:26:14.260Z",
+      "role": "assistant",
+      "text": "Implemented the grounding/capture pass.\n\n- `GroundingSnapshot` carries the expanded window/display/insets/IME/hash/privacy fields, with `TurnScreenContext` kept as the deprecated alias: [GroundingSnapshot.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/screen/GroundingSnapshot.kt:17), [TurnScreenContext.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/screen/TurnScreenContext.kt:7)\n- `ScreenContextBuilder` now returns `GroundingSnapshot`, reads active window metadata, logs grounding/capture window ids, passes `activeWindowIdHint`, and applies independent 200 ms budgets for marks/tree/capture: [ScreenContextBuilder.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/screen/ScreenContextBuilder.kt:63)\n- Added a real one-shot MediaProjection source and wired it through the service/DI path; if no projection session is ready, the API 26-29 path surfaces `Unsupported` instead of silently nulling: [MediaProjectionCaptureSourceImpl.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/capture/MediaProjectionCaptureSourceImpl.kt:40)\n- `OrchestrationRequest` now carries `grounding`, and chat/overlay call sites pass the built snapshot through: [ConversationOrchestrator.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/orchestrator/ConversationOrchestrator.kt:259)\n- Added `GroundingSnapshotTest` and `ScreenContextBuilderBudgetTest`: [GroundingSnapshotTest.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/test/kotlin/com/handy/core/screen/GroundingSnapshotTest.kt:8), [ScreenContextBuilderBudgetTest.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/test/kotlin/com/handy/app/screen/ScreenContextBuilderBudgetTest.kt:38)\n\nVerification passed:\n\n`JAVA_HOME=$HOME/.gradle/jdks/eclipse_adoptium-17-aarch64-os_x.2/jdk-17.0.18+8/Contents/Home ./gradlew :core:test :android-runtime:test :app:test --stacktrace`\n\nI did not run the manual Settings → Sound or API 28 emulator checks in this environment."
+    }
+  ]
+}

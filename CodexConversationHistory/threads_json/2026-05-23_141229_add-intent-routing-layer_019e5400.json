@@ -1,0 +1,67 @@
+{
+  "metadata": {
+    "thread_id": "019e5400-0c63-7aa1-a079-bb413025da06",
+    "title": "Add intent routing layer",
+    "created_local": "2026-05-23 14:12:29 IST",
+    "updated_local": "2026-05-23 14:13:03 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/23/rollout-2026-05-23T14-12-29-019e5400-0c63-7aa1-a079-bb413025da06.jsonl",
+    "recorded_git_sha_at_start": "93754259560473853c03421ed3f1e0ba7089d498",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 4,
+    "summary": "This conversation focused on: Introduce a small intent-routing layer so 6 new recipes (S-1..S-10) Likely related git changes: 9a3b522 Add deterministic open app recipe.",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "9a3b522b86a93b8d5ae3bc4b101b7ff5d4cc3ca0",
+        "short": "9a3b522",
+        "author_time": "2026-05-23 14:22:07 IST",
+        "subject": "Add deterministic open app recipe",
+        "confidence": "medium",
+        "score": 6,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words open, recipe"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ClockRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/OpenAppRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/intent/LaunchableAppIndex.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/agent/recipes/OpenAppRecipeTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/agent/recipes/RuntimeRecipePackTest.kt",
+          "app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt",
+          "core/src/main/kotlin/com/handy/core/agent/RecipeIntent.kt",
+          "core/src/main/kotlin/com/handy/core/agent/RecipeIntentRouter.kt",
+          "core/src/main/kotlin/com/handy/core/agent/RecipeRegistry.kt",
+          "core/src/main/kotlin/com/handy/core/agent/UserGoal.kt",
+          "core/src/main/kotlin/com/handy/core/prompts/PromptCatalog.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-23T08:42:36.260Z",
+      "role": "user",
+      "text": "You are working on Handy Android (multi-module: :core, :android-runtime, :app).\nRepo guardrails live under .cursor/rules/. Read the standing rules\nabove this prompt and follow them. Do not pause for approval.\n\nGOAL\nIntroduce a small intent-routing layer so 6 new recipes (S-1..S-10)\ndo not muddy registry order. The LLM emits [INTENT:<canonical>] and\nthe router resolves to exactly one recipe.\n\nFILES TO KNOW (read fully before changing anything)\n- core/src/main/kotlin/com/handy/core/agent/UserGoal.kt\n- core/src/main/kotlin/com/handy/core/agent/RecipeRegistry.kt\n- core/src/main/kotlin/com/handy/core/agent/AppRecipe.kt\n- core/src/main/kotlin/com/handy/core/agent/RecipeRunner.kt\n- core/src/main/kotlin/com/handy/core/prompts/PromptCatalog.kt\n- android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/AndroidRuntimeRecipes.kt\n\nGrep before touching:\n- Every caller of RecipeRegistry.propose to make sure your signature\n  change is backward-compatible.\n- Every reference to UserGoal.requestedRecipe — confirm format.\n\nIMPLEMENT\nAdd:\n- core/src/main/kotlin/com/handy/core/agent/RecipeIntent.kt with enum:\n    OPEN_APP, SET_ALARM, SET_TIMER, WEB_SEARCH, INSTALL_APP,\n    OPEN_SETTING, CREATE_CALENDAR_EVENT, DRAFT_GMAIL, DRAFT_WHATSAPP,\n    OPEN_CHROME_URL, SHOPPING_SEARCH, SHOPPING_FIND_COUPONS, BOOK_RIDE.\n    Each carries `val canonical: String` (lowercase snake).\n- core/src/main/kotlin/com/handy/core/agent/RecipeIntentRouter.kt with:\n    fun routeOrNull(goal: UserGoal, recipes: List<AppRecipe>): Pair<RecipeIntent, AppRecipe>?\n  Logic:\n    * Parse [INTENT:<token>] from goal source text (or a new\n      UserGoal.requestedIntent field — add it).\n    * Map token → RecipeIntent.\n    * Map RecipeIntent → recipe id via a static table; look up the\n      recipe in the passed-in list.\n    * Return the pair, or null on miss.\n- core/src/test/kotlin/com/handy/core/agent/RecipeIntentRouterTest.kt:\n    * Each enum value resolves to exactly one recipe.\n    * Unknown token → null.\n    * No [INTENT:] in text → null (falls back to legacy walk).\n\nChange:\n- UserGoal.kt: add `val requestedIntent: String? = null` and a\n  helper to populate it from \"[INTENT:foo]\". Keep\n  `requestedRecipe` working unchanged.\n- RecipeRegistry.propose: first call RecipeIntentRouter.routeOrNull;\n  if non-null, call only that recipe's propose. If null, fall back\n  to current walk-in-order behavior.\n- PromptCatalog: replace the existing recipe-emission instruction\n  with the new INTENT instruction. List all canonical tokens in\n  the prompt for the LLM. Keep the legacy [RECIPE:] hint parsing\n  alive (router accepts both) so no current eval breaks.\n\nSELF-VERIFY\n1. ./gradlew :core:test :android-runtime:test :app:test\n2. ./gradlew :app:lint :app:assembleDebug\n3. Confirm all 10 universal invariants.\n4. If any test fails, fix until green or revert.\n\nSTOP CONDITIONS (revert + report only)\n- UserGoal.requestedRecipe is not where the LLM directive lands\n  today — your assumption was wrong; you need to be told the real\n  parsing path.\n- An existing test asserts the legacy [RECIPE:] format in a way that\n  the router refactor cannot preserve without a behavior change.\n\nDEBUG_LOG ENTRY\nTitle: \"DL-### RecipeIntentRouter to prevent recipe ambiguity ahead\nof 6 new recipes.\"\nBody: explain the registry-walk problem and the new router contract.\nPrevention rule: every new recipe family must register a RecipeIntent\nvalue before its recipe class lands."
+    },
+    {
+      "timestamp": "2026-05-23T08:42:45.114Z",
+      "role": "assistant",
+      "text": "I’ll read the repo guardrails and the six named files first, then grep the two call/reference points before making any edits. After that I’ll thread the router in as a narrow compatibility layer and run the requested Gradle checks."
+    },
+    {
+      "timestamp": "2026-05-23T08:42:59.444Z",
+      "role": "assistant",
+      "text": "The worktree is already dirty in exactly the files this task touches, so I’m going to treat those as existing local changes and inspect them carefully before editing. I’m also checking the rule files now so the implementation matches the project’s own conventions instead of just the prompt."
+    },
+    {
+      "timestamp": "2026-05-23T08:43:03.084Z",
+      "role": "user",
+      "text": "<turn_aborted>\nThe user interrupted the previous turn on purpose. Any running unified exec processes may still be running in the background. If any tools/commands were aborted, they may have partially executed.\n</turn_aborted>"
+    }
+  ]
+}

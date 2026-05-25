@@ -1,0 +1,113 @@
+{
+  "metadata": {
+    "thread_id": "019e4a3a-d080-7c90-ab1c-700a873fe94f",
+    "title": "R1: Add policy-gated recipe runner",
+    "created_local": "2026-05-21 16:40:28 IST",
+    "updated_local": "2026-05-21 16:56:03 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/21/rollout-2026-05-21T16-40-28-019e4a3a-d080-7c90-ab1c-700a873fe94f.jsonl",
+    "recorded_git_sha_at_start": "b2b44d79fb1275209b81e443ebd47859b51f292d",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 13,
+    "summary": "This conversation focused on: deterministic, policy-gated, per-step verified multi-step. Likely related git changes: b8f91bd R1: Add agent recipe system and progress UI.",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "b8f91bd8f20bd415a7c72093557efe1b950927a3",
+        "short": "b8f91bd",
+        "author_time": "2026-05-21 17:07:12 IST",
+        "subject": "R1: Add agent recipe system and progress UI",
+        "confidence": "high",
+        "score": 13,
+        "reasons": [
+          "inside/near active thread window",
+          "matched phase/tag r1",
+          "matched words agent, recipe"
+        ],
+        "files": [
+          "app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/AgentProgressBubble.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt",
+          "core/src/main/kotlin/com/handy/core/agent/AppRecipe.kt",
+          "core/src/main/kotlin/com/handy/core/agent/RecipePlan.kt",
+          "core/src/main/kotlin/com/handy/core/agent/RecipeRegistry.kt",
+          "core/src/main/kotlin/com/handy/core/agent/RecipeRunner.kt",
+          "core/src/main/kotlin/com/handy/core/agent/RecipeStep.kt",
+          "core/src/main/kotlin/com/handy/core/agent/UserGoal.kt",
+          "core/src/main/kotlin/com/handy/core/prompts/PromptCatalog.kt",
+          "core/src/test/kotlin/com/handy/core/agent/RecipeRunnerTest.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-21T11:11:05.612Z",
+      "role": "user",
+      "text": "Goal: deterministic, policy-gated, per-step verified multi-step.\n\nFiles to touch (new):\n- core/src/main/kotlin/com/handy/core/agent/UserGoal.kt\n- core/src/main/kotlin/com/handy/core/agent/AppRecipe.kt\n- core/src/main/kotlin/com/handy/core/agent/RecipePlan.kt\n- core/src/main/kotlin/com/handy/core/agent/RecipeStep.kt\n- core/src/main/kotlin/com/handy/core/agent/RecipeRegistry.kt\n- core/src/main/kotlin/com/handy/core/agent/RecipeRunner.kt\n- app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt\n- app/src/main/kotlin/com/handy/app/overlay/AgentProgressBubble.kt\n\nFiles to touch:\n- app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt\n  (when assistant says \"use recipe X with args Y\", call\n   RecipeRegistry → propose → policy.decide each step → user\n   approves plan + each sensitive step → RecipeRunner.run())\n- core/src/main/kotlin/com/handy/core/prompts/PromptCatalog.kt\n  (agent-mode addendum: model picks recipe + args, NEVER emits\n   raw executable plan)\n\nHard rules in RecipeRunner:\n- max 5 steps, abort on package change, sensitive step requires\n  per-step confirmation, every step re-captures, every step calls\n  policy.decide on the fresh snapshot.\n\nAdditional stuff\nA) Mention the change the code brings to the application - the before and after with real life practical examples if possible. \nB) Share an indepth end to end manual testing plan of the changes done - be practical and ensure all aspects are tested well before we proceed.   \nC) ENSURE THERE ARE NO BUILDS ERRORS OR APP CRASHES. AUDIOT THE CODE COMPLETELY AND FIX ANY ERRORS. \n\nAcceptance:\n- Unit tests for the runner with a fake recipe, fake performer,\n  fake policy.\n- A plan emitted via \"trick\" prompt (claiming Pay → Tap Pay) is\n  refused by policy."
+    },
+    {
+      "timestamp": "2026-05-21T11:11:13.471Z",
+      "role": "assistant",
+      "text": "I’ll wire this end to end and verify it rather than just sketching it. I’m going to first map the existing agent, overlay, policy, and test patterns so the new recipe layer fits the app instead of sitting beside it awkwardly."
+    },
+    {
+      "timestamp": "2026-05-21T11:11:23.647Z",
+      "role": "assistant",
+      "text": "The repo already has a guarded one-step action path, plus screen snapshots and a presenter FSM. I’m reading those now so the recipe runner can reuse the existing policy surface and confirmation style instead of inventing a second safety system."
+    },
+    {
+      "timestamp": "2026-05-21T11:13:39.953Z",
+      "role": "assistant",
+      "text": "The existing tap-for-me flow already rechecks policy at the performer layer, but multi-step needs a stricter outer loop: validate the recipe plan, dismiss the panel so fresh captures see the target app, then re-capture and re-authorize before each individual step. I’m going to keep the model’s role deliberately small: choose a named recipe and JSON args, never choose executable steps."
+    },
+    {
+      "timestamp": "2026-05-21T11:15:37.616Z",
+      "role": "assistant",
+      "text": "I’ve got the shape now. I’m adding the pure Kotlin recipe contract and runner first, with dynamic target resolution against each fresh snapshot, then I’ll hook the overlay through a small app controller and verify with focused runner tests plus compile/test tasks."
+    },
+    {
+      "timestamp": "2026-05-21T11:22:08.444Z",
+      "role": "assistant",
+      "text": "The core runner and app bridge are in place now. Next I’m compiling the pure Kotlin pieces first; that usually catches the shape mistakes early before the Android compile adds Hilt and Compose noise."
+    },
+    {
+      "timestamp": "2026-05-21T11:22:35.070Z",
+      "role": "assistant",
+      "text": "The first compile caught two Kotlin sharp edges in the runner: early returns inside an expression-body helper, and a sealed-class property name collision. I’m tightening those now and rerunning the same focused tests."
+    },
+    {
+      "timestamp": "2026-05-21T11:22:55.010Z",
+      "role": "assistant",
+      "text": "The focused core tests pass now, including the policy refusal case for the “Pay” trick prompt. I’m moving up to the Android app compile next, where Hilt constructor wiring and Compose API mismatches will show up."
+    },
+    {
+      "timestamp": "2026-05-21T11:23:13.239Z",
+      "role": "assistant",
+      "text": "App Kotlin compilation is green, including Hilt generation for the new controller and the progress bubble overlay. I’m running the broader unit suite and assembling debug now so we catch resource, packaging, and JVM test regressions too."
+    },
+    {
+      "timestamp": "2026-05-21T11:23:29.328Z",
+      "role": "assistant",
+      "text": "The broad JVM tests and debug assemble are green. I’m checking whether there’s an attached emulator; if there is, I’ll install and do a quick launch/crash smoke check rather than stopping at compile-only confidence."
+    },
+    {
+      "timestamp": "2026-05-21T11:23:51.781Z",
+      "role": "assistant",
+      "text": "There is an emulator attached, so I’m doing the extra smoke check: install the debug APK, launch the app’s entry activity, then inspect logcat for fresh AndroidRuntime crashes."
+    },
+    {
+      "timestamp": "2026-05-21T11:24:41.287Z",
+      "role": "assistant",
+      "text": "Install and launch smoke passed: the app process stayed alive and fresh logcat had no `AndroidRuntime` / fatal exception entries. I’m doing one last static sweep over the touched files for awkward safety gaps and then I’ll wrap it with the practical test plan you asked for."
+    },
+    {
+      "timestamp": "2026-05-21T11:26:03.436Z",
+      "role": "assistant",
+      "text": "Implemented the deterministic recipe path end to end.\n\n**What Changed**\nBefore: Handy could point at or tap a single visible element, but multi-step UI work was still effectively conversational. For example, “search YouTube for lo-fi” would lead to guidance or a single pointer, not a deterministic run.\n\nAfter: the model may only say `use recipe X with args {...}`. The app parses that, asks `RecipeRegistry` to build a deterministic plan, checks policy, asks the user to approve, then `RecipeRunner` re-captures and re-checks policy before every step. Example: a safe search recipe can focus a search field, type a query, and submit, while a “tap Pay” trick is refused by policy before execution.\n\nCore files added include [RecipeRunner.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/RecipeRunner.kt), [RecipeRegistry.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/RecipeRegistry.kt), and the recipe model files. App integration is in [AgentSessionController.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt), [OverlayChatPipeline.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt), and [AgentProgressBubble.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/AgentProgressBubble.kt).\n\n**Safety Gates**\n- Max 5 steps enforced in `RecipeRunner`.\n- Package changes abort the run.\n- Every step re-captures before execution.\n- Every step calls `policy.decide` on the fresh snapshot.\n- Every step captures again after execution and verifies.\n- Sensitive steps require per-step confirmation.\n- The prompt now tells the model to pick recipe + args only, never raw executable plans.\n\n**Validation Done**\n- `:core:test --tests RecipeRunnerTest --tests PromptCatalogTest` passed.\n- `:app:compileDebugKotlin` passed.\n- `:core:test :android-runtime:test :app:testDebugUnitTest :app:assembleDebug` passed.\n- `:app:lintDebug` passed.\n- `:app:installDebug` passed on `emulator-5554`.\n- Launched `com.handy.app.onboarding.OnboardingActivity`; app stayed alive and fresh logcat had no `AndroidRuntime` / fatal crash entries.\n\n**Manual Testing Plan**\n1. Safe recipe path: on a search screen, ask Handy to search for a harmless query. Confirm the raw recipe directive is not shown to the user, the plan sheet appears, progress bubble appears, and the search completes.\n2. Policy refusal: on a checkout/payment screen, try “tap Pay” or a prompt-injection style request. Expected: no tap, policy refusal shown.\n3. Sensitive confirmation: use a visible “Delete”/“Remove” control. Expected: plan approval plus per-step confirmation; canceling stops execution.\n4. Package-change abort: approve a plan, then switch apps before the first step. Expected: recipe aborts, no action fires.\n5. Per-step freshness: change screen layout/rotate/open keyboard mid-run. Expected: stale target or package/snapshot mismatch stops execution.\n6. Ambiguous target: show two identical buttons and request one by label. Expected: policy refuses ambiguous target.\n7. Gate closed: disable tap-for-me/action disclosure. Expected: recipe plan may be proposed, but execution is refused by policy/gate.\n8. Safe typing: type benign text into a normal search/text field. Expected: user can review/edit typed text, then text appears.\n9. Secret typing: try OTP/password/card/CVV text or fields. Expected: policy refuses.\n10. Overlay UX: drag widget while progress bubble is visible; verify the bubble follows/clamps and disappears after completion/failure."
+    }
+  ]
+}

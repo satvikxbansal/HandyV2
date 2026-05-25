@@ -1,0 +1,108 @@
+{
+  "metadata": {
+    "thread_id": "019e54ef-2f6c-7711-9d02-cfa347560f52",
+    "title": "S10: Add ride-hailing recipe pack",
+    "created_local": "2026-05-23 18:33:41 IST",
+    "updated_local": "2026-05-23 18:49:01 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/23/rollout-2026-05-23T18-33-41-019e54ef-2f6c-7711-9d02-cfa347560f52.jsonl",
+    "recorded_git_sha_at_start": "6c2a51cf3b26bfb9f6e984a74e4d59c6b6910d4a",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 12,
+    "summary": "This conversation focused on: A recipe pack that opens Uber / Ola / Rapido, searches for the destination, lets the user see the cheapest option, and STOPS BEFORE the final \"Confirm Ride\" tap. Same pattern as WhatsApp recipe stopping before Send. THIS RECIPE PACK NEVER… Likely related git changes: 762e93f S10: Ride-hailing recipe pack (Uber + Ola + Rapido).",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "762e93f676f61a93b21d2c21abff123a60fb23e6",
+        "short": "762e93f",
+        "author_time": "2026-05-23 18:51:47 IST",
+        "subject": "S10: Ride-hailing recipe pack (Uber + Ola + Rapido)",
+        "confidence": "high",
+        "score": 15,
+        "reasons": [
+          "inside/near active thread window",
+          "matched phase/tag s10",
+          "matched words hailing, pack, rapido, recipe, ride"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/action/DefaultActionPolicyEngine.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ClockRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/RideHailingRecipePack.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/storage/LearnedAllowlistStore.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/action/DefaultActionPolicyEngineTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/agent/recipes/RideHailingRecipePackTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/agent/recipes/RuntimeRecipePackTest.kt",
+          "app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt",
+          "core/src/main/kotlin/com/handy/core/agent/RecipeIntentRouter.kt",
+          "core/src/main/kotlin/com/handy/core/agent/RecipeRegistry.kt",
+          "core/src/main/kotlin/com/handy/core/agent/RecipeStep.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-23T13:03:56.995Z",
+      "role": "user",
+      "text": "Read the standing rules. Single-pass.\n\nGOAL\nA recipe pack that opens Uber / Ola / Rapido, searches for the\ndestination, lets the user see the cheapest option, and STOPS BEFORE\nthe final \"Confirm Ride\" tap. Same pattern as WhatsApp recipe\nstopping before Send.\n\nTHIS RECIPE PACK NEVER TAPS A CONFIRM/REQUEST/BOOK BUTTON. The final\ntap is the user's — that's a payment action and must remain\nuser-initiated. The recipe's last in-chat message must say \"Ready to\ngo — tap Confirm in {app} when you're ready.\"\n\nFILES TO KNOW\n- android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/WhatsAppRecipe.kt\n  (mirror the multi-step + stop-before-send pattern exactly)\n- android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ShoppingRecipePack.kt\n  (mirror the pack structure)\n- android-runtime/src/main/kotlin/com/handy/runtime/action/DefaultActionPolicyEngine.kt\n  (verify ride-hailing packages are NOT in ActionAppPolicy.STATIC_DENYLIST\n  and that BETA_BLOCKED_TERMS / UI_BETA_BLOCKED_PHRASES already cover\n  \"request\" / \"confirm\" / \"book\" / \"place order\" — these are the\n  belt-and-suspenders against you accidentally adding a Confirm step)\n- android-runtime/src/main/kotlin/com/handy/runtime/storage/LearnedAllowlistStore.kt\n  (verify ride apps will NOT be auto-allowed for gesture fallback —\n  add them to the exclusion list if such a list exists; otherwise\n  document the recipe's per-step `allowGestureFallback = false`)\n- core/src/main/kotlin/com/handy/core/agent/RecipeRunner.kt\n  (MAX_STEPS = 6; each recipe must fit)\n\nApp packages:\n- Uber: com.ubercab\n- Ola: com.olacabs.customer\n- Rapido: com.rapido.passenger\n\nIMPLEMENT\nAdd android-runtime/.../recipes/RideHailingRecipePack.kt:\n\nobject RideHailingRecipePack {\n    fun defaultRecipes() = listOf(\n        UberRideRecipe, OlaRideRecipe, RapidoRideRecipe,\n    )\n}\n\nEach recipe shares the same shape via a small helper. Steps (4-5):\n  1. NativeAction OpenApp(packageName) allowPackageChangeAfter=true.\n  2. Tap \"Where to?\" / destination field. Multi-matcher fallback:\n     viewId suffix containing \"destination\" or \"search\" or \"where\",\n     OR content description \"Where to?\" / \"Search destination\",\n     OR role=edittext role-only match.\n  3. TypeText destination string.\n  4. Tap first search result row (text matches destination tokens,\n     OR position-first-list-item via viewId suffix \"list_item_0\").\n  5. (Optional) Tap a card matching \"Auto\" / \"UberGo\" / \"Mini\" /\n     \"Bike\" based on cheapest-class hint, ONLY if a stable\n     identifier exists. Mark this step `sensitive = true` with\n     `confirmationOverride = STRONG_HOLD`. If no stable identifier,\n     OMIT step 5 and let the user pick.\n\n  ABSOLUTELY DO NOT add any step targeting \"Confirm\" / \"Request\" /\n  \"Book\" / \"Choose\" / payment buttons. Add an inline comment in code\n  citing this rule.\n\nIn propose():\n- arg \"destination\" / \"to\" / \"place\" or text after \"book a cab to\"\n  / \"uber to\" / \"ride to\".\n- Refuse missing destination with \"missing-destination\".\n- Refuse if foreground package is not the recipe's package AND\n  recipe is responsible for opening it (step 1 handles that).\n\nAdd at the end of the runner's success path (in AgentSessionController\nor wherever the recipe-completed message is emitted), if the recipe\nid is one of the three: append a chat message \"Ready to go — tap\nConfirm in ${app} when you're ready.\" Use the existing message-\nposting path; don't invent a new one.\n\nUpdate:\n- AndroidRuntimeRecipes.defaultRecipes() — add the pack.\n- RecipeIntentRouter — BOOK_RIDE → pick the recipe matching the\n  arg/foreground package, falling back to UberRideRecipe.\n- PromptCatalog: intent example \"book a cab to airport →\n  [INTENT:book_ride]\" plus a one-line rule: \"for book_ride, Handy\n  will prepare the booking but the user must tap Confirm/Request\n  themselves.\"\n- docs/ACTION_POLICY.md: add the ride-hailing pack to the\n  per-recipe table (setup steps NORMAL, cheapest-pick STRONG_HOLD,\n  ride confirmation BLOCKED by recipe design).\n- docs/SECURITY_MODEL.md: add a new threat row \"Ride-hailing app\n  UI drift breaks the recipe\" with mitigation \"multi-matcher\n  targets + graceful Refused + quarterly smoke.\"\n\nTests:\n- RideHailingRecipePackTest:\n  * Each recipe proposes a plan with NO confirm-class step (assert\n    that no step's command text contains any of: \"confirm\",\n    \"request\", \"book\", \"choose\", \"place order\").\n  * Refused on missing destination.\n  * expectedPackage on every step equals the recipe's package.\n  * Cheapest-pick step (when present) is sensitive=true and\n    confirmationOverride=STRONG_HOLD.\n- DefaultActionPolicyEngineTest: even if a step were synthetically\n  injected targeting \"Confirm UberGo\", the engine refuses it via\n  BETA_BLOCKED_TERMS / UI_BETA_BLOCKED_PHRASES.\n\nSELF-VERIFY\n./gradlew :core:test :android-runtime:test :app:test :app:lint :app:assembleDebug\nManual smoke (required, document outcome in DEBUG_LOG):\n- On a real device with Uber installed and signed in to a test\n  account, run \"book a cab to {nearby place}\". Confirm Handy stops\n  before the Confirm tap and the chat says \"Ready to go — tap\n  Confirm in Uber when you're ready.\" Take a screenshot, attach\n  path to DEBUG_LOG.\n\nSTOP CONDITIONS (revert + report only)\n- The ride-hailing apps' UI cannot be navigated via stable matchers\n  from accessibility nodes at all — the destination field has no\n  detectable viewId, content description, or text. In that case\n  ship with just step 1 (open the app) and document the limitation;\n  do not invent fragile coordinate taps.\n\nDEBUG_LOG ENTRY: standard, plus prevention rule \"any recipe whose\nfinal step would be a payment / confirm / send / delete action\nMUST end one step before that action and post a chat message\ntelling the user to complete the final tap in-app.\" \n\nAdditional stuff\nA) Mention the change the code brings to the application - the before and after with real life practical examples if possible. \nB) Share an indepth end to end manual testing plan of the changes done - be practical and ensure all aspects are tested well before we proceed.   \nC) ENSURE THERE ARE NO BUILDS ERRORS OR APP CRASHES. AUDIOT THE CODE COMPLETELY AND FIX ANY ERRORS."
+    },
+    {
+      "timestamp": "2026-05-23T13:04:06.599Z",
+      "role": "assistant",
+      "text": "I’ll read the relevant recipe, policy, runner, and docs paths first so the implementation follows the existing shape instead of inventing a parallel one. Then I’ll patch the pack, routing, completion message, tests, and docs in one pass and run the requested verification."
+    },
+    {
+      "timestamp": "2026-05-23T13:04:19.897Z",
+      "role": "assistant",
+      "text": "I found the core hooks: runtime recipes are appended in `AgentSessionController`, `MAX_STEPS` is 6, and `BOOK_RIDE` already exists as an intent enum. Next I’m reading the recipe DSL and completion-message flow so the new pack lands in the existing lane."
+    },
+    {
+      "timestamp": "2026-05-23T13:04:57.859Z",
+      "role": "assistant",
+      "text": "The existing target resolver only supports one exact selector at a time, so the ride recipe needs a small, general extension there to express “try these stable selectors, then fall back to edit text.” I’m keeping that scoped to `RecipeTarget.Node` rather than adding coordinates or app-specific hacks."
+    },
+    {
+      "timestamp": "2026-05-23T13:08:27.400Z",
+      "role": "assistant",
+      "text": "**Plan**\nPhase 4 / action-policy recipe runner work. Goal: add deterministic ride-hailing recipes that open Uber/Ola/Rapido, search a destination, optionally select a stable ride class, and always stop before any booking/payment confirmation.\n\nFiles I’ll touch and why:\n- `core/.../RecipeStep.kt`: add narrowly-scoped target alternatives/contains matching so ride fields/results can use stable multi-matchers without coordinates.\n- `android-runtime/.../RideHailingRecipePack.kt` and `ClockRecipe.kt`: add and register the three ride recipes.\n- `core/.../RecipeIntentRouter.kt` and `PromptCatalog.kt`: route `book_ride` by app/foreground package and teach the prompt the stop-before-confirm rule.\n- `AgentSessionController.kt`: post the final “Ready to go…” message on successful ride recipe completion through the existing presenter response path.\n- `DefaultActionPolicyEngine.kt`, `LearnedAllowlistStore.kt`: add the requested belt-and-suspenders blocks and prevent learned gesture fallback for ride packages.\n- tests plus `docs/ACTION_POLICY.md`, `docs/SECURITY_MODEL.md`, `DEBUG_LOG.md`: cover the behavior and document the safety posture.\n\nInterfaces I’m not changing: no new modules, no new action performer, no coordinate/pixel fallback, no free-form plan execution, no changes to `MAX_STEPS`.\n\nRisks and checks: target matching could affect existing recipes, so I’ll keep defaults backward-compatible and run the requested full Gradle command. The ride flow risk is accidental confirm-class targeting, so tests will assert no confirm/request/book/choose/place-order command text and policy will deny synthetic “Confirm UberGo.”"
+    },
+    {
+      "timestamp": "2026-05-23T13:15:55.573Z",
+      "role": "assistant",
+      "text": "The core pieces are now patched: ride recipes, routing, policy guardrails, and docs. I’m doing a quick diff/compile sanity pass next, because the target-matcher extension is the one place a small Kotlin signature mistake would show up fast."
+    },
+    {
+      "timestamp": "2026-05-23T13:16:01.961Z",
+      "role": "assistant",
+      "text": "The diff check is clean. I’m going to run focused core/runtime tests first so any recipe/router/policy issue is cheap to isolate before the full build-lint-assemble run."
+    },
+    {
+      "timestamp": "2026-05-23T13:16:15.401Z",
+      "role": "assistant",
+      "text": "Focused tests are green, including the new ride recipe assertions and policy denial for a synthetic “Confirm UberGo.” I’m moving to the full requested verification now."
+    },
+    {
+      "timestamp": "2026-05-23T13:16:53.311Z",
+      "role": "assistant",
+      "text": "The full requested Gradle command passed cleanly. I’m checking connected devices now for the required Uber manual smoke; if there isn’t a signed-in real device available, I’ll record that explicitly instead of pretending the smoke happened."
+    },
+    {
+      "timestamp": "2026-05-23T13:17:15.160Z",
+      "role": "assistant",
+      "text": "Only an emulator is attached (`emulator-5554`), not a real signed-in Uber device, so the required Uber manual smoke is blocked by environment. I’ll still install and launch the debug app on the emulator to catch startup crashes, then I’ll document the manual-smoke blockage in `DEBUG_LOG.md`."
+    },
+    {
+      "timestamp": "2026-05-23T13:17:55.567Z",
+      "role": "assistant",
+      "text": "Startup smoke on the emulator is clean too: install succeeded, the app process stayed alive, and a crash-pattern logcat scan returned no matches. I’m appending the required `DEBUG_LOG` entry now, including the real-device Uber smoke as blocked by environment rather than completed."
+    },
+    {
+      "timestamp": "2026-05-23T13:19:01.789Z",
+      "role": "assistant",
+      "text": "Implemented the ride-hailing recipe pack and guardrails.\n\nBefore: `book a cab to airport` had a canonical `book_ride` intent but no runtime recipe, so Handy could not safely prepare a ride flow.\n\nAfter: Handy can route to Uber, Ola, or Rapido, open the app, fill the destination, select the first destination result, optionally tap a stable cheapest-class card, and then stop before the final ride confirmation. The final user-facing message is exactly:\n\n`Ready to go — tap Confirm in Uber/Ola/Rapido when you're ready.`\n\nKey files:\n- [RideHailingRecipePack.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/RideHailingRecipePack.kt)\n- [RecipeIntentRouter.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/RecipeIntentRouter.kt)\n- [AgentSessionController.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt)\n- [DefaultActionPolicyEngine.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/action/DefaultActionPolicyEngine.kt)\n\nVerification passed:\n- `git diff --check`\n- focused recipe/router/policy/prompt tests\n- `./gradlew :core:test :android-runtime:test :app:test :app:lint :app:assembleDebug`\n- `:app:installDebug`, app launch on emulator, process stayed alive, crash-pattern logcat scan clean\n\nManual Uber real-device smoke was blocked: only `emulator-5554` was attached, Uber was not installed there, and no signed-in real Uber device was available. I documented that in [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md).\n\n**Manual Test Plan**\n1. Use a real Android device with Handy debug installed, Accessibility enabled, Tap-for-me enabled, and Uber/Ola/Rapido installed with test-safe accounts.\n2. From a neutral app, ask `book a cab to airport`; verify Handy defaults to Uber, opens Uber, enters the destination, selects the first matching result, shows ride options, and stops before Confirm.\n3. Repeat with `ola to airport` and `rapido to airport`; verify routing picks the named app.\n4. Start while Rapido/Ola/Uber is foreground and ask `book a cab to nearby cafe`; verify foreground package routing wins when no app is named.\n5. Test missing destination: `book a cab`; expect refusal `missing-destination`.\n6. Test cheapest-class only with stable IDs in a controlled accessibility snapshot; verify the class step is `STRONG_HOLD`.\n7. On each app, inspect that Handy never taps Confirm, Request, Book, Choose, payment, or saved-payment controls.\n8. Confirm final chat text says `Ready to go — tap Confirm in {app} when you're ready.`\n9. Capture screenshot after Handy stops before Confirm and attach its path to `DEBUG_LOG.md`.\n\nAdvanced Phase 4 / ActionPolicyEngine + deterministic recipes — acceptance check: bounded recipes re-check policy, stop before payment/confirm actions, and pass full build/test/lint — status: PASS, with real-device Uber smoke BLOCKED by environment."
+    }
+  ]
+}

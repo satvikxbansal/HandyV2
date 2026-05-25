@@ -1,0 +1,106 @@
+{
+  "metadata": {
+    "thread_id": "019e4580-9897-7052-bd9c-e6e09a115dd7",
+    "title": "Remove inferSemanticPoint fallback",
+    "created_local": "2026-05-20 18:38:36 IST",
+    "updated_local": "2026-05-20 18:41:14 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/20/rollout-2026-05-20T18-38-36-019e4580-9897-7052-bd9c-e6e09a115dd7.jsonl",
+    "recorded_git_sha_at_start": "9549a8659d3a0242cebe62879eb44a231b1b6ebd",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 8,
+    "summary": "This conversation focused on: OverlayChatPipeline.inferSemanticPoint still constructs ad-hoc Likely related git changes: 7145d1e M1 + M2 + M3: Add live screen guard and target redaction; e07fa9b Some fixes.",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "7145d1ea60d795d0f7280e371a41aa0c0d3baa26",
+        "short": "7145d1e",
+        "author_time": "2026-05-20 16:32:26 IST",
+        "subject": "M1 + M2 + M3: Add live screen guard and target redaction",
+        "confidence": "high",
+        "score": 10,
+        "reasons": [
+          "same-day nearby commit",
+          "matched phase/tag m1",
+          "matched words guard, target"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/accessibility/LiveScreenGuard.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/accessibility/SemanticPointerResolver.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/capture/ScreenCapturePipeline.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/llm/ClaudeLlmClient.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/accessibility/SemanticPointerResolverTest.kt",
+          "app/build.gradle.kts",
+          "app/src/androidTest/kotlin/com/handy/app/diagnostics/DiagnosticsActivityRedactionScreenshotTest.kt",
+          "app/src/androidTest/kotlin/com/handy/app/os/Os5SecureWindowTest.kt",
+          "app/src/androidTest/kotlin/com/handy/app/overlay/ManualTargetSelectorTest.kt",
+          "app/src/androidTest/kotlin/com/handy/app/pointing/MarkIdHandoffInvariantTest.kt",
+          "app/src/main/kotlin/com/handy/app/accessibility/AccessibilityGestureActionPerformer.kt"
+        ]
+      },
+      {
+        "hash": "e07fa9bab2e0f0a7422b908e00a0b56560a7118c",
+        "short": "e07fa9b",
+        "author_time": "2026-05-20 18:41:29 IST",
+        "subject": "Some fixes",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "README.md",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/OverlayPresenterFsmTest.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-20T13:08:40.082Z",
+      "role": "user",
+      "text": "Goal: OverlayChatPipeline.inferSemanticPoint still constructs ad-hoc\nSemanticPoint targets when the LLM omits a [POINT:...] tag. These\nad-hoc targets bypass the M1 markId-preserving path. Either delete\nthe heuristic (it was a v1 fallback) or route its output through\nbuildTapTargetForResolved so the resolver/performer can still apply\nthe new package/window guard.\n\nFiles to touch:\n- app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt\n\nRequired changes (preferred — delete):\n- Remove inferSemanticPoint() and the call site that uses it; only\n  fly when pointing.semantic is non-null from the parser.\n- Remove the \"menu / drawer / hamburger\" keyword list and the\n  TOP_LEFT_MENU_MAX_Y constant.\n- Make sure tests still pass (no test in the repo depends on this\n  heuristic).\n\nAlternative (keep behavior but route through guard):\n- Keep inferSemanticPoint() but have it construct a SemanticPoint\n  with markId from the matched AccessibilityMark, and let the rest\n  of the path flow through unchanged.\n\nRCA log entry:\n- \"DL-### inferSemanticPoint bypassed M1 markId path\".\n- Root cause: v1 heuristic for top-left menus survived M1 because\n  the diff focused on flyToAndTap signature. The heuristic only\n  fires when the LLM omits a [POINT:...], which is rare with the\n  current prompts, so behavior is silent.\n- Prevention rule: when refactoring an action-target plumbing\n  contract, grep for every SemanticPoint(...) constructor call and\n  audit whether each path threads through the new guard.\n\nTests: ./gradlew :app:testDebugUnitTest"
+    },
+    {
+      "timestamp": "2026-05-20T13:08:48.703Z",
+      "role": "assistant",
+      "text": "I’ll make the targeted cleanup in `OverlayChatPipeline.kt`, then run the requested debug unit tests. First I’m going to inspect the current call path and any nearby RCA/log convention so the edit lands cleanly."
+    },
+    {
+      "timestamp": "2026-05-20T13:09:00.709Z",
+      "role": "assistant",
+      "text": "The file has exactly the old fallback path: `pointing?.semantic ?: inferSemanticPoint(...)`, plus helper constructors that synthesize `SemanticPoint`. I’m removing that whole heuristic and then I’ll append the next DL entry, since the repo’s debug log is append-only and the prompt gives the RCA text."
+    },
+    {
+      "timestamp": "2026-05-20T13:09:39.875Z",
+      "role": "assistant",
+      "text": "The code path is now narrowed to parser-emitted semantic points only. I’m adding the RCA as `DL-057`, following the existing table format at the end of `DEBUG_LOG.md`."
+    },
+    {
+      "timestamp": "2026-05-20T13:09:59.781Z",
+      "role": "assistant",
+      "text": "Next I’m doing a quick sweep for any leftover fallback symbols and then running the requested Gradle unit test task. If the local JDK setup grumbles, I’ll report that plainly and retry with the repo’s known JDK path only if needed."
+    },
+    {
+      "timestamp": "2026-05-20T13:10:17.446Z",
+      "role": "assistant",
+      "text": "The direct Gradle invocation hit the machine’s missing default Java runtime, so the code hasn’t been exercised yet. I’m checking the repo’s previously used local JDK path and retrying the same test task with `JAVA_HOME` set."
+    },
+    {
+      "timestamp": "2026-05-20T13:10:41.046Z",
+      "role": "assistant",
+      "text": "The unit suite passed with the local JDK path. I’m updating the DL-057 validation line from “pending” to the actual passing command so the log does not lie quietly, which is always where logs start causing trouble."
+    },
+    {
+      "timestamp": "2026-05-20T13:11:14.096Z",
+      "role": "assistant",
+      "text": "Implemented the preferred delete path.\n\nChanged [OverlayChatPipeline.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt:211) so buddy flight only uses `pointing?.semantic` from the parser. Removed `inferSemanticPoint()`, the menu/drawer/hamburger fallback keywords, ad-hoc `SemanticPoint(...)` construction, `normalize()`, and `TOP_LEFT_MENU_MAX_Y`.\n\nAdded the RCA entry as [DL-057](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md:941): `inferSemanticPoint bypassed M1 markId path`.\n\nValidation:\n`git diff --check` passed.\n`./gradlew :app:testDebugUnitTest` could not start without a default Java runtime, then passed with:\n`JAVA_HOME=/tmp/codex-jdk17/Contents/Home PATH=/tmp/codex-jdk17/Contents/Home/bin:$PATH ./gradlew :app:testDebugUnitTest`\n\nNote: the worktree already had unrelated dirty files (`README.md`, `OverlayPresenter.kt`, `OverlayPresenterFsmTest.kt`, `handy_macos_ref/`); I left those alone."
+    }
+  ]
+}

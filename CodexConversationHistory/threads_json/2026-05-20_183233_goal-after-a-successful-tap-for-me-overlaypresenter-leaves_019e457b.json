@@ -1,0 +1,114 @@
+{
+  "metadata": {
+    "thread_id": "019e457b-0eae-7be0-aa66-6eacd7814962",
+    "title": "Goal: After a successful tap-for-me, OverlayPresenter leaves",
+    "created_local": "2026-05-20 18:32:33 IST",
+    "updated_local": "2026-05-20 18:37:48 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/20/rollout-2026-05-20T18-32-33-019e457b-0eae-7be0-aa66-6eacd7814962.jsonl",
+    "recorded_git_sha_at_start": "9549a8659d3a0242cebe62879eb44a231b1b6ebd",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 10,
+    "summary": "This conversation focused on: After a successful tap-for-me, OverlayPresenter leaves Likely related git changes: 9549a86 F1: Viewport-aware buddy flight, stale cancel & FSM; e07fa9b Some fixes.",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "9549a8659d3a0242cebe62879eb44a231b1b6ebd",
+        "short": "9549a86",
+        "author_time": "2026-05-20 17:57:23 IST",
+        "subject": "F1: Viewport-aware buddy flight, stale cancel & FSM",
+        "confidence": "medium",
+        "score": 8,
+        "reasons": [
+          "same-day nearby commit",
+          "matched phase/tag f1"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/build.gradle.kts",
+          "app/src/main/kotlin/com/handy/app/accessibility/HandyAccessibilityService.kt",
+          "app/src/main/kotlin/com/handy/app/diagnostics/DiagnosticsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/main/kotlin/com/handy/app/widget/BezierFlightController.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/BuddyFlightLandingGeometryTest.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/OverlayPresenterFsmTest.kt",
+          "core/src/main/kotlin/com/handy/core/overlay/OverlayPanelState.kt"
+        ]
+      },
+      {
+        "hash": "e07fa9bab2e0f0a7422b908e00a0b56560a7118c",
+        "short": "e07fa9b",
+        "author_time": "2026-05-20 18:41:29 IST",
+        "subject": "Some fixes",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "README.md",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/OverlayPresenterFsmTest.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-20T13:04:43.643Z",
+      "role": "user",
+      "text": "Goal: After a successful tap-for-me, OverlayPresenter leaves\nflightFsm = ActionResult until the next turn starts a new transition.\nDiagnostics shows a slightly misleading \"stuck at ActionResult\".\nReset to Docked when the action finishes.\n\nFiles to touch:\n- app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt\n\nRequired changes:\n- onActionFinished(): change `target = FlightFsm.ActionResult` to a\n  two-step transition: first set ActionResult, then forceDocked. OR\n  simpler: change `target = FlightFsm.ActionResult` to use forceDocked\n  directly (Acting -> Docked is allowed via canResetToDocked).\n- Add a unit test in OverlayPresenterFsmTest that asserts:\n  onPreparingPoint -> onFlyingStart -> onPointingArrived ->\n  onActionStarted -> onActionFinished ends with flightFsm == Docked.\n\nRCA log entry (DEBUG_LOG.md):\n- New entry \"DL-### FSM stuck at ActionResult between turns\".\n- Root cause: F1 added the FSM transition table but onActionFinished\n  used `target = FlightFsm.ActionResult` (correct for the moment of\n  finish) and no subsequent caller forced the reset to Docked. Most\n  next-turn paths (Listening/Thinking) can transition from\n  ActionResult so functional flows worked, but Diagnostics + idle\n  state were misleading.\n- Prevention rule: every leaf FSM state (ActionResult, Error,\n  Returning) must either auto-transition to a steady state in the\n  same call or have an explicit drainer; document in\n  OverlayPresenter Kdoc.\n\nTests:\n- ./gradlew :app:testDebugUnitTest --tests \"*OverlayPresenterFsmTest*\""
+    },
+    {
+      "timestamp": "2026-05-20T13:05:22.259Z",
+      "role": "assistant",
+      "text": "I’ll make the FSM change and keep it tight to the presenter plus the existing FSM tests and debug log. First I’m going to locate the relevant method/test/log so the patch matches the project’s local style."
+    },
+    {
+      "timestamp": "2026-05-20T13:05:36.518Z",
+      "role": "assistant",
+      "text": "I found the method and the focused test class. There are already unrelated local changes in `DEBUG_LOG.md`, `README.md`, and an untracked `handy_macos_ref/`; I’ll leave those intact and append only the requested log entry."
+    },
+    {
+      "timestamp": "2026-05-20T13:06:24.936Z",
+      "role": "assistant",
+      "text": "The local transition table already permits `Acting -> Docked` through `canResetToDocked()`, so I’m taking the simpler route: `onActionFinished()` will drain directly to Docked in the same call. I’ll also add the named leaf-state rule to the presenter Kdoc so future FSM leaf states don’t hang around invisibly."
+    },
+    {
+      "timestamp": "2026-05-20T13:06:38.359Z",
+      "role": "assistant",
+      "text": "Code and the focused unit case are patched. I’m appending `DL-056` now, since the repo’s Android debug log currently ends at `DL-055`."
+    },
+    {
+      "timestamp": "2026-05-20T13:06:53.528Z",
+      "role": "assistant",
+      "text": "The implementation side is done; I’m running the requested focused Gradle test now. If the environment needs the repo’s JDK override, I’ll adapt and report that clearly."
+    },
+    {
+      "timestamp": "2026-05-20T13:07:02.749Z",
+      "role": "assistant",
+      "text": "The exact command hit the local Java-runtime lookup problem (`Unable to locate a Java Runtime`). I’m checking the repo/session’s known JDK paths next and will rerun the same test with `JAVA_HOME` if one is already available."
+    },
+    {
+      "timestamp": "2026-05-20T13:07:06.639Z",
+      "role": "assistant",
+      "text": "There’s a session JDK at `/tmp/codex-jdk17/Contents/Home`, so I’m rerunning the requested focused test with that `JAVA_HOME` exported."
+    },
+    {
+      "timestamp": "2026-05-20T13:07:22.006Z",
+      "role": "assistant",
+      "text": "The focused test passed with the available session JDK. I’m doing a quick whitespace/diff sanity pass and making the debug-log validation line reflect the actual command that succeeded."
+    },
+    {
+      "timestamp": "2026-05-20T13:07:48.064Z",
+      "role": "assistant",
+      "text": "Implemented.\n\nChanged [OverlayPresenter.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt) so `onActionFinished()` now drains via `forceDocked`, leaving the FSM at `Docked` after a completed tap-for-me action. Also added the leaf-state Kdoc rule.\n\nAdded the focused FSM regression test in [OverlayPresenterFsmTest.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/test/kotlin/com/handy/app/overlay/OverlayPresenterFsmTest.kt), and appended `DL-056 — FSM stuck at ActionResult between turns` to [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md).\n\nValidation passed:\n\n```sh\nJAVA_HOME=/tmp/codex-jdk17/Contents/Home PATH=/tmp/codex-jdk17/Contents/Home/bin:$PATH ./gradlew :app:testDebugUnitTest --tests \"*OverlayPresenterFsmTest*\"\n```\n\nThe plain `./gradlew ...` command first failed because this shell couldn’t locate a Java Runtime, so I reran it with the existing session JDK."
+    }
+  ]
+}
