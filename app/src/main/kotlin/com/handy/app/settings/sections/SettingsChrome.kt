@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -74,7 +75,10 @@ fun SettingsHeader(onBack: () -> Unit) {
 }
 
 @Composable
-fun SettingsFooter(versionName: String) {
+fun SettingsFooter(
+    versionName: String,
+    onResetOnboarding: (() -> Unit)? = null,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -115,5 +119,25 @@ fun SettingsFooter(versionName: String) {
                 color = HandyDesign.Colors.TextMuted,
             ),
         )
+        if (onResetOnboarding != null) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 4.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(HandyDesign.Colors.Danger.copy(alpha = 0.12f))
+                    .clickable(role = Role.Button, onClick = onResetOnboarding)
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+            ) {
+                Text(
+                    text = "Reset onboarding",
+                    style = HandyDesignType.BodyStrong.copy(
+                        fontSize = 12.sp,
+                        lineHeight = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+                    color = HandyDesign.Colors.Danger,
+                )
+            }
+        }
     }
 }

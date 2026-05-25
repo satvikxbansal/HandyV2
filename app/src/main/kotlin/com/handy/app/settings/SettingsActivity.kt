@@ -51,6 +51,8 @@ import com.handy.app.design.HandyDesignTheme
 import com.handy.app.diagnostics.AuditReviewActivity
 import com.handy.app.notifications.HandyNotificationListenerService
 import com.handy.app.onboarding.ActionDisclosureActivity
+import com.handy.app.onboarding.OnboardingActivity
+import com.handy.app.service.AssistantForegroundService
 import com.handy.app.settings.design.DisabledAppEntry
 import com.handy.app.settings.sections.AutomationsSection
 import com.handy.app.settings.sections.BrainSection
@@ -132,6 +134,23 @@ class SettingsActivity : ComponentActivity() {
                     onRequestMic = {
                         micLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     },
+                    onResetOnboarding = if (BuildConfig.DEBUG) {
+                        {
+                            lifecycleScope.launch {
+                                viewModel.resetOnboardingForDebug()
+                                AssistantForegroundService.stop(this@SettingsActivity)
+                                startActivity(
+                                    Intent(this@SettingsActivity, OnboardingActivity::class.java)
+                                        .addFlags(
+                                            Intent.FLAG_ACTIVITY_NEW_TASK or
+                                                Intent.FLAG_ACTIVITY_CLEAR_TASK,
+                                        ),
+                                )
+                            }
+                        }
+                    } else {
+                        null
+                    },
                 )
             }
         }
@@ -167,6 +186,7 @@ internal fun SettingsScreen(
     onClipboardAssistToggle: (Boolean) -> Unit = {},
     onOpenActivityLog: () -> Unit = {},
     onRequestMic: () -> Unit = {},
+    onResetOnboarding: (() -> Unit)? = null,
 ) {
     var capabilitiesOpen by rememberSaveable { mutableStateOf(true) }
     var automationsOpen by rememberSaveable { mutableStateOf(false) }
@@ -320,7 +340,10 @@ internal fun SettingsScreen(
                     )
                 }
 
-                SettingsFooter(versionName = BuildConfig.VERSION_NAME)
+                SettingsFooter(
+                    versionName = BuildConfig.VERSION_NAME,
+                    onResetOnboarding = onResetOnboarding,
+                )
             }
         }
 

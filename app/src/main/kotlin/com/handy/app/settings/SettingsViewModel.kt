@@ -207,6 +207,15 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    suspend fun resetOnboardingForDebug() {
+        settings.update {
+            it.copy(
+                accessibilityDisclosureAcknowledged = false,
+                reducedModeAcknowledged = false,
+            )
+        }
+    }
+
     private fun mask(value: String?): String? = value?.takeIf { it.isNotBlank() }?.let {
         "sk-••••${it.takeLast(4)}"
     }
