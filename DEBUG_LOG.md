@@ -1800,3 +1800,22 @@ cross-references the one being superseded.
 | **Behavior Change** | Before this audit correction, Settings could show extra save/clear icons that were not in the design. After the correction, Settings layout, sizing, spacing, and alignment return to the pre-existing design while the chat header still shows `LIVE` only when a committed non-blank Anthropic key exists. |
 | **Validation** | Re-read `scenes-chat.jsx` lines 3-29, `scenes-settings.jsx` lines 263-275, `primitives.jsx` lines 204-240, `ChatTopBarV2.kt`, `ChatActivity.kt`, `ChatViewModel.kt`, `BrainSection.kt`, `SettingsViewModel.kt`, `KeyStore.kt`, and `ClaudeLlmClient.kt`. Confirmed the final source diff no longer touches `BrainSection.kt`, the top-bar composable itself is unchanged, `ChatUiState` remains in-memory only, no DI changes are needed, and no code path lights the chip from Gemini/Brave/Jina/GitHub. `git diff --check`, `./gradlew :core:test :android-runtime:test :app:test :app:lint --stacktrace`, and `./gradlew :app:assembleDebug --stacktrace` passed. On `emulator-5554`, UIAutomator confirmed no-key chat has no `LIVE`, Settings AI Brain field exposes only `Show key` and `Paste key`, non-empty Anthropic key commit changes Settings to `Connected & Ready`, returning to chat shows `LIVE`, relaunch with the saved key still shows `LIVE`, clearing encrypted secrets and sending `hello` without a key shows the standard missing-key error and no `LIVE`. Fresh logcat filtering found no `FATAL EXCEPTION`, app ANR, `E/AndroidRuntime`, Handy error, or ActivityTaskManager error output. |
 | **Prevention Rule** | After a context-compacted blocker investigation, explicitly separate "diagnostic workaround" from "final scoped fix" before final validation. For design-sensitive surfaces, validate not only behavior but also the handoff contract's affordance count, dimensions, spacing, and unchanged files. If a blocker suggests changing an adjacent UI, either make that a separate scoped task or document it as follow-up instead of silently folding it into the current patch. |
+
+---
+
+## DL-FW-1 — WidgetGlyphV2 replaces legacy WidgetContent in the floating overlay service
+- All glyphs migrated to HandyDesign tokens. Layers A (colored glow) -> B (disc fill + border) -> C (per-state glyph). Outer canvas stays 64dp to preserve the existing pulse band.
+- AccentGlow / PointGlow / PointTrail added to HandyDesign.Colors.
+- ACTING is now a distinct widget state with a bolt corner badge (Surface fill, 1.5dp Accent border, ic_bolt at 10dp). Service mapping updated: BuddyState.ACTING -> WidgetState.ACTING.
+- Flying renders the same pointer geometry as Pointing (no arrow) and adds a 36x16 dp trail BEHIND the disc, anchored 22 dp left of the disc centre, rotated by `pointerRotationRadians.toDegrees()` around the disc center so it always trails opposite to motion. Trail alpha is driven by pointerScale > 1.02f with a 120 ms fade so the trail disappears cleanly on Flying -> Pointing.
+- Pointer drawable swapped from ic_pointer_hand to ic_phosphor_hand_pointing_bold. Both vectors default to finger-up; the existing `+ 90f` rotation offset is preserved.
+- Pre-API-31 blur fallback uses three layered soft circles (10/18/30 % alpha) instead of Modifier.blur.
+- WidgetContent.kt is retained — UnifiedBuddyContent, WidgetBubbleChip, ManualTargetFallbackChip still consume the legacy composable. They will be migrated when we touch the bubble system.
+
+## DL-OV-1 — OverlayQuickChatPanelV2
+- Panel chrome rebuilt to scenes-overlay.jsx spec: 24 dp top corners, Color(0xFF141416) at 55 % over the existing on-device blurred backdrop, 0.5 dp white@0.20 top hairline, 38x4 dp drag handle, HandyWordmark left + expand/close right.
+- BlurredBackdropSnapshot is reused via a small wrapper. HandyGlassBottomSheet remains untouched for TapForMeConfirmationSheet.
+- All sub-components migrated to HandyDesign tokens: input row, listening row, streaming row, confirmation chip, error chip, response preview, bubble footer.
+- Quick prompt chip row restored. Catalog lives in OverlayQuickChatPanelV2.kt as `panelQuickPromptsFor(category, label)` and selects per category (DEFAULT / BROWSER / PHOTOS / MAPS / CAMERA / EMAIL / PHONE / SHOPPING / SETTINGS). Chips submit via callbacks.onSend.
+- PanelGreetingCategory + categorizer moved to a shared internal file so the panel can read the category without depending on the presenter.
+- R.drawable.ic_phosphor_mic, R.drawable.ic_phosphor_send, and HandyDesign.Colors.SurfaceGlass were present, so no drawable or local-token fallback was needed.
