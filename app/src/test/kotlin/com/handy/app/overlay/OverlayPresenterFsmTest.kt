@@ -70,6 +70,52 @@ class OverlayPresenterFsmTest {
     }
 
     @Test
+    fun `widget tap uses browser site label in contextual panel greeting`() {
+        val monitor = mockk<HandyForegroundAppMonitor>(relaxed = true)
+        every { monitor.refreshNow() } returns ForegroundAppSnapshot(
+            packageName = "com.android.chrome",
+            appLabel = "Chrome",
+            umbrellaSiteLabel = "GitHub",
+        )
+        val presenter = OverlayPresenter(monitor)
+
+        presenter.onWidgetTap()
+
+        val panel = presenter.state.value.panel
+        assertThat(panel.greeting).isEqualTo("Browsing in GitHub. Need help with this page?")
+        assertThat(panel.snapshot?.toolContext?.displayLabel).isEqualTo("GitHub")
+    }
+
+    @Test
+    fun `widget tap restores shopping and camera specific panel greetings`() {
+        val shoppingMonitor = mockk<HandyForegroundAppMonitor>(relaxed = true)
+        every { shoppingMonitor.refreshNow() } returns ForegroundAppSnapshot(
+            packageName = "com.android.chrome",
+            appLabel = "Chrome",
+            umbrellaSiteLabel = "Meesho",
+            umbrellaSiteUrl = "https://www.meesho.com/kurti/p/abc123",
+        )
+        val shoppingPresenter = OverlayPresenter(shoppingMonitor)
+
+        shoppingPresenter.onWidgetTap()
+
+        assertThat(shoppingPresenter.state.value.panel.greeting)
+            .isEqualTo("Shopping in Meesho. Compare, coupons, or returns?")
+
+        val cameraMonitor = mockk<HandyForegroundAppMonitor>(relaxed = true)
+        every { cameraMonitor.refreshNow() } returns ForegroundAppSnapshot(
+            packageName = "com.google.android.GoogleCamera",
+            appLabel = "Camera",
+        )
+        val cameraPresenter = OverlayPresenter(cameraMonitor)
+
+        cameraPresenter.onWidgetTap()
+
+        assertThat(cameraPresenter.state.value.panel.greeting)
+            .isEqualTo("Camera's open. Want a photography tip?")
+    }
+
+    @Test
     fun `widget tap reuses last known foreground when refresh misses`() {
         val monitor = mockk<HandyForegroundAppMonitor>(relaxed = true)
         every { monitor.refreshNow() } returns null

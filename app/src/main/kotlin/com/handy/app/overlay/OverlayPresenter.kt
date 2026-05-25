@@ -727,12 +727,79 @@ class OverlayPresenter @Inject constructor(
 private const val FALLBACK_PANEL_GREETING = "What can I help you with?"
 
 internal fun panelGreetingFor(snapshot: PanelSnapshot?): String {
-    val label = snapshot?.toolContext?.displayLabel
-        ?.trim()
-        ?.takeIf { it.isNotBlank() && !it.equals("Handy", ignoreCase = true) }
-    return if (label != null) {
-        "In $label. What can I help you with?"
-    } else {
-        FALLBACK_PANEL_GREETING
+    val context = snapshot?.toolContext ?: return FALLBACK_PANEL_GREETING
+    val label = context.displayLabel
+        .trim()
+        .takeIf { it.isNotBlank() && !it.equals("Handy", ignoreCase = true) }
+    return when (panelGreetingCategoryFor(context.packageName, context.umbrellaSiteLabel)) {
+        PanelGreetingCategory.SETTINGS -> "In Settings. What do you need?"
+        PanelGreetingCategory.BROWSER -> label?.let { "Browsing in $it. Need help with this page?" }
+            ?: FALLBACK_PANEL_GREETING
+        PanelGreetingCategory.EMAIL -> label?.let { "In $it. Need help with your email?" }
+            ?: FALLBACK_PANEL_GREETING
+        PanelGreetingCategory.MAPS -> label?.let { "In $it. Where do you need to go?" }
+            ?: "Where do you need to go?"
+        PanelGreetingCategory.CAMERA -> label?.let { "${it}'s open. Want a photography tip?" }
+            ?: "Camera's open. Want a photography tip?"
+        PanelGreetingCategory.PHONE -> label?.let { "In $it. What do you need?" }
+            ?: "In the Phone app. What do you need?"
+        PanelGreetingCategory.SHOPPING -> label?.let {
+            "Shopping in $it. Compare, coupons, or returns?"
+        } ?: "Shopping. What should I check?"
+        PanelGreetingCategory.DEFAULT -> label?.let {
+            "In $it. What can I help you with?"
+        } ?: FALLBACK_PANEL_GREETING
     }
+}
+
+private enum class PanelGreetingCategory {
+    SETTINGS,
+    BROWSER,
+    EMAIL,
+    MAPS,
+    CAMERA,
+    PHONE,
+    SHOPPING,
+    DEFAULT,
+}
+
+private fun panelGreetingCategoryFor(
+    packageName: String?,
+    siteLabel: String?,
+): PanelGreetingCategory {
+    if (isShoppingSiteLabel(siteLabel)) return PanelGreetingCategory.SHOPPING
+    val p = packageName?.lowercase().orEmpty()
+    return when {
+        p.isBlank() -> PanelGreetingCategory.DEFAULT
+        p.contains("settings") || p.contains("systemui") -> PanelGreetingCategory.SETTINGS
+        p.contains("chrome") || p.contains("browser") || p.contains("firefox") ||
+            p.contains("opera") || p.contains("brave") || p.contains("edge") ||
+            p.contains("duckduckgo") || p.contains("sbrowser") -> PanelGreetingCategory.BROWSER
+        p.contains("gmail") || p.contains("email") || p.contains("mail") ||
+            p.contains("outlook") || p.contains("yahoo.mobile") -> PanelGreetingCategory.EMAIL
+        p.contains("maps") || p.contains("waze") || p.contains("navigation") ->
+            PanelGreetingCategory.MAPS
+        p.contains("camera") || p.contains("gcam") -> PanelGreetingCategory.CAMERA
+        p.contains("dialer") || p.contains("phone") || p.contains("contacts") ||
+            p.contains("incallui") -> PanelGreetingCategory.PHONE
+        isShoppingPackage(p) -> PanelGreetingCategory.SHOPPING
+        else -> PanelGreetingCategory.DEFAULT
+    }
+}
+
+private fun isShoppingPackage(packageName: String): Boolean =
+    packageName.contains("meesho") ||
+        packageName.contains("flipkart") ||
+        (
+            packageName.contains("amazon.mshop") &&
+                packageName.contains("shopping")
+            )
+
+private fun isShoppingSiteLabel(siteLabel: String?): Boolean {
+    val normalized = siteLabel?.lowercase()?.trim() ?: return false
+    return normalized in setOf("meesho", "amazon", "flipkart") ||
+        normalized.contains("meesho.com") ||
+        normalized.contains("amazon.in") ||
+        normalized.contains("amazon.com") ||
+        normalized.contains("flipkart.com")
 }
