@@ -35,9 +35,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -49,7 +46,7 @@ import com.handy.app.R
 import com.handy.app.chat.design.ChatEmptyHeroV2
 import com.handy.app.chat.design.ChatReducedHeroV2
 import com.handy.app.chat.design.ChatTopBarV2
-import com.handy.app.chat.design.ContextBarFullV2
+import com.handy.app.chat.design.ContextBarPillV2
 import com.handy.app.chat.design.DaySeparatorV2
 import com.handy.app.chat.design.FloatingComposerV2
 import com.handy.app.chat.design.HandyBubbleV2
@@ -197,14 +194,9 @@ internal fun ChatScreen(
     onShowInApp: (FullChatShowInAppAction) -> Unit = {},
 ) {
     val pending = state.pendingConfirmation
-    var dismissedContextName by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(state.currentToolName) {
-        if (dismissedContextName != state.currentToolName) dismissedContextName = null
-    }
     val showContextBar = state.accessibilityServiceEnabled &&
         state.currentToolName.isNotBlank() &&
-        state.currentToolName != "Handy" &&
-        dismissedContextName != state.currentToolName
+        state.currentToolName != "Handy"
     if (pending != null) {
         ConfirmationDialog(
             reason = pending.reason,
@@ -247,22 +239,6 @@ internal fun ChatScreen(
                     }
                 }
 
-                if (showContextBar) {
-                    Box(
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
-                    ) {
-                        ContextBarFullV2(
-                            app = state.currentToolName,
-                            onClose = {
-                                // setToolName("") is not a ViewModel disconnect path yet;
-                                // keep the v1 close affordance local and still invoke it.
-                                dismissedContextName = state.currentToolName
-                                onSetToolName("")
-                            },
-                        )
-                    }
-                }
-
                 if (state.errorBanner != null) {
                     ErrorBanner(text = state.errorBanner, onDismiss = onDismissError)
                 }
@@ -289,6 +265,16 @@ internal fun ChatScreen(
                 onSend = onSend,
                 onVoiceStart = onVoiceStart,
                 onVoiceStop = onVoiceStop,
+                bottomChrome = if (showContextBar) {
+                    {
+                        ContextBarPillV2(
+                            app = state.currentToolName,
+                            onCommit = onSetToolName,
+                        )
+                    }
+                } else {
+                    null
+                },
             )
         }
     }

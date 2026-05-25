@@ -24,25 +24,36 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.handy.app.R
 import com.handy.app.design.HandyDesign
@@ -253,133 +264,155 @@ fun ThinkingDots(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun ContextBarFullV2(
+fun ContextBarPillV2(
     app: String,
-    onClose: () -> Unit,
+    onCommit: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var editing by remember { mutableStateOf(false) }
+    var draft by remember(app) { mutableStateOf(app) }
+    val focusRequester = remember { FocusRequester() }
+    val pillShape = RoundedCornerShape(999.dp)
+
+    LaunchedEffect(app) {
+        if (!editing) draft = app
+    }
+
+    LaunchedEffect(editing) {
+        if (editing) focusRequester.requestFocus()
+    }
+
+    val commit = {
+        val committed = draft.trim()
+        if (committed.isNotEmpty() && committed != app) onCommit(committed)
+        editing = false
+    }
+
     Row(
         modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(HandyDesign.Colors.Surface)
-            .border(1.dp, HandyDesign.Colors.BorderSubtle, RoundedCornerShape(18.dp))
-            .padding(start = 12.dp, top = 12.dp, end = 14.dp, bottom = 12.dp),
+            .clip(pillShape)
+            .background(Color(0xC7181A1F))
+            .border(0.5.dp, Color.White.copy(alpha = 0.12f), pillShape)
+            .padding(start = 8.dp, top = 8.dp, end = 14.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (editing) 8.dp else 10.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(HandyDesign.Colors.PointSoft)
-                .border(0.5.dp, HandyDesign.Colors.PointHairline, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_phosphor_eye),
-                contentDescription = null,
-                tint = HandyDesign.Colors.Point,
-                modifier = Modifier.size(18.dp),
-            )
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "CHATTING ABOUT",
-                style = HandyDesignType.Overline.copy(
-                    fontSize = 10.sp,
-                    lineHeight = 10.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 0.16.em,
+        ContextPillEyeDisc()
+        if (editing) {
+            BasicTextField(
+                value = draft,
+                onValueChange = { draft = it },
+                singleLine = true,
+                textStyle = HandyDesignType.Body.copy(
+                    fontSize = 13.sp,
+                    lineHeight = 16.sp,
+                    color = HandyDesign.Colors.TextPrimary,
                 ),
+                cursorBrush = SolidColor(HandyDesign.Colors.Point),
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    imeAction = ImeAction.Done,
+                    capitalization = KeyboardCapitalization.Words,
+                ),
+                keyboardActions = KeyboardActions(onDone = { commit() }),
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 32.dp)
+                    .focusRequester(focusRequester)
+                    .padding(horizontal = 10.dp),
+                decorationBox = { inner ->
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        if (draft.isEmpty()) {
+                            Text(
+                                text = "Rename",
+                                style = HandyDesignType.Body.copy(
+                                    fontSize = 13.sp,
+                                    lineHeight = 16.sp,
+                                ),
+                                color = HandyDesign.Colors.TextMuted,
+                            )
+                        }
+                        inner()
+                    }
+                },
+            )
+            Text(
+                text = "Done",
+                style = HandyDesignType.Caption.copy(
+                    fontSize = 11.sp,
+                    lineHeight = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+                color = HandyDesign.Colors.Point,
+                modifier = Modifier
+                    .clickable { commit() }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+            Text(
+                text = "Cancel",
+                style = HandyDesignType.Caption.copy(fontSize = 11.sp, lineHeight = 11.sp),
                 color = HandyDesign.Colors.TextMuted,
+                modifier = Modifier
+                    .clickable {
+                        editing = false
+                        draft = app
+                    }
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
             )
-            Spacer(Modifier.height(4.dp))
+        } else {
             Text(
-                text = app,
-                style = HandyDesignType.TitleSmall.copy(
-                    fontSize = 15.sp,
-                    lineHeight = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                ),
-                color = HandyDesign.Colors.TextPrimary,
+                text = buildAnnotatedString {
+                    append("Chatting about ")
+                    withStyle(
+                        SpanStyle(
+                            color = HandyDesign.Colors.TextPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                        ),
+                    ) {
+                        append(app)
+                    }
+                },
+                style = HandyDesignType.Caption.copy(fontSize = 12.sp, lineHeight = 12.sp),
+                color = HandyDesign.Colors.TextSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 210.dp),
             )
-        }
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(HandyDesign.Colors.SurfaceElevated)
-                .clickable(onClick = onClose),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_close),
-                contentDescription = "Close context",
-                tint = HandyDesign.Colors.TextSecondary,
-                modifier = Modifier.size(14.dp),
+            Text(
+                text = "Change",
+                style = HandyDesignType.Caption.copy(
+                    fontSize = 11.sp,
+                    lineHeight = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+                color = HandyDesign.Colors.Point,
+                modifier = Modifier
+                    .clickable {
+                        draft = app
+                        editing = true
+                    }
+                    .padding(start = 4.dp, end = 2.dp, top = 4.dp, bottom = 4.dp),
             )
         }
     }
 }
 
 @Composable
-fun ContextBarPillV2(
-    app: String,
-    onChange: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(HandyDesign.Colors.SurfaceElevated.copy(alpha = 0.80f))
-            .border(0.5.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(999.dp))
-            .padding(start = 8.dp, top = 8.dp, end = 14.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+private fun ContextPillEyeDisc() {
+    Box(
+        modifier = Modifier
+            .size(22.dp)
+            .clip(CircleShape)
+            .background(HandyDesign.Colors.PointSoft),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(
-            modifier = Modifier
-                .size(22.dp)
-                .clip(CircleShape)
-                .background(HandyDesign.Colors.PointSoft),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_phosphor_eye),
-                contentDescription = null,
-                tint = HandyDesign.Colors.Point,
-                modifier = Modifier.size(12.dp),
-            )
-        }
-        Text(
-            text = buildAnnotatedString {
-                append("Chatting about ")
-                withStyle(
-                    SpanStyle(
-                        color = HandyDesign.Colors.TextPrimary,
-                        fontWeight = FontWeight.SemiBold,
-                    ),
-                ) {
-                    append(app)
-                }
-            },
-            style = HandyDesignType.Caption.copy(fontSize = 12.sp, lineHeight = 12.sp),
-            color = HandyDesign.Colors.TextSecondary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = "Change",
-            style = HandyDesignType.Caption.copy(
-                fontSize = 11.sp,
-                lineHeight = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-            ),
-            color = HandyDesign.Colors.Point,
-            modifier = Modifier.clickable(onClick = onChange),
+        Icon(
+            painter = painterResource(R.drawable.ic_phosphor_eye),
+            contentDescription = null,
+            tint = HandyDesign.Colors.Point,
+            modifier = Modifier.size(12.dp),
         )
     }
 }
