@@ -60,17 +60,61 @@ enum class HandyTileTone {
 @Composable
 fun PrimaryButton(
     label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    container: Color = HandyDesign.Colors.Accent,
+    contentColor: Color = HandyDesign.Colors.AccentInk,
+    modifier: Modifier = Modifier,
+) {
+    PrimaryButtonContent(
+        label = label,
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        full = true,
+        showTrailingChevron = true,
+        container = container,
+        contentColor = contentColor,
+    )
+}
+
+@Composable
+fun PrimaryButton(
+    label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true,
+    isEnabled: Boolean = true,
     full: Boolean = true,
     showTrailingChevron: Boolean = true,
+) {
+    PrimaryButtonContent(
+        label = label,
+        onClick = onClick,
+        modifier = modifier,
+        enabled = isEnabled,
+        full = full,
+        showTrailingChevron = showTrailingChevron,
+        container = HandyDesign.Colors.Accent,
+        contentColor = HandyDesign.Colors.AccentInk,
+    )
+}
+
+@Composable
+private fun PrimaryButtonContent(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier,
+    enabled: Boolean,
+    full: Boolean,
+    showTrailingChevron: Boolean,
+    container: Color,
+    contentColor: Color,
 ) {
     val colors = LocalHandyDesignColors.current
     val shape = RoundedCornerShape(HandyDesign.Dimens.CornerButton)
     val interactionSource = remember { MutableInteractionSource() }
-    val background = if (enabled) colors.Accent else colors.Surface
-    val labelColor = if (enabled) colors.AccentInk else colors.TextMuted
+    val background = if (enabled) container else colors.Surface
+    val labelColor = if (enabled) contentColor else colors.TextMuted
     val buttonModifier = modifier
         .then(if (full) Modifier.fillMaxWidth() else Modifier)
         .height(HandyDesign.Dimens.PrimaryButton)
@@ -79,8 +123,8 @@ fun PrimaryButton(
                 Modifier.shadow(
                     elevation = 8.dp,
                     shape = shape,
-                    ambientColor = colors.Accent.copy(alpha = 0.4f),
-                    spotColor = colors.Accent.copy(alpha = 0.4f),
+                    ambientColor = container.copy(alpha = 0.4f),
+                    spotColor = container.copy(alpha = 0.4f),
                 )
             } else {
                 Modifier

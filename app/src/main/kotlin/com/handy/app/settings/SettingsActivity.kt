@@ -47,6 +47,7 @@ import androidx.lifecycle.lifecycleScope
 import com.handy.app.BuildConfig
 import com.handy.app.accessibility.AccessibilityStateMonitor
 import com.handy.app.design.HandyDesign
+import com.handy.app.design.HandyDesignTheme
 import com.handy.app.diagnostics.AuditReviewActivity
 import com.handy.app.notifications.HandyNotificationListenerService
 import com.handy.app.onboarding.ActionDisclosureActivity
@@ -60,7 +61,6 @@ import com.handy.app.settings.sections.SettingsFooter
 import com.handy.app.settings.sections.SettingsHeader
 import com.handy.app.settings.sections.colorForPackage
 import com.handy.app.settings.sections.friendlyAppLabelOrPackage
-import com.handy.app.theme.HandyTheme
 import com.handy.core.action.ActionExecutionGate
 import com.handy.core.model.HandySettings
 import dagger.hilt.android.AndroidEntryPoint
@@ -83,7 +83,7 @@ class SettingsActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
-            HandyTheme(darkTheme = true) {
+            HandyDesignTheme {
                 val context = LocalContext.current
                 val state by viewModel.state.collectAsState()
                 val snackbarHostState = remember { SnackbarHostState() }
@@ -334,6 +334,9 @@ internal fun SettingsScreen(
             Snackbar(
                 containerColor = HandyDesign.Colors.SurfaceElevated,
                 contentColor = HandyDesign.Colors.TextPrimary,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(
+                    HandyDesign.Dimens.CornerCard
+                ),
                 snackbarData = data,
             )
         }

@@ -95,6 +95,7 @@ class ChatViewModel @Inject constructor(
     private var showInAppActionCounter: Long = 0L
 
     init {
+        _state.value = _state.value.copy(brainReady = computeBrainReady())
         viewModelScope.launch {
             toolContextFlow
                 .flatMapLatest { ctx -> historyStore.observe(ctx.historyKey) }
@@ -189,6 +190,10 @@ class ChatViewModel @Inject constructor(
                 lastSeen = enabled
             }
         }
+    }
+
+    fun refreshBrainReady() {
+        _state.value = _state.value.copy(brainReady = computeBrainReady())
     }
 
     fun bindTargetHandoff(id: String?) {
@@ -627,6 +632,9 @@ class ChatViewModel @Inject constructor(
         return overlay
     }
 
+    private fun computeBrainReady(): Boolean =
+        !keyStore.get(KeyStore.KEY_ANTHROPIC).isNullOrBlank()
+
     companion object {
         private val DEFAULT_TOOL = ToolContext(
             packageName = "com.handy.android",
@@ -705,6 +713,7 @@ data class ChatUiState(
      * the singleton's StateFlow is warming up.
      */
     val accessibilityServiceEnabled: Boolean = true,
+    val brainReady: Boolean = false,
     val remainingSessionTokens: Int? = null,
     val sessionBudgetRunningLow: Boolean = false,
     val sessionBudgetExhausted: Boolean = false,

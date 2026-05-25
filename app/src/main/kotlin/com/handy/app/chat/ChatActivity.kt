@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,34 +19,30 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.handy.app.R
+import com.handy.app.chat.design.BudgetBannerV2
 import com.handy.app.chat.design.ChatEmptyHeroV2
 import com.handy.app.chat.design.ChatReducedHeroV2
 import com.handy.app.chat.design.ChatTopBarV2
+import com.handy.app.chat.design.ConfirmActionSheetV2
 import com.handy.app.chat.design.ContextBarPillV2
 import com.handy.app.chat.design.DaySeparatorV2
+import com.handy.app.chat.design.ErrorBannerV2
 import com.handy.app.chat.design.FloatingComposerV2
 import com.handy.app.chat.design.HandyBubbleV2
 import com.handy.app.chat.design.ReducedBannerV2
@@ -55,11 +50,9 @@ import com.handy.app.chat.design.TapForMeCardInBubble
 import com.handy.app.chat.design.ThinkingDots
 import com.handy.app.chat.design.UserBubbleV2
 import com.handy.app.design.HandyDesign
+import com.handy.app.design.HandyDesignTheme
 import com.handy.app.design.HandyDesignType
 import com.handy.app.settings.SettingsActivity
-import com.handy.app.theme.HandyColors
-import com.handy.app.theme.HandyDimens
-import com.handy.app.theme.HandyTheme
 import com.handy.core.model.ChatMessage
 import com.handy.core.model.MessageRole
 import dagger.hilt.android.AndroidEntryPoint
@@ -86,7 +79,7 @@ class ChatActivity : ComponentActivity() {
         bindTargetHandoff(intent)
         consumeVoiceExtra(intent)
         setContent {
-            HandyTheme(darkTheme = true) {
+            HandyDesignTheme {
                 val state by viewModel.state.collectAsState()
                 ChatScreen(
                     state = state,
@@ -105,6 +98,11 @@ class ChatActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.refreshBrainReady()
     }
 
     /**
@@ -198,7 +196,7 @@ internal fun ChatScreen(
         state.currentToolName.isNotBlank() &&
         state.currentToolName != "Handy"
     if (pending != null) {
-        ConfirmationDialog(
+        ConfirmActionSheetV2(
             reason = pending.reason,
             onContinue = { onConfirmationResult(pending.id, true) },
             onCancel = { onConfirmationResult(pending.id, false) },
@@ -220,11 +218,7 @@ internal fun ChatScreen(
                 .navigationBarsPadding(),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                val live = state.messages.isNotEmpty() ||
-                    state.pendingUserTurn != null ||
-                    state.isStreaming ||
-                    state.streamingDelta.isNotBlank() ||
-                    state.voiceState != VoiceUiState.IDLE
+                val live = state.brainReady
                 ChatTopBarV2(
                     live = live,
                     onOpenSettings = onOpenSettings,
@@ -240,14 +234,18 @@ internal fun ChatScreen(
                 }
 
                 if (state.errorBanner != null) {
-                    ErrorBanner(text = state.errorBanner, onDismiss = onDismissError)
+                    Box(modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp)) {
+                        ErrorBannerV2(text = state.errorBanner, onDismiss = onDismissError)
+                    }
                 }
 
                 if (state.sessionBudgetRunningLow || state.sessionBudgetExhausted) {
-                    BudgetWarningBanner(
-                        exhausted = state.sessionBudgetExhausted,
-                        remainingTokens = state.remainingSessionTokens,
-                    )
+                    Box(modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp)) {
+                        BudgetBannerV2(
+                            exhausted = state.sessionBudgetExhausted,
+                            remainingTokens = state.remainingSessionTokens,
+                        )
+                    }
                 }
 
                 MessageList(
@@ -477,122 +475,3 @@ private fun searchToolsLabel(tools: List<String>): String =
     }
 
 private const val DAY_SEPARATOR_THRESHOLD_MS: Long = 5 * 60 * 1000
-
-@Composable
-private fun ErrorBanner(text: String, onDismiss: () -> Unit) {
-    Surface(
-        color = HandyColors.Danger.copy(alpha = 0.18f),
-        contentColor = HandyColors.TextPrimary,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    horizontal = HandyDimens.Space16,
-                    vertical = HandyDimens.Space12,
-                ),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(HandyDimens.Space8),
-        ) {
-            Text(
-                text = text,
-                color = HandyColors.Danger,
-                fontSize = 13.sp,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(onClick = onDismiss) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_close),
-                    contentDescription = "Dismiss",
-                    tint = HandyColors.Danger,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun BudgetWarningBanner(
-    exhausted: Boolean,
-    remainingTokens: Int?,
-) {
-    val title = if (exhausted) {
-        "Cloud budget reached"
-    } else {
-        "Cloud budget running low"
-    }
-    val detail = if (exhausted) {
-        "Handy will stop cloud calls before costs run away."
-    } else {
-        "About ${remainingTokens ?: 0} tokens remain in this session."
-    }
-    Surface(
-        color = HandyColors.Accent.copy(alpha = 0.14f),
-        contentColor = HandyColors.Accent,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = HandyDimens.Space16, vertical = HandyDimens.Space12),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(HandyDimens.Space8),
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_brain),
-                contentDescription = null,
-                tint = HandyColors.Accent,
-                modifier = Modifier.size(18.dp),
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    color = HandyColors.TextPrimary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = detail,
-                    color = HandyColors.TextSecondary,
-                    fontSize = 12.sp,
-                )
-            }
-        }
-    }
-}
-
-/* ----- dispatch_action confirmation ----------------------------------- */
-
-/**
- * Material3 alert shown when Handy wants to fire a destructive Intent
- * (call, text, share). Mirrors the macOS confirmation contract from
- * `AndroidIntentDispatcher.dispatch`: the user explicitly agrees before
- * the Intent ever leaves our process.
- */
-@Composable
-private fun ConfirmationDialog(
-    reason: String,
-    onContinue: () -> Unit,
-    onCancel: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onCancel,
-        containerColor = HandyColors.ChipBg,
-        titleContentColor = HandyColors.TextPrimary,
-        textContentColor = HandyColors.TextSecondary,
-        title = { Text("Confirm action") },
-        text = { Text(reason) },
-        confirmButton = {
-            TextButton(onClick = onContinue) {
-                Text("Continue", color = HandyColors.Accent)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onCancel) {
-                Text("Cancel", color = HandyColors.TextSecondary)
-            }
-        },
-    )
-}
