@@ -92,12 +92,6 @@ fun BrainSection(
                         ),
                         color = HandyDesign.Colors.TextPrimary,
                     )
-                    Icon(
-                        painter = painterResource(R.drawable.ic_sparkle),
-                        contentDescription = null,
-                        tint = HandyDesign.Colors.Accent,
-                        modifier = Modifier.size(12.dp),
-                    )
                 }
                 Text(
                     text = detailLine,

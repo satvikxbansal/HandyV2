@@ -8,15 +8,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,25 +21,16 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -56,36 +38,39 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.handy.app.R
 import com.handy.app.chat.design.ChatEmptyHeroV2
+import com.handy.app.chat.design.ChatReducedHeroV2
 import com.handy.app.chat.design.ChatTopBarV2
+import com.handy.app.chat.design.ContextBarFullV2
+import com.handy.app.chat.design.DaySeparatorV2
 import com.handy.app.chat.design.FloatingComposerV2
+import com.handy.app.chat.design.HandyBubbleV2
+import com.handy.app.chat.design.ReducedBannerV2
+import com.handy.app.chat.design.TapForMeCardInBubble
+import com.handy.app.chat.design.ThinkingDots
+import com.handy.app.chat.design.UserBubbleV2
 import com.handy.app.design.HandyDesign
+import com.handy.app.design.HandyDesignType
 import com.handy.app.settings.SettingsActivity
-import com.handy.app.theme.HandMarkIcon
 import com.handy.app.theme.HandyColors
 import com.handy.app.theme.HandyDimens
 import com.handy.app.theme.HandyTheme
-import com.handy.app.theme.HandyType
 import com.handy.core.model.ChatMessage
 import com.handy.core.model.MessageRole
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import kotlinx.coroutines.flow.distinctUntilChanged
 
 @AndroidEntryPoint
 class ChatActivity : ComponentActivity() {
@@ -212,6 +197,14 @@ internal fun ChatScreen(
     onShowInApp: (FullChatShowInAppAction) -> Unit = {},
 ) {
     val pending = state.pendingConfirmation
+    var dismissedContextName by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(state.currentToolName) {
+        if (dismissedContextName != state.currentToolName) dismissedContextName = null
+    }
+    val showContextBar = state.accessibilityServiceEnabled &&
+        state.currentToolName.isNotBlank() &&
+        state.currentToolName != "Handy" &&
+        dismissedContextName != state.currentToolName
     if (pending != null) {
         ConfirmationDialog(
             reason = pending.reason,
@@ -246,28 +239,28 @@ internal fun ChatScreen(
                     onMinimise = onMinimiseToOverlay,
                 )
 
-                // Accessibility nudge: honest about the gate. Without our
-                // AccessibilityService bound, the whole foreground-app
-                // detection pipeline is inert. DL-016.
                 if (!state.accessibilityServiceEnabled) {
-                    AccessibilityNudgeBanner(onOpenAccessibilitySettings)
+                    Box(
+                        modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp),
+                    ) {
+                        ReducedBannerV2(onOpenAccessibilitySettings)
+                    }
                 }
 
-                // Hide the tool-name row entirely when we have nothing to
-                // show (launcher in foreground, accessibility disabled, or
-                // before any detection). Only render when a real
-                // third-party app has been resolved. Matches the user
-                // spec: "when Handy is opened from the app icon, don't
-                // show the detecting-app row". DL-015.
-                if (state.toolDetectionState == ToolDetectionState.DETECTED ||
-                    state.toolDetectionState == ToolDetectionState.FAILED
-                ) {
-                    ToolNameBar(
-                        toolName = state.currentToolName,
-                        detectionState = state.toolDetectionState,
-                        onSetToolName = onSetToolName,
-                    )
-                    ThinDivider()
+                if (showContextBar) {
+                    Box(
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
+                    ) {
+                        ContextBarFullV2(
+                            app = state.currentToolName,
+                            onClose = {
+                                // setToolName("") is not a ViewModel disconnect path yet;
+                                // keep the v1 close affordance local and still invoke it.
+                                dismissedContextName = state.currentToolName
+                                onSetToolName("")
+                            },
+                        )
+                    }
                 }
 
                 if (state.errorBanner != null) {
@@ -301,164 +294,6 @@ internal fun ChatScreen(
     }
 }
 
-/* ----- dividers -------------------------------------------------------- */
-
-@Composable
-private fun ThinDivider() {
-    // Spec: 0.5dp `HandyColors.Divider` hairline (not the deprecated
-    // `Border` token). Used between secondary chat chrome rows.
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(0.5.dp)
-            .background(HandyColors.Divider),
-    )
-}
-
-/* ----- tool-name bar --------------------------------------------------- */
-
-/**
- * Slim bar above the message list. Mirrors
- * `ChatInterfaceView.toolNameBar` (lines 174–234):
- *  - IDLE / DETECTED / populated name → accent-coloured label + "Change"
- *    button that swaps the row into an inline editor,
- *  - DETECTING → italic "Detecting app..." with a tiny spinner,
- *  - FAILED → populated label + 3 amber dots trailing to signal the
- *    accessibility service is off or the foreground package is
- *    unresolvable.
- */
-@Composable
-private fun ToolNameBar(
-    toolName: String,
-    detectionState: ToolDetectionState,
-    onSetToolName: (String) -> Unit,
-) {
-    var editing by remember { mutableStateOf(false) }
-    var draft by remember { mutableStateOf("") }
-    // When the detected name changes out from under an open editor —
-    // e.g. the user switched apps mid-edit — discard the draft so the
-    // new name renders.
-    LaunchedEffect(toolName) {
-        if (!editing) draft = toolName
-    }
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = HandyDimens.Gutter, vertical = HandyDimens.StackS)
-            .clip(RoundedCornerShape(HandyDimens.RadiusLg))
-            .background(HandyColors.ChipBg)
-            .border(0.5.dp, HandyColors.ChipBorder, RoundedCornerShape(HandyDimens.RadiusLg))
-            .padding(horizontal = HandyDimens.RowPad, vertical = HandyDimens.StackS),
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_camera),
-            contentDescription = null,
-            tint = HandyColors.TextSecondary,
-            modifier = Modifier.size(14.dp),
-        )
-        when {
-            editing -> {
-                @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-                OutlinedTextField(
-                    value = draft,
-                    onValueChange = { draft = it },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    textStyle = androidx.compose.ui.text.TextStyle(
-                        color = HandyColors.TextPrimary,
-                        fontSize = 13.sp,
-                    ),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = HandyColors.ChipBg,
-                        unfocusedContainerColor = HandyColors.ChipBg,
-                        focusedTextColor = HandyColors.TextPrimary,
-                        unfocusedTextColor = HandyColors.TextPrimary,
-                    ),
-                    keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(
-                        onDone = {
-                            val committed = draft.trim()
-                            if (committed.isNotEmpty()) onSetToolName(committed)
-                            editing = false
-                        },
-                    ),
-                )
-                TextButton(
-                    onClick = {
-                        val committed = draft.trim()
-                        if (committed.isNotEmpty()) onSetToolName(committed)
-                        editing = false
-                    },
-                ) {
-                    Text(
-                        text = "Done",
-                        color = HandyColors.Accent,
-                        fontSize = 12.sp,
-                    )
-                }
-            }
-            detectionState == ToolDetectionState.DETECTING -> {
-                Text(
-                    text = "Detecting app...",
-                    color = HandyColors.TextSecondary,
-                    fontSize = 12.sp,
-                    modifier = Modifier.weight(1f),
-                )
-                CircularProgressIndicator(
-                    color = HandyColors.TextSecondary,
-                    strokeWidth = 1.5.dp,
-                    modifier = Modifier.size(10.dp),
-                )
-            }
-            else -> {
-                Text(
-                    text = toolName.ifBlank { "Handy" },
-                    color = HandyColors.Accent,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                if (detectionState == ToolDetectionState.FAILED) {
-                    AmberDotTrail()
-                }
-                TextButton(
-                    onClick = {
-                        draft = toolName
-                        editing = true
-                    },
-                ) {
-                    Text(
-                        text = "Change",
-                        color = HandyColors.TextSecondary,
-                        fontSize = 12.sp,
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** Three fading amber dots — shown when tool detection fails. */
-@Composable
-private fun AmberDotTrail() {
-    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-        listOf(0.4f, 0.7f, 1.0f).forEach { alpha ->
-            Box(
-                modifier = Modifier
-                    .size(4.dp)
-                    .background(
-                        HandyColors.Amber.copy(alpha = alpha),
-                        CircleShape,
-                    ),
-            )
-        }
-    }
-}
-
 /* ----- message list ---------------------------------------------------- */
 
 @Composable
@@ -469,82 +304,78 @@ private fun MessageList(
     onShowInApp: (FullChatShowInAppAction) -> Unit,
 ) {
     val listState = rememberLazyListState()
-    // Scroll to bottom on every new message or streaming tick. Mirrors
-    // `ChatInterfaceView.messageList.onChange(of: manager.messages.count / isProcessing)`.
-    LaunchedEffect(listState) {
-        snapshotFlow {
-            listOf(
-                state.messages.size + state.localOverlay.size,
-                state.streamingDelta.length,
-                state.isStreaming,
-                state.pendingShowInAppAction?.id,
+    val visibleMessages = buildList {
+        addAll(state.messages)
+        state.pendingUserTurn?.let { add(it) }
+        if (state.isStreaming) {
+            add(
+                ChatMessage(
+                    id = "streaming",
+                    role = MessageRole.ASSISTANT,
+                    content = state.streamingDelta,
+                    timestampEpochMs = System.currentTimeMillis(),
+                    isStreaming = true,
+                ),
             )
-        }.distinctUntilChanged().collect {
-            val total = state.messages.size +
-                state.localOverlay.size +
-                (if (state.streamingDelta.isNotEmpty()) 1 else 0) +
-                (if (state.loadingVerb.isNotEmpty()) 1 else 0) +
-                (if (state.pendingShowInAppAction != null) 1 else 0)
-            if (total > 0) listState.animateScrollToItem(total - 1)
         }
+        addAll(state.localOverlay)
+    }
+
+    LaunchedEffect(
+        listState,
+        visibleMessages.size,
+        state.streamingDelta.length,
+        state.isStreaming,
+        state.pendingShowInAppAction?.id,
+    ) {
+        val total = visibleMessages.size +
+            separatorCount(visibleMessages) +
+            (if (state.pendingShowInAppAction != null) 1 else 0)
+        if (total > 0) listState.animateScrollToItem(total - 1)
     }
 
     LazyColumn(
         state = listState,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = HandyDimens.Space16),
-        verticalArrangement = Arrangement.spacedBy(HandyDimens.Space12),
-        contentPadding = PaddingValues(top = HandyDimens.Space16, bottom = 140.dp),
+            .padding(horizontal = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        contentPadding = PaddingValues(top = 10.dp, bottom = 140.dp),
     ) {
         if (
-            state.messages.isEmpty() &&
-            state.localOverlay.isEmpty() &&
-            state.pendingUserTurn == null &&
-            state.streamingDelta.isEmpty()
+            visibleMessages.isEmpty() &&
+            state.pendingShowInAppAction == null
         ) {
             item {
-                // `fillParentMaxHeight()` is a LazyItemScope extension —
-                // lets the hero+suggestions column vertically center in
-                // the list area when there are zero messages.
                 Box(
                     modifier = Modifier.fillParentMaxHeight(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    ChatEmptyHeroV2(onPick = onSuggestion)
+                    if (state.accessibilityServiceEnabled) {
+                        ChatEmptyHeroV2(onPick = onSuggestion)
+                    } else {
+                        ChatReducedHeroV2(onPick = onSuggestion)
+                    }
                 }
             }
         }
-        items(state.messages, key = { "persist-${it.id}" }) { message ->
-            MessageRow(message)
-        }
-        // Eager user bubble for the turn currently in flight. Mirrors
-        // V1 `HandyManager.sendMessage` which appends the user message
-        // to `messages` before the LLM even starts streaming. We do it
-        // here via a separate slot so the historyStore stays the sole
-        // source of truth for persisted rows.
-        state.pendingUserTurn?.let { pending ->
-            item(key = "pending-user-${pending.id}") { MessageRow(pending) }
-        }
-        if (state.isStreaming && state.streamingDelta.isNotEmpty()) {
-            item(key = "streaming") {
-                MessageRow(
-                    ChatMessage(
-                        id = "streaming",
-                        role = MessageRole.ASSISTANT,
-                        content = state.streamingDelta,
-                        timestampEpochMs = System.currentTimeMillis(),
-                        isStreaming = true,
-                    ),
+
+        var previousTimestamp: Long? = null
+        visibleMessages.forEach { message ->
+            if (shouldInsertDaySeparator(previousTimestamp, message.timestampEpochMs)) {
+                item(key = "day-${message.id}") {
+                    DaySeparatorV2(daySeparatorLabel(message.timestampEpochMs))
+                }
+            }
+            item(key = "message-${message.id}") {
+                MessageRowV2(
+                    message = message,
+                    currentToolName = state.currentToolName,
                 )
             }
+            previousTimestamp = message.timestampEpochMs
         }
-        items(state.localOverlay, key = { "overlay-${it.id}" }) { message ->
-            MessageRow(message)
-        }
-        if (state.loadingVerb.isNotEmpty()) {
-            item(key = "loading-verb") { LoadingVerbChip(state.loadingVerb) }
-        }
+
         state.pendingShowInAppAction?.let { action ->
             item(key = "show-in-app-${action.id}") {
                 ShowInAppCard(action = action, onShowInApp = onShowInApp)
@@ -558,189 +389,97 @@ private fun ShowInAppCard(
     action: FullChatShowInAppAction,
     onShowInApp: (FullChatShowInAppAction) -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Start,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Spacer(Modifier.width(36.dp))
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(HandyDimens.RadiusLg))
-                .background(HandyColors.ChipBg)
-                .border(0.5.dp, HandyColors.ChipBorder, RoundedCornerShape(HandyDimens.RadiusLg))
-                .clickable { onShowInApp(action) }
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_bolt),
-                contentDescription = null,
-                tint = HandyColors.Accent,
-                modifier = Modifier.size(14.dp),
-            )
-            Text(
-                text = "Show me in ${action.snapshot.toolContext.displayLabel}",
-                color = HandyColors.TextPrimary,
-                fontSize = 12.5.sp,
-                fontWeight = FontWeight.Medium,
-            )
-        }
-    }
-}
-
-/**
- * Full-fidelity chat bubble. Mirrors `MessageBubbleView`
- * (`ChatInterfaceView.swift` lines 419–530):
- *  - hand-icon avatar for assistant / "You" pill for user,
- *  - italic `searchToolsUsed` caption above the body,
- *  - 3 pulsing dots while `isStreaming`,
- *  - selectable body text,
- *  - `h:mm a` timestamp under the bubble.
- */
-@Composable
-private fun MessageRow(message: ChatMessage) {
-    val isUser = message.role == MessageRole.USER
-    val isSystem = message.role == MessageRole.SYSTEM
-    val bubbleColor = when {
-        isUser -> HandyColors.AccentSoft
-        isSystem -> HandyColors.Danger.copy(alpha = 0.18f)
-        else -> HandyColors.ChipBg
-    }
-    val horizontal = if (isUser) Arrangement.End else Arrangement.Start
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = horizontal,
-        verticalAlignment = Alignment.Top,
-    ) {
-        if (!isUser) {
-            AssistantAvatar()
-            Spacer(Modifier.width(HandyDimens.Space8))
-        }
-
-        Column(
-            horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
-            verticalArrangement = Arrangement.spacedBy(HandyDimens.Space4),
-            modifier = Modifier.widthIn(max = 320.dp),
-        ) {
-            if (message.searchToolsUsed.isNotEmpty()) {
-                Text(
-                    text = searchToolsLabel(message.searchToolsUsed),
-                    color = HandyColors.Accent.copy(alpha = 0.8f),
-                    fontSize = 10.sp,
-                    fontStyle = FontStyle.Italic,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-            Column(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(HandyDimens.RadiusLg))
-                    .background(bubbleColor)
-                    .border(
-                        0.5.dp,
-                        HandyColors.ChipBorder,
-                        RoundedCornerShape(HandyDimens.RadiusLg),
-                    )
-                    .padding(
-                        horizontal = HandyDimens.Space16,
-                        vertical = HandyDimens.Space12,
-                    ),
-                verticalArrangement = Arrangement.spacedBy(HandyDimens.Space8),
-            ) {
-                SelectionContainer {
-                    Text(
-                        text = message.content,
-                        style = HandyType.Body,
-                        color = HandyColors.TextPrimary,
-                        lineHeight = 22.sp,
-                    )
-                }
-                if (message.isStreaming) {
-                    StreamingDots()
-                }
-            }
-            Text(
-                text = timestampOf(message.timestampEpochMs),
-                color = HandyColors.TextSecondary.copy(alpha = 0.7f),
-                fontSize = 10.sp,
-            )
-        }
-
-        if (isUser) {
-            Spacer(Modifier.width(HandyDimens.Space8))
-            UserAvatar()
-        }
-    }
-}
-
-@Composable
-private fun AssistantAvatar() {
-    Box(
-        modifier = Modifier
-            .size(28.dp)
-            .background(HandyColors.AccentSoft, CircleShape)
-            .border(0.5.dp, HandyColors.ChipBorder, CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        HandMarkIcon(size = 14.dp, tint = HandyColors.Accent)
-    }
-}
-
-@Composable
-private fun UserAvatar() {
-    Box(
-        modifier = Modifier
-            .size(28.dp)
-            .background(HandyColors.ChipBg, CircleShape)
-            .border(0.5.dp, HandyColors.ChipBorder, CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "You",
-            color = HandyColors.TextSecondary,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Medium,
+    HandyBubbleV2 {
+        val label = action.targetLabel.ifBlank { action.bubbleLabel.ifBlank { "this" } }
+        TapForMeCardInBubble(
+            title = "Tap \"$label\" in ${action.snapshot.toolContext.displayLabel}",
+            onClick = { onShowInApp(action) },
         )
     }
 }
 
-/**
- * Three pulsing dots under the streaming assistant bubble. Matches the
- * 0.5s period / 0.2s stagger from `MessageBubbleView` (lines 446–462).
- */
 @Composable
-private fun StreamingDots() {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        val transition = rememberInfiniteTransition(label = "streaming-dots")
-        repeat(3) { index ->
-            val alpha by transition.animateFloat(
-                initialValue = 0.3f,
-                targetValue = 0.9f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 500, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse,
-                    initialStartOffset = androidx.compose.animation.core.StartOffset(index * 200),
-                ),
-                label = "dot-$index",
-            )
-            Box(
-                modifier = Modifier
-                    .size(4.dp)
-                    .background(
-                        HandyColors.Accent.copy(alpha = alpha),
-                        CircleShape,
-                    ),
-            )
+private fun MessageRowV2(
+    message: ChatMessage,
+    currentToolName: String,
+) {
+    when (message.role) {
+        MessageRole.USER -> UserBubbleV2(text = message.content)
+        MessageRole.ASSISTANT -> {
+            HandyBubbleV2(
+                toolUseLabel = toolUseLabel(message, currentToolName),
+                toolUseIcon = R.drawable.ic_phosphor_eye,
+            ) {
+                if (message.content.isNotBlank()) {
+                    SelectionContainer {
+                        Text(
+                            text = message.content,
+                            style = HandyDesignType.Body.copy(
+                                fontSize = 15.sp,
+                                lineHeight = 22.sp,
+                            ),
+                            color = HandyDesign.Colors.TextPrimary,
+                        )
+                    }
+                }
+                if (message.isStreaming) {
+                    if (message.content.isNotBlank()) Spacer(Modifier.height(8.dp))
+                    ThinkingDots()
+                }
+            }
         }
+        MessageRole.SYSTEM -> SystemMessageCaption(message.content)
     }
 }
 
-/**
- * Italic "web searched · github searched" caption. Verbatim mapping
- * from `ChatInterfaceView.searchToolsLabel` (lines 513–523).
- */
+@Composable
+private fun SystemMessageCaption(text: String) {
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Text(
+            text = text,
+            style = HandyDesignType.Caption.copy(fontSize = 12.sp, lineHeight = 17.sp),
+            color = HandyDesign.Colors.TextMuted,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.widthIn(max = 320.dp),
+        )
+    }
+}
+
+private fun separatorCount(messages: List<ChatMessage>): Int {
+    var count = 0
+    var previousTimestamp: Long? = null
+    messages.forEach { message ->
+        if (shouldInsertDaySeparator(previousTimestamp, message.timestampEpochMs)) count++
+        previousTimestamp = message.timestampEpochMs
+    }
+    return count
+}
+
+private fun shouldInsertDaySeparator(previousTimestamp: Long?, timestamp: Long): Boolean =
+    previousTimestamp == null || timestamp - previousTimestamp > DAY_SEPARATOR_THRESHOLD_MS
+
+private fun daySeparatorLabel(epochMs: Long): String {
+    val time = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(epochMs))
+    val messageDay = Calendar.getInstance().apply { timeInMillis = epochMs }
+    val today = Calendar.getInstance()
+    val prefix = if (
+        messageDay.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+        messageDay.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
+    ) {
+        "Today"
+    } else {
+        SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(epochMs))
+    }
+    return "$prefix · $time"
+}
+
+private fun toolUseLabel(message: ChatMessage, currentToolName: String): String? {
+    if (message.searchToolsUsed.isEmpty()) return null
+    val toolLabel = searchToolsLabel(message.searchToolsUsed)
+    val appLabel = currentToolName.takeUnless { it.isBlank() || it == "Handy" }
+    return appLabel?.let { "read 1 screen · $it" } ?: toolLabel.takeIf { it.isNotBlank() }
+}
+
 private fun searchToolsLabel(tools: List<String>): String =
     tools.joinToString(" · ") {
         when (it) {
@@ -751,32 +490,7 @@ private fun searchToolsLabel(tools: List<String>): String =
         }
     }
 
-private fun timestampOf(epochMs: Long): String {
-    val fmt = SimpleDateFormat("h:mm a", Locale.getDefault())
-    return fmt.format(Date(epochMs))
-}
-
-@Composable
-private fun LoadingVerbChip(verb: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(HandyDimens.Space8),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = HandyDimens.Space4),
-    ) {
-        CircularProgressIndicator(
-            color = HandyColors.Accent,
-            strokeWidth = 1.5.dp,
-            modifier = Modifier.size(12.dp),
-        )
-        Text(
-            text = verb,
-            color = HandyColors.TextSecondary,
-            fontSize = 12.sp,
-        )
-    }
-}
+private const val DAY_SEPARATOR_THRESHOLD_MS: Long = 5 * 60 * 1000
 
 @Composable
 private fun ErrorBanner(text: String, onDismiss: () -> Unit) {
@@ -857,69 +571,6 @@ private fun BudgetWarningBanner(
                     text = detail,
                     color = HandyColors.TextSecondary,
                     fontSize = 12.sp,
-                )
-            }
-        }
-    }
-}
-
-/* ----- accessibility nudge -------------------------------------------- */
-
-/**
- * Amber row that lives above the message list whenever Handy's
- * [com.handy.app.accessibility.HandyAccessibilityService] is not bound.
- * Gives the user a one-tap path to the Accessibility settings list.
- *
- * The banner is **not dismissible** — it flips off automatically via
- * [com.handy.app.accessibility.AccessibilityStateMonitor] the moment
- * the service binds. Dismissible banners invite users to ignore the
- * gate and then wonder why detection is broken. DL-016.
- */
-@Composable
-private fun AccessibilityNudgeBanner(
-    onOpenAccessibilitySettings: () -> Unit,
-) {
-    Surface(
-        color = HandyColors.Amber.copy(alpha = 0.18f),
-        contentColor = HandyColors.Amber,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    horizontal = HandyDimens.Space16,
-                    vertical = HandyDimens.Space12,
-                ),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(HandyDimens.Space8),
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_accessibility),
-                contentDescription = null,
-                tint = HandyColors.Amber,
-                modifier = Modifier.size(18.dp),
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Enable accessibility to detect apps",
-                    color = HandyColors.TextPrimary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "Handy needs your Accessibility toggle on to see which app you're in and point at UI.",
-                    color = HandyColors.TextSecondary,
-                    fontSize = 12.sp,
-                )
-            }
-            TextButton(onClick = onOpenAccessibilitySettings) {
-                Text(
-                    text = "Open Settings",
-                    color = HandyColors.Amber,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
                 )
             }
         }
