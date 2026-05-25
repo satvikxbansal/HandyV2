@@ -66,8 +66,6 @@ import com.handy.app.design.HandyDesignTheme
 import com.handy.app.design.HandyDesignType
 import com.handy.app.design.PrimaryButton
 import com.handy.app.service.AssistantForegroundService
-import com.handy.app.theme.HandyColors
-import com.handy.app.theme.HandyTheme
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
 import kotlinx.coroutines.launch
@@ -94,7 +92,7 @@ class OnboardingActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
-            HandyTheme(darkTheme = true) {
+            HandyDesignTheme {
                 val state by viewModel.state.collectAsState()
                 var step by rememberSaveable { mutableStateOf<OnboardingStep?>(null) }
 
@@ -172,10 +170,6 @@ class OnboardingActivity : ComponentActivity() {
                     onRequestAccessibility = {
                         accessibilityLauncher.launch(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                     },
-                    onAcknowledgeReducedMode = {
-                        viewModel.acknowledgeReducedMode()
-                        step = OnboardingStep.Reduced
-                    },
                     onFinish = {
                         if (!viewModel.state.value.accessibilityEnabled) {
                             viewModel.acknowledgeReducedMode()
@@ -225,12 +219,11 @@ private fun OnboardingScreen(
     onRequestNotifications: () -> Unit,
     onRequestOverlay: () -> Unit,
     onRequestAccessibility: () -> Unit,
-    onAcknowledgeReducedMode: () -> Unit,
     onFinish: () -> Unit,
 ) {
     Surface(
-        color = HandyColors.Background,
-        contentColor = HandyColors.TextPrimary,
+        color = HandyDesign.Colors.PageBg,
+        contentColor = HandyDesign.Colors.TextPrimary,
         modifier = Modifier.fillMaxSize(),
     ) {
         when (step) {
@@ -247,7 +240,6 @@ private fun OnboardingScreen(
                 onRequestNotifications = onRequestNotifications,
                 onRequestOverlay = onRequestOverlay,
                 onRequestAccessibility = onRequestAccessibility,
-                onAcknowledgeReducedMode = onAcknowledgeReducedMode,
                 onFinish = onFinish,
             )
         }
@@ -256,7 +248,6 @@ private fun OnboardingScreen(
 
 /* ---------- Permissions step (JSX 03 / 03b permissions) ---------- */
 
-@Suppress("UNUSED_PARAMETER")
 @Composable
 private fun PostDisclosureStep(
     state: OnboardingUiState,
@@ -264,7 +255,6 @@ private fun PostDisclosureStep(
     onRequestNotifications: () -> Unit,
     onRequestOverlay: () -> Unit,
     onRequestAccessibility: () -> Unit,
-    onAcknowledgeReducedMode: () -> Unit,
     onFinish: () -> Unit,
 ) {
     PermissionsStep(

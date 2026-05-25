@@ -7,7 +7,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,14 +33,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.handy.app.R
+import com.handy.app.design.HandyDesign
+import com.handy.app.design.HandyDesignTheme
+import com.handy.app.design.HandyDesignType
+import com.handy.app.design.PrimaryButton
+import com.handy.app.design.SecondaryTextButton
 import com.handy.app.overlay.OverlayPresenter
-import com.handy.app.theme.HandMarkIcon
-import com.handy.app.theme.HandyColors
-import com.handy.app.theme.HandyDimens
-import com.handy.app.theme.HandyTheme
-import com.handy.app.theme.HandyType
 import com.handy.core.action.ActionExecutionGate
 import com.handy.runtime.storage.DataStoreSettings
 import dagger.hilt.android.AndroidEntryPoint
@@ -62,7 +63,7 @@ class ActionDisclosureActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         presenterRequestId = intent.getLongExtra(EXTRA_PRESENTER_REQUEST_ID, 0L)
         setContent {
-            HandyTheme(darkTheme = true) {
+            HandyDesignTheme {
                 ActionDisclosureScreen(
                     onAccept = { acceptDisclosure() },
                     onDecline = { declineDisclosure() },
@@ -116,132 +117,154 @@ private fun ActionDisclosureScreen(
     onAccept: () -> Unit,
     onDecline: () -> Unit,
 ) {
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(HandyColors.Background)
-            .systemBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(HandyDimens.Gutter),
-        verticalArrangement = Arrangement.spacedBy(HandyDimens.StackL),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .background(HandyDesign.Colors.PageBg)
+            .systemBarsPadding(),
     ) {
-        Box(
-            modifier = Modifier
-                .padding(top = HandyDimens.StackL)
-                .size(72.dp)
-                .clip(CircleShape)
-                .background(HandyColors.BubbleAction.copy(alpha = 0.16f))
-                .border(1.dp, HandyColors.BubbleAction.copy(alpha = 0.42f), CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            HandMarkIcon(size = 32.dp, tint = HandyColors.BubbleAction)
-        }
-
-        Text(
-            text = stringResource(R.string.action_disclosure_title),
-            style = HandyType.Display,
-            color = HandyColors.TextPrimary,
-            textAlign = TextAlign.Center,
-        )
-        Text(
-            text = stringResource(R.string.action_disclosure_body),
-            style = HandyType.Body,
-            color = HandyColors.TextSecondary,
-            textAlign = TextAlign.Center,
-        )
-
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 24.dp, top = 32.dp, end = 24.dp, bottom = 156.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            DisclosurePoint(
-                title = stringResource(R.string.action_disclosure_point_confirm_title),
-                body = stringResource(R.string.action_disclosure_point_confirm_body),
+            // Hero icon disc - matches the splash hand disc family.
+            Box(
+                modifier = Modifier
+                    .padding(top = 12.dp)
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(HandyDesign.Colors.AccentSoft)
+                    .border(1.dp, HandyDesign.Colors.AccentHairline, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_phosphor_hand_palm_outline),
+                    contentDescription = null,
+                    tint = HandyDesign.Colors.Accent,
+                    modifier = Modifier.size(28.dp),
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            Text(
+                text = stringResource(R.string.action_disclosure_title),
+                style = HandyDesignType.Display.copy(
+                    fontSize = 32.sp,
+                    lineHeight = 36.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = (-0.028).em,
+                ),
+                color = HandyDesign.Colors.TextPrimary,
+                textAlign = TextAlign.Center,
             )
-            DisclosurePoint(
-                title = stringResource(R.string.action_disclosure_point_guard_title),
-                body = stringResource(R.string.action_disclosure_point_guard_body),
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = stringResource(R.string.action_disclosure_body),
+                style = HandyDesignType.Body.copy(
+                    fontSize = 15.sp,
+                    lineHeight = 22.sp,
+                ),
+                color = HandyDesign.Colors.TextSecondary,
+                textAlign = TextAlign.Center,
             )
-            DisclosurePoint(
-                title = stringResource(R.string.action_disclosure_point_control_title),
-                body = stringResource(R.string.action_disclosure_point_control_body),
-            )
+
+            Spacer(Modifier.height(28.dp))
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                DisclosurePointV2(
+                    title = stringResource(R.string.action_disclosure_point_confirm_title),
+                    body = stringResource(R.string.action_disclosure_point_confirm_body),
+                )
+                DisclosurePointV2(
+                    title = stringResource(R.string.action_disclosure_point_guard_title),
+                    body = stringResource(R.string.action_disclosure_point_guard_body),
+                )
+                DisclosurePointV2(
+                    title = stringResource(R.string.action_disclosure_point_control_title),
+                    body = stringResource(R.string.action_disclosure_point_control_body),
+                )
+            }
         }
 
-        Spacer(Modifier.height(HandyDimens.StackS))
-        PrimaryDisclosureButton(
-            text = stringResource(R.string.action_disclosure_accept),
-            onClick = onAccept,
-        )
-        SecondaryDisclosureButton(
-            text = stringResource(R.string.action_disclosure_decline),
-            onClick = onDecline,
-        )
+        // Sticky bottom CTA stack - same footprint as PermissionsStep.
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(HandyDesign.Colors.PageBg)
+                .padding(start = 20.dp, end = 20.dp, bottom = 20.dp, top = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            PrimaryButton(
+                label = stringResource(R.string.action_disclosure_accept),
+                enabled = true,
+                onClick = onAccept,
+            )
+            SecondaryTextButton(
+                label = stringResource(R.string.action_disclosure_decline),
+                onClick = onDecline,
+            )
+        }
     }
 }
 
 @Composable
-private fun DisclosurePoint(title: String, body: String) {
+private fun DisclosurePointV2(title: String, body: String) {
+    val shape = RoundedCornerShape(HandyDesign.Dimens.CornerRow)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(HandyDimens.RadiusXl))
-            .background(HandyColors.ChipBg)
-            .border(0.5.dp, HandyColors.ChipBorder, RoundedCornerShape(HandyDimens.RadiusXl))
-            .padding(HandyDimens.RowPad),
+            .clip(shape)
+            .background(HandyDesign.Colors.Surface)
+            .border(1.dp, HandyDesign.Colors.BorderSubtle, shape)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_check),
-            contentDescription = null,
-            tint = HandyColors.BubbleAction,
+        Box(
             modifier = Modifier
-                .padding(top = 2.dp)
-                .size(16.dp),
-        )
-        Column {
+                .size(32.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(HandyDesign.Colors.SuccessSoft)
+                .border(
+                    1.dp,
+                    HandyDesign.Colors.Success.copy(alpha = 0.20f),
+                    RoundedCornerShape(10.dp),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_check),
+                contentDescription = null,
+                tint = HandyDesign.Colors.Success,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = HandyType.Body.copy(fontWeight = FontWeight.SemiBold),
-                color = HandyColors.TextPrimary,
+                style = HandyDesignType.BodyStrong.copy(
+                    fontSize = 15.sp,
+                    lineHeight = 19.5.sp,
+                ),
+                color = HandyDesign.Colors.TextPrimary,
             )
             Spacer(Modifier.height(2.dp))
             Text(
                 text = body,
-                style = HandyType.Caption,
-                color = HandyColors.TextSecondary,
+                style = HandyDesignType.Caption.copy(
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                ),
+                color = HandyDesign.Colors.TextSecondary,
             )
         }
-    }
-}
-
-@Composable
-private fun PrimaryDisclosureButton(text: String, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .clip(RoundedCornerShape(HandyDimens.RadiusXl))
-            .background(HandyColors.BubbleAction)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text = text, style = HandyType.BodyStrong, color = HandyColors.PageBg)
-    }
-}
-
-@Composable
-private fun SecondaryDisclosureButton(text: String, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .clip(RoundedCornerShape(HandyDimens.RadiusXl))
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text = text, style = HandyType.BodyStrong, color = HandyColors.TextSecondary)
     }
 }

@@ -11,6 +11,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -56,7 +59,6 @@ import com.handy.app.R
 import com.handy.app.design.HandyDesign
 import com.handy.app.design.HandyDesignTheme
 import com.handy.app.design.HandyDesignType
-import com.handy.app.theme.noRippleClickable
 import kotlinx.coroutines.delay
 import java.util.Locale
 
@@ -97,7 +99,12 @@ fun SplashScreen(
             modifier = modifier
                 .fillMaxSize()
                 .background(SplashPageBg)
-                .noRippleClickable(onClick = ::advance),
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    role = Role.Button,
+                    onClick = ::advance,
+                ),
         ) {
             SplashAmberWash(Modifier.fillMaxSize())
             SplashTopVignette(Modifier.fillMaxSize())
