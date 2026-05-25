@@ -1854,3 +1854,9 @@ cross-references the one being superseded.
 - Categoriser ordering tightened: Photos -> Camera -> Browser -> Maps -> Settings -> Email -> Messaging -> Social -> Video -> Music -> Calendar -> Notes -> Banking -> Food -> Ride -> Phone -> Files -> Shopping -> Default. This ordering is needed because some social/video apps share substrings; the broad YouTube video matcher excludes YouTube Music so it can still land in MUSIC.
 - Test coverage added for each expanded category, every label-accentable greeting, and the banking no-label exception.
 - Validation: `git diff --check`, `./gradlew :app:testDebugUnitTest :app:assembleDebug`, and `./gradlew :app:lintDebug` passed with the repo-local JDK. Installed `app-debug.apk` on `emulator-5554`, launched `com.handy.android` to Onboarding, and fresh logcat filtering found no `FATAL EXCEPTION`, no `E/AndroidRuntime`, no ANR, and no `Process com.handy.android has died` entry.
+
+## DL-OV-8 — Groww, Spotify, and Netflix get app-specific panel greetings
+- Added app-specific `panelGreetingFor` overrides for Groww, Spotify, and Netflix before the broader category copy runs. The strings stay short, include the display label verbatim for Accent matching, and avoid changing panel chrome.
+- Groww package detection now tags `groww` under the finance-sensitive category so the catalog recognises the app family even though the app-specific override uses a label-accented stock-market line.
+- Test coverage added for exact Groww, Spotify, and Netflix copy plus Groww category recognition.
+- Validation: `git diff --check`, `./gradlew :app:testDebugUnitTest :app:assembleDebug`, and `./gradlew :app:lintDebug` passed with the repo-local JDK. Installed `app-debug.apk` on `emulator-5554`, launched `com.handy.android`, and fresh logcat filtering found no `FATAL EXCEPTION`, no `E/AndroidRuntime`, no ANR, and no Handy process-death entry.

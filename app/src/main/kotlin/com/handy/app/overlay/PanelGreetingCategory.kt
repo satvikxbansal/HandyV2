@@ -103,7 +103,7 @@ internal fun panelGreetingCategoryFor(
             p.contains("onenote") || p.contains("bear") ||
             p.contains("standardnotes") -> PanelGreetingCategory.NOTES
 
-        // Banking / payments / wallets - broad pattern but worth tagging
+        // Banking / payments / wallets / investing - broad pattern but worth tagging
         p.contains("bank") || p.contains("paytm") ||
             p.contains("phonepe") || p.contains("gpay") ||
             p.contains("googlepay") || p.contains("revolut") ||
@@ -111,7 +111,7 @@ internal fun panelGreetingCategoryFor(
             p.contains("citi") || p.contains("amex") ||
             p.contains("monzo") || p.contains("n26") ||
             p.contains("hdfc") || p.contains("icicibank") ||
-            p.contains("sbi.") -> PanelGreetingCategory.BANKING
+            p.contains("sbi.") || p.contains("groww") -> PanelGreetingCategory.BANKING
 
         // Food delivery
         p.contains("doordash") || p.contains("uber.eats") ||

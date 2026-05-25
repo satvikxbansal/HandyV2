@@ -20,6 +20,7 @@ class PanelGreetingCatalogTest {
             "com.google.android.calendar" to PanelGreetingCategory.CALENDAR,
             "notion.id" to PanelGreetingCategory.NOTES,
             "com.chase.sig.android" to PanelGreetingCategory.BANKING,
+            "com.nextbillion.groww" to PanelGreetingCategory.BANKING,
             "in.swiggy.android" to PanelGreetingCategory.FOOD,
             "com.ubercab" to PanelGreetingCategory.RIDE,
             "com.google.android.documentsui" to PanelGreetingCategory.FILES,
@@ -77,6 +78,34 @@ class PanelGreetingCatalogTest {
         assertThat(greeting).isEqualTo("Banking app open. I'll keep things general.")
     }
 
+    @Test
+    fun `app specific greetings use short tailored copy`() {
+        val cases = listOf(
+            SpecificGreetingCase(
+                packageName = "com.nextbillion.groww",
+                label = "Groww",
+                expectedGreeting = "In Groww. Bulls, bears, or the bottom line?",
+            ),
+            SpecificGreetingCase(
+                packageName = "com.spotify.music",
+                label = "Spotify",
+                expectedGreeting = "In Spotify. Vibes first, skips later?",
+            ),
+            SpecificGreetingCase(
+                packageName = "com.netflix.mediaclient",
+                label = "Netflix",
+                expectedGreeting = "In Netflix. End the scroll. Pick a winner?",
+            ),
+        )
+
+        cases.forEach { case ->
+            val greeting = panelGreetingFor(snapshot(case.packageName, case.label))
+
+            assertThat(greeting).isEqualTo(case.expectedGreeting)
+            assertThat(greeting).contains(case.label)
+        }
+    }
+
     private fun snapshot(
         packageName: String,
         appLabel: String,
@@ -94,5 +123,11 @@ class PanelGreetingCatalogTest {
         val category: PanelGreetingCategory,
         val packageName: String,
         val label: String,
+    )
+
+    private data class SpecificGreetingCase(
+        val packageName: String,
+        val label: String,
+        val expectedGreeting: String,
     )
 }

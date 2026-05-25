@@ -731,6 +731,7 @@ internal fun panelGreetingFor(snapshot: PanelSnapshot?): String {
     val label = context.displayLabel
         .trim()
         .takeIf { it.isNotBlank() && !it.equals("Handy", ignoreCase = true) }
+    specificPanelGreetingFor(context.packageName, label)?.let { return it }
     val category = panelGreetingCategoryFor(context.packageName, context.umbrellaSiteLabel)
     return when (category) {
         PanelGreetingCategory.SETTINGS -> "In Settings. What do you need?"
@@ -770,5 +771,19 @@ internal fun panelGreetingFor(snapshot: PanelSnapshot?): String {
             ?: "In Files. Find or organise something?"
         PanelGreetingCategory.DEFAULT -> label?.let { "In $it. What can I help with?" }
             ?: FALLBACK_PANEL_GREETING
+    }
+}
+
+private fun specificPanelGreetingFor(
+    packageName: String?,
+    label: String?,
+): String? {
+    val p = packageName?.lowercase().orEmpty()
+    return when {
+        label == null -> null
+        p.contains("groww") -> "In $label. Bulls, bears, or the bottom line?"
+        p.contains("spotify") -> "In $label. Vibes first, skips later?"
+        p.contains("netflix") -> "In $label. End the scroll. Pick a winner?"
+        else -> null
     }
 }
