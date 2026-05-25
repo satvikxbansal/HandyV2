@@ -119,8 +119,9 @@ class OverlayChatPanelService : LifecycleService() {
         // no more manual `params.y` plumbing.
         //
         // The overlay covers the full screen transparently and the
-        // panel sits at `Alignment.BottomCenter`. Taps outside the
-        // panel no longer dismiss it; the close button owns dismissal.
+        // panel sits at `Alignment.BottomCenter`. The Compose tree owns
+        // a transparent scrim click target so taps outside the sheet
+        // dismiss the panel while taps inside the sheet are swallowed.
         //
         // Do not add FLAG_BLUR_BEHIND here. This host is MATCH_PARENT
         // so a window-level blur blurs the whole foreground app, not

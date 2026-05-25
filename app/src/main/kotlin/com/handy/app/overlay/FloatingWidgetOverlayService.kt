@@ -124,6 +124,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private var dragging = false
     private var longPressFired = false
     private var manualTargetLongPressFired = false
+    private var panelDismissTapArmed = false
     private val longPressRunnable = Runnable {
         longPressFired = true
         view?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
@@ -663,6 +664,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
             MotionEvent.ACTION_DOWN -> {
                 val overlayState = presenter.state.value
                 val isStickyPointing = overlayState.buddyState == BuddyState.POINTING
+                panelDismissTapArmed = overlayState.mode == OverlayMode.ChatPanel
                 if (overlayState.isFlying && !isStickyPointing) {
                     flightDriver.cancel()
                     resetPointerPose()
@@ -676,17 +678,20 @@ class FloatingWidgetOverlayService : LifecycleService() {
                 manualTargetLongPressFired = false
                 state.value = WidgetState.TOUCHED
                 val hasCandidateCorrections = overlayState.candidateOptions?.hasAlternatives == true
-                mainHandler.postDelayed(
-                    if (isStickyPointing && !hasCandidateCorrections) {
-                        manualTargetLongPressRunnable
-                    } else {
-                        longPressRunnable
-                    },
-                    LONG_PRESS_MS,
-                )
+                if (!panelDismissTapArmed) {
+                    mainHandler.postDelayed(
+                        if (isStickyPointing && !hasCandidateCorrections) {
+                            manualTargetLongPressRunnable
+                        } else {
+                            longPressRunnable
+                        },
+                        LONG_PRESS_MS,
+                    )
+                }
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
+                if (panelDismissTapArmed) return true
                 val dx = event.rawX - downX
                 val dy = event.rawY - downY
                 if (!dragging && hypot(dx, dy) > slop) {
@@ -718,6 +723,15 @@ class FloatingWidgetOverlayService : LifecycleService() {
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 mainHandler.removeCallbacks(longPressRunnable)
                 mainHandler.removeCallbacks(manualTargetLongPressRunnable)
+                if (panelDismissTapArmed) {
+                    panelDismissTapArmed = false
+                    state.value = WidgetState.IDLE
+                    if (event.actionMasked == MotionEvent.ACTION_UP) {
+                        panelBridge.cancelVoiceFromPanel()
+                        presenter.dismissPanel()
+                    }
+                    return true
+                }
                 when {
                     dragging -> {
                         snapToNearestEdge(v)

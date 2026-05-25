@@ -130,6 +130,7 @@ fun OverlayQuickChatPanelV2(
     )
     val focusRequester = remember { FocusRequester() }
     var draft by remember(panel.draftInput) { mutableStateOf(panel.draftInput) }
+    val scrimInteractionSource = remember { MutableInteractionSource() }
     val sheetInteractionSource = remember { MutableInteractionSource() }
     val sheetShape = RoundedCornerShape(
         topStart = 28.dp,
@@ -160,6 +161,15 @@ fun OverlayQuickChatPanelV2(
     Box(
         modifier = modifier.fillMaxSize(),
     ) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable(
+                    indication = null,
+                    interactionSource = scrimInteractionSource,
+                    onClick = callbacks.onDismiss,
+                ),
+        )
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
