@@ -297,7 +297,7 @@ fun HandyGlassBottomSheet(
 }
 
 @Composable
-private fun BlurredBackdropSnapshot(
+internal fun BlurredBackdropSnapshot(
     bitmap: Bitmap,
     bounds: IntRect,
     modifier: Modifier = Modifier,

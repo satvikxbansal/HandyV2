@@ -52,7 +52,7 @@ import com.handy.core.overlay.BuddyBubble
 import com.handy.core.overlay.BuddyState
 import kotlin.math.PI
 
-enum class WidgetState { IDLE, TOUCHED, DRAGGING, LISTENING, THINKING, FLYING, POINTING }
+enum class WidgetState { IDLE, TOUCHED, DRAGGING, LISTENING, THINKING, FLYING, POINTING, ACTING }
 
 /**
  * Hand-mark icon size (absolute). Kept at 32dp so the hand is the
@@ -79,7 +79,7 @@ fun WidgetContent(
                 HandyColors.Accent.copy(alpha = 0.60f)
             WidgetState.TOUCHED -> HandyColors.Accent
             WidgetState.LISTENING -> HandyColors.GlassBorder
-            WidgetState.THINKING -> HandyColors.GlassBorder
+            WidgetState.THINKING, WidgetState.ACTING -> HandyColors.GlassBorder
             WidgetState.FLYING, WidgetState.POINTING -> HandyColors.BubbleResponse
         }
         val isPointer = state == WidgetState.FLYING || state == WidgetState.POINTING

@@ -16,6 +16,7 @@ object HandyDesign {
         val PageBg = Color(0xFF08090B)
         val Surface = Color(0xFF111317)
         val SurfaceElevated = Color(0xFF181A1F)
+        val PanelSurface = Color(0xF0101114) // quick-chat overlay panel, 94% dark glass
         val SurfaceGlass = Color(0x14FFFFFF) // overlay only - 8% white
         val ContextBarSurface = Color(0xC7181A1F) // 78% dark glass
 
@@ -49,6 +50,10 @@ object HandyDesign {
         val PointSoft = Color(0x333B82F6) // 20%
         val PointHair = Color(0x4D3B82F6) // 30%
         val PointHairline = Color(0x4D3B82F6) // 30%
+        // Widget glows (40% alpha colored drop-shadow tone)
+        val AccentGlow = Color(0x66D97757) // 40% of D97757
+        val PointGlow = Color(0x663B82F6) // 40% of 3B82F6
+        val PointTrail = Color(0x993B82F6) // 60% of 3B82F6 - flying trail focal
         val Act = Color(0xFF7FB069) // emerald
         val ActSoft = Color(0x247FB069) // 14%
         val Violet = Color(0xFFB19CD9)

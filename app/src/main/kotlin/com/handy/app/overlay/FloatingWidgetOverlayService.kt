@@ -29,9 +29,9 @@ import com.handy.app.onboarding.ActionDisclosureActivity
 import com.handy.app.voice.VoiceController
 import com.handy.app.widget.BezierFlightController
 import com.handy.app.widget.ManualTargetFallbackChip
-import com.handy.app.widget.WidgetContent
 import com.handy.app.widget.WidgetBubbleChip
 import com.handy.app.widget.WidgetState
+import com.handy.app.widget.design.WidgetGlyphV2
 import com.handy.core.overlay.BuddyState
 import com.handy.core.overlay.OverlayMode
 import com.handy.runtime.accessibility.AccessibilityMarksProvider
@@ -219,8 +219,8 @@ class FloatingWidgetOverlayService : LifecycleService() {
                         BuddyState.LISTENING -> WidgetState.LISTENING
                         BuddyState.THINKING,
                         BuddyState.STREAMING,
-                        BuddyState.PREPARING_POINT,
-                        BuddyState.ACTING -> WidgetState.THINKING
+                        BuddyState.PREPARING_POINT -> WidgetState.THINKING
+                        BuddyState.ACTING -> WidgetState.ACTING
                         BuddyState.FLYING -> WidgetState.FLYING
                         BuddyState.POINTING -> WidgetState.POINTING
                         BuddyState.CANCELLING,
@@ -349,8 +349,8 @@ class FloatingWidgetOverlayService : LifecycleService() {
         val host = OverlayComposeHost(this).also { this.host = it }
 
         val composeView = host.createView {
-            // V2 keeps the V1 widget visual: clean hand icon + amber
-            // outline + scale/colour transitions. Using `WidgetContent`
+            // V2 keeps the widget visual in a single Compose root.
+            // Using `WidgetGlyphV2`
             // (a single Box with no inner AndroidView) guarantees the
             // root `OnTouchListener` sees every gesture — wrapping the
             // lens in a Row + `AndroidView` shadowed the listener and
@@ -365,7 +365,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
             val s by state.collectAsState()
             val rotation by pointerRotationRadians.collectAsState()
             val scale by pointerScale.collectAsState()
-            WidgetContent(
+            WidgetGlyphV2(
                 state = s,
                 pointerRotationRadians = rotation,
                 pointerScale = scale,

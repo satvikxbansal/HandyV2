@@ -12,8 +12,8 @@ import android.graphics.PixelFormat
 import android.hardware.HardwareBuffer
 import android.os.Build
 import android.provider.Settings
-import android.view.Gravity
 import android.view.Display
+import android.view.Gravity
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import androidx.compose.runtime.collectAsState
@@ -25,13 +25,14 @@ import com.handy.app.chat.ChatActivity
 import com.handy.app.chat.ChatTargetHandoffStore
 import com.handy.app.voice.VoiceController
 import com.handy.core.overlay.OverlayMode
-import com.handy.core.overlay.PanelContent
 import com.handy.runtime.di.AccessibilityServiceProvider
 import dagger.hilt.android.AndroidEntryPoint
+import java.util.concurrent.Executors
 import javax.inject.Inject
 import kotlin.coroutines.resume
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
@@ -60,6 +61,9 @@ class OverlayChatPanelService : LifecycleService() {
     private var host: OverlayComposeHost? = null
     private var view: android.view.View? = null
     private val panelBackdropSnapshot = MutableStateFlow<Bitmap?>(null)
+    private val screenshotExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "HandyPanelBackdrop")
+    }
     private lateinit var windowManager: WindowManager
 
     override fun onCreate() {
@@ -76,7 +80,7 @@ class OverlayChatPanelService : LifecycleService() {
                 if (state.mode == OverlayMode.ChatPanel && view == null) {
                     attachPanel()
                 } else if (state.mode != OverlayMode.ChatPanel && view != null) {
-                    detachPanel(hideIme = true)
+                    detachPanelAfterExit(hideIme = true)
                 }
             }
         }
@@ -84,6 +88,7 @@ class OverlayChatPanelService : LifecycleService() {
 
     override fun onDestroy() {
         detachPanel(hideIme = false)
+        screenshotExecutor.shutdown()
         super.onDestroy()
     }
 
@@ -99,6 +104,7 @@ class OverlayChatPanelService : LifecycleService() {
                 state = state,
                 callbacks = callbacks,
                 backdropSnapshot = backdropSnapshot,
+                isBackdropBlurAvailable = backdropSnapshot != null,
             )
         }
 
@@ -112,13 +118,14 @@ class OverlayChatPanelService : LifecycleService() {
         // on the panel Column lifts it above the keyboard naturally —
         // no more manual `params.y` plumbing.
         //
-        // The overlay covers the full screen transparently; the panel
-        // sits at `Alignment.BottomCenter`. The transparent backdrop
-        // has a `clickable { onDismiss }` so tapping outside the panel
-        // dismisses it (modal-sheet semantics). Users cannot interact
-        // with the underlying app while the panel is open, which
-        // matches "modal quick action" UX — dismiss first, then
-        // interact with the app.
+        // The overlay covers the full screen transparently and the
+        // panel sits at `Alignment.BottomCenter`. Taps outside the
+        // panel no longer dismiss it; the close button owns dismissal.
+        //
+        // Do not add FLAG_BLUR_BEHIND here. This host is MATCH_PARENT
+        // so a window-level blur blurs the whole foreground app, not
+        // only the bottom sheet. Panel-local blur is provided by the
+        // captured backdrop bitmap passed into OverlayChatPanelContent.
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -129,6 +136,9 @@ class OverlayChatPanelService : LifecycleService() {
             gravity = Gravity.TOP or Gravity.START
             x = 0
             y = 0
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                fitInsetsTypes = 0
+            }
             @Suppress("DEPRECATION")
             softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         }
@@ -143,7 +153,10 @@ class OverlayChatPanelService : LifecycleService() {
             }
 
         view = composeView
-        Timber.d("OverlayChatPanelService: panel attached (full-screen MATCH_PARENT)")
+        Timber.d(
+            "OverlayChatPanelService: panel attached (full-screen MATCH_PARENT, panelSnapshotBlur=%s)",
+            panelBackdropSnapshot.value != null,
+        )
     }
 
     // DL-026's `installImeInsetsListener` is removed in DL-027. The
@@ -152,6 +165,13 @@ class OverlayChatPanelService : LifecycleService() {
     // `Modifier.imePadding()` on the panel Column handles the lift
     // automatically — no more manual `params.y` plumbing, no more
     // three-redundant-listeners hack.
+
+    private suspend fun detachPanelAfterExit(hideIme: Boolean) {
+        delay(PANEL_EXIT_ANIMATION_MS)
+        if (presenter.state.value.mode != OverlayMode.ChatPanel) {
+            detachPanel(hideIme = hideIme)
+        }
+    }
 
     private fun detachPanel(hideIme: Boolean) {
         val v = view
@@ -215,11 +235,14 @@ class OverlayChatPanelService : LifecycleService() {
         suspendCancellableCoroutine { continuation ->
             service.takeScreenshot(
                 Display.DEFAULT_DISPLAY,
-                service.mainExecutor,
+                screenshotExecutor,
                 object : TakeScreenshotCallback {
                     override fun onSuccess(result: ScreenshotResult) {
+                        val bitmap = hardwareBufferToBitmap(result)
                         if (continuation.isActive) {
-                            continuation.resume(hardwareBufferToBitmap(result))
+                            continuation.resume(bitmap)
+                        } else {
+                            bitmap?.recycle()
                         }
                     }
 
@@ -247,15 +270,17 @@ class OverlayChatPanelService : LifecycleService() {
         }
     }
 
+    @SuppressLint("InlinedApi")
     private fun panelFlags(): Int =
         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 
     private fun canDrawOverlays(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
 
     companion object {
-        private const val PANEL_BACKDROP_CAPTURE_TIMEOUT_MS = 140L
+        private const val PANEL_BACKDROP_CAPTURE_TIMEOUT_MS = 240L
+        private const val PANEL_EXIT_ANIMATION_MS = 260L
 
         fun start(context: Context) {
             context.startService(Intent(context, OverlayChatPanelService::class.java))
