@@ -26,17 +26,19 @@ class CrashDiagnosticsFormatterTest {
 
     @Test fun `debug log sanitizer removes keys and raw quoted user fields`() {
         val sanitized = SensitiveLogSanitizer.redact(
-            """query="where is my bank otp 123456" {"userMessage":"send my salary"} x-goog-api-key=AIzaVerySecretKeyValue1234567890 {"api_key":"sk-ant-testSECRET1234567890"} authorization: Bearer raw-token""",
+            """query="where is my bank otp 123456" {"userMessage":"send my salary"} x-goog-api-key=AIzaVerySecretKeyValue1234567890 api-subscription-key=sarvam-secret-value {"api_key":"sk-ant-testSECRET1234567890"} authorization: Bearer raw-token""",
         )
 
         assertThat(sanitized).contains("query=\"[redacted:user-text]\"")
         assertThat(sanitized).contains("\"userMessage\":\"[redacted:user-text]\"")
         assertThat(sanitized).contains("x-goog-api-key=[redacted]")
+        assertThat(sanitized).contains("api-subscription-key=[redacted]")
         assertThat(sanitized).contains("\"api_key\":\"[redacted]\"")
         assertThat(sanitized).contains("authorization=[redacted]")
         assertThat(sanitized).doesNotContain("123456")
         assertThat(sanitized).doesNotContain("send my salary")
         assertThat(sanitized).doesNotContain("AIzaVerySecretKeyValue1234567890")
+        assertThat(sanitized).doesNotContain("sarvam-secret-value")
         assertThat(sanitized).doesNotContain("raw-token")
     }
 }

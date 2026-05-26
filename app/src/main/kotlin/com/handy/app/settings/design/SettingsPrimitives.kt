@@ -2,12 +2,15 @@ package com.handy.app.settings.design
 
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +49,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -63,11 +68,22 @@ import com.handy.app.design.HandyDesign
 import com.handy.app.design.HandyDesignType
 import java.util.Locale
 
-enum class SectionTone(val accent: Color, val soft: Color, val hair: Color) {
+enum class SectionTone(
+    val accent: Color,
+    val soft: Color,
+    val hair: Color,
+    val tileBorderAlpha: Float = 0.20f,
+) {
     AmberBrain(
         HandyDesign.Colors.Accent,
         HandyDesign.Colors.AccentSoft,
         HandyDesign.Colors.AccentHairline,
+    ),
+    HoneyVoice(
+        HandyDesign.Colors.Honey,
+        HandyDesign.Colors.HoneySoft,
+        HandyDesign.Colors.HoneyHair,
+        tileBorderAlpha = 0.33f,
     ),
     CobaltCapabilities(
         HandyDesign.Colors.Point,
@@ -140,7 +156,7 @@ fun SectionTile(
             .background(tone.soft)
             .border(
                 0.5.dp,
-                tone.accent.copy(alpha = 0.20f),
+                tone.accent.copy(alpha = tone.tileBorderAlpha),
                 RoundedCornerShape(HandyDesign.Dimens.CornerTileLarge),
             ),
         contentAlignment = Alignment.Center,
@@ -255,11 +271,18 @@ fun SwitchRow(
     enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit,
     trailing: (@Composable () -> Unit)? = null,
+    tone: Color = HandyDesign.Colors.Accent,
+    toneSoft: Color = HandyDesign.Colors.AccentSoft,
 ) {
     val rowToggleModifier = if (trailing == null) {
-        Modifier.clickable(enabled = enabled, role = Role.Switch) {
-            onCheckedChange(!checked)
-        }
+        Modifier
+            .semantics { contentDescription = title }
+            .toggleable(
+                value = checked,
+                enabled = enabled,
+                role = Role.Switch,
+                onValueChange = onCheckedChange,
+            )
     } else {
         Modifier
     }
@@ -286,7 +309,13 @@ fun SwitchRow(
             if (trailing != null) {
                 trailing()
             } else {
-                HandyDesignSwitch(checked, enabled, onCheckedChange)
+                HandyDesignSwitch(
+                    checked = checked,
+                    enabled = enabled,
+                    onCheckedChange = onCheckedChange,
+                    tone = tone,
+                    toneSoft = toneSoft,
+                )
             }
         }
     }
@@ -297,8 +326,14 @@ fun HandyDesignSwitch(
     checked: Boolean,
     enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit,
+    tone: Color = HandyDesign.Colors.Accent,
+    toneSoft: Color = HandyDesign.Colors.AccentSoft,
 ) {
-    val trackBg = if (checked) HandyDesign.Colors.Accent else HandyDesign.Colors.SurfaceElevated
+    val trackBg = if (checked) {
+        if (enabled) tone else toneSoft
+    } else {
+        HandyDesign.Colors.SurfaceElevated
+    }
     val thumbColor = if (checked) Color.White else HandyDesign.Colors.TextMuted
     val thumbX by animateDpAsState(
         targetValue = if (checked) 21.dp else 3.dp,
@@ -387,11 +422,18 @@ data class PillOption(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun PillSelectRow(title: String, options: List<PillOption>) {
+fun PillSelectRow(
+    title: String,
+    options: List<PillOption>,
+    modifier: Modifier = Modifier,
+    tone: Color = HandyDesign.Colors.Accent,
+    toneSoft: Color = HandyDesign.Colors.AccentSoft,
+    toneHair: Color = HandyDesign.Colors.AccentHairline,
+) {
     Column {
         SectionRowDivider()
         Column(
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 14.dp),
         ) {
@@ -410,7 +452,13 @@ fun PillSelectRow(title: String, options: List<PillOption>) {
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 options.forEach { opt ->
-                    Pill(opt)
+                    Pill(
+                        opt = opt,
+                        groupTitle = title,
+                        tone = tone,
+                        toneSoft = toneSoft,
+                        toneHair = toneHair,
+                    )
                 }
             }
         }
@@ -418,16 +466,49 @@ fun PillSelectRow(title: String, options: List<PillOption>) {
 }
 
 @Composable
-private fun Pill(opt: PillOption) {
-    val bg = if (opt.on) HandyDesign.Colors.AccentSoft else HandyDesign.Colors.SurfaceElevated
-    val fg = if (opt.on) HandyDesign.Colors.Accent else HandyDesign.Colors.TextSecondary
-    val border = if (opt.on) HandyDesign.Colors.AccentHairline else HandyDesign.Colors.BorderSubtle
+private fun Pill(
+    opt: PillOption,
+    groupTitle: String,
+    tone: Color,
+    toneSoft: Color,
+    toneHair: Color,
+) {
+    val pillDescription = buildString {
+        append(groupTitle)
+        append(" · ")
+        append(opt.label)
+        opt.tag?.let {
+            append(" · ")
+            append(it.uppercase(Locale.ROOT))
+        }
+    }
+    val bg by animateColorAsState(
+        targetValue = if (opt.on) toneSoft else HandyDesign.Colors.SurfaceElevated,
+        animationSpec = tween(160, easing = FastOutSlowInEasing),
+        label = "pill-bg",
+    )
+    val fg by animateColorAsState(
+        targetValue = if (opt.on) tone else HandyDesign.Colors.TextSecondary,
+        animationSpec = tween(160, easing = FastOutSlowInEasing),
+        label = "pill-fg",
+    )
+    val border by animateColorAsState(
+        targetValue = if (opt.on) toneHair else HandyDesign.Colors.BorderSubtle,
+        animationSpec = tween(160, easing = FastOutSlowInEasing),
+        label = "pill-border",
+    )
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
             .background(bg)
             .border(1.dp, border, RoundedCornerShape(999.dp))
-            .clickable(enabled = opt.enabled, role = Role.Button, onClick = opt.onToggle)
+            .semantics { contentDescription = pillDescription }
+            .selectable(
+                selected = opt.on,
+                enabled = opt.enabled,
+                role = Role.RadioButton,
+                onClick = opt.onToggle,
+            )
             .padding(horizontal = 12.dp, vertical = 6.dp)
             .alpha(if (opt.enabled) 1f else 0.55f),
         verticalAlignment = Alignment.CenterVertically,

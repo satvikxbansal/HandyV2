@@ -61,6 +61,8 @@ import com.handy.app.settings.sections.ModelPickerSheet
 import com.handy.app.settings.sections.PrivacySection
 import com.handy.app.settings.sections.SettingsFooter
 import com.handy.app.settings.sections.SettingsHeader
+import com.handy.app.settings.sections.VoiceAction
+import com.handy.app.settings.sections.VoiceSection
 import com.handy.app.settings.sections.colorForPackage
 import com.handy.app.settings.sections.friendlyAppLabelOrPackage
 import com.handy.core.action.ActionExecutionGate
@@ -115,8 +117,9 @@ class SettingsActivity : ComponentActivity() {
                     onTutorModeToggle = { enabled ->
                         viewModel.updateSettings { it.copy(tutorModeEnabled = enabled) }
                     },
-                    onSpeakVoiceRepliesAloudToggle = { enabled ->
-                        viewModel.updateSettings { it.copy(speakVoiceRepliesAloud = enabled) }
+                    onVoiceAction = viewModel::onVoiceAction,
+                    onOpenSystemVoiceSettings = {
+                        startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))
                     },
                     onTapForMeToggle = viewModel::setTapForMeEnabled,
                     onNoActionsInIncognitoToggle = { enabled ->
@@ -176,7 +179,8 @@ internal fun SettingsScreen(
     onWebSearchToggle: (Boolean) -> Unit,
     onClaudeModelVariant: (Boolean) -> Unit,
     onTutorModeToggle: (Boolean) -> Unit,
-    onSpeakVoiceRepliesAloudToggle: (Boolean) -> Unit,
+    onVoiceAction: (VoiceAction) -> Unit,
+    onOpenSystemVoiceSettings: () -> Unit,
     onTapForMeToggle: (Boolean) -> Unit,
     onNoActionsInIncognitoToggle: (Boolean) -> Unit,
     onTapForMePanicMute: () -> Unit,
@@ -290,9 +294,12 @@ internal fun SettingsScreen(
                         onApiKeyChange = onClaudeKeyChange,
                         requestsTodayLabel = "—",
                         connected = state.claudeKeyMasked != null,
-                        speakVoiceRepliesAloud = state.settings?.speakVoiceRepliesAloud != false,
                         onOpenPicker = { brainSheetOpen = true },
-                        onSpeakVoiceRepliesAloudToggle = onSpeakVoiceRepliesAloudToggle,
+                    )
+                    VoiceSection(
+                        state = state.voice,
+                        onAction = onVoiceAction,
+                        onOpenSystemVoiceSettings = onOpenSystemVoiceSettings,
                     )
                     CapabilitiesSection(
                         expanded = capabilitiesOpen,

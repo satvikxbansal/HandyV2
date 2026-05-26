@@ -25,6 +25,7 @@ interface KeyStore {
         const val KEY_BRAVE: String = "brave_api_key"
         const val KEY_JINA: String = "jina_api_key"
         const val KEY_GITHUB: String = "github_api_key"
+        const val KEY_SARVAM: String = "sarvam_api_key"
         /** V2 — Gemini cloud (Generative Language API). */
         const val KEY_GEMINI: String = "gemini_api_key"
     }
@@ -108,10 +109,11 @@ class EncryptedKeyStore(context: Context) : KeyStore {
         if (!commit()) Timber.w("EncryptedKeyStore: %s commit failed", operation)
     }
 
-    private companion object {
-        const val CURRENT_PREFS_NAME = "handy_secrets_v2"
-        const val LEGACY_PREFS_NAME = "handy_secrets"
-        const val VERSION_KEY = "__crypto_version"
-        const val CURRENT_CRYPTO_VERSION = 2
+    companion object {
+        const val KEY_SARVAM: String = KeyStore.KEY_SARVAM
+        private const val CURRENT_PREFS_NAME = "handy_secrets_v2"
+        private const val LEGACY_PREFS_NAME = "handy_secrets"
+        private const val VERSION_KEY = "__crypto_version"
+        private const val CURRENT_CRYPTO_VERSION = 2
     }
 }

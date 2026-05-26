@@ -63,8 +63,12 @@ object HandyDesign {
         val Plum = Color(0xFF3B1F2E)
         val PlumDeep = Color(0xFF1E0F19)
         val PlumSoft = Color(0x388C5276) // ~22%
+        // Honey - secondary warm accent for Voice surfaces. It stays
+        // in Handy's warm family while reading differently from Brain.
         val Honey = Color(0xFFF0C674)
         val HoneySoft = Color(0x2EF0C674) // 18%
+        val HoneyHair = Color(0x5CF0C674) // 36%
+        val HoneyInk = Color(0xFF1F1709)
     }
 
     object Dimens {

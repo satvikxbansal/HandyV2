@@ -37,6 +37,15 @@ sealed class AuditAction {
     @Serializable @SerialName("swipe") data class Swipe(val direction: String) : AuditAction()
     @Serializable @SerialName("type_text") data object TypeText : AuditAction()
     @Serializable @SerialName("intent") data class Intent(val name: String) : AuditAction()
+    @Serializable
+    @SerialName("tts")
+    data class TextToSpeech(
+        val model: String,
+        val language: String,
+        val chars: Int,
+        val latencyMs: Long,
+        val requestId: String? = null,
+    ) : AuditAction()
 }
 
 @Serializable

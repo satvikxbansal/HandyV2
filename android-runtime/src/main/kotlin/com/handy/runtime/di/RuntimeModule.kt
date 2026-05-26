@@ -26,6 +26,9 @@ import com.handy.runtime.llm.NetworkDiagnostics
 import com.handy.runtime.llm.SwitchingCloudLlmClient
 import com.handy.runtime.speech.AndroidSttClient
 import com.handy.runtime.speech.AndroidTtsClient
+import com.handy.runtime.speech.AudioPlayback
+import com.handy.runtime.speech.MediaPlayerAudioPlayback
+import com.handy.runtime.speech.SwitchingTtsClient
 import com.handy.runtime.storage.DataStoreSettings
 import com.handy.runtime.storage.EncryptedKeyStore
 import com.handy.runtime.storage.JsonHistoryStore
@@ -191,8 +194,16 @@ object RuntimeModule {
 
     @Provides
     @Singleton
-    fun provideTtsClient(@ApplicationContext context: Context): TtsClient =
+    fun provideAndroidTtsClient(@ApplicationContext context: Context): AndroidTtsClient =
         AndroidTtsClient(context)
+
+    @Provides
+    @Singleton
+    fun provideAudioPlayback(impl: MediaPlayerAudioPlayback): AudioPlayback = impl
+
+    @Provides
+    @Singleton
+    fun provideTtsClient(impl: SwitchingTtsClient): TtsClient = impl
 
     /**
      * V2: the [ActionPerformer] binding now lives in `:app` as

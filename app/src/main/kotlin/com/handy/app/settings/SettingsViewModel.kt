@@ -6,12 +6,23 @@ import com.handy.core.action.ActionExecutionGate
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.model.AssistantMode
 import com.handy.core.model.HandySettings
+import com.handy.core.model.SarvamLanguage
+import com.handy.core.model.SarvamVoice
+import com.handy.core.model.TtsProvider
+import com.handy.core.speech.TtsClient
+import com.handy.app.settings.sections.VoiceAction
+import com.handy.app.settings.sections.VoiceConnectionStatus
+import com.handy.app.settings.sections.VoiceProvider
+import com.handy.app.settings.sections.VoiceSectionState
 import com.handy.runtime.storage.DataStoreSettings
+import com.handy.runtime.storage.EncryptedKeyStore
 import com.handy.runtime.storage.KeyStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -27,10 +38,12 @@ class SettingsViewModel @Inject constructor(
     private val settings: DataStoreSettings,
     private val keyStore: KeyStore,
     private val history: ChatHistoryStore,
+    private val ttsClient: TtsClient,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
+    private var voiceTestMonitorJob: Job? = null
 
     /**
      * One-shot confirmation / error strings for the Settings screen to
@@ -47,12 +60,19 @@ class SettingsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             settings.flow.collectLatest { s ->
+                val sarvamKeyMasked = maskSecret(keyStore.get(EncryptedKeyStore.KEY_SARVAM))
                 _state.value = _state.value.copy(
                     settings = s,
                     claudeKeyMasked = mask(keyStore.get(KeyStore.KEY_ANTHROPIC)),
                     braveKeyMasked = mask(keyStore.get(KeyStore.KEY_BRAVE)),
                     jinaKeyMasked = mask(keyStore.get(KeyStore.KEY_JINA)),
                     githubKeyMasked = mask(keyStore.get(KeyStore.KEY_GITHUB)),
+                    sarvamKeyMasked = sarvamKeyMasked,
+                    voice = s.toVoiceSectionState(
+                        sarvamKeyMasked = sarvamKeyMasked,
+                        expanded = _state.value.voice.expanded,
+                        testingVoice = _state.value.voice.testingVoice,
+                    ),
                 )
             }
         }
@@ -177,6 +197,127 @@ class SettingsViewModel @Inject constructor(
             clearedMessage = "GitHub API key cleared",
         ) { it.copy(githubKeyMasked = mask(raw)) }
 
+    fun setSarvamKey(raw: String) =
+        setKey(
+            name = EncryptedKeyStore.KEY_SARVAM,
+            raw = raw,
+            savedMessage = "Sarvam API key saved",
+            clearedMessage = "Sarvam API key cleared",
+        ) { state ->
+            val masked = maskSecret(raw)
+            val settingsSnapshot = state.settings
+            state.copy(
+                sarvamKeyMasked = masked,
+                voice = settingsSnapshot?.toVoiceSectionState(
+                    sarvamKeyMasked = masked,
+                    expanded = state.voice.expanded,
+                    testingVoice = state.voice.testingVoice,
+                ) ?: state.voice,
+            )
+        }
+
+    fun onVoiceAction(action: VoiceAction) {
+        when (action) {
+            VoiceAction.ToggleExpanded -> {
+                _state.value = _state.value.copy(
+                    voice = _state.value.voice.copy(expanded = !_state.value.voice.expanded),
+                )
+            }
+            VoiceAction.ToggleSpeakReplies -> {
+                val currentlyOn = _state.value.settings?.speakVoiceRepliesAloud ?: true
+                if (currentlyOn) {
+                    runCatching { ttsClient.stop() }
+                    setVoiceTesting(false)
+                }
+                updateSettings { it.copy(speakVoiceRepliesAloud = !currentlyOn) }
+            }
+            is VoiceAction.SelectProvider -> {
+                updateSettings {
+                    it.copy(
+                        speakVoiceRepliesAloud = true,
+                        ttsProvider = action.provider,
+                    )
+                }
+            }
+            is VoiceAction.SelectVoice -> {
+                updateSettings { it.copy(sarvamVoice = action.voice) }
+            }
+            is VoiceAction.SelectLanguage -> {
+                updateSettings { it.copy(sarvamSpokenLanguage = action.language) }
+            }
+            is VoiceAction.SetSarvamKey -> setSarvamKey(action.key)
+            VoiceAction.ClearSarvamKey -> setSarvamKey("")
+            VoiceAction.TestVoice -> testVoice()
+        }
+    }
+
+    fun testVoice() {
+        if (ttsClient.isSpeaking) {
+            runCatching { ttsClient.stop() }
+            setVoiceTesting(false)
+            _messages.tryEmit("Voice stopped")
+            refreshVoiceStateFromSecrets()
+            return
+        }
+        if ((_state.value.voice.provider as? VoiceProvider.Sarvam)?.apiKeyMasked == null &&
+            _state.value.settings?.ttsProvider == TtsProvider.SARVAM
+        ) {
+            _messages.tryEmit("Add a Sarvam key first")
+            return
+        }
+        val language = _state.value.settings?.sarvamSpokenLanguage ?: SarvamLanguage.AUTO
+        val sample = when (language) {
+            SarvamLanguage.AUTO -> if (java.util.Locale.getDefault().language == "hi") {
+                "नमस्ते, मैं हैंडी हूँ। मैं कैसे मदद कर सकता हूँ?"
+            } else {
+                "Hello, I'm Handy. How can I help?"
+            }
+            SarvamLanguage.ENGLISH -> "Hello, I'm Handy. How can I help?"
+            SarvamLanguage.HINDI -> "नमस्ते, मैं हैंडी हूँ। मैं कैसे मदद कर सकता हूँ?"
+            SarvamLanguage.HINGLISH -> "Namaste, main Handy hoon. Main kaise madad kar sakta hoon?"
+        }
+        runCatching {
+            ttsClient.speak(sample, "settings-voice-test-${System.nanoTime()}")
+            setVoiceTesting(true)
+            monitorVoiceTest()
+            _messages.tryEmit("Testing voice")
+        }.onFailure {
+            setVoiceTesting(false)
+            _messages.tryEmit("Voice test could not start")
+        }
+    }
+
+    private fun monitorVoiceTest() {
+        voiceTestMonitorJob?.cancel()
+        voiceTestMonitorJob = viewModelScope.launch {
+            delay(250)
+            while (ttsClient.isSpeaking) {
+                delay(150)
+            }
+            setVoiceTesting(false)
+            refreshVoiceStateFromSecrets()
+        }
+    }
+
+    private fun setVoiceTesting(testing: Boolean) {
+        _state.value = _state.value.copy(
+            voice = _state.value.voice.copy(testingVoice = testing),
+        )
+    }
+
+    private fun refreshVoiceStateFromSecrets() {
+        val settingsSnapshot = _state.value.settings ?: return
+        val sarvamKeyMasked = maskSecret(keyStore.get(EncryptedKeyStore.KEY_SARVAM))
+        _state.value = _state.value.copy(
+            sarvamKeyMasked = sarvamKeyMasked,
+            voice = settingsSnapshot.toVoiceSectionState(
+                sarvamKeyMasked = sarvamKeyMasked,
+                expanded = _state.value.voice.expanded,
+                testingVoice = _state.value.voice.testingVoice,
+            ),
+        )
+    }
+
     private inline fun setKey(
         name: String,
         raw: String,
@@ -220,6 +361,43 @@ class SettingsViewModel @Inject constructor(
         "sk-••••${it.takeLast(4)}"
     }
 
+    private fun maskSecret(value: String?): String? = value?.trim()?.takeIf { it.isNotBlank() }?.let {
+        val prefix = it.take(3)
+        val suffix = if (it.length > 7) it.takeLast(4) else ""
+        val middle = if (it.length > 80) "••••…••••" else "••••"
+        "$prefix$middle$suffix"
+    }
+
+    private fun HandySettings.toVoiceSectionState(
+        sarvamKeyMasked: String?,
+        expanded: Boolean,
+        testingVoice: Boolean,
+    ): VoiceSectionState {
+        val provider = when {
+            !speakVoiceRepliesAloud -> VoiceProvider.Off
+            ttsProvider == TtsProvider.SARVAM -> VoiceProvider.Sarvam(
+                apiKeyMasked = sarvamKeyMasked,
+                voice = sarvamVoice,
+                language = sarvamSpokenLanguage,
+            )
+            else -> VoiceProvider.System
+        }
+        return VoiceSectionState(
+            provider = provider,
+            expanded = expanded,
+            status = when (provider) {
+                VoiceProvider.Off -> VoiceConnectionStatus.SystemVoice
+                VoiceProvider.System -> VoiceConnectionStatus.SystemVoice
+                is VoiceProvider.Sarvam -> if (provider.apiKeyMasked == null) {
+                    VoiceConnectionStatus.MissingKey
+                } else {
+                    VoiceConnectionStatus.Connected
+                }
+            },
+            testingVoice = testingVoice,
+        )
+    }
+
     private companion object {
         const val ONE_HOUR_MS: Long = 60L * 60L * 1_000L
     }
@@ -231,5 +409,7 @@ data class SettingsUiState(
     val braveKeyMasked: String? = null,
     val jinaKeyMasked: String? = null,
     val githubKeyMasked: String? = null,
+    val sarvamKeyMasked: String? = null,
+    val voice: VoiceSectionState = VoiceSectionState(),
     val assistantModes: List<AssistantMode> = AssistantMode.entries,
 )

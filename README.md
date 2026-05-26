@@ -109,9 +109,12 @@ submission documentation.
 - **Voice input and speech output**
   Push-to-talk voice uses Android SpeechRecognizer. Handy does not
   listen in the background. Voice replies are spoken aloud via Android
-  system TTS using the short `[SPOKEN]` response, while chat can still
-  show a fuller written answer. Sarvam voice output is planned for
-  P-VOICE-2.
+  system TTS by default using the short `[SPOKEN]` response, while chat
+  can still show a fuller written answer. Settings can opt into Sarvam
+  Bulbul v3 TTS with Ritu, Rahul, or Simran voices; it requires a user
+  supplied Sarvam API key and falls back to System TTS when the key or
+  network is unavailable. Sarvam audio chunks are temporary private cache
+  files only and are deleted on playback completion, stop, or release.
 
 - **Web tools, off by default**
   Web search can be enabled in Settings. When on, Claude can call Brave
@@ -148,6 +151,9 @@ submission documentation.
   brain router, but they are not user-enabled in this build. The visible
   Settings card keeps Gemini disabled as "Coming soon."
 - Handy has no Handy-owned backend in the current app path.
+- Speech output has two provider paths: Android System TTS is the
+  default, and Sarvam Bulbul v3 is available only after the user selects
+  it in Settings and stores a Sarvam API key on device.
 
 ### What is intentionally blocked
 

@@ -86,6 +86,22 @@ enum class SarvamVoice(val apiName: String, val pickerTitle: String, val pickerS
     ;
 }
 
+@Serializable
+enum class SarvamLanguage(val code: String, val pickerTitle: String, val pickerSubtitle: String) {
+    @SerialName("auto")
+    AUTO("auto", "Auto", "Match the device language"),
+
+    @SerialName("en-IN")
+    ENGLISH("en-IN", "English", "Indian English"),
+
+    @SerialName("hi-IN")
+    HINDI("hi-IN", "Hindi", "Hindi speech"),
+
+    @SerialName("hinglish")
+    HINGLISH("hi-IN", "Hinglish", "Hindi-English mixed input"),
+    ;
+}
+
 /**
  * v1 only selects [CLAUDE]. The enum shape (and the `LlmClient` interface)
  * is the seam that lets v2 drop in a second brain without touching call
@@ -109,6 +125,7 @@ data class HandySettings(
     val ttsProvider: TtsProvider = TtsProvider.SYSTEM,
     val speakVoiceRepliesAloud: Boolean = true,
     val sarvamVoice: SarvamVoice = SarvamVoice.RITU,
+    val sarvamSpokenLanguage: SarvamLanguage = SarvamLanguage.AUTO,
     val showFloatingWidget: Boolean = true,
     /** Off by default. Respects the rule: no tool definitions sent when false. */
     val webSearchEnabled: Boolean = false,

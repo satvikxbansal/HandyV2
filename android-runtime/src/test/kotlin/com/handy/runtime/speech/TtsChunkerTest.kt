@@ -30,6 +30,14 @@ class TtsChunkerTest {
         assertThat(out[2].length).isEqualTo(50)
     }
 
+    @Test fun `Sarvam chunking delegates to Android sentence chunker`() {
+        val body = (1..150).joinToString(" ") { "Sentence $it keeps going." }
+
+        assertThat(SarvamTtsClient.chunkForSynthesis(body)).isEqualTo(
+            AndroidTtsClient.chunkOnSentenceBoundary(body, maxChars = SarvamTtsClient.MAX_CHUNK),
+        )
+    }
+
     @Test fun `barge in uses queue flush for every new utterance`() {
         val engine = RecordingTtsEngine()
         val client = AndroidTtsClient(engine)

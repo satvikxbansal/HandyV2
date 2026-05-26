@@ -449,6 +449,7 @@ private fun AuditAction.displayName(): String = when (this) {
     is AuditAction.Swipe -> "Swipe ${direction.lowercase()}"
     AuditAction.TypeText -> "Type text"
     is AuditAction.Intent -> "Intent $name"
+    is AuditAction.TextToSpeech -> "Text to speech"
 }
 
 private fun AuditResult.displayName(): String = when (this) {

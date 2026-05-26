@@ -16,6 +16,7 @@ import com.handy.core.model.CloudProvider
 import com.handy.core.model.HandySettings
 import com.handy.core.model.LlmProvider
 import com.handy.core.model.QuickTileAction
+import com.handy.core.model.SarvamLanguage
 import com.handy.core.model.SarvamVoice
 import com.handy.core.model.SttProvider
 import com.handy.core.model.TtsProvider
@@ -51,6 +52,7 @@ class DataStoreSettings(private val context: Context) {
             p[TTS_PROVIDER] = next.ttsProvider.name
             p[SPEAK_VOICE_REPLIES_ALOUD] = next.speakVoiceRepliesAloud
             p[SARVAM_VOICE] = next.sarvamVoice.name
+            p[SARVAM_SPOKEN_LANGUAGE] = next.sarvamSpokenLanguage.name
             p[SHOW_FLOATING_WIDGET] = next.showFloatingWidget
             p[WEB_SEARCH_ENABLED] = next.webSearchEnabled
             p[APP_THEME] = next.appTheme.name
@@ -136,6 +138,9 @@ class DataStoreSettings(private val context: Context) {
             sarvamVoice = this[SARVAM_VOICE]
                 ?.let { runCatching { SarvamVoice.valueOf(it) }.getOrNull() }
                 ?: SarvamVoice.RITU,
+            sarvamSpokenLanguage = this[SARVAM_SPOKEN_LANGUAGE]
+                ?.let { runCatching { SarvamLanguage.valueOf(it) }.getOrNull() }
+                ?: SarvamLanguage.AUTO,
             showFloatingWidget = this[SHOW_FLOATING_WIDGET] ?: true,
             webSearchEnabled = this[WEB_SEARCH_ENABLED] ?: false,
             appTheme = this[APP_THEME]
@@ -186,6 +191,7 @@ class DataStoreSettings(private val context: Context) {
         val TTS_PROVIDER = stringPreferencesKey("tts_provider")
         val SPEAK_VOICE_REPLIES_ALOUD = booleanPreferencesKey("speak_voice_replies_aloud")
         val SARVAM_VOICE = stringPreferencesKey("sarvam_voice")
+        val SARVAM_SPOKEN_LANGUAGE = stringPreferencesKey("sarvam_spoken_language")
         val SHOW_FLOATING_WIDGET = booleanPreferencesKey("show_floating_widget")
         val WEB_SEARCH_ENABLED = booleanPreferencesKey("web_search_enabled")
         val APP_THEME = stringPreferencesKey("app_theme")
