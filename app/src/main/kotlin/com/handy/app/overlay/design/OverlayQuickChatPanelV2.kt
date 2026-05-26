@@ -219,7 +219,8 @@ fun OverlayQuickChatPanelV2(
                             onDismiss = callbacks.onDismiss,
                         )
                         ContextLineV2(
-                            currentAppDisplayName = currentAppDisplayName,
+                            greeting = panel.greeting,
+                            accentLabel = toolContext?.displayLabel,
                             modifier = Modifier.padding(top = 14.dp),
                         )
                         Spacer(Modifier.height(18.dp))
@@ -320,11 +321,12 @@ private fun PanelHeaderV2(
 
 @Composable
 private fun ContextLineV2(
-    currentAppDisplayName: String?,
+    greeting: String,
+    accentLabel: String?,
     modifier: Modifier = Modifier,
 ) {
-    val text = remember(currentAppDisplayName) {
-        contextLineAnnotatedString(currentAppDisplayName)
+    val text = remember(greeting, accentLabel) {
+        greetingWithLabelAccent(greeting, accentLabel)
     }
     Text(
         text = text,
@@ -341,35 +343,30 @@ private fun ContextLineV2(
     )
 }
 
-private fun contextLineAnnotatedString(currentAppDisplayName: String?): AnnotatedString =
-    buildAnnotatedString {
-        append("In ")
-        val knownName = currentAppDisplayName
-            ?.trim()
-            ?.takeIf { it.isNotBlank() }
-        if (knownName != null) {
-            withStyle(
-                SpanStyle(
-                    color = HandyDesign.Colors.Accent,
-                    fontWeight = FontWeight.SemiBold,
-                ),
-            ) {
-                append(knownName.ellipsizeLabel(maxChars = 20))
-            }
-        } else {
-            withStyle(SpanStyle(color = HandyDesign.Colors.TextSecondary)) {
-                append("this app")
-            }
-        }
-        append(". What can I help you with?")
-    }
+internal fun greetingWithLabelAccent(
+    greeting: String,
+    label: String?,
+): AnnotatedString {
+    val text = greeting.ifBlank { "What can I help you with?" }
+    val trimmedLabel = label
+        ?.trim()
+        ?.takeIf { it.isNotBlank() && !it.equals("Handy", ignoreCase = true) }
+        ?: return AnnotatedString(text)
+    val labelStart = text.indexOf(trimmedLabel, ignoreCase = true)
+    if (labelStart < 0) return AnnotatedString(text)
+    val labelEnd = labelStart + trimmedLabel.length
 
-private fun String.ellipsizeLabel(maxChars: Int): String {
-    val trimmed = trim()
-    return if (trimmed.length <= maxChars) {
-        trimmed
-    } else {
-        trimmed.take(maxChars - 1).trimEnd() + "…"
+    return buildAnnotatedString {
+        append(text.substring(0, labelStart))
+        withStyle(
+            SpanStyle(
+                color = HandyDesign.Colors.Accent,
+                fontWeight = FontWeight.SemiBold,
+            ),
+        ) {
+            append(text.substring(labelStart, labelEnd))
+        }
+        append(text.substring(labelEnd))
     }
 }
 

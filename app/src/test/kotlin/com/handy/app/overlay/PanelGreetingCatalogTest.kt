@@ -1,6 +1,7 @@
 package com.handy.app.overlay
 
 import com.google.common.truth.Truth.assertThat
+import com.handy.app.overlay.design.greetingWithLabelAccent
 import com.handy.core.overlay.PanelSnapshot
 import com.handy.core.tool.ToolContext
 import org.junit.Test
@@ -104,6 +105,17 @@ class PanelGreetingCatalogTest {
             assertThat(greeting).isEqualTo(case.expectedGreeting)
             assertThat(greeting).contains(case.label)
         }
+    }
+
+    @Test
+    fun `greeting accent helper preserves full greeting text`() {
+        val greeting = "In Netflix. End the scroll. Pick a winner?"
+
+        val annotated = greetingWithLabelAccent(greeting, label = "Netflix")
+
+        assertThat(annotated.text).isEqualTo(greeting)
+        assertThat(annotated.spanStyles.map { it.start to it.end })
+            .contains(3 to 10)
     }
 
     private fun snapshot(
