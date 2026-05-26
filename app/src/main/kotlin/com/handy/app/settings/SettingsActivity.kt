@@ -67,6 +67,8 @@ import com.handy.app.settings.sections.colorForPackage
 import com.handy.app.settings.sections.friendlyAppLabelOrPackage
 import com.handy.core.action.ActionExecutionGate
 import com.handy.core.model.HandySettings
+import com.handy.core.model.SttLanguage
+import com.handy.core.model.SttMode
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.launch
@@ -114,6 +116,12 @@ class SettingsActivity : ComponentActivity() {
                         viewModel.updateSettings { it.copy(webSearchEnabled = enabled) }
                     },
                     onClaudeModelVariant = viewModel::setClaudeModelVariant,
+                    onSttModeChange = { mode ->
+                        viewModel.updateSettings { it.copy(sttMode = mode) }
+                    },
+                    onSttLanguageChange = { language ->
+                        viewModel.updateSettings { it.copy(sttLanguage = language) }
+                    },
                     onTutorModeToggle = { enabled ->
                         viewModel.updateSettings { it.copy(tutorModeEnabled = enabled) }
                     },
@@ -178,6 +186,8 @@ internal fun SettingsScreen(
     onGithubKeyChange: (String) -> Unit,
     onWebSearchToggle: (Boolean) -> Unit,
     onClaudeModelVariant: (Boolean) -> Unit,
+    onSttModeChange: (SttMode) -> Unit,
+    onSttLanguageChange: (SttLanguage) -> Unit,
     onTutorModeToggle: (Boolean) -> Unit,
     onVoiceAction: (VoiceAction) -> Unit,
     onOpenSystemVoiceSettings: () -> Unit,
@@ -294,7 +304,11 @@ internal fun SettingsScreen(
                         onApiKeyChange = onClaudeKeyChange,
                         requestsTodayLabel = "—",
                         connected = state.claudeKeyMasked != null,
+                        sttMode = state.settings?.sttMode ?: SttMode.AUTO,
+                        sttLanguage = state.settings?.sttLanguage ?: SttLanguage.SYSTEM,
                         onOpenPicker = { brainSheetOpen = true },
+                        onSttModeChange = onSttModeChange,
+                        onSttLanguageChange = onSttLanguageChange,
                     )
                     VoiceSection(
                         state = state.voice,

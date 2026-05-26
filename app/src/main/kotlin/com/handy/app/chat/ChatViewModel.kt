@@ -293,6 +293,13 @@ class ChatViewModel @Inject constructor(
                 )
                 return@launch
             }
+            if (voiceController.consumeLastLowConfidenceTranscriptHandled()) {
+                _state.value = _state.value.copy(
+                    voiceState = VoiceUiState.IDLE,
+                    pendingTranscript = "",
+                )
+                return@launch
+            }
             Timber.d("stopVoice: final transcript chars=%d", transcript?.length ?: 0)
             if (transcript.isNullOrBlank()) {
                 _state.value = _state.value.copy(

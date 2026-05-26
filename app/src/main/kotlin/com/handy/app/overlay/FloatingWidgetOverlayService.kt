@@ -759,6 +759,10 @@ class FloatingWidgetOverlayService : LifecycleService() {
                             if (voiceController.consumeLastPointingCorrectionHandled()) {
                                 return@launch
                             }
+                            if (voiceController.consumeLastLowConfidenceTranscriptHandled()) {
+                                state.value = WidgetState.IDLE
+                                return@launch
+                            }
                             state.value = WidgetState.IDLE
                             if (!transcript.isNullOrBlank()) {
                                 // V2 recipe #6: auto-submit through the

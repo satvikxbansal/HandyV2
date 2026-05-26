@@ -153,6 +153,7 @@ class OverlayPresenter @Inject constructor(
                 snapshot = snapshot ?: current.panel.snapshot,
                 isListening = true,
                 partialTranscript = "",
+                lowConfidenceTranscript = null,
             ),
         ) }
     }
@@ -231,6 +232,7 @@ class OverlayPresenter @Inject constructor(
             panel = snapshot.panel.copy(
                 isListening = true,
                 partialTranscript = "",
+                lowConfidenceTranscript = null,
             ),
             bubble = BuddyBubble.Transcript(""),
         ) }
@@ -248,8 +250,54 @@ class OverlayPresenter @Inject constructor(
                 isListening = false,
                 partialTranscript = transcript.orEmpty(),
                 isStreaming = !transcript.isNullOrBlank(),
+                lowConfidenceTranscript = if (transcript.isNullOrBlank()) {
+                    snapshot.panel.lowConfidenceTranscript
+                } else {
+                    null
+                },
             ),
             bubble = if (transcript.isNullOrBlank()) null else snapshot.bubble,
+        ) }
+    }
+
+    fun onLowConfidenceTranscript(best: String, alternatives: List<String>) {
+        val cleanedBest = best.trim()
+        val cleanedAlternatives = alternatives
+            .map { it.trim() }
+            .filter { it.isNotBlank() && !it.equals(cleanedBest, ignoreCase = true) }
+            .distinctBy { it.lowercase() }
+            .take(2)
+        if (cleanedBest.isBlank()) return
+        setState(
+            event = "onLowConfidenceTranscript",
+            target = FlightFsm.Docked,
+        ) { snapshot -> snapshot.copy(
+            mode = OverlayMode.ChatPanel,
+            buddyState = BuddyState.DOCKED,
+            isFlying = false,
+            panel = snapshot.panel.copy(
+                isListening = false,
+                partialTranscript = cleanedBest,
+                draftInput = cleanedBest,
+                isStreaming = false,
+                streamingDelta = "",
+                loadingVerb = "",
+                errorBanner = null,
+                lowConfidenceTranscript = PanelContent.LowConfidenceTranscript(
+                    best = cleanedBest,
+                    alternatives = cleanedAlternatives,
+                ),
+            ),
+            bubble = null,
+        ) }
+    }
+
+    fun clearLowConfidenceTranscript() {
+        setState(event = "clearLowConfidenceTranscript") { snapshot -> snapshot.copy(
+            panel = snapshot.panel.copy(
+                draftInput = "",
+                lowConfidenceTranscript = null,
+            ),
         ) }
     }
 
@@ -263,6 +311,7 @@ class OverlayPresenter @Inject constructor(
             panel = snapshot.panel.copy(
                 isStreaming = true,
                 streamingDelta = "",
+                lowConfidenceTranscript = null,
             ),
             bubble = null,
         ) }
@@ -327,6 +376,7 @@ class OverlayPresenter @Inject constructor(
                 streamingDelta = "",
                 loadingVerb = "",
                 errorBanner = message,
+                lowConfidenceTranscript = null,
             ),
         ) }
     }

@@ -56,9 +56,12 @@ class VoiceController @Inject constructor(
     private var collectJob: Job? = null
 
     @Volatile private var finalTranscript: String = ""
+    @Volatile private var finalAlternatives: List<String> = emptyList()
+    @Volatile private var finalConfidence: Float? = null
     @Volatile private var lastError: String? = null
     @Volatile private var startedWhilePointing: Boolean = false
     @Volatile private var lastPointingCorrectionHandled: Boolean = false
+    @Volatile private var lastLowConfidenceTranscriptHandled: Boolean = false
 
     val isOnDeviceAvailable: Boolean
         get() = sttClient.isOnDeviceAvailable
@@ -74,8 +77,11 @@ class VoiceController @Inject constructor(
             return false
         }
         finalTranscript = ""
+        finalAlternatives = emptyList()
+        finalConfidence = null
         lastError = null
         lastPointingCorrectionHandled = false
+        lastLowConfidenceTranscriptHandled = false
         startedWhilePointing = presenter.state.value.let { overlay ->
             overlay.buddyState == BuddyState.POINTING &&
                 overlay.candidateOptions?.hasAlternatives == true
@@ -95,6 +101,8 @@ class VoiceController @Inject constructor(
                         }
                         is SttEvent.Final -> {
                             finalTranscript = event.transcript
+                            finalAlternatives = event.alternatives
+                            finalConfidence = event.confidence
                             Timber.d("VoiceController: final transcript chars=%d", event.transcript.length)
                             if (_latestPartial.value.isBlank()) {
                                 _latestPartial.value = event.transcript
@@ -166,6 +174,25 @@ class VoiceController @Inject constructor(
         // fall back to null.
         val transcript = finalTranscript.ifBlank { _latestPartial.value }.trim()
         val result = transcript.takeIf { it.isNotBlank() }
+        val confidence = finalConfidence
+        val alternatives = finalAlternatives
+        val needsTranscriptConfirmation = result != null &&
+            confidence != null &&
+            confidence < LOW_CONFIDENCE &&
+            alternatives.isNotEmpty()
+        if (needsTranscriptConfirmation) {
+            withContext(Dispatchers.Main.immediate) {
+                presenter.onLowConfidenceTranscript(result, alternatives)
+            }
+            lastLowConfidenceTranscriptHandled = true
+            Timber.d(
+                "VoiceController.stopAndAwaitFinal: low-confidence transcript held for confirmation confidence=%.2f alternatives=%d",
+                confidence,
+                alternatives.size,
+            )
+            resetBuffers()
+            return null
+        }
         val correctionHandled = result?.let { routePointingCorrection(it) } == true
 
         Timber.d("VoiceController.stopAndAwaitFinal: returningChars=%d err=%s", result?.length ?: 0, lastError)
@@ -180,6 +207,7 @@ class VoiceController @Inject constructor(
         collectJob = null
         sttClient.stopListening()
         lastPointingCorrectionHandled = false
+        lastLowConfidenceTranscriptHandled = false
         resetBuffers()
     }
 
@@ -189,8 +217,16 @@ class VoiceController @Inject constructor(
         return handled
     }
 
+    fun consumeLastLowConfidenceTranscriptHandled(): Boolean {
+        val handled = lastLowConfidenceTranscriptHandled
+        lastLowConfidenceTranscriptHandled = false
+        return handled
+    }
+
     private fun resetBuffers() {
         finalTranscript = ""
+        finalAlternatives = emptyList()
+        finalConfidence = null
         lastError = null
         _latestPartial.value = ""
         _state.value = State.IDLE
@@ -215,4 +251,8 @@ class VoiceController @Inject constructor(
     private fun hasMicPermission(): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
+
+    internal companion object {
+        const val LOW_CONFIDENCE = 0.55f
+    }
 }

@@ -215,6 +215,8 @@ fun DiagnosticsScreen(
                 item { DiagRow("Last flight cancel", state.lastFlightCancellationReason ?: "none") }
                 state.settings?.let { s ->
                     item { DiagRow("Cloud provider", s.cloudProvider.displayName) }
+                    item { DiagRow("STT mode", s.sttMode.displayName) }
+                    item { DiagRow("STT language", s.sttLanguage.name.lowercase().replaceFirstChar { it.uppercase() }) }
                     item { DiagRow("Tap-for-me", s.tapForMeEnabled.onOff()) }
                     item { DiagRow("Gesture action gate", ActionExecutionGate.gesturesAllowed(s).onOff()) }
                     item { DiagRow("Overlay panel", s.useOverlayChatPanel.onOff()) }

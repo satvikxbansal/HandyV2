@@ -57,7 +57,9 @@ class OverlayPanelBridge @Inject constructor(
     fun submitFromPanel(text: String) {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
-        if (!_submissions.tryEmit(Submission.Text(trimmed, fromVoice = false))) {
+        if (_submissions.tryEmit(Submission.Text(trimmed, fromVoice = false))) {
+            presenter.clearLowConfidenceTranscript()
+        } else {
             Timber.w("OverlayPanelBridge: tryEmit failed (buffer full)")
         }
     }
@@ -65,7 +67,11 @@ class OverlayPanelBridge @Inject constructor(
     fun submitFromVoice(text: String) {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
-        _submissions.tryEmit(Submission.Text(trimmed, fromVoice = true))
+        if (_submissions.tryEmit(Submission.Text(trimmed, fromVoice = true))) {
+            presenter.clearLowConfidenceTranscript()
+        } else {
+            Timber.w("OverlayPanelBridge: voice tryEmit failed (buffer full)")
+        }
     }
 
     fun startVoiceFromPanel() {
@@ -96,6 +102,9 @@ class OverlayPanelBridge @Inject constructor(
         voiceJob = appScope.launch(Dispatchers.Main) {
             val transcript = voiceController.stopAndAwaitFinal()
             if (voiceController.consumeLastPointingCorrectionHandled()) {
+                return@launch
+            }
+            if (voiceController.consumeLastLowConfidenceTranscriptHandled()) {
                 return@launch
             }
             presenter.onVoiceFinalized(transcript)

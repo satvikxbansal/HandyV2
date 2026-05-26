@@ -124,6 +124,16 @@
     <string name="settings_api_key_header">API keys</string>
     <string name="settings_anthropic_label">Claude API key</string>
     <string name="settings_anthropic_placeholder">sk-ant-…</string>
+    <string name="settings_stt_mode_title">STT mode</string>
+    <string name="settings_stt_mode_auto">Auto</string>
+    <string name="settings_stt_mode_on_device_only">On-device only</string>
+    <string name="settings_stt_mode_network_allowed">Network allowed</string>
+    <string name="settings_stt_language_title">Recognition language</string>
+    <string name="settings_stt_language_system">System</string>
+    <string name="settings_stt_language_english">English</string>
+    <string name="settings_stt_language_hindi">Hindi</string>
+    <string name="settings_stt_language_hinglish">Hinglish</string>
+    <string name="settings_stt_hinglish_subtitle">Hinglish enables Android\'s code-mix recognition where supported (Android 14+).</string>
     <string name="settings_web_search_header">Web search</string>
     <string name="settings_web_search_caption">Brave powers general web search, Jina Reader fetches and summarises pages, GitHub searches public repos. Jina + GitHub keys are optional — they raise rate limits.</string>
     <string name="settings_brave_label">Brave Search API key</string>

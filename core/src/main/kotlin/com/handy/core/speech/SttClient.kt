@@ -45,7 +45,12 @@ interface SttClient {
 sealed class SttEvent {
     data object BeginningOfSpeech : SttEvent()
     data class Partial(val transcript: String) : SttEvent()
-    data class Final(val transcript: String) : SttEvent()
+    data class Final @JvmOverloads constructor(
+        val transcript: String,
+        val alternatives: List<String> = emptyList(),
+        val confidence: Float? = null,
+        val isOnDevice: Boolean = false,
+    ) : SttEvent()
     data class Error(val reason: String, val isRecoverable: Boolean) : SttEvent()
     data object EndOfSpeech : SttEvent()
 }

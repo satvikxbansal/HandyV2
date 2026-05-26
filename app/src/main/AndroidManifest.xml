@@ -30,6 +30,10 @@
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
+        <!-- Text-to-speech engines (Android 11+ package visibility) -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
         <!-- Timer / alarm / maps / browser / dialer / email / share fan-out -->
         <intent>
             <action android:name="android.intent.action.VIEW" />

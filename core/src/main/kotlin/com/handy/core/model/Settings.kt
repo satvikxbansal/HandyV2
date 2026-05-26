@@ -2,6 +2,7 @@ package com.handy.core.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.util.Locale
 
 /**
  * Every settings enum on Android preserves the macOS display strings and
@@ -53,6 +54,35 @@ enum class SttProvider(val displayName: String, val description: String) {
         "OpenAI",
         "Whisper-hosted recognizer. Requires an OpenAI API key. v2+.",
     ),
+    ;
+}
+
+@Serializable
+enum class SttMode(val displayName: String) {
+    @SerialName("Auto")
+    AUTO("Auto (on-device first)"),
+
+    @SerialName("OnDeviceOnly")
+    ON_DEVICE_ONLY("On-device only (private)"),
+
+    @SerialName("NetworkAllowed")
+    NETWORK_ALLOWED("Network allowed"),
+    ;
+}
+
+@Serializable
+enum class SttLanguage(val tag: String) {
+    @SerialName("System")
+    SYSTEM(Locale.getDefault().toLanguageTag()),
+
+    @SerialName("English")
+    ENGLISH("en-US"),
+
+    @SerialName("Hindi")
+    HINDI("hi-IN"),
+
+    @SerialName("Hinglish")
+    HINGLISH("hi-IN"),
     ;
 }
 
@@ -122,6 +152,8 @@ enum class LlmProvider(val displayName: String) {
 data class HandySettings(
     val assistantMode: AssistantMode = AssistantMode.HELP_ONLY,
     val sttProvider: SttProvider = SttProvider.ANDROID,
+    val sttMode: SttMode = SttMode.AUTO,
+    val sttLanguage: SttLanguage = SttLanguage.SYSTEM,
     val ttsProvider: TtsProvider = TtsProvider.SYSTEM,
     val speakVoiceRepliesAloud: Boolean = true,
     val sarvamVoice: SarvamVoice = SarvamVoice.RITU,

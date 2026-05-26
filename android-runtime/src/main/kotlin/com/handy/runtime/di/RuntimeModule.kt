@@ -12,8 +12,10 @@ import com.handy.core.llm.LlmSessionBudget
 import com.handy.core.llm.InMemoryLlmSessionBudget
 import com.handy.core.llm.ToolRunner
 import com.handy.core.model.HandySettings
+import com.handy.core.model.SttLanguage
 import com.handy.core.speech.SttClient
 import com.handy.core.speech.TtsClient
+import com.handy.runtime.speech.AndroidSttConfig
 import com.handy.runtime.action.NoopActionPerformer
 import com.handy.runtime.action.DefaultActionPolicyEngine
 import com.handy.runtime.intent.AndroidIntentDispatcher
@@ -42,6 +44,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Qualifier
@@ -50,9 +53,11 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -189,8 +194,24 @@ object RuntimeModule {
 
     @Provides
     @Singleton
-    fun provideSttClient(@ApplicationContext context: Context): SttClient =
-        AndroidSttClient(context)
+    fun provideSttClient(
+        @ApplicationContext context: Context,
+        settings: DataStoreSettings,
+    ): SttClient {
+        val provider = suspend {
+            val s = withContext(Dispatchers.IO) { settings.current() }
+            AndroidSttConfig(
+                mode = s.sttMode,
+                languageTag = if (s.sttLanguage == SttLanguage.SYSTEM) {
+                    Locale.getDefault().toLanguageTag()
+                } else {
+                    s.sttLanguage.tag
+                },
+                enableLanguageSwitch = s.sttLanguage == SttLanguage.HINGLISH,
+            )
+        }
+        return AndroidSttClient(context, provider)
+    }
 
     @Provides
     @Singleton

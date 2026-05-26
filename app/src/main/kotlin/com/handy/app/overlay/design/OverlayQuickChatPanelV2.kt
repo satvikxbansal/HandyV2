@@ -14,6 +14,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -145,6 +147,7 @@ fun OverlayQuickChatPanelV2(
     }
     val errorBanner = panel.errorBanner
     val pendingConfirmation = panel.pendingConfirmation
+    val lowConfidenceTranscript = panel.lowConfidenceTranscript
     val showResponsePreview = panel.recentResponsePreview.isNotBlank() &&
         !panel.isStreaming &&
         !panel.isListening
@@ -238,6 +241,29 @@ fun OverlayQuickChatPanelV2(
                                 partial = panel.partialTranscript,
                                 onStop = callbacks.onVoiceStop,
                             )
+                            lowConfidenceTranscript != null -> Column(
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                LowConfidenceTranscriptChipV2(
+                                    best = lowConfidenceTranscript.best,
+                                    alternatives = lowConfidenceTranscript.alternatives,
+                                    onPick = callbacks.onSend,
+                                )
+                                InputRowV2(
+                                    draft = draft,
+                                    category = category,
+                                    onDraftChange = { draft = it },
+                                    onSubmit = {
+                                        val submit = draft.trim()
+                                        if (submit.isNotEmpty()) {
+                                            callbacks.onSend(submit)
+                                            draft = ""
+                                        }
+                                    },
+                                    onVoiceStart = callbacks.onVoiceStart,
+                                    focusRequester = focusRequester,
+                                )
+                            }
                             panel.isStreaming -> StreamingRowV2(
                                 loadingVerb = panel.loadingVerb.ifBlank { "Thinking…" },
                                 accumulated = panel.streamingDelta,
@@ -266,6 +292,79 @@ fun OverlayQuickChatPanelV2(
                             BubbleFooterV2(bubble)
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LowConfidenceTranscriptChipV2(
+    best: String,
+    alternatives: List<String>,
+    onPick: (String) -> Unit,
+) {
+    val choices = remember(best, alternatives) {
+        (listOf(best) + alternatives)
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinctBy { it.lowercase() }
+            .take(3)
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(HandyDesign.Colors.HoneySoft)
+            .border(
+                0.5.dp,
+                HandyDesign.Colors.HoneyHair,
+                RoundedCornerShape(14.dp),
+            )
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            text = "I heard '$best'. Did you mean:",
+            style = HandyDesignType.Body,
+            color = HandyDesign.Colors.TextPrimary,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            choices.forEach { choice ->
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(HandyDesign.Colors.SurfaceGlass)
+                        .border(
+                            0.5.dp,
+                            HandyDesign.Colors.HoneyHair,
+                            RoundedCornerShape(999.dp),
+                        )
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() },
+                            role = Role.Button,
+                            onClick = { onPick(choice) },
+                        )
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        text = choice,
+                        style = HandyDesignType.Caption.copy(
+                            fontSize = 13.sp,
+                            lineHeight = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                        ),
+                        color = HandyDesign.Colors.TextPrimary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }

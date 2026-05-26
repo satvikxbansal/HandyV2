@@ -32,6 +32,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -49,8 +50,12 @@ import com.handy.app.design.HandyDesign
 import com.handy.app.design.HandyDesignTheme
 import com.handy.app.design.HandyDesignType
 import com.handy.app.settings.design.SectionCard
+import com.handy.app.settings.design.PillOption
+import com.handy.app.settings.design.PillSelectRow
 import com.handy.app.settings.design.SectionTile
 import com.handy.app.settings.design.SectionTone
+import com.handy.core.model.SttLanguage
+import com.handy.core.model.SttMode
 
 @Composable
 fun BrainSection(
@@ -60,7 +65,11 @@ fun BrainSection(
     onApiKeyChange: (String) -> Unit,
     requestsTodayLabel: String,
     connected: Boolean,
+    sttMode: SttMode,
+    sttLanguage: SttLanguage,
     onOpenPicker: () -> Unit,
+    onSttModeChange: (SttMode) -> Unit,
+    onSttLanguageChange: (SttLanguage) -> Unit,
 ) {
     val detailLine = when {
         providerLine.isBlank() -> selectedModelLabel
@@ -143,6 +152,13 @@ fun BrainSection(
             )
         }
 
+        SttSettingsRows(
+            sttMode = sttMode,
+            sttLanguage = sttLanguage,
+            onSttModeChange = onSttModeChange,
+            onSttLanguageChange = onSttLanguageChange,
+        )
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -173,6 +189,65 @@ fun BrainSection(
             )
         }
     }
+}
+
+@Composable
+private fun SttSettingsRows(
+    sttMode: SttMode,
+    sttLanguage: SttLanguage,
+    onSttModeChange: (SttMode) -> Unit,
+    onSttLanguageChange: (SttLanguage) -> Unit,
+) {
+    PillSelectRow(
+        title = stringResource(R.string.settings_stt_mode_title),
+        options = SttMode.entries.map { mode ->
+            PillOption(
+                label = sttModeLabel(mode),
+                on = mode == sttMode,
+                onToggle = { onSttModeChange(mode) },
+            )
+        },
+        tone = HandyDesign.Colors.Accent,
+        toneSoft = HandyDesign.Colors.AccentSoft,
+        toneHair = HandyDesign.Colors.AccentHairline,
+    )
+    PillSelectRow(
+        title = stringResource(R.string.settings_stt_language_title),
+        options = SttLanguage.entries.map { language ->
+            PillOption(
+                label = sttLanguageLabel(language),
+                on = language == sttLanguage,
+                onToggle = { onSttLanguageChange(language) },
+            )
+        },
+        tone = HandyDesign.Colors.Accent,
+        toneSoft = HandyDesign.Colors.AccentSoft,
+        toneHair = HandyDesign.Colors.AccentHairline,
+    )
+    Text(
+        text = stringResource(R.string.settings_stt_hinglish_subtitle),
+        style = HandyDesignType.Caption.copy(
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+        ),
+        color = HandyDesign.Colors.TextSecondary,
+        modifier = Modifier.padding(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 4.dp),
+    )
+}
+
+@Composable
+private fun sttModeLabel(mode: SttMode): String = when (mode) {
+    SttMode.AUTO -> stringResource(R.string.settings_stt_mode_auto)
+    SttMode.ON_DEVICE_ONLY -> stringResource(R.string.settings_stt_mode_on_device_only)
+    SttMode.NETWORK_ALLOWED -> stringResource(R.string.settings_stt_mode_network_allowed)
+}
+
+@Composable
+private fun sttLanguageLabel(language: SttLanguage): String = when (language) {
+    SttLanguage.SYSTEM -> stringResource(R.string.settings_stt_language_system)
+    SttLanguage.ENGLISH -> stringResource(R.string.settings_stt_language_english)
+    SttLanguage.HINDI -> stringResource(R.string.settings_stt_language_hindi)
+    SttLanguage.HINGLISH -> stringResource(R.string.settings_stt_language_hinglish)
 }
 
 @Composable
@@ -346,7 +421,11 @@ private fun BrainSectionPreview() {
                 onApiKeyChange = {},
                 requestsTodayLabel = "2 req · today",
                 connected = true,
+                sttMode = SttMode.AUTO,
+                sttLanguage = SttLanguage.SYSTEM,
                 onOpenPicker = {},
+                onSttModeChange = {},
+                onSttLanguageChange = {},
             )
         }
     }

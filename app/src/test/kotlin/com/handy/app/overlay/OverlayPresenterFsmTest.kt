@@ -74,6 +74,32 @@ class OverlayPresenterFsmTest {
     }
 
     @Test
+    fun `low confidence transcript opens editable confirmation state`() {
+        val presenter = presenter()
+
+        presenter.onPanelVoiceStarted()
+        presenter.onLowConfidenceTranscript(
+            best = "set timer",
+            alternatives = listOf("set time", "set five minute timer", "set timer"),
+        )
+
+        val state = presenter.state.value
+        assertThat(state.flightFsm).isEqualTo(FlightFsm.Docked)
+        assertThat(state.buddyState).isEqualTo(BuddyState.DOCKED)
+        assertThat(state.panel.isListening).isFalse()
+        assertThat(state.panel.draftInput).isEqualTo("set timer")
+        assertThat(state.panel.lowConfidenceTranscript?.best).isEqualTo("set timer")
+        assertThat(state.panel.lowConfidenceTranscript?.alternatives)
+            .containsExactly("set time", "set five minute timer")
+            .inOrder()
+
+        presenter.clearLowConfidenceTranscript()
+
+        assertThat(presenter.state.value.panel.lowConfidenceTranscript).isNull()
+        assertThat(presenter.state.value.panel.draftInput).isEmpty()
+    }
+
+    @Test
     fun `widget tap uses foreground display label in panel greeting`() {
         val monitor = mockk<HandyForegroundAppMonitor>(relaxed = true)
         every { monitor.refreshNow() } returns ForegroundAppSnapshot(

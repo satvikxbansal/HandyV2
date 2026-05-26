@@ -156,6 +156,7 @@ data class PanelContent(
     val isVoiceArmed: Boolean = false,
     val loadingVerb: String = "",
     val pendingConfirmation: PendingConfirmation? = null,
+    val lowConfidenceTranscript: LowConfidenceTranscript? = null,
     val recentResponsePreview: String = "",
     val errorBanner: String? = null,
 ) {
@@ -163,6 +164,11 @@ data class PanelContent(
         val id: Long,
         val reason: String,
         val action: AssistantAction? = null,
+    )
+
+    data class LowConfidenceTranscript(
+        val best: String,
+        val alternatives: List<String>,
     )
 }
 

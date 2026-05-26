@@ -31,6 +31,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -72,7 +73,7 @@ class ChatViewModelVoiceTest {
                 speech.speakForVoiceTurn("voice-req", "Tap Search")
             }
         } finally {
-            viewModel.viewModelScope.cancel()
+            viewModel.cancelAndDrain()
             advanceUntilIdle()
         }
     }
@@ -99,7 +100,7 @@ class ChatViewModelVoiceTest {
                 speech.speakForVoiceTurn(any(), any())
             }
         } finally {
-            viewModel.viewModelScope.cancel()
+            viewModel.cancelAndDrain()
             advanceUntilIdle()
         }
     }
@@ -122,7 +123,7 @@ class ChatViewModelVoiceTest {
 
             verify(timeout = 2_000) { speech.stop("turn_error") }
         } finally {
-            viewModel.viewModelScope.cancel()
+            viewModel.cancelAndDrain()
             advanceUntilIdle()
         }
     }
@@ -182,6 +183,12 @@ class ChatViewModelVoiceTest {
             every { it.speakForVoiceTurn(any(), any()) } just runs
             every { it.stop(any()) } just runs
         }
+
+    private suspend fun ChatViewModel.cancelAndDrain() {
+        val job = viewModelScope.coroutineContext[Job]
+        viewModelScope.cancel()
+        job?.join()
+    }
 
     private class FakeLlmClient(
         private val chunks: Flow<LlmChunk>,

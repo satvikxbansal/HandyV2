@@ -18,6 +18,8 @@ import com.handy.core.model.LlmProvider
 import com.handy.core.model.QuickTileAction
 import com.handy.core.model.SarvamLanguage
 import com.handy.core.model.SarvamVoice
+import com.handy.core.model.SttLanguage
+import com.handy.core.model.SttMode
 import com.handy.core.model.SttProvider
 import com.handy.core.model.TtsProvider
 import kotlinx.coroutines.flow.Flow
@@ -49,6 +51,8 @@ class DataStoreSettings(private val context: Context) {
         prefs.edit { p ->
             p[ASSISTANT_MODE] = next.assistantMode.name
             p[STT_PROVIDER] = next.sttProvider.name
+            p[STT_MODE] = next.sttMode.name
+            p[STT_LANGUAGE] = next.sttLanguage.name
             p[TTS_PROVIDER] = next.ttsProvider.name
             p[SPEAK_VOICE_REPLIES_ALOUD] = next.speakVoiceRepliesAloud
             p[SARVAM_VOICE] = next.sarvamVoice.name
@@ -131,6 +135,12 @@ class DataStoreSettings(private val context: Context) {
             sttProvider = this[STT_PROVIDER]
                 ?.let { runCatching { SttProvider.valueOf(it) }.getOrNull() }
                 ?: SttProvider.ANDROID,
+            sttMode = this[STT_MODE]
+                ?.let { runCatching { SttMode.valueOf(it) }.getOrNull() }
+                ?: SttMode.AUTO,
+            sttLanguage = this[STT_LANGUAGE]
+                ?.let { runCatching { SttLanguage.valueOf(it) }.getOrNull() }
+                ?: SttLanguage.SYSTEM,
             ttsProvider = this[TTS_PROVIDER]
                 ?.let { runCatching { TtsProvider.valueOf(it) }.getOrNull() }
                 ?: TtsProvider.SYSTEM,
@@ -188,6 +198,8 @@ class DataStoreSettings(private val context: Context) {
     private companion object {
         val ASSISTANT_MODE = stringPreferencesKey("assistant_mode")
         val STT_PROVIDER = stringPreferencesKey("stt_provider")
+        val STT_MODE = stringPreferencesKey("stt_mode")
+        val STT_LANGUAGE = stringPreferencesKey("stt_language")
         val TTS_PROVIDER = stringPreferencesKey("tts_provider")
         val SPEAK_VOICE_REPLIES_ALOUD = booleanPreferencesKey("speak_voice_replies_aloud")
         val SARVAM_VOICE = stringPreferencesKey("sarvam_voice")
