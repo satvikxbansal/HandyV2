@@ -7,6 +7,7 @@ import com.handy.core.agent.RecipeInvocation
 import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipeProposal
 import com.handy.core.agent.RecipeStep
+import com.handy.core.agent.SideEffectClassification
 import com.handy.core.agent.UserGoal
 import com.handy.core.screen.GroundingSnapshot
 
@@ -15,6 +16,8 @@ object MapsRecipe : AppRecipe {
     override val displayName: String = "Search Maps"
     override val description: String =
         "Open a Maps search, or start navigation when the goal explicitly asks for directions."
+    override val sideEffectClassification: SideEffectClassification =
+        SideEffectClassification.OPENS_EXTERNAL_UI
 
     override fun propose(
         goal: UserGoal,
@@ -23,6 +26,9 @@ object MapsRecipe : AppRecipe {
     ): RecipeProposal {
         val query = resolveQuery(invocation, goal)
             ?: return RecipeProposal.Refused("missing-maps-query")
+        if (query.containsBlockedSensitiveMapsQuery()) {
+            return RecipeProposal.Refused("sensitive-maps-query")
+        }
         val navigation = shouldNavigate(invocation, goal)
         val action = if (navigation) {
             AssistantAction.StartNavigation(query)
@@ -71,9 +77,15 @@ object MapsRecipe : AppRecipe {
 }
 
 private fun String.extractMapsQuery(): String? {
+    var matchedPrefix = false
     val stripped = MAPS_PREFIXES.fold(this.trim()) { acc, regex ->
-        regex.replace(acc, "").trim()
+        val next = regex.replace(acc) { match ->
+            matchedPrefix = true
+            ""
+        }.trim()
+        next
     }
+    if (!matchedPrefix) return null
     return stripped.cleanMapsQuery()
 }
 
@@ -82,6 +94,23 @@ private fun String.cleanMapsQuery(): String? =
         .trim('"', '\'')
         .replace(Regex("""\s+"""), " ")
         .takeIf { it.length >= 2 }
+
+private fun String.containsBlockedSensitiveMapsQuery(): Boolean {
+    val normalized = lowercase()
+    return CARD_LIKE_REGEX.containsMatchIn(this) ||
+        MAPS_BLOCKED_SENSITIVE_TERMS.any { normalized.contains(it) }
+}
+
+private val MAPS_BLOCKED_SENSITIVE_TERMS = listOf(
+    "password",
+    "passcode",
+    "otp",
+    "cvv",
+    "cvc",
+    "card number",
+)
+
+private val CARD_LIKE_REGEX = Regex("""\b(?:\d[ -]?){13,19}\b""")
 
 private val NAVIGATION_TERMS = listOf(
     "navigate",

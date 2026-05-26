@@ -9,6 +9,7 @@ import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipeProposal
 import com.handy.core.agent.RecipeStep
 import com.handy.core.agent.RecipeTarget
+import com.handy.core.agent.SideEffectClassification
 import com.handy.core.agent.UserGoal
 import com.handy.core.screen.GroundingSnapshot
 import java.net.URLEncoder
@@ -19,6 +20,8 @@ object WhatsAppRecipe : AppRecipe {
     override val displayName: String = "Draft WhatsApp reply"
     override val description: String =
         "Open a WhatsApp chat, fill the user's draft, and pause before Send for strong hold confirmation."
+    override val sideEffectClassification: SideEffectClassification =
+        SideEffectClassification.REQUIRES_FINAL_USER_CONFIRMATION
 
     override fun propose(
         goal: UserGoal,
@@ -35,6 +38,9 @@ object WhatsAppRecipe : AppRecipe {
             ?: return RecipeProposal.Refused("missing-message")
         val phone = invocation.arg("phone", "recipientPhone", "number")
             ?.normalizeWhatsAppPhone()
+        if (listOfNotNull(recipient, message, phone).any { it.containsBlockedSensitiveValue() }) {
+            return RecipeProposal.Refused("sensitive-message-blocked")
+        }
 
         val steps = if (phone != null) {
             phoneDeepLinkSteps(phone, recipient, message, invocation)
@@ -184,6 +190,25 @@ private fun String.normalizeWhatsAppPhone(): String? =
 private fun String.urlEncode(): String =
     URLEncoder.encode(this, StandardCharsets.UTF_8.name())
         .replace("+", "%20")
+
+private fun String.containsBlockedSensitiveValue(): Boolean {
+    val normalized = lowercase()
+    return CARD_LIKE_REGEX.containsMatchIn(this) ||
+        WHATSAPP_BLOCKED_SENSITIVE_TERMS.any { normalized.contains(it) }
+}
+
+private val WHATSAPP_BLOCKED_SENSITIVE_TERMS = listOf(
+    "password",
+    "passcode",
+    "otp",
+    "one time password",
+    "cvv",
+    "cvc",
+    "card number",
+    "upi pin",
+)
+
+private val CARD_LIKE_REGEX = Regex("""\b(?:\d[ -]?){13,19}\b""")
 
 private val REPLY_TO_PATTERN = Regex(
     pattern = """\b(?:reply|message|text|whatsapp)\s+(?:to\s+)?([A-Za-z][A-Za-z0-9 ._-]{0,60})""",

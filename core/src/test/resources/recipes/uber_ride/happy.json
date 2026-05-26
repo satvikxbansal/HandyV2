@@ -1,0 +1,1 @@
+{"name":"happy","app":"Uber","packageName":"com.ubercab","screen":"Uber","marks":[],"userGoal":"I can do that.\n[INTENT:book_ride]\nuse recipe uber_ride with args {\"app\":\"uber\",\"destination\":\"airport\"}","expectedRecipe":"uber_ride","expectedRefusal":null,"expectedRisk":"HIGH","mustConfirm":true,"sideEffect":"REQUIRES_FINAL_USER_CONFIRMATION"}

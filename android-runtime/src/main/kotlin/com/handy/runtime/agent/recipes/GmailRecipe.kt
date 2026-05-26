@@ -9,6 +9,7 @@ import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipeProposal
 import com.handy.core.agent.RecipeStep
 import com.handy.core.agent.RecipeTarget
+import com.handy.core.agent.SideEffectClassification
 import com.handy.core.agent.UserGoal
 import com.handy.core.screen.GroundingSnapshot
 import java.net.URLEncoder
@@ -19,6 +20,8 @@ object GmailRecipe : AppRecipe {
     override val displayName: String = "Draft Gmail message"
     override val description: String =
         "Open a Gmail draft with recipient, subject, and body filled; pause before Send for strong hold confirmation."
+    override val sideEffectClassification: SideEffectClassification =
+        SideEffectClassification.REQUIRES_FINAL_USER_CONFIRMATION
 
     override fun propose(
         goal: UserGoal,
@@ -32,6 +35,9 @@ object GmailRecipe : AppRecipe {
             ?.cleanRecipeValue()
             ?: return RecipeProposal.Refused("missing-body")
         val subject = invocation.arg("subject", "title")?.cleanRecipeValue()
+        if (listOfNotNull(recipient, body, subject).any { it.containsBlockedSensitiveValue() }) {
+            return RecipeProposal.Refused("sensitive-message-blocked")
+        }
         val sendTarget = invocation.sendTargetOrDefault()
 
         return RecipeProposal.Proposed(
@@ -98,3 +104,22 @@ private fun String.cleanRecipeValue(): String? =
 private fun String.urlEncode(): String =
     URLEncoder.encode(this, StandardCharsets.UTF_8.name())
         .replace("+", "%20")
+
+private fun String.containsBlockedSensitiveValue(): Boolean {
+    val normalized = lowercase()
+    return CARD_LIKE_REGEX.containsMatchIn(this) ||
+        GMAIL_BLOCKED_SENSITIVE_TERMS.any { normalized.contains(it) }
+}
+
+private val GMAIL_BLOCKED_SENSITIVE_TERMS = listOf(
+    "password",
+    "passcode",
+    "otp",
+    "one time password",
+    "cvv",
+    "cvc",
+    "card number",
+    "upi pin",
+)
+
+private val CARD_LIKE_REGEX = Regex("""\b(?:\d[ -]?){13,19}\b""")

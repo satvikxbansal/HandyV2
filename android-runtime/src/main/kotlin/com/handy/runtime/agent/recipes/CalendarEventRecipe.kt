@@ -7,6 +7,7 @@ import com.handy.core.agent.RecipeInvocation
 import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipeProposal
 import com.handy.core.agent.RecipeStep
+import com.handy.core.agent.SideEffectClassification
 import com.handy.core.agent.UserGoal
 import com.handy.core.agent.parsing.DateTimeParser
 import com.handy.core.screen.GroundingSnapshot
@@ -21,6 +22,8 @@ object CalendarEventRecipe : AppRecipe {
     override val displayName: String = "Create calendar event"
     override val description: String =
         "Open the OS Calendar compose UI with event fields prefilled; the user taps Save."
+    override val sideEffectClassification: SideEffectClassification =
+        SideEffectClassification.REQUIRES_FINAL_USER_CONFIRMATION
 
     override fun propose(
         goal: UserGoal,
@@ -51,6 +54,9 @@ object CalendarEventRecipe : AppRecipe {
         val notes = invocation.arg("notes", "note", "description")
             ?.cleanCalendarValue()
             ?: goal.text.extractCalendarNotes()
+        if (listOfNotNull(title, location, notes).any { it.containsBlockedSensitiveCalendarValue() }) {
+            return RecipeProposal.Refused("sensitive-calendar-blocked")
+        }
 
         return RecipeProposal.Proposed(
             RecipePlan(
@@ -125,6 +131,25 @@ private fun String.cleanCalendarValue(): String? =
         .replace(Regex("""\s+"""), " ")
         .trim()
         .takeIf { it.isNotBlank() }
+
+private fun String.containsBlockedSensitiveCalendarValue(): Boolean {
+    val normalized = lowercase()
+    return CARD_LIKE_REGEX.containsMatchIn(this) ||
+        CALENDAR_BLOCKED_SENSITIVE_TERMS.any { normalized.contains(it) }
+}
+
+private val CALENDAR_BLOCKED_SENSITIVE_TERMS = listOf(
+    "password",
+    "passcode",
+    "otp",
+    "one time password",
+    "cvv",
+    "cvc",
+    "card number",
+    "upi pin",
+)
+
+private val CARD_LIKE_REGEX = Regex("""\b(?:\d[ -]?){13,19}\b""")
 
 private val CALENDAR_TITLE_PREFIXES = listOf(
     Regex("""^(?:please\s+)?schedule\s+(?:a\s+|an\s+)?(.+)$""", RegexOption.IGNORE_CASE),

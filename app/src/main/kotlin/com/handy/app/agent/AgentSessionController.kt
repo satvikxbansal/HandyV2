@@ -15,6 +15,7 @@ import com.handy.core.action.PolicyDecision
 import com.handy.core.action.ScrollDirection
 import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
+import com.handy.core.audit.AuditStore
 import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipePlanConfirmer
 import com.handy.core.agent.RecipeProposal
@@ -29,6 +30,7 @@ import com.handy.core.agent.RecipeSensitiveStepConfirmer
 import com.handy.core.agent.RecipeSnapshotProvider
 import com.handy.core.agent.RecipeStep
 import com.handy.core.agent.RecipeStepPolicyCheck
+import com.handy.core.agent.ResultVerifier
 import com.handy.core.agent.UserGoal
 import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.llm.ToolProvenance
@@ -36,6 +38,7 @@ import com.handy.core.screen.GroundingSnapshot
 import com.handy.core.screen.TurnSource
 import com.handy.core.tool.ToolContext
 import com.handy.runtime.agent.recipes.AndroidRuntimeRecipes
+import com.handy.runtime.audit.RecipeAuditObserver
 import com.handy.runtime.intent.AndroidIntentDispatcher
 import com.handy.runtime.intent.LaunchableAppIndex
 import javax.inject.Inject
@@ -57,6 +60,8 @@ class AgentSessionController @Inject constructor(
     private val launchableAppIndex: LaunchableAppIndex,
     private val flightDriver: BuddyFlightDriver,
     private val speechOutputController: SpeechOutputController,
+    private val auditStore: AuditStore,
+    private val resultVerifier: ResultVerifier,
 ) {
     private val registry = RecipeRegistry(
         RecipeRegistry.defaultRecipes() + AndroidRuntimeRecipes.defaultRecipes(launchableAppIndex),
@@ -195,6 +200,7 @@ class AgentSessionController @Inject constructor(
         } else {
             actionPerformer
         }
+        val auditObserver = RecipeAuditObserver(auditStore)
         val runner = RecipeRunner(
             performer = performer,
             policy = policyEngine,
@@ -206,13 +212,17 @@ class AgentSessionController @Inject constructor(
             sensitiveStepConfirmer = RecipeSensitiveStepConfirmer { _, step, _, decision ->
                 requestSensitiveStepApproval(plan, step, decision)
             },
-            observer = RecipeRunObserver { event -> onRunEvent(event) },
+            verifier = resultVerifier,
+            observer = RecipeRunObserver { event ->
+                onRunEvent(event)
+                auditObserver.onEvent(event)
+            },
             sourceTrustProvider = { step -> step.sourceTrust(provenance) },
         )
         val result = runCatching { runner.run(plan) }
             .onFailure { Timber.w(it, "Agent recipe run failed") }
             .getOrElse { RecipeRunResult.Failed("runner", it.message ?: "runner-failed") }
-        if (result is RecipeRunResult.Completed) {
+        if (result is RecipeRunResult.Verified || result is RecipeRunResult.Completed) {
             plan.rideCompletionMessage()?.let(::postRecipeCompletionMessage)
         } else {
             presenter.onError(result.userMessage())
@@ -284,8 +294,26 @@ class AgentSessionController @Inject constructor(
                     stepCount = event.stepCount,
                 )
             }
+            is RecipeRunEvent.StepVerified -> {
+                _progress.value = AgentProgressBubbleState(
+                    visible = true,
+                    title = when (event.result) {
+                        is com.handy.core.agent.VerificationResult.Verified -> "Step verified"
+                        is com.handy.core.agent.VerificationResult.Inconclusive -> "Step observed"
+                        is com.handy.core.agent.VerificationResult.Failed -> "Verification failed"
+                    },
+                    detail = event.step.title,
+                )
+            }
             is RecipeRunEvent.Finished -> {
                 _progress.value = when (val result = event.result) {
+                    is RecipeRunResult.Verified -> AgentProgressBubbleState(
+                        visible = true,
+                        title = "Recipe complete",
+                        detail = "${result.completedSteps} steps verified",
+                        stepIndex = event.plan.stepCount,
+                        stepCount = event.plan.stepCount,
+                    )
                     is RecipeRunResult.Completed -> AgentProgressBubbleState(
                         visible = true,
                         title = "Recipe complete",
@@ -326,12 +354,12 @@ class AgentSessionController @Inject constructor(
         )
 
     private fun RecipeRunResult.userMessage(): String = when (this) {
+        is RecipeRunResult.Verified -> "recipe complete"
         is RecipeRunResult.Completed -> "recipe complete"
         is RecipeRunResult.Refused -> "policy refused $stepId: $reason"
         is RecipeRunResult.Cancelled -> "recipe cancelled: $reason"
         is RecipeRunResult.Aborted -> "recipe aborted: $reason"
         is RecipeRunResult.Failed -> "recipe failed at $stepId: $reason"
-        is RecipeRunResult.VerificationFailed -> "recipe could not verify $stepId: $reason"
     }
 
     private fun RecipeStep.sourceTrust(provenance: ToolProvenance?): SourceTrust =

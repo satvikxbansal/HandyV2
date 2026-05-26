@@ -24,7 +24,7 @@ class RecipeRunner(
     private val snapshotProvider: RecipeSnapshotProvider,
     private val planConfirmer: RecipePlanConfirmer,
     private val sensitiveStepConfirmer: RecipeSensitiveStepConfirmer,
-    private val verifier: RecipeStepVerifier = RecipeStepVerifier.Default,
+    private val verifier: ResultVerifier = ResultVerifier.Default,
     private val observer: RecipeRunObserver = RecipeRunObserver.Noop,
     private val sourceTrustProvider: (RecipeStep) -> SourceTrust = { it.policySourceTrust() },
 ) {
@@ -131,7 +131,7 @@ class RecipeRunner(
                 target = target.withGestureFallback(decision.allowGestureFallback),
                 sourceTrust = sourceTrustProvider(step),
             )
-            if (index < plan.steps.lastIndex && step.allowsPackageChangeAfter()) {
+            if (step.allowsPackageChangeAfter()) {
                 delay(PACKAGE_SETTLE_DELAY_MS)
             }
             val after = snapshotProvider.capture()
@@ -142,18 +142,35 @@ class RecipeRunner(
                 return RecipeRunResult.Aborted("package-changed")
                     .also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
             }
-            val verification = verifier.verify(step, before, after, performResult)
-            if (!verification.verified) {
-                return RecipeRunResult.VerificationFailed(
+            val verifierName = verifier.verifierNameFor(step)
+            val verification = performResult.toVerificationResult(
+                observed = runCatching {
+                    verifier.verify(step, before, after)
+                }.getOrElse { error ->
+                    VerificationResult.Failed("verifier-error:${error.message ?: error::class.simpleName}")
+                },
+            )
+            observer.onEvent(
+                RecipeRunEvent.StepVerified(
+                    step = step,
+                    result = verification,
+                    verifierName = verifierName,
+                ),
+            )
+            if (verification is VerificationResult.Failed) {
+                return RecipeRunResult.Failed(
                     stepId = step.id,
-                    reason = verification.reason ?: "not-verified",
+                    reason = verification.reason,
                 ).also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
             }
             completed += 1
             observer.onEvent(RecipeRunEvent.StepCompleted(plan, step, completed, plan.steps.size))
         }
 
-        return RecipeRunResult.Completed(completed)
+        return RecipeRunResult.Verified(
+            completedSteps = completed,
+            verifiedBy = verifier.name,
+        )
             .also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
     }
 
@@ -237,25 +254,6 @@ fun interface RecipeSensitiveStepConfirmer {
     ): Boolean
 }
 
-fun interface RecipeStepVerifier {
-    suspend fun verify(
-        step: RecipeStep,
-        before: GroundingSnapshot,
-        after: GroundingSnapshot,
-        result: PerformResult,
-    ): RecipeStepVerification
-
-    companion object {
-        val Default = RecipeStepVerifier { _, _, _, result ->
-            if (result is PerformResult.Ok) {
-                RecipeStepVerification.Verified
-            } else {
-                RecipeStepVerification.NotVerified(result.failureReason())
-            }
-        }
-    }
-}
-
 fun interface RecipeRunObserver {
     suspend fun onEvent(event: RecipeRunEvent)
 
@@ -280,25 +278,23 @@ sealed class RecipeRunEvent {
         val stepCount: Int,
     ) : RecipeRunEvent()
 
+    data class StepVerified(
+        val step: RecipeStep,
+        val result: VerificationResult,
+        val verifierName: String,
+    ) : RecipeRunEvent()
+
     data class Finished(
         val plan: RecipePlan,
         val result: RecipeRunResult,
     ) : RecipeRunEvent()
 }
 
-sealed class RecipeStepVerification {
-    abstract val reason: String?
-
-    data object Verified : RecipeStepVerification() {
-        override val reason: String? = null
-    }
-
-    data class NotVerified(override val reason: String) : RecipeStepVerification()
-
-    val verified: Boolean get() = this is Verified
-}
-
 sealed class RecipeRunResult {
+    data class Verified(
+        val completedSteps: Int,
+        val verifiedBy: String,
+    ) : RecipeRunResult()
     data class Completed(val completedSteps: Int) : RecipeRunResult()
     data class Refused(
         val stepId: String,
@@ -308,8 +304,16 @@ sealed class RecipeRunResult {
     data class Cancelled(val reason: String) : RecipeRunResult()
     data class Aborted(val reason: String) : RecipeRunResult()
     data class Failed(val stepId: String, val reason: String) : RecipeRunResult()
-    data class VerificationFailed(val stepId: String, val reason: String) : RecipeRunResult()
 }
+
+private fun PerformResult.toVerificationResult(
+    observed: VerificationResult,
+): VerificationResult =
+    if (this is PerformResult.Ok) {
+        observed
+    } else {
+        VerificationResult.Failed(failureReason())
+    }
 
 private fun PerformResult.failureReason(): String = when (this) {
     PerformResult.Ok -> "ok"

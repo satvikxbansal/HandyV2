@@ -6,6 +6,7 @@ import android.content.pm.ApplicationInfo
 import com.handy.core.action.ActionAppPolicy
 import com.handy.core.action.ActionPolicyEngine
 import com.handy.core.action.ActionPerformer
+import com.handy.core.agent.ResultVerifier
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.LlmClient
 import com.handy.core.llm.LlmSessionBudget
@@ -32,6 +33,7 @@ import com.handy.runtime.speech.AudioPlayback
 import com.handy.runtime.speech.MediaPlayerAudioPlayback
 import com.handy.runtime.speech.SwitchingSttClient
 import com.handy.runtime.speech.SwitchingTtsClient
+import com.handy.runtime.agent.verifiers.RuntimeResultVerifier
 import com.handy.runtime.storage.DataStoreSettings
 import com.handy.runtime.storage.EncryptedKeyStore
 import com.handy.runtime.storage.JsonHistoryStore
@@ -271,6 +273,10 @@ object RuntimeModule {
     fun provideActionPolicyEngine(
         impl: DefaultActionPolicyEngine,
     ): ActionPolicyEngine = impl
+
+    @Provides
+    @Singleton
+    fun provideResultVerifier(): ResultVerifier = RuntimeResultVerifier()
 
     @Provides
     @Singleton

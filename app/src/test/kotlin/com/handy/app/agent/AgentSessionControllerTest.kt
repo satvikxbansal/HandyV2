@@ -14,6 +14,9 @@ import com.handy.core.action.ConfirmationLevel
 import com.handy.core.action.PolicyDecision
 import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
+import com.handy.core.agent.ResultVerifier
+import com.handy.core.audit.AuditEvent
+import com.handy.core.audit.AuditStore
 import com.handy.core.llm.ToolProvenance
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.overlay.PanelSnapshot
@@ -26,6 +29,8 @@ import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
@@ -44,6 +49,8 @@ class AgentSessionControllerTest {
             launchableAppIndex = mockk<LaunchableAppIndex>(relaxed = true),
             flightDriver = mockk<BuddyFlightDriver>(relaxed = true),
             speechOutputController = mockk<SpeechOutputController>(relaxed = true),
+            auditStore = InMemoryAuditStore(),
+            resultVerifier = ResultVerifier.Default,
         )
 
         val handled = controller.runIfRecipeRequested(
@@ -123,5 +130,11 @@ class AgentSessionControllerTest {
                 ),
             ),
         )
+    }
+
+    private class InMemoryAuditStore : AuditStore {
+        override suspend fun append(event: AuditEvent) = Unit
+        override suspend fun recent(limit: Int): List<AuditEvent> = emptyList()
+        override fun observe(limit: Int): Flow<List<AuditEvent>> = flowOf(emptyList())
     }
 }

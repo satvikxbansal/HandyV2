@@ -17,6 +17,7 @@ class RecipeRegistry(
                 ?.copy(recipeId = recipe.id)
                 ?: RecipeInvocation(recipeId = recipe.id, args = emptyMap())
             return recipe.propose(goal, invocation, grounding)
+                .withSideEffectNudges(recipe.sideEffectClassification)
         }
 
         val invocation = goal.requestedRecipe
@@ -25,6 +26,7 @@ class RecipeRegistry(
             it.id.equals(invocation.recipeId, ignoreCase = true)
         } ?: return RecipeProposal.Refused("unknown-recipe:${invocation.recipeId}")
         return recipe.propose(goal, invocation, grounding)
+            .withSideEffectNudges(recipe.sideEffectClassification)
     }
 
     companion object {
@@ -35,6 +37,23 @@ class RecipeRegistry(
             ScrollRecipe,
         )
     }
+}
+
+private fun RecipeProposal.withSideEffectNudges(
+    classification: SideEffectClassification,
+): RecipeProposal {
+    if (this !is RecipeProposal.Proposed || !classification.requiresStrongHoldNudge()) return this
+    val finalStep = plan.steps.lastOrNull() ?: return this
+    val nudgedFinalStep = finalStep.copy(
+        sensitive = true,
+        confirmationOverride = maxOf(
+            finalStep.confirmationOverride ?: com.handy.core.action.ConfirmationLevel.NONE,
+            com.handy.core.action.ConfirmationLevel.STRONG_HOLD,
+        ),
+    )
+    return RecipeProposal.Proposed(
+        plan.copy(steps = plan.steps.dropLast(1) + nudgedFinalStep).validate(),
+    )
 }
 
 private object TapVisibleRecipe : AppRecipe {

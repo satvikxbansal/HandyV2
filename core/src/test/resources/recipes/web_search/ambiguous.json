@@ -1,0 +1,1 @@
+{"name":"ambiguous","app":"Launcher","packageName":"com.google.android.apps.nexuslauncher","screen":"Launcher","marks":[],"userGoal":"I can do that.\n[INTENT:web_search]\nuse recipe web_search with args {}","expectedRecipe":null,"expectedRefusal":"empty-query","expectedRisk":null,"mustConfirm":false,"sideEffect":"BLOCKED"}

@@ -6,6 +6,8 @@ interface AppRecipe {
     val id: String
     val displayName: String
     val description: String
+    val sideEffectClassification: SideEffectClassification
+        get() = SideEffectClassification.NONE
 
     fun propose(
         goal: UserGoal,

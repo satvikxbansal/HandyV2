@@ -9,6 +9,7 @@ import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipeProposal
 import com.handy.core.agent.RecipeStep
 import com.handy.core.agent.RecipeTarget
+import com.handy.core.agent.SideEffectClassification
 import com.handy.core.agent.UserGoal
 import com.handy.core.screen.GroundingSnapshot
 
@@ -25,6 +26,8 @@ object UberRideRecipe : AppRecipe {
     override val displayName: String = "Prepare Uber ride"
     override val description: String =
         "Open Uber, search the destination, and stop before final ride confirmation."
+    override val sideEffectClassification: SideEffectClassification =
+        SideEffectClassification.REQUIRES_FINAL_USER_CONFIRMATION
 
     override fun propose(
         goal: UserGoal,
@@ -38,6 +41,8 @@ object OlaRideRecipe : AppRecipe {
     override val displayName: String = "Prepare Ola ride"
     override val description: String =
         "Open Ola, search the destination, and stop before final ride confirmation."
+    override val sideEffectClassification: SideEffectClassification =
+        SideEffectClassification.REQUIRES_FINAL_USER_CONFIRMATION
 
     override fun propose(
         goal: UserGoal,
@@ -51,6 +56,8 @@ object RapidoRideRecipe : AppRecipe {
     override val displayName: String = "Prepare Rapido ride"
     override val description: String =
         "Open Rapido, search the destination, and stop before final ride confirmation."
+    override val sideEffectClassification: SideEffectClassification =
+        SideEffectClassification.REQUIRES_FINAL_USER_CONFIRMATION
 
     override fun propose(
         goal: UserGoal,
@@ -76,6 +83,9 @@ private fun AppRecipe.proposeRide(
     goal: UserGoal,
     invocation: RecipeInvocation,
 ): RecipeProposal {
+    if (goal.hasRideHardVeto(invocation)) {
+        return RecipeProposal.Refused("ride-confirmation-blocked")
+    }
     val destination = invocation.arg("destination", "to", "place")
         ?.cleanRideValue()
         ?: goal.text.extractRideDestination()
@@ -186,6 +196,15 @@ private fun RecipeInvocation.rideClassTargetOrNull(): Pair<String, RecipeTarget.
     return rideClass to target
 }
 
+private fun UserGoal.hasRideHardVeto(invocation: RecipeInvocation): Boolean {
+    val raw = (
+        listOf(text) +
+            invocation.args.flatMap { (key, value) -> listOf(key, value) }
+        ).joinToString(" ")
+        .lowercase()
+    return RIDE_HARD_VETO_TERMS.any { raw.contains(it) }
+}
+
 private fun String.extractRideDestination(): String? {
     val normalized = trim()
     RIDE_DESTINATION_PATTERNS.forEach { pattern ->
@@ -235,4 +254,14 @@ private val DESTINATION_STOPWORDS = setOf(
     "near",
     "nearby",
     "please",
+)
+
+private val RIDE_HARD_VETO_TERMS = listOf(
+    "confirm fare",
+    "confirm ride",
+    "request ride",
+    "book now",
+    "pay driver",
+    "pay fare",
+    "start trip",
 )

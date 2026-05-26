@@ -1,0 +1,1 @@
+{"name":"happy","app":"Launcher","packageName":"com.google.android.apps.nexuslauncher","screen":"Launcher","marks":[],"userGoal":"I can do that.\n[INTENT:set_timer]\nuse recipe set_timer with args {\"seconds\":\"600\"}","expectedRecipe":"set_timer","expectedRefusal":null,"expectedRisk":"LOW","mustConfirm":false,"sideEffect":"OPENS_EXTERNAL_UI"}

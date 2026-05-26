@@ -7,6 +7,7 @@ import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipeProposal
 import com.handy.core.agent.RecipeStep
 import com.handy.core.agent.RecipeTarget
+import com.handy.core.agent.SideEffectClassification
 import com.handy.core.agent.UserGoal
 import com.handy.core.screen.GroundingSnapshot
 import com.handy.core.screen.UiNode
@@ -23,6 +24,8 @@ object ShoppingSearchRecipe : AppRecipe {
     override val displayName: String = "Search shopping app"
     override val description: String =
         "Search for products inside Meesho, Amazon, or Flipkart when one of those surfaces is visible."
+    override val sideEffectClassification: SideEffectClassification =
+        SideEffectClassification.NONE
 
     override fun propose(
         goal: UserGoal,
@@ -81,6 +84,8 @@ object ShoppingFindCouponsRecipe : AppRecipe {
     override val displayName: String = "Find shopping coupons"
     override val description: String =
         "Open a visible coupons, offers, or discounts affordance on Meesho, Amazon, or Flipkart."
+    override val sideEffectClassification: SideEffectClassification =
+        SideEffectClassification.NONE
 
     override fun propose(
         goal: UserGoal,

@@ -7,6 +7,7 @@ import com.handy.core.agent.RecipeInvocation
 import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipeProposal
 import com.handy.core.agent.RecipeStep
+import com.handy.core.agent.SideEffectClassification
 import com.handy.core.agent.UserGoal
 import com.handy.core.screen.GroundingSnapshot
 
@@ -15,6 +16,8 @@ object InstallAppRecipe : AppRecipe {
     override val displayName: String = "Open Play Store"
     override val description: String =
         "Open a Play Store listing or app search; the user taps Install in Play Store."
+    override val sideEffectClassification: SideEffectClassification =
+        SideEffectClassification.REQUIRES_FINAL_USER_CONFIRMATION
 
     override fun propose(
         goal: UserGoal,
@@ -27,6 +30,9 @@ object InstallAppRecipe : AppRecipe {
             ?.cleanInstallTarget()
         val target = packageHint ?: searchQuery
             ?: return RecipeProposal.Refused("missing-app")
+        if (target.containsBlockedSensitiveInstallTarget()) {
+            return RecipeProposal.Refused("sensitive-install-target")
+        }
 
         return RecipeProposal.Proposed(
             RecipePlan(
@@ -60,3 +66,10 @@ object InstallAppRecipe : AppRecipe {
 
     const val ID: String = "install_app"
 }
+
+private fun String.containsBlockedSensitiveInstallTarget(): Boolean =
+    CARD_LIKE_REGEX.containsMatchIn(this) ||
+        contains("password", ignoreCase = true) ||
+        contains("otp", ignoreCase = true)
+
+private val CARD_LIKE_REGEX = Regex("""\b(?:\d[ -]?){13,19}\b""")

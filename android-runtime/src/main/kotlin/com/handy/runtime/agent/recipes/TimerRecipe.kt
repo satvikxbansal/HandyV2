@@ -7,6 +7,7 @@ import com.handy.core.agent.RecipeInvocation
 import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipeProposal
 import com.handy.core.agent.RecipeStep
+import com.handy.core.agent.SideEffectClassification
 import com.handy.core.agent.UserGoal
 import com.handy.core.screen.GroundingSnapshot
 
@@ -15,6 +16,8 @@ object TimerRecipe : AppRecipe {
     override val displayName: String = "Set timer"
     override val description: String =
         "Set a Clock timer via the Android AlarmClock intent after recipe plan approval."
+    override val sideEffectClassification: SideEffectClassification =
+        SideEffectClassification.OPENS_EXTERNAL_UI
 
     override fun propose(
         goal: UserGoal,

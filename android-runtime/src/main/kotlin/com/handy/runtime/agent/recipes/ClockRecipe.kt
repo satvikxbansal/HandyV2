@@ -7,6 +7,7 @@ import com.handy.core.agent.RecipeInvocation
 import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipeProposal
 import com.handy.core.agent.RecipeStep
+import com.handy.core.agent.SideEffectClassification
 import com.handy.core.agent.UserGoal
 import com.handy.core.screen.GroundingSnapshot
 import com.handy.runtime.intent.LaunchableAppIndex
@@ -38,6 +39,8 @@ object ClockRecipe : AppRecipe {
     override val displayName: String = "Set an alarm"
     override val description: String =
         "Set a Clock alarm via the Android AlarmClock intent before attempting any UI fallback."
+    override val sideEffectClassification: SideEffectClassification =
+        SideEffectClassification.OPENS_EXTERNAL_UI
 
     override fun propose(
         goal: UserGoal,

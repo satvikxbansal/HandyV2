@@ -7,6 +7,7 @@ import com.handy.core.agent.RecipeInvocation
 import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipeProposal
 import com.handy.core.agent.RecipeStep
+import com.handy.core.agent.SideEffectClassification
 import com.handy.core.agent.UserGoal
 import com.handy.core.screen.GroundingSnapshot
 
@@ -15,6 +16,8 @@ object WebSearchRecipe : AppRecipe {
     override val displayName: String = "Search the web"
     override val description: String =
         "Open the user's browser/search app for a web search without using the web_search evidence tool."
+    override val sideEffectClassification: SideEffectClassification =
+        SideEffectClassification.OPENS_EXTERNAL_UI
 
     override fun propose(
         goal: UserGoal,

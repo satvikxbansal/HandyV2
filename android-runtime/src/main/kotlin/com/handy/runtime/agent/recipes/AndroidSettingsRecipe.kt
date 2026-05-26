@@ -8,6 +8,7 @@ import com.handy.core.agent.RecipeInvocation
 import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipeProposal
 import com.handy.core.agent.RecipeStep
+import com.handy.core.agent.SideEffectClassification
 import com.handy.core.agent.UserGoal
 import com.handy.core.screen.GroundingSnapshot
 
@@ -16,6 +17,8 @@ object AndroidSettingsRecipe : AppRecipe {
     override val displayName: String = "Open Android setting"
     override val description: String =
         "Open a safe Android Settings deep-link; sensitive Settings targets are denied by policy."
+    override val sideEffectClassification: SideEffectClassification =
+        SideEffectClassification.OPENS_EXTERNAL_UI
 
     override fun propose(
         goal: UserGoal,

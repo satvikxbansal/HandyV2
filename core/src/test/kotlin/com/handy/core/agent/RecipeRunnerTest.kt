@@ -42,16 +42,25 @@ class RecipeRunnerTest {
             snapshotProvider = snapshots,
             planConfirmer = RecipePlanConfirmer { _, _, _ -> true },
             sensitiveStepConfirmer = RecipeSensitiveStepConfirmer { _, _, _, _ -> true },
-            verifier = RecipeStepVerifier { _, _, _, result ->
-                verifications += 1
-                if (result is PerformResult.Ok) RecipeStepVerification.Verified
-                else RecipeStepVerification.NotVerified("failed")
+            verifier = object : ResultVerifier {
+                override val name: String = "CountingVerifier"
+
+                override suspend fun verify(
+                    step: RecipeStep,
+                    snapshotBefore: GroundingSnapshot,
+                    snapshotAfter: GroundingSnapshot,
+                ): VerificationResult {
+                    verifications += 1
+                    return VerificationResult.Verified
+                }
             },
         )
 
         val result = runner.run(fakePlan())
 
-        assertThat(result).isEqualTo(RecipeRunResult.Completed(completedSteps = 2))
+        assertThat(result).isEqualTo(
+            RecipeRunResult.Verified(completedSteps = 2, verifiedBy = "CountingVerifier"),
+        )
         assertThat(snapshots.captureCount).isEqualTo(5)
         assertThat(policy.decisions).hasSize(4)
         assertThat(performer.calls).containsExactly("tap:Search", "type:milk")
@@ -131,7 +140,9 @@ class RecipeRunnerTest {
             ),
         )
 
-        assertThat(result).isEqualTo(RecipeRunResult.Completed(completedSteps = 1))
+        assertThat(result).isEqualTo(
+            RecipeRunResult.Verified(completedSteps = 1, verifiedBy = "NoopResultVerifier"),
+        )
         assertThat(dispatched).containsExactly(AssistantAction.SetAlarm(hour = 7, minute = 0))
     }
 
@@ -166,7 +177,7 @@ class RecipeRunnerTest {
         )
 
         assertThat(result).isEqualTo(
-            RecipeRunResult.VerificationFailed(
+            RecipeRunResult.Failed(
                 stepId = "set-alarm",
                 reason = "intent-no-handler",
             ),
@@ -282,7 +293,9 @@ class RecipeRunnerTest {
             ),
         )
 
-        assertThat(result).isEqualTo(RecipeRunResult.Completed(completedSteps = 2))
+        assertThat(result).isEqualTo(
+            RecipeRunResult.Verified(completedSteps = 2, verifiedBy = "NoopResultVerifier"),
+        )
         assertThat(performer.calls).containsExactly("tap:Search")
     }
 
@@ -338,7 +351,9 @@ class RecipeRunnerTest {
             ),
         )
 
-        assertThat(result).isEqualTo(RecipeRunResult.Completed(completedSteps = 1))
+        assertThat(result).isEqualTo(
+            RecipeRunResult.Verified(completedSteps = 1, verifiedBy = "NoopResultVerifier"),
+        )
         assertThat((performer.targets.single() as TapTarget.AtNode).allowGestureFallback).isTrue()
     }
 

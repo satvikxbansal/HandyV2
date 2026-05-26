@@ -8,6 +8,7 @@ import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipeProposal
 import com.handy.core.agent.RecipeStep
 import com.handy.core.agent.RecipeTarget
+import com.handy.core.agent.SideEffectClassification
 import com.handy.core.agent.UserGoal
 import com.handy.core.screen.GroundingSnapshot
 import java.net.URLEncoder
@@ -27,6 +28,8 @@ object ChromeRecipe : AppRecipe {
     override val displayName: String = "Use Chrome"
     override val description: String =
         "Open URLs through Android intents and navigate visible Chrome pages by accessibility marks."
+    override val sideEffectClassification: SideEffectClassification =
+        SideEffectClassification.OPENS_EXTERNAL_UI
 
     override fun propose(
         goal: UserGoal,

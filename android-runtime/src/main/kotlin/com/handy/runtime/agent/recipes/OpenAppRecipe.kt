@@ -7,6 +7,7 @@ import com.handy.core.agent.RecipeInvocation
 import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipeProposal
 import com.handy.core.agent.RecipeStep
+import com.handy.core.agent.SideEffectClassification
 import com.handy.core.agent.UserGoal
 import com.handy.core.screen.GroundingSnapshot
 import com.handy.runtime.intent.LaunchableAppIndex
@@ -18,6 +19,8 @@ class OpenAppRecipe(
     override val displayName: String = "Open app"
     override val description: String =
         "Open an installed launcher app through LaunchableAppIndex before attempting any UI fallback."
+    override val sideEffectClassification: SideEffectClassification =
+        SideEffectClassification.OPENS_EXTERNAL_UI
 
     override fun propose(
         goal: UserGoal,
@@ -26,6 +29,9 @@ class OpenAppRecipe(
     ): RecipeProposal {
         val name = requestedAppName(invocation, goal)
             ?: return RecipeProposal.Refused("missing-app-name")
+        if (name.containsBlockedSensitiveAppName()) {
+            return RecipeProposal.Refused("sensitive-app-name")
+        }
         val matches = findLaunchableApps(name)
         if (matches.isEmpty()) {
             return RecipeProposal.Refused("app-not-found:$name")
@@ -80,3 +86,10 @@ class OpenAppRecipe(
         )
     }
 }
+
+private fun String.containsBlockedSensitiveAppName(): Boolean =
+    CARD_LIKE_REGEX.containsMatchIn(this) ||
+        contains("password", ignoreCase = true) ||
+        contains("otp", ignoreCase = true)
+
+private val CARD_LIKE_REGEX = Regex("""\b(?:\d[ -]?){13,19}\b""")
