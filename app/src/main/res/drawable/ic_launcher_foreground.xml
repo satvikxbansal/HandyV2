@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Launcher glyph mirrors WidgetGlyphV2's filled palm. -->
+    <group
+        android:scaleX="0.31"
+        android:scaleY="0.31"
+        android:translateX="14.32"
+        android:translateY="14.32">
+        <path
+            android:fillColor="@color/handy_launcher_foreground"
+            android:pathData="M216,104v48a88,88 0,0 1,-176 0V64a16,16 0,0 1,32 0v56a8,8 0,0 0,16 0V32a16,16 0,0 1,32 0v80a8,8 0,0 0,16 0V48a16,16 0,0 1,32 0v80.67A48.08,48.08 0,0 0,128 176a8,8 0,0 0,16 0a32,32 0,0 1,32 -32a8,8 0,0 0,8 -8v-32a16,16 0,0 1,32 0" />
+    </group>
+</vector>
