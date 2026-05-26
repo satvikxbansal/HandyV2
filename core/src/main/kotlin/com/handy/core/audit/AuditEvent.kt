@@ -46,6 +46,15 @@ sealed class AuditAction {
         val latencyMs: Long,
         val requestId: String? = null,
     ) : AuditAction()
+    @Serializable
+    @SerialName("stt")
+    data class SpeechToText(
+        val model: String,
+        val language: String,
+        val audioMs: Long,
+        val latencyMs: Long,
+        val requestId: String? = null,
+    ) : AuditAction()
 }
 
 @Serializable

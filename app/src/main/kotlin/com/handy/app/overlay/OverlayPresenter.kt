@@ -153,6 +153,7 @@ class OverlayPresenter @Inject constructor(
                 snapshot = snapshot ?: current.panel.snapshot,
                 isListening = true,
                 partialTranscript = "",
+                voiceNotice = "",
                 lowConfidenceTranscript = null,
             ),
         ) }
@@ -223,6 +224,18 @@ class OverlayPresenter @Inject constructor(
         ) }
     }
 
+    fun updateVoiceNotice(message: String) {
+        val snapshot = _state.value
+        val voiceDrainActive = snapshot.buddyState == BuddyState.LISTENING ||
+            snapshot.buddyState == BuddyState.THINKING
+        if (!snapshot.panel.isListening && !voiceDrainActive) return
+        val cleaned = message.trim()
+        setState(event = "updateVoiceNotice") { snapshot.copy(
+            panel = snapshot.panel.copy(voiceNotice = cleaned),
+            bubble = if (cleaned.isNotBlank()) BuddyBubble.Action(cleaned) else snapshot.bubble,
+        ) }
+    }
+
     fun onPanelVoiceStarted() {
         setState(
             event = "onPanelVoiceStarted",
@@ -232,6 +245,7 @@ class OverlayPresenter @Inject constructor(
             panel = snapshot.panel.copy(
                 isListening = true,
                 partialTranscript = "",
+                voiceNotice = "",
                 lowConfidenceTranscript = null,
             ),
             bubble = BuddyBubble.Transcript(""),
@@ -249,6 +263,7 @@ class OverlayPresenter @Inject constructor(
             panel = snapshot.panel.copy(
                 isListening = false,
                 partialTranscript = transcript.orEmpty(),
+                voiceNotice = "",
                 isStreaming = !transcript.isNullOrBlank(),
                 lowConfidenceTranscript = if (transcript.isNullOrBlank()) {
                     snapshot.panel.lowConfidenceTranscript
@@ -278,6 +293,7 @@ class OverlayPresenter @Inject constructor(
             panel = snapshot.panel.copy(
                 isListening = false,
                 partialTranscript = cleanedBest,
+                voiceNotice = "",
                 draftInput = cleanedBest,
                 isStreaming = false,
                 streamingDelta = "",
@@ -376,6 +392,7 @@ class OverlayPresenter @Inject constructor(
                 streamingDelta = "",
                 loadingVerb = "",
                 errorBanner = message,
+                voiceNotice = "",
                 lowConfidenceTranscript = null,
             ),
         ) }

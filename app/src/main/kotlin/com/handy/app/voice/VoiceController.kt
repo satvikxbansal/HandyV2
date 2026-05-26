@@ -52,6 +52,8 @@ class VoiceController @Inject constructor(
 
     private val _latestPartial = MutableStateFlow("")
     val latestPartial: StateFlow<String> = _latestPartial.asStateFlow()
+    private val _latestNotice = MutableStateFlow("")
+    val latestNotice: StateFlow<String> = _latestNotice.asStateFlow()
 
     private var collectJob: Job? = null
 
@@ -59,6 +61,7 @@ class VoiceController @Inject constructor(
     @Volatile private var finalAlternatives: List<String> = emptyList()
     @Volatile private var finalConfidence: Float? = null
     @Volatile private var lastError: String? = null
+    @Volatile private var consumableError: String? = null
     @Volatile private var startedWhilePointing: Boolean = false
     @Volatile private var lastPointingCorrectionHandled: Boolean = false
     @Volatile private var lastLowConfidenceTranscriptHandled: Boolean = false
@@ -80,6 +83,7 @@ class VoiceController @Inject constructor(
         finalAlternatives = emptyList()
         finalConfidence = null
         lastError = null
+        consumableError = null
         lastPointingCorrectionHandled = false
         lastLowConfidenceTranscriptHandled = false
         startedWhilePointing = presenter.state.value.let { overlay ->
@@ -87,6 +91,7 @@ class VoiceController @Inject constructor(
                 overlay.candidateOptions?.hasAlternatives == true
         }
         _latestPartial.value = ""
+        _latestNotice.value = ""
         _state.value = State.LISTENING
 
         Timber.d("VoiceController: starting STT session")
@@ -98,6 +103,9 @@ class VoiceController @Inject constructor(
                     when (event) {
                         is SttEvent.Partial -> {
                             _latestPartial.value = event.transcript
+                        }
+                        is SttEvent.Notice -> {
+                            _latestNotice.value = event.message
                         }
                         is SttEvent.Final -> {
                             finalTranscript = event.transcript
@@ -142,12 +150,13 @@ class VoiceController @Inject constructor(
      * Gracefully stop the recognizer and return the best available
      * transcript. Returns null when nothing usable was captured.
      */
-    suspend fun stopAndAwaitFinal(gracePeriodMs: Long = 2000L): String? {
+    suspend fun stopAndAwaitFinal(gracePeriodMs: Long = sttClient.finalResultTimeoutMs): String? {
         Timber.d(
-            "VoiceController.stopAndAwaitFinal: state=%s finalChars=%d partialChars=%d",
+            "VoiceController.stopAndAwaitFinal: state=%s finalChars=%d partialChars=%d timeoutMs=%d",
             _state.value,
             finalTranscript.length,
             _latestPartial.value.length,
+            gracePeriodMs,
         )
 
         // Even if the flow already completed (e.g. on error), we still
@@ -174,6 +183,9 @@ class VoiceController @Inject constructor(
         // fall back to null.
         val transcript = finalTranscript.ifBlank { _latestPartial.value }.trim()
         val result = transcript.takeIf { it.isNotBlank() }
+        if (result == null && !lastError.isNullOrBlank()) {
+            consumableError = lastError
+        }
         val confidence = finalConfidence
         val alternatives = finalAlternatives
         val needsTranscriptConfirmation = result != null &&
@@ -205,9 +217,10 @@ class VoiceController @Inject constructor(
         Timber.d("VoiceController.cancel")
         collectJob?.cancel()
         collectJob = null
-        sttClient.stopListening()
+        sttClient.release()
         lastPointingCorrectionHandled = false
         lastLowConfidenceTranscriptHandled = false
+        consumableError = null
         resetBuffers()
     }
 
@@ -223,12 +236,16 @@ class VoiceController @Inject constructor(
         return handled
     }
 
+    fun consumeLastError(): String? =
+        consumableError.also { consumableError = null }
+
     private fun resetBuffers() {
         finalTranscript = ""
         finalAlternatives = emptyList()
         finalConfidence = null
         lastError = null
         _latestPartial.value = ""
+        _latestNotice.value = ""
         _state.value = State.IDLE
         startedWhilePointing = false
     }

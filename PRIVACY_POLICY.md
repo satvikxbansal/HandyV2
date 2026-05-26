@@ -1,6 +1,6 @@
 # Handy for Android - Privacy Policy
 
-_Last updated: 2026-05-22. Draft for Play review. This policy is
+_Last updated: 2026-05-26. Draft for Play review. This policy is
 written to match the current Android implementation and the related
 Play submission dossier._
 
@@ -17,6 +17,9 @@ talks directly to the selected provider using your own API key.
   the app you are using.
 - Listen only when you start voice input, such as long-pressing the
   widget or using the chat voice control.
+- Use Android speech recognition by default, or Sarvam Saarika v2 cloud
+  transcription only after you enable it in Settings, consent to sending
+  voice audio to Sarvam, and store a Sarvam API key.
 - Read visible screen text, UI labels, roles, bounds, view IDs, and
   current app/window metadata through Android Accessibility after you
   grant that access.
@@ -42,6 +45,9 @@ talks directly to the selected provider using your own API key.
 ## What Handy will not do
 
 - Handy will not listen in the background.
+- Handy will not send microphone audio to Sarvam unless Sarvam STT is
+  selected, consent is saved, a Sarvam API key is present, and you start
+  a push-to-talk session.
 - Handy will not capture the screen in the background.
 - Handy will not read secure-window content, password fields, OTPs,
   card numbers, CVVs, or credential-like fields.
@@ -154,6 +160,9 @@ Safeguards:
 ## What leaves the device
 
 - Your typed message or voice transcript.
+- If Sarvam Saarika v2 STT is enabled, up to 30 seconds of microphone
+  audio from that push-to-talk session is uploaded to Sarvam after you
+  release the press. Sarvam returns a transcript and language code.
 - The minimum screen context needed for that turn, such as visible
   labels, roles, bounds, app/window metadata, and optional screenshot
   data when needed.
@@ -163,8 +172,9 @@ Safeguards:
   flows, such as a Maps query, calendar title, mail draft, or share text.
 
 Cloud AI traffic goes directly to Anthropic today using your API key.
-Web tools, when enabled, use Brave Search, Jina Reader, and the public
-GitHub API over HTTPS.
+Optional Sarvam STT/TTS traffic goes directly to Sarvam using your
+Sarvam API key. Web tools, when enabled, use Brave Search, Jina Reader,
+and the public GitHub API over HTTPS.
 
 ## What stays on the device
 
@@ -173,7 +183,12 @@ GitHub API over HTTPS.
 - Action audit entries are stored locally and redacted.
 - Per-turn screen snapshots are ephemeral and are not appended to chat
   history as hidden raw data.
-- Handy does not retain microphone audio after recognition.
+- Handy does not retain microphone audio after recognition. Sarvam STT
+  keeps audio in memory only while recording/uploading and never writes
+  that audio to disk.
+- Sarvam STT audit rows are local and contain provider, language,
+  audio duration, latency, and success/failure only. They do not contain
+  the transcript or audio.
 - Timber/logcat diagnostics must not contain API keys, screenshots, raw
   prompts, raw notification bodies, raw clipboard contents, or raw
   accessibility trees.
@@ -182,14 +197,14 @@ GitHub API over HTTPS.
 
 | Permission or access | Used for |
 |---|---|
-| `RECORD_AUDIO` | Push-to-talk voice input only after you start voice capture. |
+| `RECORD_AUDIO` | Push-to-talk voice input only after you start voice capture. Android STT is default; optional Sarvam STT uploads capped session audio only after explicit Settings consent. |
 | `SYSTEM_ALERT_WINDOW` | Floating widget, overlay panel, and action confirmation sheet. |
 | Accessibility service | Visible screen reading, pointing, target verification, and separately confirmed Tap-for-me actions. |
 | `POST_NOTIFICATIONS` | Foreground-service notification that keeps Handy visible and stoppable. |
 | `FOREGROUND_SERVICE_*` | Android-required service types for overlay/microphone and API 26-29 screen-capture fallback. |
 | `BIND_QUICK_SETTINGS_TILE` | Optional Quick Settings tile entry point. |
 | `BIND_NOTIFICATION_LISTENER_SERVICE` | Future notification summaries; off by default and no RemoteInput reply sending today. |
-| `INTERNET`, `ACCESS_NETWORK_STATE` | Talking to Claude and optional Brave/Jina/GitHub web tools over HTTPS. |
+| `INTERNET`, `ACCESS_NETWORK_STATE` | Talking to Claude, optional Sarvam STT/TTS, and optional Brave/Jina/GitHub web tools over HTTPS. |
 
 Handy does not request `QUERY_ALL_PACKAGES`. Launchable-app lookup uses
 the Android launcher intent query path.
@@ -202,6 +217,8 @@ the Android launcher intent query path.
   it back on.
 - Keep Chrome Incognito actions blocked.
 - Disable web search.
+- Switch speech recognition back to Android STT or revoke Sarvam STT
+  consent in Settings.
 - Turn Tutor mode off.
 - Clear all chat history in Settings.
 - Delete or rotate API keys in Settings.

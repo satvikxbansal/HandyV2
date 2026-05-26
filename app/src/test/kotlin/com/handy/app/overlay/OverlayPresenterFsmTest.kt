@@ -3,6 +3,7 @@ package com.handy.app.overlay
 import com.google.common.truth.Truth.assertThat
 import com.handy.app.foreground.HandyForegroundAppMonitor
 import com.handy.core.foreground.ForegroundAppSnapshot
+import com.handy.core.overlay.BuddyBubble
 import com.handy.core.overlay.BuddyState
 import com.handy.core.overlay.FlightFsm
 import com.handy.core.speech.SpeechAudioState
@@ -97,6 +98,20 @@ class OverlayPresenterFsmTest {
 
         assertThat(presenter.state.value.panel.lowConfidenceTranscript).isNull()
         assertThat(presenter.state.value.panel.draftInput).isEmpty()
+    }
+
+    @Test
+    fun `voice notice is visible while widget drains final transcript`() {
+        val presenter = presenter()
+
+        presenter.onWidgetLongPressArmed()
+        presenter.onWidgetThinking()
+        presenter.updateVoiceNotice("Cut off at 30s")
+
+        val state = presenter.state.value
+        assertThat(state.buddyState).isEqualTo(BuddyState.THINKING)
+        assertThat(state.panel.voiceNotice).isEqualTo("Cut off at 30s")
+        assertThat(state.bubble).isEqualTo(BuddyBubble.Action("Cut off at 30s"))
     }
 
     @Test

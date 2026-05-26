@@ -43,6 +43,12 @@ enum class SttProvider(val displayName: String, val description: String) {
         "On-device via SpeechRecognizer when available (API 31+), otherwise Google's cloud recognizer.",
     ),
 
+    @SerialName("Sarvam Saarika v2")
+    SARVAM_SAARIKA(
+        "Sarvam Saarika v2",
+        "Cloud transcription for Hindi and Hinglish. Requires consent and a Sarvam API key.",
+    ),
+
     @SerialName("AssemblyAI")
     ASSEMBLY_AI(
         "AssemblyAI",
@@ -154,6 +160,7 @@ data class HandySettings(
     val sttProvider: SttProvider = SttProvider.ANDROID,
     val sttMode: SttMode = SttMode.AUTO,
     val sttLanguage: SttLanguage = SttLanguage.SYSTEM,
+    val sarvamSttConsentGranted: Boolean = false,
     val ttsProvider: TtsProvider = TtsProvider.SYSTEM,
     val speakVoiceRepliesAloud: Boolean = true,
     val sarvamVoice: SarvamVoice = SarvamVoice.RITU,

@@ -131,6 +131,15 @@ class ChatViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch {
+            voiceController.latestNotice.collectLatest { notice ->
+                if (_state.value.voiceState == VoiceUiState.LISTENING ||
+                    _state.value.voiceState == VoiceUiState.PROCESSING
+                ) {
+                    _state.value = _state.value.copy(voiceNotice = notice)
+                }
+            }
+        }
         // Foreground-app detection → tool-memory swap. Mirrors macOS
         // `HandyManager.resolveToolNameWithAutoSwitch`
         // (`HandyManager.swift` lines 596–674).
@@ -263,6 +272,7 @@ class ChatViewModel @Inject constructor(
         _state.value = _state.value.copy(
             voiceState = VoiceUiState.LISTENING,
             pendingTranscript = "",
+            voiceNotice = "",
             errorBanner = null,
         )
     }
@@ -290,6 +300,7 @@ class ChatViewModel @Inject constructor(
                 _state.value = _state.value.copy(
                     voiceState = VoiceUiState.IDLE,
                     pendingTranscript = "",
+                    voiceNotice = "",
                 )
                 return@launch
             }
@@ -297,20 +308,24 @@ class ChatViewModel @Inject constructor(
                 _state.value = _state.value.copy(
                     voiceState = VoiceUiState.IDLE,
                     pendingTranscript = "",
+                    voiceNotice = "",
                 )
                 return@launch
             }
             Timber.d("stopVoice: final transcript chars=%d", transcript?.length ?: 0)
             if (transcript.isNullOrBlank()) {
+                val error = voiceController.consumeLastError()
                 _state.value = _state.value.copy(
                     voiceState = VoiceUiState.IDLE,
                     pendingTranscript = "",
+                    voiceNotice = "",
+                    errorBanner = error ?: _state.value.errorBanner,
                 )
                 return@launch
             }
             // Non-empty transcript → auto-send. `send(...)` keeps
             // `voiceState = PROCESSING` until `AssistantTurnFinalized`.
-            _state.value = _state.value.copy(pendingTranscript = "")
+            _state.value = _state.value.copy(pendingTranscript = "", voiceNotice = "")
             send(transcript, fromVoice = true)
         }
     }
@@ -322,6 +337,7 @@ class ChatViewModel @Inject constructor(
         _state.value = _state.value.copy(
             voiceState = VoiceUiState.IDLE,
             pendingTranscript = "",
+            voiceNotice = "",
         )
     }
 
@@ -703,6 +719,7 @@ data class ChatUiState(
     val toolDetectionState: ToolDetectionState = ToolDetectionState.IDLE,
     val voiceState: VoiceUiState = VoiceUiState.IDLE,
     val pendingTranscript: String = "",
+    val voiceNotice: String = "",
     /**
      * Non-null while the user is being asked to confirm a destructive
      * `dispatch_action` call. The chat UI renders a bottom sheet /

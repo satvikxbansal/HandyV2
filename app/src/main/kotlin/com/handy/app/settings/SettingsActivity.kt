@@ -26,6 +26,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -69,6 +72,7 @@ import com.handy.core.action.ActionExecutionGate
 import com.handy.core.model.HandySettings
 import com.handy.core.model.SttLanguage
 import com.handy.core.model.SttMode
+import com.handy.core.model.SttProvider
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.launch
@@ -122,6 +126,22 @@ class SettingsActivity : ComponentActivity() {
                     onSttLanguageChange = { language ->
                         viewModel.updateSettings { it.copy(sttLanguage = language) }
                     },
+                    onSttProviderChange = { provider ->
+                        viewModel.updateSettings { it.copy(sttProvider = provider) }
+                    },
+                    onSarvamSttConsentChange = { granted ->
+                        viewModel.updateSettings {
+                            it.copy(
+                                sarvamSttConsentGranted = granted,
+                                sttProvider = if (granted) {
+                                    SttProvider.SARVAM_SAARIKA
+                                } else {
+                                    SttProvider.ANDROID
+                                },
+                            )
+                        }
+                    },
+                    onSarvamKeyChange = viewModel::setSarvamKey,
                     onTutorModeToggle = { enabled ->
                         viewModel.updateSettings { it.copy(tutorModeEnabled = enabled) }
                     },
@@ -188,6 +208,9 @@ internal fun SettingsScreen(
     onClaudeModelVariant: (Boolean) -> Unit,
     onSttModeChange: (SttMode) -> Unit,
     onSttLanguageChange: (SttLanguage) -> Unit,
+    onSttProviderChange: (SttProvider) -> Unit,
+    onSarvamSttConsentChange: (Boolean) -> Unit,
+    onSarvamKeyChange: (String) -> Unit,
     onTutorModeToggle: (Boolean) -> Unit,
     onVoiceAction: (VoiceAction) -> Unit,
     onOpenSystemVoiceSettings: () -> Unit,
@@ -210,6 +233,7 @@ internal fun SettingsScreen(
     var automationsOpen by rememberSaveable { mutableStateOf(false) }
     var privacyOpen by rememberSaveable { mutableStateOf(false) }
     var brainSheetOpen by rememberSaveable { mutableStateOf(false) }
+    var sarvamSttConsentSheetOpen by rememberSaveable { mutableStateOf(false) }
 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -304,11 +328,25 @@ internal fun SettingsScreen(
                         onApiKeyChange = onClaudeKeyChange,
                         requestsTodayLabel = "—",
                         connected = state.claudeKeyMasked != null,
+                        sttProvider = state.settings?.sttProvider ?: SttProvider.ANDROID,
                         sttMode = state.settings?.sttMode ?: SttMode.AUTO,
                         sttLanguage = state.settings?.sttLanguage ?: SttLanguage.SYSTEM,
+                        sarvamKeyMasked = state.sarvamKeyMasked,
+                        sarvamSttConsentGranted = state.settings?.sarvamSttConsentGranted == true,
                         onOpenPicker = { brainSheetOpen = true },
+                        onSttProviderChange = { provider ->
+                            if (provider == SttProvider.SARVAM_SAARIKA &&
+                                state.settings?.sarvamSttConsentGranted != true
+                            ) {
+                                sarvamSttConsentSheetOpen = true
+                            } else {
+                                onSttProviderChange(provider)
+                            }
+                        },
                         onSttModeChange = onSttModeChange,
                         onSttLanguageChange = onSttLanguageChange,
+                        onSarvamKeyChange = onSarvamKeyChange,
+                        onSarvamSttConsentRevoked = { onSarvamSttConsentChange(false) },
                     )
                     VoiceSection(
                         state = state.voice,
@@ -408,6 +446,33 @@ internal fun SettingsScreen(
                     }
                 },
                 onDismiss = { brainSheetOpen = false },
+            )
+        }
+        if (sarvamSttConsentSheetOpen) {
+            AlertDialog(
+                onDismissRequest = { sarvamSttConsentSheetOpen = false },
+                title = { Text("Send audio to Sarvam?") },
+                text = {
+                    Text("Each session uploads up to ~30s of audio after you release the press.")
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            onSarvamSttConsentChange(true)
+                            sarvamSttConsentSheetOpen = false
+                        },
+                    ) {
+                        Text("Allow")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { sarvamSttConsentSheetOpen = false }) {
+                        Text("Not now")
+                    }
+                },
+                containerColor = HandyDesign.Colors.SurfaceElevated,
+                titleContentColor = HandyDesign.Colors.TextPrimary,
+                textContentColor = HandyDesign.Colors.TextSecondary,
             )
         }
     }

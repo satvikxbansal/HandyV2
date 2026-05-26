@@ -201,6 +201,11 @@ class FloatingWidgetOverlayService : LifecycleService() {
                 presenter.updatePartialTranscript(partial)
             }
         }
+        lifecycleScope.launch {
+            voiceController.latestNotice.collectLatest { notice ->
+                presenter.updateVoiceNotice(notice)
+            }
+        }
 
         // Bridge the richer [BuddyState] from the presenter into the
         // local widget state. The gesture handler is the authoritative
@@ -788,7 +793,9 @@ class FloatingWidgetOverlayService : LifecycleService() {
                                     openChat(voiceMessage = transcript)
                                 }
                             } else {
-                                presenter.onWidgetIdle()
+                                voiceController.consumeLastError()?.let { error ->
+                                    presenter.onError(error)
+                                } ?: presenter.onWidgetIdle()
                                 Timber.d("Voice session produced no transcript")
                             }
                         }

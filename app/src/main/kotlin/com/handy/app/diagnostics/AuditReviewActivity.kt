@@ -450,6 +450,7 @@ private fun AuditAction.displayName(): String = when (this) {
     AuditAction.TypeText -> "Type text"
     is AuditAction.Intent -> "Intent $name"
     is AuditAction.TextToSpeech -> "Text to speech"
+    is AuditAction.SpeechToText -> "Speech to text"
 }
 
 private fun AuditResult.displayName(): String = when (this) {

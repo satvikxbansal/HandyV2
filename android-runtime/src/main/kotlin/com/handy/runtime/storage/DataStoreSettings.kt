@@ -53,6 +53,7 @@ class DataStoreSettings(private val context: Context) {
             p[STT_PROVIDER] = next.sttProvider.name
             p[STT_MODE] = next.sttMode.name
             p[STT_LANGUAGE] = next.sttLanguage.name
+            p[SARVAM_STT_CONSENT_GRANTED] = next.sarvamSttConsentGranted
             p[TTS_PROVIDER] = next.ttsProvider.name
             p[SPEAK_VOICE_REPLIES_ALOUD] = next.speakVoiceRepliesAloud
             p[SARVAM_VOICE] = next.sarvamVoice.name
@@ -141,6 +142,7 @@ class DataStoreSettings(private val context: Context) {
             sttLanguage = this[STT_LANGUAGE]
                 ?.let { runCatching { SttLanguage.valueOf(it) }.getOrNull() }
                 ?: SttLanguage.SYSTEM,
+            sarvamSttConsentGranted = this[SARVAM_STT_CONSENT_GRANTED] ?: false,
             ttsProvider = this[TTS_PROVIDER]
                 ?.let { runCatching { TtsProvider.valueOf(it) }.getOrNull() }
                 ?: TtsProvider.SYSTEM,
@@ -200,6 +202,7 @@ class DataStoreSettings(private val context: Context) {
         val STT_PROVIDER = stringPreferencesKey("stt_provider")
         val STT_MODE = stringPreferencesKey("stt_mode")
         val STT_LANGUAGE = stringPreferencesKey("stt_language")
+        val SARVAM_STT_CONSENT_GRANTED = booleanPreferencesKey("sarvam_stt_consent_granted")
         val TTS_PROVIDER = stringPreferencesKey("tts_provider")
         val SPEAK_VOICE_REPLIES_ALOUD = booleanPreferencesKey("speak_voice_replies_aloud")
         val SARVAM_VOICE = stringPreferencesKey("sarvam_voice")

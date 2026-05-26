@@ -151,6 +151,7 @@ data class PanelContent(
     val draftInput: String = "",
     val isListening: Boolean = false,
     val partialTranscript: String = "",
+    val voiceNotice: String = "",
     val streamingDelta: String = "",
     val isStreaming: Boolean = false,
     val isVoiceArmed: Boolean = false,

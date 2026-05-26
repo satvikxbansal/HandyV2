@@ -50,6 +50,7 @@ import com.handy.app.design.HandyDesignType
 fun FloatingComposerV2(
     voiceState: VoiceUiState,
     pendingTranscript: String,
+    voiceNotice: String = "",
     enabled: Boolean,
     onSend: (String) -> Unit,
     onVoiceStart: () -> Unit,
@@ -59,6 +60,8 @@ fun FloatingComposerV2(
 ) {
     var input by remember { mutableStateOf("") }
     val listening = voiceState == VoiceUiState.LISTENING
+    val processing = voiceState == VoiceUiState.PROCESSING
+    val micEnabled = listening || (enabled && !processing)
     val placeholder = stringResource(R.string.chat_input_placeholder)
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -116,7 +119,7 @@ fun FloatingComposerV2(
                         .size(40.dp)
                         .clip(CircleShape)
                         .background(HandyDesign.Colors.AccentSoft)
-                        .clickable(enabled = listening || enabled) {
+                        .clickable(enabled = micEnabled) {
                             if (listening) onVoiceStop() else onVoiceStart()
                         },
                     contentAlignment = Alignment.Center,
@@ -135,22 +138,42 @@ fun FloatingComposerV2(
                         .heightIn(min = 40.dp),
                     contentAlignment = Alignment.CenterStart,
                 ) {
-                    if (listening) {
-                        Text(
-                            text = pendingTranscript.ifEmpty { "Listening…" },
-                            color = if (pendingTranscript.isEmpty()) {
-                                HandyDesign.Colors.TextMuted
-                            } else {
-                                HandyDesign.Colors.TextPrimary
-                            },
-                            style = HandyDesignType.Body.copy(
-                                fontSize = 15.sp,
-                                lineHeight = 18.sp,
-                            ),
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(horizontal = 12.dp),
-                        )
+                    if (listening || processing) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                text = when {
+                                    processing -> "Transcribing…"
+                                    pendingTranscript.isNotEmpty() -> pendingTranscript
+                                    else -> "Listening…"
+                                },
+                                color = if (pendingTranscript.isEmpty() || processing) {
+                                    HandyDesign.Colors.TextMuted
+                                } else {
+                                    HandyDesign.Colors.TextPrimary
+                                },
+                                style = HandyDesignType.Body.copy(
+                                    fontSize = 15.sp,
+                                    lineHeight = 18.sp,
+                                ),
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            if (voiceNotice.isNotBlank()) {
+                                Text(
+                                    text = voiceNotice,
+                                    color = HandyDesign.Colors.Accent,
+                                    style = HandyDesignType.Caption.copy(
+                                        fontSize = 11.sp,
+                                        lineHeight = 13.sp,
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
                     } else {
                         BasicTextField(
                             value = input,
@@ -192,7 +215,7 @@ fun FloatingComposerV2(
                     }
                 }
 
-                val canSend = enabled && input.isNotBlank() && !listening
+                val canSend = enabled && input.isNotBlank() && !listening && !processing
                 Box(
                     modifier = Modifier
                         .size(40.dp)

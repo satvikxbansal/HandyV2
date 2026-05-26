@@ -239,6 +239,7 @@ fun OverlayQuickChatPanelV2(
                             )
                             panel.isListening -> ListeningRowV2(
                                 partial = panel.partialTranscript,
+                                notice = panel.voiceNotice,
                                 onStop = callbacks.onVoiceStop,
                             )
                             lowConfidenceTranscript != null -> Column(
@@ -640,6 +641,7 @@ private fun contextualPlaceholderV2(category: PanelGreetingCategory): String = w
 @Composable
 private fun ListeningRowV2(
     partial: String,
+    notice: String,
     onStop: () -> Unit,
 ) {
     Row(
@@ -671,14 +673,27 @@ private fun ListeningRowV2(
                 modifier = Modifier.size(16.dp),
             )
         }
-        Text(
-            text = partial.ifBlank { "Listening…" },
-            style = HandyDesignType.Body,
-            color = HandyDesign.Colors.TextPrimary,
+        Column(
             modifier = Modifier.weight(1f),
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis,
-        )
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = partial.ifBlank { "Listening…" },
+                style = HandyDesignType.Body,
+                color = HandyDesign.Colors.TextPrimary,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (notice.isNotBlank()) {
+                Text(
+                    text = notice,
+                    style = HandyDesignType.Caption,
+                    color = HandyDesign.Colors.Accent,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 

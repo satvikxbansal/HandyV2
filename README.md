@@ -107,14 +107,20 @@ submission documentation.
   and navigation handoff.
 
 - **Voice input and speech output**
-  Push-to-talk voice uses Android SpeechRecognizer. Handy does not
-  listen in the background. Voice replies are spoken aloud via Android
-  system TTS by default using the short `[SPOKEN]` response, while chat
-  can still show a fuller written answer. Settings can opt into Sarvam
-  Bulbul v3 TTS with Ritu, Rahul, or Simran voices; it requires a user
-  supplied Sarvam API key and falls back to System TTS when the key or
-  network is unavailable. Sarvam audio chunks are temporary private cache
-  files only and are deleted on playback completion, stop, or release.
+  Push-to-talk voice uses Android SpeechRecognizer by default. Handy
+  does not listen in the background. Settings can opt into Sarvam
+  Saarika v2 STT for better Hindi and Hinglish/code-mix transcription;
+  it is cloud-only, requires an explicit one-time consent plus a Sarvam
+  API key, uploads at most 30 seconds after the user releases the press,
+  and does not provide live partial transcripts. Sarvam STT audio is
+  held in memory as PCM/WAV and is never written to disk. Voice replies
+  are spoken aloud via Android system TTS by default using the short
+  `[SPOKEN]` response, while chat can still show a fuller written
+  answer. Settings can opt into Sarvam Bulbul v3 TTS with Ritu, Rahul,
+  or Simran voices; it requires a user supplied Sarvam API key and falls
+  back to System TTS when the key or network is unavailable. Sarvam TTS
+  audio chunks are temporary private cache files only and are deleted on
+  playback completion, stop, or release.
 
 - **Web tools, off by default**
   Web search can be enabled in Settings. When on, Claude can call Brave
@@ -151,6 +157,9 @@ submission documentation.
   brain router, but they are not user-enabled in this build. The visible
   Settings card keeps Gemini disabled as "Coming soon."
 - Handy has no Handy-owned backend in the current app path.
+- Speech input has two provider paths: Android SpeechRecognizer is the
+  default, and Sarvam Saarika v2 is available only after the user grants
+  cloud STT consent and stores a Sarvam API key on device.
 - Speech output has two provider paths: Android System TTS is the
   default, and Sarvam Bulbul v3 is available only after the user selects
   it in Settings and stores a Sarvam API key on device.
@@ -395,6 +404,9 @@ and docs coverage together.
 
 - Messages and voice transcripts are sent to the selected cloud brain
   only when the user sends a turn.
+- If Sarvam Saarika v2 STT is enabled, each voice session uploads only
+  the recorded audio for that release, capped at 30 seconds, directly to
+  Sarvam over HTTPS using the user's Sarvam API key.
 - Screen context is collected only for user-initiated turns and only
   after the Accessibility disclosure path.
 - Secure windows and sensitive fields fail closed before capture or
@@ -405,7 +417,9 @@ and docs coverage together.
   are never logged.
 - Chat history is local JSON storage and can be cleared in Settings.
 - Audit entries are local, redacted, and meant to make action behavior
-  inspectable.
+  inspectable. Sarvam STT audit entries record provider, language,
+  audio duration, latency, and success/failure only; they never store
+  transcript text or audio bytes.
 - Notification and clipboard surfaces are gated and off by default.
 
 ---

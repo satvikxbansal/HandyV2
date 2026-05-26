@@ -110,6 +110,8 @@ class OverlayPanelBridge @Inject constructor(
             presenter.onVoiceFinalized(transcript)
             if (!transcript.isNullOrBlank()) {
                 submitFromVoice(transcript)
+            } else {
+                voiceController.consumeLastError()?.let(presenter::onError)
             }
         }
     }

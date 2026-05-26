@@ -20,6 +20,14 @@ interface SttClient {
     val isOnDeviceAvailable: Boolean
 
     /**
+     * Maximum time the push-to-talk controller should wait for the terminal
+     * result after [stopListening]. Android recognizers usually finalize
+     * quickly; batch cloud providers need enough room for upload + decode.
+     */
+    val finalResultTimeoutMs: Long
+        get() = DEFAULT_FINAL_RESULT_TIMEOUT_MS
+
+    /**
      * Start listening. Partial transcripts stream as they arrive; the
      * final transcript is emitted as the last non-error event before
      * the flow completes.
@@ -40,10 +48,15 @@ interface SttClient {
 
     /** Explicit release (e.g. when the service is being torn down). */
     fun release()
+
+    companion object {
+        const val DEFAULT_FINAL_RESULT_TIMEOUT_MS: Long = 2_000L
+    }
 }
 
 sealed class SttEvent {
     data object BeginningOfSpeech : SttEvent()
+    data class Notice(val message: String) : SttEvent()
     data class Partial(val transcript: String) : SttEvent()
     data class Final @JvmOverloads constructor(
         val transcript: String,

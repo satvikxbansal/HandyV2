@@ -30,6 +30,7 @@ import com.handy.runtime.speech.AndroidSttClient
 import com.handy.runtime.speech.AndroidTtsClient
 import com.handy.runtime.speech.AudioPlayback
 import com.handy.runtime.speech.MediaPlayerAudioPlayback
+import com.handy.runtime.speech.SwitchingSttClient
 import com.handy.runtime.speech.SwitchingTtsClient
 import com.handy.runtime.storage.DataStoreSettings
 import com.handy.runtime.storage.EncryptedKeyStore
@@ -194,10 +195,10 @@ object RuntimeModule {
 
     @Provides
     @Singleton
-    fun provideSttClient(
+    fun provideAndroidSttClient(
         @ApplicationContext context: Context,
         settings: DataStoreSettings,
-    ): SttClient {
+    ): AndroidSttClient {
         val provider = suspend {
             val s = withContext(Dispatchers.IO) { settings.current() }
             AndroidSttConfig(
@@ -212,6 +213,10 @@ object RuntimeModule {
         }
         return AndroidSttClient(context, provider)
     }
+
+    @Provides
+    @Singleton
+    fun provideSttClient(impl: SwitchingSttClient): SttClient = impl
 
     @Provides
     @Singleton

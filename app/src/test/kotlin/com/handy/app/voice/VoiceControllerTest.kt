@@ -18,9 +18,11 @@ import io.mockk.runs
 import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -55,6 +57,7 @@ class VoiceControllerTest {
         val events = mutableListOf<String>()
         val sttClient = mockk<SttClient>()
         every { sttClient.isOnDeviceAvailable } returns true
+        every { sttClient.finalResultTimeoutMs } returns SttClient.DEFAULT_FINAL_RESULT_TIMEOUT_MS
         every { sttClient.listen() } answers {
             events += "listen"
             emptyFlow()
@@ -94,6 +97,7 @@ class VoiceControllerTest {
 
         val sttClient = mockk<SttClient>()
         every { sttClient.isOnDeviceAvailable } returns true
+        every { sttClient.finalResultTimeoutMs } returns SttClient.DEFAULT_FINAL_RESULT_TIMEOUT_MS
         every { sttClient.listen() } returns flowOf(
             SttEvent.Final(
                 transcript = "set timer",
@@ -139,6 +143,7 @@ class VoiceControllerTest {
 
         val sttClient = mockk<SttClient>()
         every { sttClient.isOnDeviceAvailable } returns true
+        every { sttClient.finalResultTimeoutMs } returns SttClient.DEFAULT_FINAL_RESULT_TIMEOUT_MS
         every { sttClient.listen() } returns flowOf(
             SttEvent.Final(
                 transcript = "set timer",
@@ -178,6 +183,7 @@ class VoiceControllerTest {
 
         val sttClient = mockk<SttClient>()
         every { sttClient.isOnDeviceAvailable } returns true
+        every { sttClient.finalResultTimeoutMs } returns SttClient.DEFAULT_FINAL_RESULT_TIMEOUT_MS
         every { sttClient.listen() } returns flowOf(
             SttEvent.Final(
                 transcript = "set timer",
@@ -206,5 +212,79 @@ class VoiceControllerTest {
         assertThat(controller.stopAndAwaitFinal()).isEqualTo("set timer")
         assertThat(controller.consumeLastLowConfidenceTranscriptHandled()).isFalse()
         verify(exactly = 0) { presenter.onLowConfidenceTranscript(any(), any()) }
+    }
+
+    @Test
+    fun `notice is not treated as transcript and terminal error is consumable`() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        every {
+            ContextCompat.checkSelfPermission(any(), Manifest.permission.RECORD_AUDIO)
+        } returns PackageManager.PERMISSION_GRANTED
+
+        val sttClient = mockk<SttClient>()
+        every { sttClient.isOnDeviceAvailable } returns false
+        every { sttClient.finalResultTimeoutMs } returns SttClient.DEFAULT_FINAL_RESULT_TIMEOUT_MS
+        every { sttClient.listen() } returns flowOf(
+            SttEvent.Notice("Cut off at 30s"),
+            SttEvent.Error("Sarvam needs internet — switch to Android STT or reconnect", true),
+        )
+        every { sttClient.stopListening() } just runs
+        every { sttClient.release() } just runs
+
+        val presenter = mockk<OverlayPresenter>(relaxed = true)
+        every { presenter.state } returns MutableStateFlow(OverlayPanelState())
+
+        val controller = VoiceController(
+            context = mockk<Context>(relaxed = true),
+            sttClient = sttClient,
+            presenter = presenter,
+            flightDriver = mockk<BuddyFlightDriver>(relaxed = true),
+            speechOutputController = mockk(relaxed = true),
+            appScope = this,
+        )
+
+        assertThat(controller.start()).isTrue()
+        runCurrent()
+
+        assertThat(controller.latestNotice.value).isEqualTo("Cut off at 30s")
+        assertThat(controller.stopAndAwaitFinal()).isNull()
+        assertThat(controller.consumeLastError())
+            .isEqualTo("Sarvam needs internet — switch to Android STT or reconnect")
+    }
+
+    @Test
+    fun `provider final timeout lets batch STT finish after Android grace window`() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        every {
+            ContextCompat.checkSelfPermission(any(), Manifest.permission.RECORD_AUDIO)
+        } returns PackageManager.PERMISSION_GRANTED
+
+        val sttClient = mockk<SttClient>()
+        every { sttClient.isOnDeviceAvailable } returns false
+        every { sttClient.finalResultTimeoutMs } returns 6_000L
+        every { sttClient.listen() } returns flow {
+            emit(SttEvent.BeginningOfSpeech)
+            delay(5_000L)
+            emit(SttEvent.Final("delayed sarvam transcript", isOnDevice = false))
+        }
+        every { sttClient.stopListening() } just runs
+        every { sttClient.release() } just runs
+
+        val presenter = mockk<OverlayPresenter>(relaxed = true)
+        every { presenter.state } returns MutableStateFlow(OverlayPanelState())
+
+        val controller = VoiceController(
+            context = mockk<Context>(relaxed = true),
+            sttClient = sttClient,
+            presenter = presenter,
+            flightDriver = mockk<BuddyFlightDriver>(relaxed = true),
+            speechOutputController = mockk(relaxed = true),
+            appScope = this,
+        )
+
+        assertThat(controller.start()).isTrue()
+        runCurrent()
+
+        assertThat(controller.stopAndAwaitFinal()).isEqualTo("delayed sarvam transcript")
     }
 }

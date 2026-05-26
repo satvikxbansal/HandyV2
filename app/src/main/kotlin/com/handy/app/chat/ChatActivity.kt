@@ -259,6 +259,7 @@ internal fun ChatScreen(
             FloatingComposerV2(
                 voiceState = state.voiceState,
                 pendingTranscript = state.pendingTranscript,
+                voiceNotice = state.voiceNotice,
                 enabled = !state.isStreaming,
                 onSend = onSend,
                 onVoiceStart = onVoiceStart,
