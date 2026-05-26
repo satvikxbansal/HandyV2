@@ -66,7 +66,6 @@ fun WidgetGlyphV2(
         state == WidgetState.TOUCHED -> HandyDesign.Colors.Accent
         else -> HandyDesign.Colors.Accent.copy(alpha = 0.60f)
     }
-    val glowColor = if (isBlue) HandyDesign.Colors.PointGlow else HandyDesign.Colors.AccentGlow
     val discScale = if (isBlue || state == WidgetState.IDLE) {
         pointerScale.coerceIn(0.90f, 1.20f)
     } else {
@@ -97,8 +96,6 @@ fun WidgetGlyphV2(
             },
         contentAlignment = Alignment.Center,
     ) {
-        WidgetGlow(glowColor)
-
         if (isBlue) {
             FlyingTrail(
                 alpha = trailAlpha,
@@ -128,41 +125,6 @@ fun WidgetGlyphV2(
         if (state == WidgetState.ACTING) {
             ActingBadge()
         }
-    }
-}
-
-@Composable
-private fun WidgetGlow(color: Color) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        Box(
-            modifier = Modifier
-                .size(WidgetDiscSize)
-                .offset(y = 6.dp)
-                .blur(
-                    radius = 18.dp,
-                    edgeTreatment = BlurredEdgeTreatment.Unbounded,
-                )
-                .background(color, CircleShape),
-        )
-    } else {
-        Box(
-            modifier = Modifier
-                .size(60.dp)
-                .offset(y = 6.dp)
-                .background(color.copy(alpha = 0.10f), CircleShape),
-        )
-        Box(
-            modifier = Modifier
-                .size(54.dp)
-                .offset(y = 6.dp)
-                .background(color.copy(alpha = 0.18f), CircleShape),
-        )
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .offset(y = 6.dp)
-                .background(color.copy(alpha = 0.30f), CircleShape),
-        )
     }
 }
 
