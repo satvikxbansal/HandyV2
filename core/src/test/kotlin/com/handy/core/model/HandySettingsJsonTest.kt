@@ -24,12 +24,14 @@ class HandySettingsJsonTest {
 
         assertThat(decoded.typeForMeEnabled).isTrue()
         assertThat(decoded.recipesEnabled).isTrue()
+        assertThat(decoded.speakVoiceRepliesAloud).isTrue()
     }
 
     @Test fun `automation flags round trip through settings json`() {
         val original = HandySettings(
             typeForMeEnabled = false,
             recipesEnabled = false,
+            speakVoiceRepliesAloud = false,
         )
 
         val decoded = json.decodeFromString(
@@ -39,5 +41,6 @@ class HandySettingsJsonTest {
 
         assertThat(decoded.typeForMeEnabled).isFalse()
         assertThat(decoded.recipesEnabled).isFalse()
+        assertThat(decoded.speakVoiceRepliesAloud).isFalse()
     }
 }

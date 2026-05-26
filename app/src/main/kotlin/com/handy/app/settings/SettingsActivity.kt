@@ -115,6 +115,9 @@ class SettingsActivity : ComponentActivity() {
                     onTutorModeToggle = { enabled ->
                         viewModel.updateSettings { it.copy(tutorModeEnabled = enabled) }
                     },
+                    onSpeakVoiceRepliesAloudToggle = { enabled ->
+                        viewModel.updateSettings { it.copy(speakVoiceRepliesAloud = enabled) }
+                    },
                     onTapForMeToggle = viewModel::setTapForMeEnabled,
                     onNoActionsInIncognitoToggle = { enabled ->
                         viewModel.updateSettings { it.copy(noActionsInIncognito = enabled) }
@@ -173,6 +176,7 @@ internal fun SettingsScreen(
     onWebSearchToggle: (Boolean) -> Unit,
     onClaudeModelVariant: (Boolean) -> Unit,
     onTutorModeToggle: (Boolean) -> Unit,
+    onSpeakVoiceRepliesAloudToggle: (Boolean) -> Unit,
     onTapForMeToggle: (Boolean) -> Unit,
     onNoActionsInIncognitoToggle: (Boolean) -> Unit,
     onTapForMePanicMute: () -> Unit,
@@ -286,7 +290,9 @@ internal fun SettingsScreen(
                         onApiKeyChange = onClaudeKeyChange,
                         requestsTodayLabel = "—",
                         connected = state.claudeKeyMasked != null,
+                        speakVoiceRepliesAloud = state.settings?.speakVoiceRepliesAloud != false,
                         onOpenPicker = { brainSheetOpen = true },
+                        onSpeakVoiceRepliesAloudToggle = onSpeakVoiceRepliesAloudToggle,
                     )
                     CapabilitiesSection(
                         expanded = capabilitiesOpen,

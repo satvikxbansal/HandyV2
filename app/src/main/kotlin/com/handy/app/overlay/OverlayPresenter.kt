@@ -13,6 +13,7 @@ import com.handy.core.overlay.PanelContent
 import com.handy.core.overlay.PanelSnapshot
 import com.handy.core.overlay.TapForMeConfirmation
 import com.handy.core.overlay.TapForMeConfirmationDecision
+import com.handy.core.speech.SpeechAudioState
 import com.handy.core.tool.ToolContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -201,6 +202,15 @@ class OverlayPresenter @Inject constructor(
         ) }
     }
 
+    fun onSpeechAudio(audioState: SpeechAudioState) {
+        setState(event = "onSpeechAudio($audioState)") { snapshot ->
+            snapshot.copy(
+                audioState = audioState,
+                buddyState = snapshot.buddyStateForAudio(audioState),
+            )
+        }
+    }
+
     // ---- voice + chat wiring ------------------------------------------------
 
     fun updatePartialTranscript(partial: String) {
@@ -278,7 +288,13 @@ class OverlayPresenter @Inject constructor(
             event = "onResponseFinalized",
             target = target,
         ) { snapshot -> snapshot.copy(
-            buddyState = if (bubble != null) BuddyState.SPEAKING else BuddyState.DOCKED,
+            buddyState = if (snapshot.audioState == SpeechAudioState.SPEAKING) {
+                BuddyState.AUDIO_SPEAKING
+            } else if (bubble != null) {
+                BuddyState.SPEAKING
+            } else {
+                BuddyState.DOCKED
+            },
             isFlying = false,
             bubble = bubble,
             panel = snapshot.panel.copy(
@@ -692,6 +708,23 @@ class OverlayPresenter @Inject constructor(
             FlightFsm.Error,
         )
 
+    private fun OverlayPanelState.buddyStateForAudio(audioState: SpeechAudioState): BuddyState =
+        when (audioState) {
+            SpeechAudioState.SPEAKING -> {
+                if (isFlying || buddyState in audioProtectedBuddyStates) {
+                    buddyState
+                } else {
+                    BuddyState.AUDIO_SPEAKING
+                }
+            }
+            SpeechAudioState.IDLE,
+            SpeechAudioState.STOPPING,
+            SpeechAudioState.ERROR -> {
+                if (buddyState == BuddyState.AUDIO_SPEAKING) BuddyState.DOCKED else buddyState
+            }
+            SpeechAudioState.PREPARING -> buddyState
+        }
+
     fun captureSnapshot(
         marksProvider: () -> List<AccessibilityMark> = { emptyList() },
         clock: () -> Long = { System.currentTimeMillis() },
@@ -721,6 +754,17 @@ class OverlayPresenter @Inject constructor(
     private fun String.takeTrimmed(n: Int): String {
         val trimmed = trim()
         return if (trimmed.length <= n) trimmed else trimmed.take(n).trimEnd() + "…"
+    }
+
+    private companion object {
+        val audioProtectedBuddyStates = setOf(
+            BuddyState.PREPARING_POINT,
+            BuddyState.FLYING,
+            BuddyState.POINTING,
+            BuddyState.CANCELLING,
+            BuddyState.ACTING,
+            BuddyState.DRAGGING,
+        )
     }
 }
 

@@ -49,6 +49,7 @@ class DataStoreSettings(private val context: Context) {
             p[ASSISTANT_MODE] = next.assistantMode.name
             p[STT_PROVIDER] = next.sttProvider.name
             p[TTS_PROVIDER] = next.ttsProvider.name
+            p[SPEAK_VOICE_REPLIES_ALOUD] = next.speakVoiceRepliesAloud
             p[SARVAM_VOICE] = next.sarvamVoice.name
             p[SHOW_FLOATING_WIDGET] = next.showFloatingWidget
             p[WEB_SEARCH_ENABLED] = next.webSearchEnabled
@@ -131,6 +132,7 @@ class DataStoreSettings(private val context: Context) {
             ttsProvider = this[TTS_PROVIDER]
                 ?.let { runCatching { TtsProvider.valueOf(it) }.getOrNull() }
                 ?: TtsProvider.SYSTEM,
+            speakVoiceRepliesAloud = this[SPEAK_VOICE_REPLIES_ALOUD] ?: true,
             sarvamVoice = this[SARVAM_VOICE]
                 ?.let { runCatching { SarvamVoice.valueOf(it) }.getOrNull() }
                 ?: SarvamVoice.RITU,
@@ -182,6 +184,7 @@ class DataStoreSettings(private val context: Context) {
         val ASSISTANT_MODE = stringPreferencesKey("assistant_mode")
         val STT_PROVIDER = stringPreferencesKey("stt_provider")
         val TTS_PROVIDER = stringPreferencesKey("tts_provider")
+        val SPEAK_VOICE_REPLIES_ALOUD = booleanPreferencesKey("speak_voice_replies_aloud")
         val SARVAM_VOICE = stringPreferencesKey("sarvam_voice")
         val SHOW_FLOATING_WIDGET = booleanPreferencesKey("show_floating_widget")
         val WEB_SEARCH_ENABLED = booleanPreferencesKey("web_search_enabled")

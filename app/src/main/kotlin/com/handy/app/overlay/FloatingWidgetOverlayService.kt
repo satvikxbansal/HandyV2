@@ -26,6 +26,7 @@ import com.handy.app.agent.AgentSessionController
 import com.handy.app.chat.ChatActivity
 import com.handy.app.chat.ChatTargetHandoffStore
 import com.handy.app.onboarding.ActionDisclosureActivity
+import com.handy.app.voice.SpeechOutputController
 import com.handy.app.voice.VoiceController
 import com.handy.app.widget.BezierFlightController
 import com.handy.app.widget.ManualTargetFallbackChip
@@ -34,6 +35,7 @@ import com.handy.app.widget.WidgetState
 import com.handy.app.widget.design.WidgetGlyphV2
 import com.handy.core.overlay.BuddyState
 import com.handy.core.overlay.OverlayMode
+import com.handy.core.speech.SpeechAudioState
 import com.handy.runtime.accessibility.AccessibilityMarksProvider
 import com.handy.runtime.accessibility.SemanticPointerResolver
 import com.handy.runtime.storage.DataStoreSettings
@@ -64,6 +66,7 @@ import timber.log.Timber
 class FloatingWidgetOverlayService : LifecycleService() {
 
     @Inject lateinit var voiceController: VoiceController
+    @Inject lateinit var speechOutputController: SpeechOutputController
 
     // V2: presenter owns the panel state machine; bridge is the panel→chat
     // submission channel; pipeline drives orchestrator turns for panel
@@ -218,6 +221,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
 
                     state.value = when (buddy) {
                         BuddyState.LISTENING -> WidgetState.LISTENING
+                        BuddyState.AUDIO_SPEAKING -> WidgetState.LISTENING
                         BuddyState.THINKING,
                         BuddyState.STREAMING,
                         BuddyState.PREPARING_POINT -> WidgetState.THINKING
@@ -664,6 +668,9 @@ class FloatingWidgetOverlayService : LifecycleService() {
             MotionEvent.ACTION_DOWN -> {
                 val overlayState = presenter.state.value
                 val isStickyPointing = overlayState.buddyState == BuddyState.POINTING
+                if (overlayState.audioState != SpeechAudioState.IDLE) {
+                    speechOutputController.stop("buddy_tap")
+                }
                 panelDismissTapArmed = overlayState.mode == OverlayMode.ChatPanel
                 if (overlayState.isFlying && !isStickyPointing) {
                     flightDriver.cancel()
@@ -696,6 +703,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
                 val dy = event.rawY - downY
                 if (!dragging && hypot(dx, dy) > slop) {
                     dragging = true
+                    speechOutputController.stop("buddy_drag")
                     mainHandler.removeCallbacks(longPressRunnable)
                     mainHandler.removeCallbacks(manualTargetLongPressRunnable)
                     if (longPressFired) {
@@ -727,6 +735,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
                     panelDismissTapArmed = false
                     state.value = WidgetState.IDLE
                     if (event.actionMasked == MotionEvent.ACTION_UP) {
+                        speechOutputController.stop("buddy_tap")
                         panelBridge.cancelVoiceFromPanel()
                         presenter.dismissPanel()
                     }
@@ -784,6 +793,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
                         val isStickyPointing = presenter.state.value.buddyState == BuddyState.POINTING
                         state.value = if (isStickyPointing) WidgetState.POINTING else WidgetState.IDLE
                         if (isStickyPointing) return true
+                        speechOutputController.stop("buddy_tap")
                         lifecycleScope.launch {
                             val snapshot = settings.current()
                             if (snapshot.useOverlayChatPanel) {

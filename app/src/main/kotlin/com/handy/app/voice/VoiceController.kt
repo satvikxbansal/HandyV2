@@ -41,6 +41,7 @@ class VoiceController @Inject constructor(
     private val sttClient: SttClient,
     private val presenter: OverlayPresenter,
     private val flightDriver: BuddyFlightDriver,
+    private val speechOutputController: SpeechOutputController,
     @ApplicationScope private val appScope: CoroutineScope,
 ) {
 
@@ -63,6 +64,7 @@ class VoiceController @Inject constructor(
         get() = sttClient.isOnDeviceAvailable
 
     fun start(): Boolean {
+        speechOutputController.stop("new_listen")
         if (_state.value != State.IDLE) {
             Timber.d("VoiceController.start: already %s — refusing", _state.value)
             return false

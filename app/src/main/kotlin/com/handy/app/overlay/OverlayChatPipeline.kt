@@ -4,6 +4,7 @@ import com.handy.app.accessibility.AccessibilityStateMonitor
 import com.handy.app.agent.AgentSessionController
 import com.handy.app.chat.ChatConfirmationBroker
 import com.handy.app.screen.ScreenContextBuilder
+import com.handy.app.voice.SpeechOutputController
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.LlmClient
 import com.handy.core.llm.ToolRunner
@@ -71,6 +72,7 @@ class OverlayChatPipeline @Inject constructor(
     private val flightDriver: BuddyFlightDriver,
     private val screenContextBuilder: ScreenContextBuilder,
     private val agentSessionController: AgentSessionController,
+    private val speechOutputController: SpeechOutputController,
     @ApplicationScope private val appScope: CoroutineScope,
 ) {
 
@@ -110,7 +112,7 @@ class OverlayChatPipeline @Inject constructor(
         }
     }
 
-    private suspend fun runTurn(
+    internal suspend fun runTurn(
         userText: String,
         fromVoice: Boolean,
     ) {
@@ -192,6 +194,12 @@ class OverlayChatPipeline @Inject constructor(
                             finalOverlaySpoken = event.overlaySpokenText
                                 ?: fallbackOverlayClamp(event.chatText)
                             pointing = event.pointing
+                            if (fromVoice && !event.ttsText.isNullOrBlank()) {
+                                speechOutputController.speakForVoiceTurn(
+                                    requestId = turnContext.requestId,
+                                    ttsText = event.ttsText,
+                                )
+                            }
                             Timber.d(
                                 "OverlayChatPipeline.finalized: spokenChars=%d chatChars=%d point=%s",
                                 finalOverlaySpoken.orEmpty().length,
@@ -200,6 +208,7 @@ class OverlayChatPipeline @Inject constructor(
                             )
                         }
                         is OrchestrationEvent.Error -> {
+                            speechOutputController.stop("turn_error")
                             presenter.onError(event.message)
                         }
                         is OrchestrationEvent.ToolCall,
@@ -214,6 +223,7 @@ class OverlayChatPipeline @Inject constructor(
             }.onFailure { t ->
                 if (t !is kotlinx.coroutines.CancellationException) {
                     Timber.w(t, "OverlayChatPipeline: turn failed")
+                    speechOutputController.stop("turn_error")
                     presenter.onError(t.message ?: "turn failed")
                 }
             }
@@ -269,6 +279,7 @@ class OverlayChatPipeline @Inject constructor(
                     spec.logSummary(),
                     fallbackMarks.size,
                 )
+                speechOutputController.stop("panel_dismissed")
                 presenter.dismissPanel()
                 delay(PANEL_DISMISS_BEFORE_FLIGHT_MS)
                 val landed = runCatching {

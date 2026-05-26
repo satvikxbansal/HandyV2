@@ -5,6 +5,7 @@ import com.handy.core.action.AssistantAction
 import com.handy.core.action.ConfirmationLevel
 import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.screen.IntRect
+import com.handy.core.speech.SpeechAudioState
 import com.handy.core.tool.ToolContext
 
 /**
@@ -20,6 +21,7 @@ data class OverlayPanelState(
     val mode: OverlayMode = OverlayMode.IdleWidget,
     val flightFsm: FlightFsm = FlightFsm.Docked,
     val buddyState: BuddyState = BuddyState.DOCKED,
+    val audioState: SpeechAudioState = SpeechAudioState.IDLE,
     val bubble: BuddyBubble? = null,
     /**
      * True while a `[POINT]` is actively being resolved / flown / dwelt.
@@ -127,6 +129,7 @@ enum class BuddyState {
     ACTING,
     SPEAKING,
     DRAGGING,
+    AUDIO_SPEAKING,
 }
 
 /** Current bubble (exactly one at a time). Scope §3 taxonomy. */

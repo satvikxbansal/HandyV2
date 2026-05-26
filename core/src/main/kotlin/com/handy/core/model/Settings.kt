@@ -107,6 +107,7 @@ data class HandySettings(
     val assistantMode: AssistantMode = AssistantMode.HELP_ONLY,
     val sttProvider: SttProvider = SttProvider.ANDROID,
     val ttsProvider: TtsProvider = TtsProvider.SYSTEM,
+    val speakVoiceRepliesAloud: Boolean = true,
     val sarvamVoice: SarvamVoice = SarvamVoice.RITU,
     val showFloatingWidget: Boolean = true,
     /** Off by default. Respects the rule: no tool definitions sent when false. */

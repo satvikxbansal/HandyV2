@@ -3,7 +3,9 @@ package com.handy.app.overlay
 import com.google.common.truth.Truth.assertThat
 import com.handy.app.foreground.HandyForegroundAppMonitor
 import com.handy.core.foreground.ForegroundAppSnapshot
+import com.handy.core.overlay.BuddyState
 import com.handy.core.overlay.FlightFsm
+import com.handy.core.speech.SpeechAudioState
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertThrows
@@ -51,6 +53,24 @@ class OverlayPresenterFsmTest {
         presenter.onActionFinished()
 
         assertThat(presenter.state.value.flightFsm).isEqualTo(FlightFsm.Docked)
+    }
+
+    @Test
+    fun `speech audio state drives audio glyph without changing flight fsm`() {
+        val presenter = presenter()
+
+        presenter.onSpeechAudio(SpeechAudioState.PREPARING)
+        assertThat(presenter.state.value.audioState).isEqualTo(SpeechAudioState.PREPARING)
+        assertThat(presenter.state.value.buddyState).isEqualTo(BuddyState.DOCKED)
+
+        presenter.onSpeechAudio(SpeechAudioState.SPEAKING)
+        assertThat(presenter.state.value.audioState).isEqualTo(SpeechAudioState.SPEAKING)
+        assertThat(presenter.state.value.buddyState).isEqualTo(BuddyState.AUDIO_SPEAKING)
+        assertThat(presenter.state.value.flightFsm).isEqualTo(FlightFsm.Docked)
+
+        presenter.onSpeechAudio(SpeechAudioState.IDLE)
+        assertThat(presenter.state.value.audioState).isEqualTo(SpeechAudioState.IDLE)
+        assertThat(presenter.state.value.buddyState).isEqualTo(BuddyState.DOCKED)
     }
 
     @Test

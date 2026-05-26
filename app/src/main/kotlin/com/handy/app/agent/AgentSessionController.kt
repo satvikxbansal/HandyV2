@@ -4,6 +4,7 @@ import com.handy.app.overlay.AgentProgressBubbleState
 import com.handy.app.overlay.BuddyFlightDriver
 import com.handy.app.overlay.OverlayPresenter
 import com.handy.app.screen.ScreenContextBuilder
+import com.handy.app.voice.SpeechOutputController
 import com.handy.core.action.ActionCapability
 import com.handy.core.action.ActionPolicyEngine
 import com.handy.core.action.ActionRisk
@@ -53,6 +54,7 @@ class AgentSessionController @Inject constructor(
     private val intentDispatcher: AndroidIntentDispatcher,
     private val launchableAppIndex: LaunchableAppIndex,
     private val flightDriver: BuddyFlightDriver,
+    private val speechOutputController: SpeechOutputController,
 ) {
     private val registry = RecipeRegistry(
         RecipeRegistry.defaultRecipes() + AndroidRuntimeRecipes.defaultRecipes(launchableAppIndex),
@@ -96,6 +98,7 @@ class AgentSessionController @Inject constructor(
                     return true
                 }
 
+                speechOutputController.stop("panel_dismissed")
                 presenter.dismissPanel()
                 delay(PANEL_DISMISS_BEFORE_RECIPE_MS)
                 runPlan(

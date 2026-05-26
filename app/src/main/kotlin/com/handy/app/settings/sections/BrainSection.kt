@@ -51,6 +51,7 @@ import com.handy.app.design.HandyDesignType
 import com.handy.app.settings.design.SectionCard
 import com.handy.app.settings.design.SectionTile
 import com.handy.app.settings.design.SectionTone
+import com.handy.app.settings.design.SwitchRow
 
 @Composable
 fun BrainSection(
@@ -60,7 +61,9 @@ fun BrainSection(
     onApiKeyChange: (String) -> Unit,
     requestsTodayLabel: String,
     connected: Boolean,
+    speakVoiceRepliesAloud: Boolean,
     onOpenPicker: () -> Unit,
+    onSpeakVoiceRepliesAloudToggle: (Boolean) -> Unit,
 ) {
     val detailLine = when {
         providerLine.isBlank() -> selectedModelLabel
@@ -142,6 +145,13 @@ fun BrainSection(
                 onCommit = onApiKeyChange,
             )
         }
+
+        SwitchRow(
+            title = "Speak voice replies aloud",
+            checked = speakVoiceRepliesAloud,
+            enabled = true,
+            onCheckedChange = onSpeakVoiceRepliesAloudToggle,
+        )
 
         Row(
             modifier = Modifier
@@ -346,7 +356,9 @@ private fun BrainSectionPreview() {
                 onApiKeyChange = {},
                 requestsTodayLabel = "2 req · today",
                 connected = true,
+                speakVoiceRepliesAloud = true,
                 onOpenPicker = {},
+                onSpeakVoiceRepliesAloudToggle = {},
             )
         }
     }

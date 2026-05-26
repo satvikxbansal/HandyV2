@@ -15,30 +15,29 @@ import timber.log.Timber
  * are not silently truncated by the TTS engine's internal cap (~4 KB
  * on most OEMs).
  */
-class AndroidTtsClient(context: Context) : TtsClient {
+class AndroidTtsClient : TtsClient {
 
-    private val appContext = context.applicationContext
     private val ready = CompletableDeferred<Boolean>()
-    private var engine: TextToSpeech? = null
-    private var speaking: Boolean = false
+    private var engine: TtsEngine? = null
+    @Volatile private var speaking: Boolean = false
+    @Volatile private var activeUtteranceId: String? = null
+    @Volatile private var finalChunkUtteranceId: String? = null
 
-    init {
-        engine = TextToSpeech(appContext) { status ->
-            val ok = status == TextToSpeech.SUCCESS
+    constructor(context: Context) {
+        engine = AndroidTextToSpeechEngine(context.applicationContext) { ok ->
             if (ok) {
-                engine?.language = Locale.getDefault()
-                engine?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                    override fun onStart(utteranceId: String?) { speaking = true }
-                    override fun onDone(utteranceId: String?) { speaking = false }
-                    @Deprecated("Deprecated in Java")
-                    override fun onError(utteranceId: String?) { speaking = false }
-                    override fun onError(utteranceId: String?, errorCode: Int) { speaking = false }
-                })
+                configureEngine()
             } else {
-                Timber.w("AndroidTtsClient: engine init failed (status=%d)", status)
+                Timber.w("AndroidTtsClient: engine init failed")
             }
             ready.complete(ok)
         }
+    }
+
+    internal constructor(engine: TtsEngine) {
+        this.engine = engine
+        configureEngine()
+        ready.complete(true)
     }
 
     override val isSpeaking: Boolean
@@ -51,15 +50,61 @@ class AndroidTtsClient(context: Context) : TtsClient {
 
         val chunks = chunkOnSentenceBoundary(trimmed, maxChars = MAX_CHUNK)
         engine.stop()
+        speaking = false
+        activeUtteranceId = utteranceId
+        finalChunkUtteranceId = if (chunks.size == 1) utteranceId else "$utteranceId-${chunks.lastIndex}"
         chunks.forEachIndexed { idx, chunk ->
             val id = if (idx == 0) utteranceId else "$utteranceId-$idx"
             val queueMode = if (idx == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-            engine.speak(chunk, queueMode, null, id)
+            engine.speak(chunk, queueMode, id)
         }
     }
 
     override fun stop() {
         engine?.stop()
+        activeUtteranceId = null
+        finalChunkUtteranceId = null
+        speaking = false
+    }
+
+    @Suppress("OVERRIDE_DEPRECATION")
+    private fun configureEngine() {
+        engine?.setLanguage(Locale.getDefault())
+        engine?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {
+                if (utteranceId.belongsToActiveUtterance()) {
+                    speaking = true
+                }
+            }
+
+            override fun onDone(utteranceId: String?) {
+                if (utteranceId == finalChunkUtteranceId) {
+                    activeUtteranceId = null
+                    finalChunkUtteranceId = null
+                    speaking = false
+                }
+            }
+
+            override fun onError(utteranceId: String?) {
+                clearIfActive(utteranceId)
+            }
+
+            override fun onError(utteranceId: String?, errorCode: Int) {
+                clearIfActive(utteranceId)
+            }
+        })
+    }
+
+    private fun String?.belongsToActiveUtterance(): Boolean {
+        val active = activeUtteranceId ?: return false
+        val id = this ?: return false
+        return id == active || id.startsWith("$active-")
+    }
+
+    private fun clearIfActive(utteranceId: String?) {
+        if (!utteranceId.belongsToActiveUtterance()) return
+        activeUtteranceId = null
+        finalChunkUtteranceId = null
         speaking = false
     }
 
@@ -67,6 +112,8 @@ class AndroidTtsClient(context: Context) : TtsClient {
         engine?.stop()
         engine?.shutdown()
         engine = null
+        activeUtteranceId = null
+        finalChunkUtteranceId = null
         speaking = false
     }
 
@@ -90,5 +137,43 @@ class AndroidTtsClient(context: Context) : TtsClient {
             if (remaining.isNotEmpty()) out += remaining
             return out
         }
+    }
+}
+
+internal interface TtsEngine {
+    fun setLanguage(locale: Locale)
+    fun setOnUtteranceProgressListener(listener: UtteranceProgressListener)
+    fun speak(text: String, queueMode: Int, utteranceId: String)
+    fun stop()
+    fun shutdown()
+}
+
+private class AndroidTextToSpeechEngine(
+    context: Context,
+    onInit: (Boolean) -> Unit,
+) : TtsEngine {
+    private var engine: TextToSpeech? = TextToSpeech(context) { status ->
+        onInit(status == TextToSpeech.SUCCESS)
+    }
+
+    override fun setLanguage(locale: Locale) {
+        engine?.language = locale
+    }
+
+    override fun setOnUtteranceProgressListener(listener: UtteranceProgressListener) {
+        engine?.setOnUtteranceProgressListener(listener)
+    }
+
+    override fun speak(text: String, queueMode: Int, utteranceId: String) {
+        engine?.speak(text, queueMode, null, utteranceId)
+    }
+
+    override fun stop() {
+        engine?.stop()
+    }
+
+    override fun shutdown() {
+        engine?.shutdown()
+        engine = null
     }
 }

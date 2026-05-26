@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.handy.app.accessibility.AccessibilityStateMonitor
 import com.handy.app.screen.ScreenContextBuilder
+import com.handy.app.voice.SpeechOutputController
 import com.handy.app.voice.VoiceController
 import com.handy.core.foreground.ForegroundAppMonitor
 import com.handy.core.history.ChatHistoryStore
@@ -68,6 +69,7 @@ class ChatViewModel @Inject constructor(
     private val chatTargetHandoffStore: ChatTargetHandoffStore,
     private val screenContextBuilder: ScreenContextBuilder,
     private val llmSessionBudget: LlmSessionBudget,
+    private val speechOutputController: SpeechOutputController,
 ) : ViewModel() {
 
     private val orchestrator = ConversationOrchestrator(
@@ -93,6 +95,7 @@ class ChatViewModel @Inject constructor(
     private var sendJob: Job? = null
     private var verbRotationJob: Job? = null
     private var showInAppActionCounter: Long = 0L
+    private var pendingVoiceTurnRequestId: String? = null
 
     init {
         _state.value = _state.value.copy(brainReady = computeBrainReady())
@@ -394,6 +397,7 @@ class ChatViewModel @Inject constructor(
                 contextFailureReason = turnContext.failureReason,
                 grounding = turnContext,
             )
+            pendingVoiceTurnRequestId = if (fromVoice) turnContext.requestId else null
 
             // Reset the per-turn search-tools buffer before the new stream.
             collectedSearchTools.clear()
@@ -419,6 +423,11 @@ class ChatViewModel @Inject constructor(
                         _state.value = _state.value.copy(streamingDelta = event.accumulated)
                     is OrchestrationEvent.AssistantTurnFinalized -> {
                         stopVerbRotation()
+                        val voiceTurnId = pendingVoiceTurnRequestId
+                        if (voiceTurnId != null && !event.ttsText.isNullOrBlank()) {
+                            speechOutputController.speakForVoiceTurn(voiceTurnId, event.ttsText)
+                        }
+                        pendingVoiceTurnRequestId = null
                         // Stamp the collected tool list onto the just-
                         // persisted assistant message so the italic
                         // "web searched · github searched" caption
@@ -443,6 +452,7 @@ class ChatViewModel @Inject constructor(
                     }
                     is OrchestrationEvent.Error -> {
                         stopVerbRotation()
+                        speechOutputController.stop("turn_error")
                         val accumulated = _state.value.streamingDelta
                         // Carry the pendingUserTurn into the overlay so
                         // failed turns still show both sides of the
@@ -465,6 +475,7 @@ class ChatViewModel @Inject constructor(
                             pendingUserTurn = null,
                             pendingShowInAppAction = null,
                         )
+                        pendingVoiceTurnRequestId = null
                     }
                     is OrchestrationEvent.ToolCall -> {
                         // Log the tool; the matching WebSearchStatus
@@ -504,6 +515,7 @@ class ChatViewModel @Inject constructor(
                             pendingUserTurn = null,
                             pendingShowInAppAction = null,
                         )
+                        pendingVoiceTurnRequestId = null
                     }
                 }
             }

@@ -108,8 +108,10 @@ submission documentation.
 
 - **Voice input and speech output**
   Push-to-talk voice uses Android SpeechRecognizer. Handy does not
-  listen in the background. Responses can separate a short spoken part
-  from a fuller written answer in chat.
+  listen in the background. Voice replies are spoken aloud via Android
+  system TTS using the short `[SPOKEN]` response, while chat can still
+  show a fuller written answer. Sarvam voice output is planned for
+  P-VOICE-2.
 
 - **Web tools, off by default**
   Web search can be enabled in Settings. When on, Claude can call Brave

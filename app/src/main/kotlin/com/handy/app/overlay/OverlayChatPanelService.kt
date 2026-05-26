@@ -23,6 +23,7 @@ import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.handy.app.chat.ChatActivity
 import com.handy.app.chat.ChatTargetHandoffStore
+import com.handy.app.voice.SpeechOutputController
 import com.handy.app.voice.VoiceController
 import com.handy.core.overlay.OverlayMode
 import com.handy.runtime.di.AccessibilityServiceProvider
@@ -54,6 +55,7 @@ class OverlayChatPanelService : LifecycleService() {
 
     @Inject lateinit var presenter: OverlayPresenter
     @Inject lateinit var voiceController: VoiceController
+    @Inject lateinit var speechOutputController: SpeechOutputController
     @Inject lateinit var panelBridge: OverlayPanelBridge
     @Inject lateinit var chatTargetHandoffStore: ChatTargetHandoffStore
     @Inject lateinit var accessibilityServiceProvider: AccessibilityServiceProvider
@@ -192,10 +194,12 @@ class OverlayChatPanelService : LifecycleService() {
 
     private fun buildCallbacks(): OverlayPanelCallbacks = OverlayPanelCallbacks(
         onDismiss = {
+            speechOutputController.stop("panel_dismissed")
             panelBridge.cancelVoiceFromPanel()
             presenter.dismissPanel()
         },
         onExpand = {
+            speechOutputController.stop("panel_dismissed")
             panelBridge.cancelVoiceFromPanel()
             val targetHandoffId = presenter.state.value.panel.snapshot
                 ?.let(chatTargetHandoffStore::put)

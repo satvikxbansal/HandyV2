@@ -233,7 +233,8 @@ fun UnifiedBuddyContent(
                         size = HandIconSize,
                         tint = HandyColors.Accent,
                     )
-                    BuddyState.LISTENING -> ListeningWaveformBars(
+                    BuddyState.LISTENING,
+                    BuddyState.AUDIO_SPEAKING -> ListeningWaveformBars(
                         color = HandyColors.Listening,
                         modifier = Modifier.padding(bottom = 2.dp),
                     )
@@ -302,7 +303,7 @@ fun ManualTargetFallbackChip(
 
 private fun tintFor(state: BuddyState): LensRenderer.Tint = when (state) {
     BuddyState.DOCKED, BuddyState.DRAGGING -> LensRenderer.Tint.Amber
-    BuddyState.LISTENING -> LensRenderer.Tint.Amber
+    BuddyState.LISTENING, BuddyState.AUDIO_SPEAKING -> LensRenderer.Tint.Amber
     BuddyState.THINKING, BuddyState.STREAMING, BuddyState.PREPARING_POINT -> LensRenderer.Tint.Amber
     BuddyState.FLYING, BuddyState.POINTING -> LensRenderer.Tint.Green
     BuddyState.CANCELLING -> LensRenderer.Tint.Amber
