@@ -10,6 +10,7 @@ import com.handy.core.foreground.ForegroundAppMonitor
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.LlmClient
 import com.handy.core.llm.LlmSessionBudget
+import com.handy.core.llm.ToolProvenance
 import com.handy.core.llm.ToolRunner
 import com.handy.core.llm.availableTools
 import com.handy.core.model.ChatMessage
@@ -469,6 +470,8 @@ class ChatViewModel @Inject constructor(
                                 chatText = event.chatText,
                                 snapshotOverride = turnContext.panelSnapshot,
                                 groundingSnapshot = turnContext,
+                                provenance = event.provenance,
+                                userUtterance = trimmed,
                             ),
                         )
                         if (tagged.isNotEmpty()) stampSearchToolsOnLastAssistant(tagged)
@@ -588,6 +591,8 @@ class ChatViewModel @Inject constructor(
         chatText: String,
         snapshotOverride: PanelSnapshot? = null,
         groundingSnapshot: GroundingSnapshot? = null,
+        provenance: ToolProvenance? = null,
+        userUtterance: String? = null,
     ): FullChatShowInAppAction? {
         val snapshot = snapshotOverride ?: targetSnapshot ?: return null
         if (!pointing.hasPointer) return null
@@ -599,6 +604,8 @@ class ChatViewModel @Inject constructor(
             pointing = pointing,
             snapshot = snapshot,
             groundingSnapshot = groundingSnapshot,
+            provenance = provenance,
+            userUtterance = userUtterance,
         )
     }
 

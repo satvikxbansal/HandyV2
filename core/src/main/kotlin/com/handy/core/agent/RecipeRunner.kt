@@ -5,6 +5,7 @@ import com.handy.core.action.ActionPolicyEngine
 import com.handy.core.action.AssistantAction
 import com.handy.core.action.ConfirmationLevel
 import com.handy.core.action.PerformResult
+import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
 import com.handy.core.intent.IntentResult
 import com.handy.core.screen.GroundingSnapshot
@@ -25,6 +26,7 @@ class RecipeRunner(
     private val sensitiveStepConfirmer: RecipeSensitiveStepConfirmer,
     private val verifier: RecipeStepVerifier = RecipeStepVerifier.Default,
     private val observer: RecipeRunObserver = RecipeRunObserver.Noop,
+    private val sourceTrustProvider: (RecipeStep) -> SourceTrust = { it.policySourceTrust() },
 ) {
     suspend fun run(plan: RecipePlan): RecipeRunResult {
         if (plan.steps.size > MAX_STEPS) {
@@ -58,7 +60,7 @@ class RecipeRunner(
                 action = step.policyAction(initial),
                 target = target,
                 grounding = initial,
-                sourceTrust = step.policySourceTrust(),
+                sourceTrust = sourceTrustProvider(step),
             ).let(step::applyConfirmationOverride)
             if (!decision.allowed) {
                 return RecipeRunResult.Refused(
@@ -100,7 +102,7 @@ class RecipeRunner(
                 action = step.policyAction(before),
                 target = target,
                 grounding = before,
-                sourceTrust = step.policySourceTrust(),
+                sourceTrust = sourceTrustProvider(step),
             ).let(step::applyConfirmationOverride)
             if (!decision.allowed) {
                 return RecipeRunResult.Refused(
@@ -125,7 +127,10 @@ class RecipeRunner(
                 }
             }
 
-            val performResult = step.perform(target.withGestureFallback(decision.allowGestureFallback))
+            val performResult = step.perform(
+                target = target.withGestureFallback(decision.allowGestureFallback),
+                sourceTrust = sourceTrustProvider(step),
+            )
             if (index < plan.steps.lastIndex && step.allowsPackageChangeAfter()) {
                 delay(PACKAGE_SETTLE_DELAY_MS)
             }
@@ -152,12 +157,15 @@ class RecipeRunner(
             .also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
     }
 
-    private suspend fun RecipeStep.perform(target: TapTarget?): PerformResult {
+    private suspend fun RecipeStep.perform(
+        target: TapTarget?,
+        sourceTrust: SourceTrust,
+    ): PerformResult {
         return when (val c = command) {
-            is RecipeCommand.Tap -> performer.tap(target ?: return PerformResult.NotFound)
-            is RecipeCommand.LongPress -> performer.longPress(target ?: return PerformResult.NotFound)
-            is RecipeCommand.TypeText -> performer.typeText(target ?: return PerformResult.NotFound, c.text)
-            is RecipeCommand.Scroll -> performer.scroll(c.direction, target)
+            is RecipeCommand.Tap -> performer.tap(target ?: return PerformResult.NotFound, sourceTrust)
+            is RecipeCommand.LongPress -> performer.longPress(target ?: return PerformResult.NotFound, sourceTrust)
+            is RecipeCommand.TypeText -> performer.typeText(target ?: return PerformResult.NotFound, c.text, sourceTrust)
+            is RecipeCommand.Scroll -> performer.scroll(c.direction, target, sourceTrust)
             is RecipeCommand.NativeAction -> intentDispatcher.dispatch(c.action).toPerformResult()
         }
     }

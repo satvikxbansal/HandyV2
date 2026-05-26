@@ -9,6 +9,7 @@ import com.handy.core.action.ConfirmationLevel
 import com.handy.core.action.SettingsTarget
 import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
+import com.handy.core.action.UiActionKind
 import com.handy.core.model.HandySettings
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.overlay.PanelSnapshot
@@ -147,6 +148,113 @@ class DefaultActionPolicyEngineTest {
 
         assertThat(decision.allowed).isFalse()
         assertThat(decision.reason).isEqualTo("tool-suggestion-only")
+    }
+
+    @Test fun `ui action destructive utterance requires strong hold`() {
+        val decision = engine().decide(
+            action = uiAction(userUtterance = "pay now"),
+            target = node(text = "Continue", resolverConfidence = 0.95f),
+            grounding = grounding(),
+            sourceTrust = SourceTrust.TRUSTED_USER,
+        )
+
+        assertThat(decision.allowed).isTrue()
+        assertThat(decision.confirmation).isEqualTo(ConfirmationLevel.STRONG_HOLD)
+        assertThat(decision.reason).isEqualTo("destructive-intent")
+    }
+
+    @Test fun `ui action benign utterance keeps normal confirmation`() {
+        val decision = engine().decide(
+            action = uiAction(userUtterance = "cancel"),
+            target = node(text = "Continue", resolverConfidence = 0.95f),
+            grounding = grounding(),
+            sourceTrust = SourceTrust.TRUSTED_USER,
+        )
+
+        assertThat(decision.allowed).isTrue()
+        assertThat(decision.confirmation).isEqualTo(ConfirmationLevel.NORMAL)
+        assertThat(decision.reason).isEqualTo("node-action-only")
+    }
+
+    @Test fun `ui action package hints are not treated as secret text`() {
+        val decision = engine().decide(
+            action = uiAction(
+                userUtterance = "open this",
+                proposedPackage = "com.pinterest",
+            ),
+            target = node(text = "Continue", expectedPackage = "com.pinterest", resolverConfidence = 0.95f),
+            grounding = grounding(packageName = "com.pinterest"),
+            sourceTrust = SourceTrust.TRUSTED_USER,
+        )
+
+        assertThat(decision.allowed).isTrue()
+        assertThat(decision.reason).isEqualTo("node-action-only")
+    }
+
+    @Test fun `ui action target send requires strong hold`() {
+        val decision = engine().decide(
+            action = uiAction(targetLabel = "Send"),
+            target = node(text = "Send", resolverConfidence = 0.95f),
+            grounding = grounding(),
+            sourceTrust = SourceTrust.TRUSTED_USER,
+        )
+
+        assertThat(decision.allowed).isTrue()
+        assertThat(decision.confirmation).isEqualTo(ConfirmationLevel.STRONG_HOLD)
+        assertThat(decision.reason).isEqualTo("destructive-intent")
+    }
+
+    @Test fun `untrusted ui action is denied as tool suggestion only`() {
+        val decision = engine().decide(
+            action = uiAction(userUtterance = "tap continue"),
+            target = node(text = "Continue", resolverConfidence = 0.95f),
+            grounding = grounding(),
+            sourceTrust = SourceTrust.UNTRUSTED_TOOL,
+        )
+
+        assertThat(decision.allowed).isFalse()
+        assertThat(decision.risk).isEqualTo(ActionRisk.HIGH)
+        assertThat(decision.reason).isEqualTo("tool-suggestion-only")
+    }
+
+    @Test fun `untrusted web search intent remains informational but requires strong hold`() {
+        val decision = engine().decide(
+            action = AssistantAction.WebSearchIntent("kotlin coroutines"),
+            target = null,
+            grounding = grounding(),
+            sourceTrust = SourceTrust.UNTRUSTED_TOOL,
+        )
+
+        assertThat(decision.allowed).isTrue()
+        assertThat(decision.confirmation).isEqualTo(ConfirmationLevel.STRONG_HOLD)
+        assertThat(decision.reason).isEqualTo("tool-suggestion-only")
+    }
+
+    @Test fun `untrusted ui type action is tool suggestion even when type for me is disabled`() {
+        val decision = engine(
+            settings = openSettings.copy(typeForMeEnabled = false),
+        ).decide(
+            action = uiAction(kind = UiActionKind.TYPE, typedText = "hello"),
+            target = node(role = "EditText", text = "Message", resolverConfidence = 0.95f),
+            grounding = grounding(),
+            sourceTrust = SourceTrust.UNTRUSTED_TOOL,
+        )
+
+        assertThat(decision.allowed).isFalse()
+        assertThat(decision.risk).isEqualTo(ActionRisk.HIGH)
+        assertThat(decision.reason).isEqualTo("tool-suggestion-only")
+    }
+
+    @Test fun `untrusted web search intent with sensitive query is still blocked`() {
+        val decision = engine().decide(
+            action = AssistantAction.WebSearchIntent("my card number is 4111 1111 1111 1111"),
+            target = null,
+            grounding = grounding(),
+            sourceTrust = SourceTrust.UNTRUSTED_TOOL,
+        )
+
+        assertThat(decision.allowed).isFalse()
+        assertThat(decision.reason).isEqualTo("sensitive-field")
     }
 
     @Test fun `send call and navigation start require strong hold with fresh snapshot`() {
@@ -634,6 +742,27 @@ class DefaultActionPolicyEngineTest {
             snapshotHash = ROOT_HASH,
             resolverConfidence = resolverConfidence,
             treeHash = treeHash,
+        )
+
+    private fun uiAction(
+        kind: UiActionKind = UiActionKind.TAP,
+        userUtterance: String? = null,
+        targetLabel: String? = "Continue",
+        targetRole: String? = "Button",
+        targetMarkId: String? = "m1",
+        targetViewId: String? = null,
+        typedText: String? = null,
+        proposedPackage: String? = "com.example.app",
+    ): AssistantAction.UiAction =
+        AssistantAction.UiAction(
+            kind = kind,
+            userUtterance = userUtterance,
+            targetLabel = targetLabel,
+            targetRole = targetRole,
+            targetMarkId = targetMarkId,
+            targetViewId = targetViewId,
+            typedText = typedText,
+            proposedPackage = proposedPackage,
         )
 
     private fun mark(

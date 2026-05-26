@@ -11,6 +11,7 @@ import com.handy.core.action.ActionCapability
 import com.handy.core.action.ActionPerformer
 import com.handy.core.action.PerformResult
 import com.handy.core.action.ScrollDirection
+import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
 import com.handy.core.audit.AuditAction
 import com.handy.core.audit.AuditEvent
@@ -66,13 +67,17 @@ class AccessibilityGestureActionPerformer(
         ActionCapability.TYPE,
     )
 
-    override suspend fun tap(target: TapTarget): PerformResult =
+    override suspend fun tap(target: TapTarget, sourceTrust: SourceTrust): PerformResult =
         perform(target, GestureKind.TAP, durationMs = TAP_DURATION_MS)
 
-    override suspend fun longPress(target: TapTarget): PerformResult =
+    override suspend fun longPress(target: TapTarget, sourceTrust: SourceTrust): PerformResult =
         perform(target, GestureKind.LONG_PRESS, durationMs = LONG_PRESS_DURATION_MS)
 
-    override suspend fun scroll(direction: ScrollDirection, target: TapTarget?): PerformResult {
+    override suspend fun scroll(
+        direction: ScrollDirection,
+        target: TapTarget?,
+        sourceTrust: SourceTrust,
+    ): PerformResult {
         val svc = service() ?: return audited(
             action = AuditAction.Scroll(direction.name),
             targetDescription = target?.describe() ?: "scroll:${direction.name}",
@@ -126,7 +131,11 @@ class AccessibilityGestureActionPerformer(
         return if (ok) PerformResult.Ok else PerformResult.Failed("scroll gesture cancelled")
     }
 
-    override suspend fun typeText(target: TapTarget, text: String): PerformResult {
+    override suspend fun typeText(
+        target: TapTarget,
+        text: String,
+        sourceTrust: SourceTrust,
+    ): PerformResult {
         service() ?: return audited(
             action = AuditAction.TypeText,
             targetDescription = target.describeWithTypedText(text),

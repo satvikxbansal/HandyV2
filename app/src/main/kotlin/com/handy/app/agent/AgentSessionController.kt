@@ -13,6 +13,7 @@ import com.handy.core.action.ConfirmationLevel
 import com.handy.core.action.PerformResult
 import com.handy.core.action.PolicyDecision
 import com.handy.core.action.ScrollDirection
+import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
 import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipePlanConfirmer
@@ -30,6 +31,7 @@ import com.handy.core.agent.RecipeStep
 import com.handy.core.agent.RecipeStepPolicyCheck
 import com.handy.core.agent.UserGoal
 import com.handy.core.parsing.AssistantMarkupParser
+import com.handy.core.llm.ToolProvenance
 import com.handy.core.screen.GroundingSnapshot
 import com.handy.core.screen.TurnSource
 import com.handy.core.tool.ToolContext
@@ -68,6 +70,7 @@ class AgentSessionController @Inject constructor(
         initialGrounding: GroundingSnapshot,
         source: TurnSource,
         toolContext: ToolContext,
+        provenance: ToolProvenance? = null,
     ): Boolean {
         val goal = UserGoal.fromAssistantText(assistantText)
         if (goal.requestedRecipe == null && goal.requestedIntent == null) return false
@@ -86,7 +89,7 @@ class AgentSessionController @Inject constructor(
             }
             is RecipeProposal.Proposed -> {
                 val plan = proposal.plan
-                val preflight = preflight(plan, initialGrounding)
+                val preflight = preflight(plan, initialGrounding, provenance)
                 val denied = preflight.firstOrNull { !it.decision.allowed }
                 if (denied != null) {
                     showError("policy refused ${denied.step.title}: ${denied.decision.reason ?: "denied"}")
@@ -106,6 +109,7 @@ class AgentSessionController @Inject constructor(
                     userText = userText,
                     source = source,
                     toolContext = toolContext,
+                    provenance = provenance,
                 )
                 return true
             }
@@ -115,6 +119,7 @@ class AgentSessionController @Inject constructor(
     private fun preflight(
         plan: RecipePlan,
         grounding: GroundingSnapshot,
+        provenance: ToolProvenance?,
     ): List<RecipeStepPolicyCheck> {
         var deferredScreen = false
         return plan.steps.map { step ->
@@ -129,7 +134,7 @@ class AgentSessionController @Inject constructor(
                     action = step.policyAction(grounding),
                     target = target,
                     grounding = grounding,
-                    sourceTrust = step.policySourceTrust(),
+                    sourceTrust = step.sourceTrust(provenance),
                 ).let(step::applyConfirmationOverride)
             }
             if ((step.command as? RecipeCommand.NativeAction)?.allowPackageChangeAfter == true) {
@@ -168,6 +173,7 @@ class AgentSessionController @Inject constructor(
         userText: String,
         source: TurnSource,
         toolContext: ToolContext,
+        provenance: ToolProvenance?,
     ) {
         suspend fun recipeGrounding(): GroundingSnapshot =
             screenContextBuilder.build(
@@ -184,6 +190,7 @@ class AgentSessionController @Inject constructor(
                 delegate = actionPerformer,
                 flightDriver = flightDriver,
                 snapshotProvider = ::recipeGrounding,
+                provenance = provenance,
             )
         } else {
             actionPerformer
@@ -200,6 +207,7 @@ class AgentSessionController @Inject constructor(
                 requestSensitiveStepApproval(plan, step, decision)
             },
             observer = RecipeRunObserver { event -> onRunEvent(event) },
+            sourceTrustProvider = { step -> step.sourceTrust(provenance) },
         )
         val result = runCatching { runner.run(plan) }
             .onFailure { Timber.w(it, "Agent recipe run failed") }
@@ -326,6 +334,13 @@ class AgentSessionController @Inject constructor(
         is RecipeRunResult.VerificationFailed -> "recipe could not verify $stepId: $reason"
     }
 
+    private fun RecipeStep.sourceTrust(provenance: ToolProvenance?): SourceTrust =
+        if (provenance?.isUntrusted == true) {
+            SourceTrust.UNTRUSTED_TOOL
+        } else {
+            policySourceTrust()
+        }
+
     private fun RecipePlan.rideCompletionMessage(): String? =
         rideRecipeAppLabels[recipeId]?.let { app ->
             "Ready to go — tap Confirm in $app when you're ready."
@@ -350,25 +365,34 @@ private class ChromeOmniboxFlightActionPerformer(
     private val delegate: ActionPerformer,
     private val flightDriver: BuddyFlightDriver,
     private val snapshotProvider: suspend () -> GroundingSnapshot,
+    private val provenance: ToolProvenance?,
 ) : ActionPerformer {
 
     override val capabilities: Set<ActionCapability>
         get() = delegate.capabilities
 
-    override suspend fun tap(target: TapTarget): PerformResult =
-        delegate.tap(target)
+    override suspend fun tap(target: TapTarget, sourceTrust: SourceTrust): PerformResult =
+        delegate.tap(target, sourceTrust)
 
-    override suspend fun longPress(target: TapTarget): PerformResult =
-        delegate.longPress(target)
+    override suspend fun longPress(target: TapTarget, sourceTrust: SourceTrust): PerformResult =
+        delegate.longPress(target, sourceTrust)
 
-    override suspend fun scroll(direction: ScrollDirection, target: TapTarget?): PerformResult =
-        delegate.scroll(direction, target)
+    override suspend fun scroll(
+        direction: ScrollDirection,
+        target: TapTarget?,
+        sourceTrust: SourceTrust,
+    ): PerformResult =
+        delegate.scroll(direction, target, sourceTrust)
 
-    override suspend fun typeText(target: TapTarget, text: String): PerformResult {
+    override suspend fun typeText(
+        target: TapTarget,
+        text: String,
+        sourceTrust: SourceTrust,
+    ): PerformResult {
         val node = target as? TapTarget.AtNode
-            ?: return delegate.typeText(target, text)
+            ?: return delegate.typeText(target, text, sourceTrust)
         if (!node.isChromeOmniboxTarget()) {
-            return delegate.typeText(target, text)
+            return delegate.typeText(target, text, sourceTrust)
         }
 
         val grounding = snapshotProvider().withChromeToolContext(node)
@@ -379,6 +403,8 @@ private class ChromeOmniboxFlightActionPerformer(
             targetLabel = "Chrome address bar",
             fallbackMarks = grounding.panelSnapshot?.marks.orEmpty(),
             groundingSnapshot = grounding,
+            provenance = provenance,
+            defaultSourceTrust = sourceTrust,
         )
         return if (landed) PerformResult.Ok else PerformResult.Failed("chrome-omnibox-flight-failed")
     }

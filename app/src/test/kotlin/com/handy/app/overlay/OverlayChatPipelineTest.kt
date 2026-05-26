@@ -156,7 +156,7 @@ class OverlayChatPipelineTest {
 
         val agentSessionController = mockk<AgentSessionController>()
         coEvery {
-            agentSessionController.runIfRecipeRequested(any(), any(), any(), any(), any())
+            agentSessionController.runIfRecipeRequested(any(), any(), any(), any(), any(), any())
         } returns false
 
         val pipeline = OverlayChatPipeline(

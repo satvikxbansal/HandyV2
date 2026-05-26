@@ -330,6 +330,8 @@ User
    settings, tools, screen text, web state, and reduced-mode state.
 4. Claude streams a response. Tool calls run through `HandyToolRunner`
    and policy gates.
+   When Handy uses web tools, it can summarise but cannot act on the
+   page's instructions.
 5. Pointer markup is parsed into a semantic target. Guidance routes to
    buddy flight; executable requests route to the recipe controller only
    when automation is enabled.

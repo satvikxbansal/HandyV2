@@ -7,6 +7,7 @@ import com.handy.core.action.PolicyDecision
 import com.handy.core.action.ScrollDirection
 import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
+import com.handy.core.action.UiActionKind
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.screen.GroundingSnapshot
 import com.handy.core.screen.UiNode
@@ -30,10 +31,30 @@ data class RecipeStep(
 
     fun policyAction(grounding: GroundingSnapshot): AssistantAction = when (command) {
         is RecipeCommand.NativeAction -> command.action
-        is RecipeCommand.TypeText -> AssistantAction.TypeText(command.text)
-        else -> AssistantAction.OpenApp(
-            packageHint = grounding.screenText?.packageName
-                ?: grounding.toolContext.packageName,
+        is RecipeCommand.Tap -> command.target.uiAction(
+            kind = UiActionKind.TAP,
+            typedText = null,
+            proposedPackage = grounding.policyPackage(),
+        )
+        is RecipeCommand.LongPress -> command.target.uiAction(
+            kind = UiActionKind.LONG_PRESS,
+            typedText = null,
+            proposedPackage = grounding.policyPackage(),
+        )
+        is RecipeCommand.TypeText -> command.target.uiAction(
+            kind = UiActionKind.TYPE,
+            typedText = command.text,
+            proposedPackage = grounding.policyPackage(),
+        )
+        is RecipeCommand.Scroll -> command.target.uiAction(
+            kind = when (command.direction) {
+                ScrollDirection.UP -> UiActionKind.SCROLL_UP
+                ScrollDirection.DOWN -> UiActionKind.SCROLL_DOWN
+                ScrollDirection.LEFT -> UiActionKind.SCROLL_LEFT
+                ScrollDirection.RIGHT -> UiActionKind.SCROLL_RIGHT
+            },
+            typedText = null,
+            proposedPackage = grounding.policyPackage(),
         )
     }
 
@@ -71,6 +92,27 @@ data class RecipeStep(
             ),
         )
 }
+
+private fun RecipeTarget?.uiAction(
+    kind: UiActionKind,
+    typedText: String?,
+    proposedPackage: String?,
+): AssistantAction.UiAction {
+    val node = this as? RecipeTarget.Node
+    return AssistantAction.UiAction(
+        kind = kind,
+        userUtterance = null,
+        targetLabel = node?.text ?: node?.desc ?: this?.displayLabel(),
+        targetRole = node?.role,
+        targetMarkId = node?.markId,
+        targetViewId = node?.viewId,
+        typedText = typedText,
+        proposedPackage = proposedPackage,
+    )
+}
+
+private fun GroundingSnapshot.policyPackage(): String? =
+    screenText?.packageName ?: toolContext.packageName.takeIf { it.isNotBlank() }
 
 sealed class RecipeCommand {
     abstract val target: RecipeTarget?

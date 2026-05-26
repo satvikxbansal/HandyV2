@@ -4,6 +4,7 @@ import com.handy.core.action.ActionCapability
 import com.handy.core.action.ActionPerformer
 import com.handy.core.action.PerformResult
 import com.handy.core.action.ScrollDirection
+import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
 import timber.log.Timber
 
@@ -18,12 +19,24 @@ class NoopActionPerformer : ActionPerformer {
 
     override val capabilities: Set<ActionCapability> = emptySet()
 
-    override suspend fun tap(target: TapTarget): PerformResult = unsupported("tap", target)
-    override suspend fun longPress(target: TapTarget): PerformResult = unsupported("longPress", target)
-    override suspend fun scroll(direction: ScrollDirection, target: TapTarget?): PerformResult =
+    override suspend fun tap(target: TapTarget, sourceTrust: SourceTrust): PerformResult =
+        unsupported("tap", target)
+
+    override suspend fun longPress(target: TapTarget, sourceTrust: SourceTrust): PerformResult =
+        unsupported("longPress", target)
+
+    override suspend fun scroll(
+        direction: ScrollDirection,
+        target: TapTarget?,
+        sourceTrust: SourceTrust,
+    ): PerformResult =
         unsupported("scroll($direction)", target)
 
-    override suspend fun typeText(target: TapTarget, text: String): PerformResult =
+    override suspend fun typeText(
+        target: TapTarget,
+        text: String,
+        sourceTrust: SourceTrust,
+    ): PerformResult =
         unsupported("typeText", target)
 
     private fun unsupported(action: String, target: TapTarget?): PerformResult {

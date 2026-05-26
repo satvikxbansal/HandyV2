@@ -24,9 +24,11 @@ data class LlmRequest(
     val maxTokens: Int = 2048,
     /** Optional provider-specific model override. Falls back to provider default. */
     val modelOverride: String? = null,
+    val turnId: String? = null,
 ) {
     override fun toString(): String =
         "LlmRequest(systemPrompt=[redacted:${systemPrompt.length} chars], " +
             "messages=${messages.size}, images=${images.size}, screenText=${screenText != null}, " +
-            "tools=${tools.map { it.name }}, maxTokens=$maxTokens, modelOverride=$modelOverride)"
+            "tools=${tools.map { it.name }}, maxTokens=$maxTokens, modelOverride=$modelOverride, " +
+            "turnId=$turnId)"
 }

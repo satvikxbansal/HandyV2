@@ -7,6 +7,7 @@ import com.handy.app.screen.ScreenContextBuilder
 import com.handy.app.voice.SpeechOutputController
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.LlmClient
+import com.handy.core.llm.ToolProvenance
 import com.handy.core.llm.ToolRunner
 import com.handy.core.llm.availableTools
 import com.handy.core.model.LoadingVerbs
@@ -180,6 +181,7 @@ class OverlayChatPipeline @Inject constructor(
             var finalChatText = ""
             var finalOverlaySpoken: String? = null
             var pointing: AssistantMarkupParser.PointingResult? = null
+            var provenance: ToolProvenance? = null
             runCatching {
                 orchestrator.converse(request).collect { event ->
                     when (event) {
@@ -194,6 +196,7 @@ class OverlayChatPipeline @Inject constructor(
                             finalOverlaySpoken = event.overlaySpokenText
                                 ?: fallbackOverlayClamp(event.chatText)
                             pointing = event.pointing
+                            provenance = event.provenance
                             if (fromVoice && !event.ttsText.isNullOrBlank()) {
                                 speechOutputController.speakForVoiceTurn(
                                     requestId = turnContext.requestId,
@@ -244,6 +247,7 @@ class OverlayChatPipeline @Inject constructor(
                     initialGrounding = turnContext,
                     source = if (fromVoice) TurnSource.OVERLAY_VOICE else TurnSource.OVERLAY_PANEL,
                     toolContext = toolContext,
+                    provenance = provenance,
                 )
                 if (recipeHandled) {
                     Timber.d("OverlayChatPipeline: recipe directive handled")
@@ -292,6 +296,8 @@ class OverlayChatPipeline @Inject constructor(
                             targetLabel = targetLabel,
                             fallbackMarks = fallbackMarks,
                             groundingSnapshot = turnContext,
+                            provenance = provenance,
+                            userUtterance = userText,
                         )
                     } else {
                         flightDriver.flyTo(
@@ -299,6 +305,7 @@ class OverlayChatPipeline @Inject constructor(
                             label = bubbleLabel,
                             fallbackMarks = fallbackMarks,
                             groundingSnapshot = turnContext,
+                            provenance = provenance,
                         )
                     }
                 }

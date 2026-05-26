@@ -88,6 +88,7 @@ class GeminiCloudLlmClient(
         }
         val model = request.modelOverride ?: defaultModel
         var contents = buildInitialContents(request)
+        val turnId = request.turnId ?: "legacy"
         var iteration = 0
         while (iteration++ < MAX_TOOL_ITERATIONS) {
             val outcome = runCatching {
@@ -108,7 +109,7 @@ class GeminiCloudLlmClient(
             // + a user turn with function_response parts.
             val modelParts = outcome.rawParts
             val functionResponses = outcome.functionCalls.map { call ->
-                val result = runCatching { runner.run(call.name, call.arguments.toString()) }
+                val result = runCatching { runner.run(turnId, call.name, call.arguments.toString()) }
                     .getOrElse { t ->
                         com.handy.core.llm.ToolResult.Failed(t.message ?: t::class.simpleName.orEmpty())
                     }

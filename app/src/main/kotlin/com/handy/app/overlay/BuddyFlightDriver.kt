@@ -29,6 +29,7 @@ import com.handy.core.action.ConfirmationLevel
 import com.handy.core.action.PerformResult
 import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
+import com.handy.core.action.UiActionKind
 import com.handy.core.audit.AuditAction
 import com.handy.core.audit.AuditEvent
 import com.handy.core.audit.AuditResult
@@ -41,6 +42,7 @@ import com.handy.core.overlay.FlightFsm
 import com.handy.core.overlay.OverlayMode
 import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.privacy.ScreenRedactor
+import com.handy.core.llm.ToolProvenance
 import com.handy.core.screen.GroundingSnapshot
 import com.handy.core.screen.IntRect
 import com.handy.core.screen.TurnSource
@@ -133,6 +135,7 @@ class BuddyFlightDriver @Inject constructor(
         label: String?,
         fallbackMarks: List<AccessibilityMark> = emptyList(),
         groundingSnapshot: GroundingSnapshot? = null,
+        provenance: ToolProvenance? = null,
     ): Boolean {
         val flight = resolveForFlight(
             spec = spec,
@@ -381,6 +384,9 @@ class BuddyFlightDriver @Inject constructor(
         targetLabel: String?,
         fallbackMarks: List<AccessibilityMark> = emptyList(),
         groundingSnapshot: GroundingSnapshot? = null,
+        provenance: ToolProvenance? = null,
+        userUtterance: String? = null,
+        defaultSourceTrust: SourceTrust = SourceTrust.TRUSTED_USER,
     ): Boolean {
         val flight = resolveForFlight(
             spec = spec,
@@ -411,25 +417,33 @@ class BuddyFlightDriver @Inject constructor(
             ?: grounding.toolContext.packageName.takeIf { it.isNotBlank() }
             ?: flight.targetPackage
             ?: "unknown"
+        val sourceTrust = provenance.toActionSourceTrust(defaultSourceTrust)
+        val action = tapTarget.uiAction(
+            kind = UiActionKind.TAP,
+            typedText = null,
+            proposedPackage = policyPackage,
+            userUtterance = userUtterance,
+            fallbackLabel = targetLabel,
+        )
         if (!promptForTapFirstUseDisclosureIfNeeded()) {
             dismissPointingAfterUserInteraction("action_disclosure_declined")
             return false
         }
         var decision = policyEngine.decide(
-            action = AssistantAction.OpenApp(packageHint = policyPackage),
+            action = action,
             target = tapTarget,
             grounding = grounding,
-            sourceTrust = SourceTrust.TRUSTED_RECIPE,
+            sourceTrust = sourceTrust,
         )
         if (!decision.allowed && decision.reason == "gate-closed" &&
             ActionExecutionGate.gesturesAllowed(settings.current())
         ) {
             delay(POLICY_REFRESH_RETRY_DELAY_MS)
             decision = policyEngine.decide(
-                action = AssistantAction.OpenApp(packageHint = policyPackage),
+                action = action,
                 target = tapTarget,
                 grounding = grounding,
-                sourceTrust = SourceTrust.TRUSTED_RECIPE,
+                sourceTrust = sourceTrust,
             )
         }
         if (!decision.allowed) {
@@ -476,7 +490,7 @@ class BuddyFlightDriver @Inject constructor(
         presenter.onActionStarted("tapping $displayLabel")
         val performTarget = tapTarget.copy(allowGestureFallback = decision.allowGestureFallback)
         val result = runCatching {
-            actionPerformer.tap(performTarget)
+            actionPerformer.tap(performTarget, sourceTrust)
         }.onFailure { Timber.w(it, "BuddyFlightDriver tap failed") }.getOrNull()
         auditTapForMe(
             tapTarget = performTarget,
@@ -496,6 +510,9 @@ class BuddyFlightDriver @Inject constructor(
         targetLabel: String?,
         fallbackMarks: List<AccessibilityMark> = emptyList(),
         groundingSnapshot: GroundingSnapshot? = null,
+        provenance: ToolProvenance? = null,
+        userUtterance: String? = null,
+        defaultSourceTrust: SourceTrust = SourceTrust.TRUSTED_USER,
     ): Boolean {
         val flight = resolveForFlight(
             spec = spec,
@@ -527,11 +544,18 @@ class BuddyFlightDriver @Inject constructor(
             ?: grounding.toolContext.packageName.takeIf { it.isNotBlank() }
             ?: flight.targetPackage
             ?: "unknown"
+        val sourceTrust = provenance.toActionSourceTrust(defaultSourceTrust)
         val decision = policyEngine.decide(
-            action = AssistantAction.TypeText(text),
+            action = typeTarget.uiAction(
+                kind = UiActionKind.TYPE,
+                typedText = text,
+                proposedPackage = policyPackage,
+                userUtterance = userUtterance,
+                fallbackLabel = targetLabel,
+            ),
             target = typeTarget,
             grounding = grounding,
-            sourceTrust = SourceTrust.TRUSTED_RECIPE,
+            sourceTrust = sourceTrust,
         )
         if (!decision.allowed) {
             val reason = decision.reason ?: "policy-denied"
@@ -577,7 +601,7 @@ class BuddyFlightDriver @Inject constructor(
 
         presenter.onActionStarted("typing in $displayLabel")
         val result = runCatching {
-            actionPerformer.typeText(typeTarget, confirmedText)
+            actionPerformer.typeText(typeTarget, confirmedText, sourceTrust)
         }.onFailure { Timber.w(it, "BuddyFlightDriver type failed") }.getOrNull()
         auditTypeForMe(
             typeTarget = typeTarget,
@@ -1046,6 +1070,27 @@ class BuddyFlightDriver @Inject constructor(
 
     private fun IntRect.logSummary(): String =
         "$left,$top-$right,$bottom"
+
+    private fun ToolProvenance?.toActionSourceTrust(defaultSourceTrust: SourceTrust): SourceTrust =
+        if (this?.isUntrusted == true) SourceTrust.UNTRUSTED_TOOL else defaultSourceTrust
+
+    private fun TapTarget.AtNode.uiAction(
+        kind: UiActionKind,
+        typedText: String?,
+        proposedPackage: String?,
+        userUtterance: String?,
+        fallbackLabel: String?,
+    ): AssistantAction.UiAction =
+        AssistantAction.UiAction(
+            kind = kind,
+            userUtterance = userUtterance,
+            targetLabel = text ?: desc ?: fallbackLabel,
+            targetRole = role,
+            targetMarkId = markId,
+            targetViewId = viewId,
+            typedText = typedText,
+            proposedPackage = proposedPackage,
+        )
 
     private fun fallbackGroundingFor(
         flight: FlightResolution,

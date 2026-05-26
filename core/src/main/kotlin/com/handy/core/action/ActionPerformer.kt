@@ -13,10 +13,27 @@ package com.handy.core.action
  */
 interface ActionPerformer {
 
-    suspend fun tap(target: TapTarget): PerformResult
-    suspend fun longPress(target: TapTarget): PerformResult
-    suspend fun scroll(direction: ScrollDirection, target: TapTarget?): PerformResult
-    suspend fun typeText(target: TapTarget, text: String): PerformResult
+    suspend fun tap(
+        target: TapTarget,
+        sourceTrust: SourceTrust = SourceTrust.TRUSTED_USER,
+    ): PerformResult
+
+    suspend fun longPress(
+        target: TapTarget,
+        sourceTrust: SourceTrust = SourceTrust.TRUSTED_USER,
+    ): PerformResult
+
+    suspend fun scroll(
+        direction: ScrollDirection,
+        target: TapTarget?,
+        sourceTrust: SourceTrust = SourceTrust.TRUSTED_USER,
+    ): PerformResult
+
+    suspend fun typeText(
+        target: TapTarget,
+        text: String,
+        sourceTrust: SourceTrust = SourceTrust.TRUSTED_USER,
+    ): PerformResult
 
     val capabilities: Set<ActionCapability>
 }

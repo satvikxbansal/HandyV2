@@ -8,6 +8,7 @@ import com.handy.core.action.PerformResult
 import com.handy.core.action.ScrollDirection
 import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
+import com.handy.core.action.UiActionKind
 import com.handy.core.screen.GroundingSnapshot
 import com.handy.core.screen.IntRect
 import com.handy.core.screen.TurnSource
@@ -29,43 +30,58 @@ class PolicyGuardedActionPerformer @Inject constructor(
     override val capabilities: Set<ActionCapability>
         get() = delegate.capabilities
 
-    override suspend fun tap(target: TapTarget): PerformResult =
-        guard(kind = "tap", target = target) { guardedTarget ->
-            delegate.tap(guardedTarget ?: target)
+    override suspend fun tap(target: TapTarget, sourceTrust: SourceTrust): PerformResult =
+        guard(kind = "tap", target = target, sourceTrust = sourceTrust) { guardedTarget ->
+            delegate.tap(guardedTarget ?: target, sourceTrust)
         }
 
-    override suspend fun longPress(target: TapTarget): PerformResult =
-        guard(kind = "long_press", target = target) { guardedTarget ->
-            delegate.longPress(guardedTarget ?: target)
+    override suspend fun longPress(target: TapTarget, sourceTrust: SourceTrust): PerformResult =
+        guard(kind = "long_press", target = target, sourceTrust = sourceTrust) { guardedTarget ->
+            delegate.longPress(guardedTarget ?: target, sourceTrust)
         }
 
-    override suspend fun scroll(direction: ScrollDirection, target: TapTarget?): PerformResult =
-        guard(kind = "scroll_${direction.name.lowercase()}", target = target) {
-            delegate.scroll(direction, it)
+    override suspend fun scroll(
+        direction: ScrollDirection,
+        target: TapTarget?,
+        sourceTrust: SourceTrust,
+    ): PerformResult =
+        guard(kind = "scroll_${direction.name.lowercase()}", target = target, sourceTrust = sourceTrust) {
+            delegate.scroll(direction, it, sourceTrust)
         }
 
-    override suspend fun typeText(target: TapTarget, text: String): PerformResult =
-        guard(kind = "type_text", target = target, text = text) {
-            delegate.typeText(it ?: target, text)
+    override suspend fun typeText(
+        target: TapTarget,
+        text: String,
+        sourceTrust: SourceTrust,
+    ): PerformResult =
+        guard(kind = "type_text", target = target, text = text, sourceTrust = sourceTrust) {
+            delegate.typeText(it ?: target, text, sourceTrust)
         }
 
     private suspend fun guard(
         kind: String,
         target: TapTarget?,
         text: String? = null,
+        sourceTrust: SourceTrust,
         perform: suspend (TapTarget?) -> PerformResult,
     ): PerformResult {
         val grounding = liveGroundingFor(target)
-        val action = if (kind == "type_text") {
-            AssistantAction.TypeText(text.orEmpty())
-        } else {
-            AssistantAction.OpenApp(packageHint = target.packageNameOrNull() ?: grounding.toolContext.packageName)
-        }
+        val node = target as? TapTarget.AtNode
+        val action = AssistantAction.UiAction(
+            kind = kind.toUiActionKind(),
+            userUtterance = null,
+            targetLabel = node?.text,
+            targetRole = node?.role,
+            targetMarkId = node?.markId,
+            targetViewId = node?.viewId,
+            typedText = text,
+            proposedPackage = target.packageNameOrNull() ?: grounding.toolContext.packageName,
+        )
         val decision = policyEngine.decide(
             action = action,
             target = target,
             grounding = grounding,
-            sourceTrust = SourceTrust.TRUSTED_RECIPE,
+            sourceTrust = sourceTrust,
         )
         if (!decision.allowed) {
             return PerformResult.Failed("policy:${decision.reason ?: "denied"}")
@@ -113,6 +129,17 @@ class PolicyGuardedActionPerformer @Inject constructor(
             is TapTarget.AtNode -> copy(allowGestureFallback = allowed)
             else -> this
         }
+
+    private fun String.toUiActionKind(): UiActionKind = when (this) {
+        "tap" -> UiActionKind.TAP
+        "long_press" -> UiActionKind.LONG_PRESS
+        "type_text" -> UiActionKind.TYPE
+        "scroll_up" -> UiActionKind.SCROLL_UP
+        "scroll_down" -> UiActionKind.SCROLL_DOWN
+        "scroll_left" -> UiActionKind.SCROLL_LEFT
+        "scroll_right" -> UiActionKind.SCROLL_RIGHT
+        else -> error("unknown kind: $this")
+    }
 
     private companion object {
         const val UNKNOWN_PACKAGE = "unknown"

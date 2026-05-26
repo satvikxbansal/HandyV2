@@ -110,6 +110,19 @@ sealed class AssistantAction {
     @SerialName("type_text")
     data class TypeText(val text: String) : AssistantAction()
 
+    @Serializable
+    @SerialName("ui_action")
+    data class UiAction(
+        val kind: UiActionKind,
+        val userUtterance: String?,
+        val targetLabel: String?,
+        val targetRole: String?,
+        val targetMarkId: String?,
+        val targetViewId: String?,
+        val typedText: String? = null,
+        val proposedPackage: String?,
+    ) : AssistantAction()
+
     /** Subset that requires explicit user confirmation before dispatching. */
     val isDestructive: Boolean
         get() = when (this) {
@@ -120,6 +133,17 @@ sealed class AssistantAction {
             is ShareUrl -> true
             else -> false
         }
+}
+
+@Serializable
+enum class UiActionKind {
+    TAP,
+    LONG_PRESS,
+    SCROLL_UP,
+    SCROLL_DOWN,
+    SCROLL_LEFT,
+    SCROLL_RIGHT,
+    TYPE,
 }
 
 /** Settings deep-link targets for `AssistantAction.OpenSettings`. */

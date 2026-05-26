@@ -30,11 +30,30 @@ interface ToolRunner {
     fun beginTurn() = Unit
 
     /**
+     * Called at the start of a concrete user turn. Implementations that
+     * track provenance should key their state by [turnId].
+     */
+    fun beginTurn(turnId: String) {
+        beginTurn()
+    }
+
+    /**
      * Runs the named tool. [inputJson] is Claude's raw input payload as
      * JSON — the runner is responsible for parsing it against the
      * schema that was advertised in [ToolDefinition.inputSchemaJson].
      */
     suspend fun run(name: String, inputJson: String): ToolResult
+
+    /**
+     * Runs a tool as part of [turnId]. Older runners can ignore the turn
+     * id; provenance-aware runners override this overload.
+     */
+    suspend fun run(turnId: String, name: String, inputJson: String): ToolResult =
+        run(name, inputJson)
+
+    fun currentTurnProvenance(turnId: String): ToolProvenance? = null
+
+    fun onTurnEnd(turnId: String) = Unit
 }
 
 sealed class ToolResult {

@@ -392,25 +392,33 @@ class RecipeRunnerTest {
             ActionCapability.LONG_PRESS,
         )
 
-        override suspend fun tap(target: TapTarget): PerformResult {
+        override suspend fun tap(target: TapTarget, sourceTrust: SourceTrust): PerformResult {
             targets += target
             calls += "tap:${target.label()}"
             return PerformResult.Ok
         }
 
-        override suspend fun longPress(target: TapTarget): PerformResult {
+        override suspend fun longPress(target: TapTarget, sourceTrust: SourceTrust): PerformResult {
             targets += target
             calls += "long:${target.label()}"
             return PerformResult.Ok
         }
 
-        override suspend fun scroll(direction: ScrollDirection, target: TapTarget?): PerformResult {
+        override suspend fun scroll(
+            direction: ScrollDirection,
+            target: TapTarget?,
+            sourceTrust: SourceTrust,
+        ): PerformResult {
             target?.let { targets += it }
             calls += "scroll:${direction.name.lowercase()}"
             return PerformResult.Ok
         }
 
-        override suspend fun typeText(target: TapTarget, text: String): PerformResult {
+        override suspend fun typeText(
+            target: TapTarget,
+            text: String,
+            sourceTrust: SourceTrust,
+        ): PerformResult {
             targets += target
             calls += "type:$text"
             return PerformResult.Ok

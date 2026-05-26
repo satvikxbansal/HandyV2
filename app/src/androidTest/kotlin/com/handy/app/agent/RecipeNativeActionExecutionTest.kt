@@ -85,11 +85,24 @@ class RecipeNativeActionExecutionTest {
 
     private object NoopPerformer : com.handy.core.action.ActionPerformer {
         override val capabilities: Set<ActionCapability> = emptySet()
-        override suspend fun tap(target: TapTarget): PerformResult = PerformResult.Unsupported("unused")
-        override suspend fun longPress(target: TapTarget): PerformResult = PerformResult.Unsupported("unused")
-        override suspend fun scroll(direction: ScrollDirection, target: TapTarget?): PerformResult =
+        override suspend fun tap(target: TapTarget, sourceTrust: SourceTrust): PerformResult =
             PerformResult.Unsupported("unused")
-        override suspend fun typeText(target: TapTarget, text: String): PerformResult =
+
+        override suspend fun longPress(target: TapTarget, sourceTrust: SourceTrust): PerformResult =
+            PerformResult.Unsupported("unused")
+
+        override suspend fun scroll(
+            direction: ScrollDirection,
+            target: TapTarget?,
+            sourceTrust: SourceTrust,
+        ): PerformResult =
+            PerformResult.Unsupported("unused")
+
+        override suspend fun typeText(
+            target: TapTarget,
+            text: String,
+            sourceTrust: SourceTrust,
+        ): PerformResult =
             PerformResult.Unsupported("unused")
     }
 

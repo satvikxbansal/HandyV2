@@ -5,6 +5,7 @@ import com.handy.core.llm.LlmChunk
 import com.handy.core.llm.LlmClient
 import com.handy.core.llm.LlmRequest
 import com.handy.core.llm.ToolDefinition
+import com.handy.core.llm.ToolProvenance
 import com.handy.core.llm.ToolRunner
 import com.handy.core.model.ChatMessage
 import com.handy.core.model.CloudProvider
@@ -53,6 +54,9 @@ class ConversationOrchestrator(
     ): Flow<OrchestrationEvent> = flow {
         emit(OrchestrationEvent.LoadingVerb(LoadingVerbs.random(rng)))
 
+        val turnId = request.grounding.requestId
+            .takeIf { it.isNotBlank() && it != "legacy" }
+            ?: "turn-${uuid()}"
         val toolKey = request.toolContext.historyKey
         val priorHistory = historyStore.load(toolKey)
 
@@ -148,6 +152,7 @@ class ConversationOrchestrator(
             screenText = screenTextForPrompt,
             tools = effectiveTools,
             modelOverride = request.settings.cloudModelOverrideForSelectedProvider(),
+            turnId = turnId,
         )
 
         val introPrefix = when (mode) {
@@ -160,9 +165,11 @@ class ConversationOrchestrator(
 
         var accumulated = ""
         val collectedSearchTools = mutableListOf<String>()
+        var toolTurnStarted = false
 
         val stream = if (llmRequest.tools.isNotEmpty() && toolRunner != null) {
-            toolRunner.beginTurn()
+            toolRunner.beginTurn(turnId)
+            toolTurnStarted = true
             llmClient.streamToolAwareChat(llmRequest, toolRunner)
         } else {
             llmClient.streamChat(llmRequest)
@@ -200,6 +207,7 @@ class ConversationOrchestrator(
                         finalize(
                             request = request,
                             toolKey = toolKey,
+                            turnId = turnId,
                             introPrefix = introPrefix,
                             accumulated = accumulated,
                             collectedSearchTools = collectedSearchTools,
@@ -222,12 +230,17 @@ class ConversationOrchestrator(
                     t.message ?: t::class.simpleName.orEmpty(),
                 ),
             )
+        } finally {
+            if (toolTurnStarted) {
+                toolRunner?.onTurnEnd(turnId)
+            }
         }
     }
 
     private suspend fun FlowCollector<OrchestrationEvent>.finalize(
         request: OrchestrationRequest,
         toolKey: String,
+        turnId: String,
         introPrefix: String,
         accumulated: String,
         collectedSearchTools: List<String>,
@@ -263,6 +276,7 @@ class ConversationOrchestrator(
                 overlaySpokenText = overlaySpoken,
                 pointing = pointing,
                 searchToolsUsed = collectedSearchTools.toList(),
+                provenance = toolRunner?.currentTurnProvenance(turnId),
             ),
         )
 
@@ -325,6 +339,7 @@ sealed class OrchestrationEvent {
         val overlaySpokenText: String?,
         val pointing: AssistantMarkupParser.PointingResult,
         val searchToolsUsed: List<String>,
+        val provenance: ToolProvenance? = null,
     ) : OrchestrationEvent()
     data class Error(val message: String) : OrchestrationEvent()
 }

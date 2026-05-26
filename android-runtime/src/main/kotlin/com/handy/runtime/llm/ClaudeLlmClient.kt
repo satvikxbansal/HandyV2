@@ -95,6 +95,7 @@ class ClaudeLlmClient(
 
         var messages = buildInitialMessages(request)
         val tools = toClaudeTools(request)
+        val turnId = request.turnId ?: "legacy"
         var iteration = 0
         while (iteration++ < MAX_TOOL_ITERATIONS) {
             val outcome = runSingleSseWithRetry(
@@ -136,7 +137,7 @@ class ClaudeLlmClient(
 
             // Run each tool and collect results in order.
             val toolResultBlocks = outcome.toolUseBlocks.map { tu ->
-                val result = runCatching { runner.run(tu.name, tu.inputJson) }
+                val result = runCatching { runner.run(turnId, tu.name, tu.inputJson) }
                     .getOrElse { t ->
                         Timber.w(t, "ToolRunner threw for tool=%s", tu.name)
                         ToolResult.Failed(t.message ?: t::class.simpleName.orEmpty())

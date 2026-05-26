@@ -6,6 +6,7 @@ import com.handy.app.HandyApplication
 import com.handy.app.overlay.BuddyFlightDriver
 import com.handy.app.overlay.FloatingWidgetOverlayService
 import com.handy.app.overlay.OverlayPresenter
+import com.handy.core.llm.ToolProvenance
 import com.handy.core.overlay.PanelSnapshot
 import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.screen.GroundingSnapshot
@@ -26,6 +27,8 @@ data class FullChatShowInAppAction(
     val pointing: AssistantMarkupParser.PointingResult,
     val snapshot: PanelSnapshot,
     val groundingSnapshot: GroundingSnapshot?,
+    val provenance: ToolProvenance? = null,
+    val userUtterance: String? = null,
 )
 
 /**
@@ -61,6 +64,8 @@ class FullChatActionLauncher @Inject constructor(
                             targetLabel = action.targetLabel,
                             fallbackMarks = action.snapshot.marks,
                             groundingSnapshot = action.groundingSnapshot,
+                            provenance = action.provenance,
+                            userUtterance = action.userUtterance,
                         )
                     } else {
                         flightDriver.flyTo(
@@ -68,6 +73,7 @@ class FullChatActionLauncher @Inject constructor(
                             label = action.bubbleLabel,
                             fallbackMarks = action.snapshot.marks,
                             groundingSnapshot = action.groundingSnapshot,
+                            provenance = action.provenance,
                         )
                     }
                     Timber.d("FullChatActionLauncher: semantic flight landed=%s", landed)

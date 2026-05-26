@@ -5,6 +5,7 @@ import com.handy.core.action.ActionExecutionGate
 import com.handy.core.action.ActionPerformer
 import com.handy.core.action.PerformResult
 import com.handy.core.action.ScrollDirection
+import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
 import com.handy.core.model.HandySettings
 import com.handy.runtime.action.NoopActionPerformer
@@ -66,17 +67,25 @@ class SwitchingActionPerformer @Inject constructor(
     override val capabilities: Set<ActionCapability>
         get() = if (gesturesEnabled) real.capabilities else noop.capabilities
 
-    override suspend fun tap(target: TapTarget): PerformResult =
-        if (enabled()) real.tap(target) else noop.tap(target)
+    override suspend fun tap(target: TapTarget, sourceTrust: SourceTrust): PerformResult =
+        if (enabled()) real.tap(target, sourceTrust) else noop.tap(target, sourceTrust)
 
-    override suspend fun longPress(target: TapTarget): PerformResult =
-        if (enabled()) real.longPress(target) else noop.longPress(target)
+    override suspend fun longPress(target: TapTarget, sourceTrust: SourceTrust): PerformResult =
+        if (enabled()) real.longPress(target, sourceTrust) else noop.longPress(target, sourceTrust)
 
-    override suspend fun scroll(direction: ScrollDirection, target: TapTarget?): PerformResult =
-        if (enabled()) real.scroll(direction, target) else noop.scroll(direction, target)
+    override suspend fun scroll(
+        direction: ScrollDirection,
+        target: TapTarget?,
+        sourceTrust: SourceTrust,
+    ): PerformResult =
+        if (enabled()) real.scroll(direction, target, sourceTrust) else noop.scroll(direction, target, sourceTrust)
 
-    override suspend fun typeText(target: TapTarget, text: String): PerformResult =
-        if (enabled()) real.typeText(target, text) else noop.typeText(target, text)
+    override suspend fun typeText(
+        target: TapTarget,
+        text: String,
+        sourceTrust: SourceTrust,
+    ): PerformResult =
+        if (enabled()) real.typeText(target, text, sourceTrust) else noop.typeText(target, text, sourceTrust)
 
     private fun enabled(): Boolean = gesturesEnabled
 

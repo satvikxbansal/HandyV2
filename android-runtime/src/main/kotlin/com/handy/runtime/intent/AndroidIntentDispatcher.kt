@@ -61,6 +61,9 @@ class AndroidIntentDispatcher(
         is AssistantAction.TypeText -> IntentResult.Failed(
             "type_text is handled by ActionPerformer, not dispatch_action",
         )
+        is AssistantAction.UiAction -> IntentResult.Failed(
+            "ui_action is handled by ActionPerformer, not dispatch_action",
+        )
     }
 
     /**

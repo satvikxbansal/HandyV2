@@ -10,6 +10,7 @@ import com.handy.core.action.PolicyDecision
 import com.handy.core.action.SettingsTarget
 import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
+import com.handy.core.action.UiActionKind
 import com.handy.core.model.HandySettings
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.privacy.ScreenRedactor
@@ -55,10 +56,6 @@ class DefaultActionPolicyEngine(
             return denied(ActionRisk.CRITICAL, "denylisted")
         }
 
-        if (action is AssistantAction.TypeText && !settings.typeForMeEnabled) {
-            return denied(ActionRisk.HIGH, "type-for-me-disabled")
-        }
-
         if (sourceTrust == SourceTrust.TRUSTED_RECIPE && !settings.recipesEnabled) {
             return denied(ActionRisk.HIGH, "recipes-disabled")
         }
@@ -92,15 +89,23 @@ class DefaultActionPolicyEngine(
         }
 
         if (sourceTrust == SourceTrust.UNTRUSTED_TOOL) {
-            return denied(ActionRisk.HIGH, "tool-suggestion-only")
+            return action.untrustedToolDecision()
         }
 
-        if (action is AssistantAction.TypeText && action.typeTextBlockedByPrivacy(target, grounding)) {
+        if (action.typeTextValueOrNull() != null && !settings.typeForMeEnabled) {
+            return denied(ActionRisk.HIGH, "type-for-me-disabled")
+        }
+
+        if (action.typeTextValueOrNull()?.typeTextBlockedByPrivacy(target, grounding) == true) {
             return denied(ActionRisk.CRITICAL, "sensitive-field")
         }
 
         if (action.hasSensitiveData() || target.looksSensitive(grounding)) {
             return denied(ActionRisk.CRITICAL, "sensitive-field")
+        }
+
+        if (action is AssistantAction.UiAction && action.isUiActionDestructive(target)) {
+            return strongHold("destructive-intent")
         }
 
         if (target.isBetaBlocked(sourceTrust)) {
@@ -131,7 +136,9 @@ class DefaultActionPolicyEngine(
             )
         }
 
-        val isUiAction = target != null || sourceTrust == SourceTrust.TRUSTED_RECIPE
+        val isUiAction = action is AssistantAction.UiAction ||
+            target != null ||
+            sourceTrust == SourceTrust.TRUSTED_RECIPE
         if (isUiAction) {
             val now = clock()
             if (!ActionExecutionGate.gesturesAllowed(settings, nowEpochMs = now)) {
@@ -185,6 +192,28 @@ class DefaultActionPolicyEngine(
             reason = reason,
         )
 
+    private fun strongHold(reason: String): PolicyDecision =
+        PolicyDecision(
+            allowed = true,
+            risk = ActionRisk.HIGH,
+            confirmation = ConfirmationLevel.STRONG_HOLD,
+            requireFreshSnapshot = true,
+            requireNodeActionOnly = false,
+            allowGestureFallback = false,
+            reason = reason,
+        )
+
+    private fun AssistantAction.untrustedToolDecision(): PolicyDecision =
+        if (this is AssistantAction.WebSearchIntent) {
+            if (hasSensitiveData()) {
+                denied(ActionRisk.CRITICAL, "sensitive-field")
+            } else {
+                strongHold("tool-suggestion-only")
+            }
+        } else {
+            denied(ActionRisk.HIGH, "tool-suggestion-only")
+        }
+
     private fun GroundingSnapshot.isSecure(): Boolean =
         privacyFlags.secureWindow ||
             capture is CaptureResult.SecureWindow ||
@@ -218,6 +247,7 @@ class DefaultActionPolicyEngine(
         is AssistantAction.OpenApp -> packageHint
         is AssistantAction.InstallApp -> packageHint
         is AssistantAction.OpenAppInfo -> packageHint
+        is AssistantAction.UiAction -> proposedPackage
         else -> null
     }?.takeIf { it.isNotBlank() }
 
@@ -248,6 +278,13 @@ class DefaultActionPolicyEngine(
         is AssistantAction.ShareText -> text.containsSensitiveData()
         is AssistantAction.ShareUrl -> listOfNotNull(url, title).joinToString(" ").containsSensitiveData()
         is AssistantAction.TypeText -> text.containsSensitiveData()
+        is AssistantAction.UiAction -> listOfNotNull(
+            userUtterance,
+            targetLabel,
+            targetRole,
+            targetViewId,
+            typedText,
+        ).joinToString(" ").containsSensitiveData()
         is AssistantAction.WebSearchIntent -> query.containsSensitiveData()
         else -> false
     }
@@ -340,14 +377,14 @@ class DefaultActionPolicyEngine(
             CARD_LIKE_REGEX.containsMatchIn(text)
     }
 
-    private fun AssistantAction.TypeText.typeTextBlockedByPrivacy(
+    private fun String.typeTextBlockedByPrivacy(
         target: TapTarget?,
         grounding: GroundingSnapshot,
     ): Boolean {
         val context = target.typingPrivacyContext(grounding)
-        return text.wouldBeRedactedInTypingContext(context) ||
-            text.isPureShortCode() ||
-            text.containsSensitiveData() ||
+        return wouldBeRedactedInTypingContext(context) ||
+            isPureShortCode() ||
+            containsSensitiveData() ||
             context.containsAny(TYPE_SENSITIVE_NEARBY_TERMS)
     }
 
@@ -426,6 +463,26 @@ class DefaultActionPolicyEngine(
         return phraseBlocked || text.isSubmitPersonalData()
     }
 
+    private fun AssistantAction.typeTextValueOrNull(): String? = when (this) {
+        is AssistantAction.TypeText -> text
+        is AssistantAction.UiAction -> typedText?.takeIf { kind == UiActionKind.TYPE }
+        else -> null
+    }
+
+    private fun AssistantAction.UiAction.isUiActionDestructive(target: TapTarget?): Boolean {
+        val targetText = listOfNotNull(
+            targetLabel,
+            targetRole,
+            targetViewId,
+            (target as? TapTarget.AtNode)?.text,
+            (target as? TapTarget.AtNode)?.desc,
+            (target as? TapTarget.AtNode)?.viewId,
+        ).joinToString(" ")
+        return targetText.containsAnyWholePhrase(UI_BETA_BLOCKED_PHRASES + UI_STRONG_HOLD_TARGET_PHRASES) ||
+            targetText.isSubmitPersonalData() ||
+            userUtterance.orEmpty().let(DESTRUCTIVE_UTTERANCE_REGEX::containsMatchIn)
+    }
+
     private data class TargetIdentifier(
         val kind: Kind,
         val value: String,
@@ -449,6 +506,18 @@ class DefaultActionPolicyEngine(
             "send money",
             "transfer money",
             "wire transfer",
+        )
+
+        val UI_STRONG_HOLD_TARGET_PHRASES = listOf(
+            "send",
+            "submit",
+            "pay",
+            "buy",
+            "delete",
+            "transfer",
+            "confirm",
+            "order",
+            "book",
         )
 
         val DELETE_HARD_BLOCKED_PHRASES = listOf(
@@ -481,6 +550,11 @@ class DefaultActionPolicyEngine(
             "com.chrome.beta",
             "com.chrome.dev",
             "com.chrome.canary",
+        )
+
+        val DESTRUCTIVE_UTTERANCE_REGEX = Regex(
+            """\b(send|pay|buy|delete|transfer|confirm|submit|order|book)\b""",
+            RegexOption.IGNORE_CASE,
         )
 
     }

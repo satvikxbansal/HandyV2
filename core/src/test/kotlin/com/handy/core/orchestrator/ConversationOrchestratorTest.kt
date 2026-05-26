@@ -6,6 +6,7 @@ import com.handy.core.llm.LlmChunk
 import com.handy.core.llm.LlmClient
 import com.handy.core.llm.LlmRequest
 import com.handy.core.llm.ToolDefinition
+import com.handy.core.llm.ToolProvenance
 import com.handy.core.llm.ToolResult
 import com.handy.core.llm.ToolRunner
 import com.handy.core.model.ChatMessage
@@ -16,6 +17,7 @@ import com.handy.core.screen.CaptureResult
 import com.handy.core.screen.IntRect
 import com.handy.core.screen.SECURE_WINDOW_SYSTEM_MESSAGE
 import com.handy.core.screen.ScreenTextSnapshot
+import com.handy.core.screen.TurnSource
 import com.handy.core.screen.UiNode
 import com.handy.core.prompts.PromptCatalog
 import com.handy.core.tool.ToolContext
@@ -283,6 +285,48 @@ class ConversationOrchestratorTest {
         assertThat(finalized.searchToolsUsed).containsExactly("web_search")
     }
 
+    @Test fun `finalized event carries turn provenance before the runner entry is cleared`() = runTest {
+        val store = FakeHistoryStore()
+        val llm = ProvenanceAwareLlm()
+        val runner = ProvenanceToolRunner()
+        val orchestrator = ConversationOrchestrator(
+            llmClient = llm,
+            historyStore = store,
+            toolRunner = runner,
+            clock = { 6500L },
+            uuid = { "u-uid" },
+            rng = Random(seed = 0),
+        )
+
+        val events = orchestrator.converse(
+            OrchestrationRequest(
+                userMessage = "latest kotlin release",
+                toolContext = tool,
+                settings = settings.copy(webSearchEnabled = true),
+                fromVoice = false,
+                capture = null,
+                screenText = null,
+                hasBraveKey = true,
+                tools = listOf(
+                    ToolDefinition(name = "web_search", description = "", inputSchemaJson = "{}"),
+                ),
+                grounding = com.handy.core.screen.GroundingSnapshot(
+                    requestId = "turn-a",
+                    source = TurnSource.TEST,
+                    toolContext = tool,
+                ),
+            ),
+        ).collectAll()
+
+        val finalized = events.filterIsInstance<OrchestrationEvent.AssistantTurnFinalized>().single()
+        assertThat(llm.seenTurnId).isEqualTo("turn-a")
+        assertThat(finalized.provenance?.turnId).isEqualTo("turn-a")
+        assertThat(finalized.provenance?.usedUntrustedTools).containsExactly("web_search")
+        assertThat(runner.begunTurns).containsExactly("turn-a")
+        assertThat(runner.endedTurns).containsExactly("turn-a")
+        assertThat(runner.currentTurnProvenance("turn-a")).isNull()
+    }
+
     @Test fun `selected cloud provider controls model override on LLM request`() = runTest {
         val store = FakeHistoryStore()
         val llm = CapturingLlm()
@@ -518,6 +562,55 @@ class ConversationOrchestratorTest {
         override suspend fun run(name: String, inputJson: String): ToolResult {
             calls += name to inputJson
             return ToolResult.Ok("stub-result")
+        }
+    }
+
+    private class ProvenanceAwareLlm : LlmClient {
+        override val modelId: String = "provenance-aware"
+        var seenTurnId: String? = null
+
+        override fun streamChat(request: LlmRequest): Flow<LlmChunk> =
+            error("plain chat path should not run")
+
+        override fun streamToolAwareChat(
+            request: LlmRequest,
+            runner: ToolRunner,
+        ): Flow<LlmChunk> = kotlinx.coroutines.flow.flow {
+            seenTurnId = request.turnId
+            emit(LlmChunk.ToolCall(id = "t1", name = "web_search", inputJson = "{\"query\":\"kotlin\"}"))
+            runner.run(request.turnId ?: "legacy", "web_search", "{\"query\":\"kotlin\"}")
+            emit(LlmChunk.Text("tool answer"))
+            emit(LlmChunk.Done("end_turn"))
+        }
+    }
+
+    private class ProvenanceToolRunner : ToolRunner {
+        private val provenance = mutableMapOf<String, ToolProvenance>()
+        val begunTurns = mutableListOf<String>()
+        val endedTurns = mutableListOf<String>()
+
+        override fun beginTurn(turnId: String) {
+            begunTurns += turnId
+            provenance.remove(turnId)
+        }
+
+        override suspend fun run(name: String, inputJson: String): ToolResult =
+            run("legacy", name, inputJson)
+
+        override suspend fun run(turnId: String, name: String, inputJson: String): ToolResult {
+            provenance[turnId] = ToolProvenance(
+                turnId = turnId,
+                usedUntrustedTools = setOf(name),
+            )
+            return ToolResult.Ok("stub-result")
+        }
+
+        override fun currentTurnProvenance(turnId: String): ToolProvenance? =
+            provenance[turnId]
+
+        override fun onTurnEnd(turnId: String) {
+            endedTurns += turnId
+            provenance.remove(turnId)
         }
     }
 
