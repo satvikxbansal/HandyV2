@@ -1,8 +1,6 @@
 package com.handy.runtime.di
 
-import android.annotation.SuppressLint
 import android.content.Context
-import android.content.pm.ApplicationInfo
 import com.handy.core.action.ActionAppPolicy
 import com.handy.core.action.ActionPolicyEngine
 import com.handy.core.action.ActionPerformer
@@ -45,16 +43,11 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import java.security.SecureRandom
-import java.security.cert.X509Certificate
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Qualifier
 import javax.inject.Singleton
-import javax.net.ssl.SSLContext
-import javax.net.ssl.TrustManager
-import javax.net.ssl.X509TrustManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
@@ -98,7 +91,7 @@ object RuntimeModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(@ApplicationContext context: Context): OkHttpClient {
+    fun provideOkHttpClient(): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.NONE }
         return OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
@@ -106,15 +99,6 @@ object RuntimeModule {
             .writeTimeout(30, TimeUnit.SECONDS)
             .pingInterval(20, TimeUnit.SECONDS)
             .addInterceptor(logging)
-            .apply {
-                // Debug/emulator QA often runs behind corporate HTTPS
-                // inspection whose CA is trusted by macOS but not by the
-                // Android image. Keep this strictly debuggable-only; release
-                // builds use the platform trust manager.
-                if (context.isDebuggableApp()) {
-                    trustLocalQaCertificatesForDebugOnly()
-                }
-            }
             .build()
     }
 
@@ -305,24 +289,6 @@ object RuntimeModule {
     // instance and therefore bind in `:app` (`AppRuntimeBindings`) rather
     // than here. `:android-runtime` stays agnostic of the `:app`-owned
     // service class.
-}
-
-private fun Context.isDebuggableApp(): Boolean =
-    applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
-
-@SuppressLint("BadHostnameVerifier", "CustomX509TrustManager", "TrustAllX509TrustManager")
-private fun OkHttpClient.Builder.trustLocalQaCertificatesForDebugOnly(): OkHttpClient.Builder {
-    val trustManager = object : X509TrustManager {
-        override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
-        override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
-        override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
-    }
-    val sslContext = SSLContext.getInstance("TLS").apply {
-        init(null, arrayOf<TrustManager>(trustManager), SecureRandom())
-    }
-    sslSocketFactory(sslContext.socketFactory, trustManager)
-    hostnameVerifier { _, _ -> true }
-    return this
 }
 
 /**

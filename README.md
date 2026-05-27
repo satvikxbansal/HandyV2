@@ -29,182 +29,45 @@ keeps reduced mode available when permissions are declined.
 
 ## Current State
 
-Handy Android is past scaffold stage. The app has a working
-multi-module architecture, cloud chat loop, overlay widget, overlay chat
-panel, screen-context pipeline, semantic pointing, Tap-for-me action
-gate, deterministic recipe runner, settings surface, onboarding
-disclosures, local audit, redaction tests, eval/replay coverage, and Play
-submission documentation.
+<!-- CAPABILITIES:README:START -->
+Handy Android is past scaffold stage. The capability claims in this block are generated from [`docs/CAPABILITIES.yaml`](docs/CAPABILITIES.yaml); edit the manifest, then run `./gradlew generateCapabilityDocs`.
 
-### What works today
+### Active
 
-- **Floating widget and overlay panel**
-  The widget can sit above other apps. A tap opens Handy's bottom chat
-  panel; a long-press starts push-to-talk voice input. The panel can
-  expand into the full chat while preserving the app/window snapshot
-  that was visible when Handy opened.
+- **Screen explanations** (`screen_explain`) - reads visible UI text, labels, roles, bounds, view IDs, and app/window metadata via Android Accessibility after consent.
+- **Pointing** (`pointing`) - buddy flies to visible controls for guidance; no auto-tap.
+- **Deterministic recipes** (`recipes`) - registered, bounded, policy-checked recipes only; no LLM-authored free-form plans. Includes: `open_app`, `install_app`, `clock_alarm`, `set_timer`, `web_search`, `chrome_open_url`, `chrome_search`, `chrome_visible_tap`, `android_settings`, `gmail_draft`, `whatsapp_draft`, `calendar_event`, `maps_search`, `maps_navigation`, `youtube_search`, `notes_draft`, `contacts_handoff`, `files_picker`, `photos_handoff`, `calculator`, `food_delivery`, `ride_hailing_prep`, `shopping_search`, `visible_tap`, `visible_text_entry`, `visible_search`, `visible_scroll`.
+- **System speech output** (`tts_system`) - Android TextToSpeech for spoken replies.
+- **Android speech recognition** (`stt_android`) - Android SpeechRecognizer for push-to-talk voice input; on-device-first or on-device-only modes.
 
-- **Full chat**
-  The full chat streams responses, keeps per-app chat history, supports
-  voice turns, shows tool-use status, handles confirmation prompts, and
-  can hand a grounded pointer back to the overlay so Handy can show the
-  target in the original app.
+### Off by default
 
-- **Screen-aware questions**
-  With Accessibility enabled, Handy can read visible labels, roles,
-  bounds, view IDs, app/window metadata, and use screenshots for a
-  user-initiated turn where needed. Example: "What does this settings
-  screen mean?" or "Where is the export button?"
+- **Tap-for-me** (`tap_for_me`) - node-first taps and scrolls after Tap-for-me disclosure, per-action confirmation, and fresh screen verification; gesture fallback only on learned apps.
+- **Type-for-me** (`type_for_me`) - ordinary non-sensitive editable fields only; password, OTP, card, CVV, recovery-code, private-key, and secure-window typing is blocked.
+- **Sarvam speech output** (`tts_sarvam`) - Sarvam Bulbul v3 cloud TTS, opt-in, user-supplied API key required.
+- **Sarvam speech recognition** (`stt_sarvam`) - Sarvam Saarika v2 cloud STT, opt-in consent, user-supplied API key required.
+- **Web tools** (`web_tools`) - Brave web_search, Jina fetch_page, and GitHub github_search for public information only; fetched content cannot trigger device actions.
+- **Tutor mode** (`tutor_mode`) - rate-limited advisory guidance after idle time; cannot click, type, scroll, or run recipes by itself.
+- **Clipboard assist** (`clipboard_assist`) - visible-only clipboard text help with size caps, dedupe, and secret-like content skips.
 
-- **Summarize-screen mode**
-  The overlay has a dedicated "Summarize this screen" lane. It uses a
-  short summarize prompt, sends no tools, skips recipes, and does not
-  point. It is meant for read-this-screen requests, not action.
+### Coming soon / out of beta
 
-- **Pointing without acting**
-  Handy can point at a visible control so the user can tap it manually.
-  Guidance questions stay guidance-only. Asking "which button should I
-  press?" should not secretly become a tap.
+- **Notification summaries** (`notification_summaries`) - notification listener plumbing exists, but user-facing notification processing and RemoteInput replies are not active. Reason: out of beta scope.
+- **Payments and checkout** (`payments`) - payments, purchases, checkout, money transfer, add-to-cart, applying coupons, and address or card edits stay blocked. Reason: out of beta scope.
+- **Banking app automation** (`banking_app_automation`) - banking, wallet, payment, authenticator, password-manager, and secure-window actions stay blocked. Reason: out of beta scope.
 
-- **Manual target recovery**
-  When automatic target resolution is not good enough, Handy can fall
-  back to a manual target-selection flow. System surfaces such as the
-  status bar, launcher, navigation bar, IME, and Handy's own overlays
-  are skipped so they do not become action targets.
+### Recipe families
 
-- **Tap-for-me and Type-for-me**
-  After the separate action disclosure, Handy can tap, scroll,
-  long-press, or type ordinary text into a visible field. Each action is
-  checked by policy and shown in a confirmation sheet first. Higher-risk
-  steps require a hold confirmation.
+- `open_app`, `install_app`, `clock_alarm`, `set_timer`, `web_search`, `chrome_open_url`, `chrome_search`, `chrome_visible_tap`, `android_settings`, `gmail_draft`, `whatsapp_draft`, `calendar_event`, `maps_search`, `maps_navigation`, `youtube_search`, `notes_draft`, `contacts_handoff`, `files_picker`, `photos_handoff`, `calculator`, `food_delivery`, `ride_hailing_prep`, `shopping_search`, `visible_tap`, `visible_text_entry`, `visible_search`, `visible_scroll`
 
-- **Per-app and panic action controls**
-  Settings exposes the Tap-for-me toggle, a one-hour stop, a "stop until
-  I turn it back on" control, Chrome Incognito action blocking, and a
-  per-package restore list for apps where Tap-for-me was disabled.
+### Practical behavior
 
-- **Deterministic recipes**
-  Handy can run bounded recipes for explicit do-it-for-me requests. The
-  AI chooses a canonical recipe intent and arguments; it does not invent
-  arbitrary executable steps.
-
-- **Locked recipe families after S-1..S-10 plus P-RECIPES-2**
-  The deterministic set is: open app, install app Play Store handoff,
-  alarm, timer, web search handoff, Chrome URL/search/page navigation,
-  Android Settings, Gmail draft, WhatsApp draft, calendar event draft,
-  Maps search/navigation, YouTube search/channel open, notes share-sheet
-  drafts, Contacts handoffs, Files picker handoffs, Photos/Gallery
-  handoffs, local calculator answers/open, food-delivery search/tracking,
-  ride-hailing prep for Uber/Ola/Rapido, and shopping search/coupon flows
-  for Meesho, Amazon, and Flipkart.
-
-- **Visible-UI recipes**
-  The generic visible-screen recipe set covers one visible tap, one
-  visible text entry, a visible search flow, and a visible scroll. These
-  are still bounded by the same action gate and policy engine.
-
-- **Intent-first system tasks**
-  Handy prefers Android's own visible flows when available: alarms,
-  timers, calendar event drafts, app launch, Play Store handoff,
-  settings screens, app info, web search, Maps, SMS/email/share drafts,
-  and navigation handoff.
-
-- **Voice input and speech output**
-  Push-to-talk voice uses Android SpeechRecognizer by default. Handy
-  does not listen in the background. Settings can opt into Sarvam
-  Saarika v2 STT for better Hindi and Hinglish/code-mix transcription;
-  it is cloud-only, requires an explicit one-time consent plus a Sarvam
-  API key, uploads at most 30 seconds after the user releases the press,
-  and does not provide live partial transcripts. Sarvam STT audio is
-  held in memory as PCM/WAV and is never written to disk. Voice replies
-  are spoken aloud via Android system TTS by default using the short
-  `[SPOKEN]` response, while chat can still show a fuller written
-  answer. Settings can opt into Sarvam Bulbul v3 TTS with Ritu, Rahul,
-  or Simran voices; it requires a user supplied Sarvam API key and falls
-  back to System TTS when the key or network is unavailable. Sarvam TTS
-  audio chunks are temporary private cache files only and are deleted on
-  playback completion, stop, or release.
-
-- **Web tools, off by default**
-  Web search can be enabled in Settings. When on, Claude can call Brave
-  Search, Jina Reader, and public GitHub search. If Brave is missing but
-  web tools are enabled, direct page fetch and GitHub search can still
-  work. Fetched web content is evidence, not an instruction source for
-  device actions.
-
-- **Shopping mode**
-  On supported shopping surfaces, Handy can summarize visible product
-  information, use fetched page evidence when a product URL is visible,
-  answer returnability/coupon/deal questions, and run search or coupon
-  discovery recipes. Checkout, payment, add-to-cart, address edits, and
-  applying coupons remain blocked.
-
-- **Tutor mode, off by default**
-  Tutor mode can offer occasional guidance after idle time, with
-  cooldowns and battery/thermal pauses. It does not click, type, scroll,
-  or run recipes by itself.
-
-- **Privacy and policy controls**
-  Settings includes the "What Handy can do today" disclosure table,
-  action controls, web-search controls, Tutor toggle, key storage,
-  clear-history action, and version footer.
-
-### Brain and model state
-
-- Claude is the user-facing brain path today, using the user's Anthropic
-  API key directly from the device.
-- The Settings brain picker supports Claude Sonnet 4.5 and Claude Haiku
-  4.5. Haiku reuses the same Anthropic key and is selected by storing a
-  model override.
-- Gemini cloud and local Gemini Nano seams exist in the runtime and
-  brain router, but they are not user-enabled in this build. The visible
-  Settings card keeps Gemini disabled as "Coming soon."
-- Handy has no Handy-owned backend in the current app path.
-- Speech input has two provider paths: Android SpeechRecognizer is the
-  default, and Sarvam Saarika v2 is available only after the user grants
-  cloud STT consent and stores a Sarvam API key on device.
-- Speech output has two provider paths: Android System TTS is the
-  default, and Sarvam Bulbul v3 is available only after the user selects
-  it in Settings and stores a Sarvam API key on device.
-
-### What is intentionally blocked
-
-- Payments, purchases, checkout, add-to-cart, applying coupons, money
-  transfer, deleting, and personal data submission.
-- Reading or typing passwords, OTPs, card numbers, CVVs, recovery codes,
-  private keys, seed phrases, or secure-window content.
-- Banking, wallet, payment, password-manager, authenticator, secure,
-  stale, ambiguous, and low-confidence action targets.
-- Chrome Incognito actions by default: recipes, taps, and native actions
-  are refused in Incognito tabs.
-- Sensitive Android Settings changes such as network, Bluetooth,
-  security, biometric, and Accessibility changes performed on Handy's
-  own behalf.
-- Background screen capture, background listening, background clipboard
-  harvesting, hotword wake, and hidden notification automation.
-- LLM-authored multi-step plans. Recipes are deterministic, registered,
-  capped at six steps, and re-checked step by step.
-- RemoteInput notification replies. The code can detect reply
-  availability, but sending notification replies is not active in this
-  build.
-- Gemini/local AI as user-facing provider choices. The seams exist, but
-  the user-enabled brain path today is Claude.
-
-### Known gaps before public release
-
-- The Play disclosure-flow video exists at
-  `docs/review-artifacts/disclosure-flow-2026-05-22.mp4`, but it still
-  needs to be uploaded to the Play Console as part of release review.
-- API 26-29 MediaProjection capture fallback is implemented at the
-  service/runtime layer, but the consent-start path still needs careful
-  release testing on old devices.
-- The app icon and some listing assets are still placeholder-level.
-- Real-device recipe sweeps are not complete. The latest local pass had
-  emulator coverage, but the physical Pixel/Uber signed-in smoke pass was
-  blocked by device availability.
-- Notification and clipboard features are intentionally not broad
-  release features yet. Their policy posture is documented so they do
-  not get mistaken for active automation.
+- A user asking "Where is Search?" gets an explanation and Buddy pointing at the visible Search control.
+- A user asking "Tap Search for me" gets a Tap-for-me confirmation first; the tap is refused if the target is stale, sensitive, ambiguous, or low confidence.
+- A user asking "Type Delhi here" gets ordinary text insertion only into a visible non-sensitive field after confirmation.
+- A user asking "Install Spotify" gets a Play Store listing or search handoff; Handy never taps Install.
+- A user asking for a payment, banking action, password, OTP, card entry, checkout, purchase, delete, or personal-data submission gets a block instead of automation.
+<!-- CAPABILITIES:README:END -->
 
 ---
 

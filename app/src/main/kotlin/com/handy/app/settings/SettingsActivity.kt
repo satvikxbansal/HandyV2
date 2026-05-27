@@ -325,6 +325,33 @@ internal fun SettingsScreen(
                         onOpenNotificationListenerSettings = {
                             context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                         },
+                        onOpenCapabilitySettingsTarget = { target ->
+                            when (target) {
+                                "accessibility" -> {
+                                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                                }
+                                "voice" -> {
+                                    if (!state.voice.expanded) {
+                                        onVoiceAction(VoiceAction.ToggleExpanded)
+                                    }
+                                }
+                                "automations" -> {
+                                    automationsOpen = true
+                                }
+                                "privacy" -> {
+                                    privacyOpen = true
+                                }
+                                "notifications" -> {
+                                    context.startActivity(
+                                        Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
+                                    )
+                                }
+                                "web_search" -> {
+                                    capabilitiesOpen = true
+                                }
+                                else -> Unit
+                            }
+                        },
                         webSearchOn = state.settings?.webSearchEnabled == true,
                         onWebSearchToggle = onWebSearchToggle,
                         braveKeyMasked = state.braveKeyMasked,

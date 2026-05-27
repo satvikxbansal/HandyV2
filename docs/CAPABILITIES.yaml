@@ -1,0 +1,95 @@
+capabilities:
+  screen_explain:
+    title: "Screen explanations"
+    active: true
+    status: "active"
+    scope: "reads visible UI text, labels, roles, bounds, view IDs, and app/window metadata via Android Accessibility after consent"
+    settings: "accessibility"
+  pointing:
+    title: "Pointing"
+    active: true
+    status: "active"
+    scope: "buddy flies to visible controls for guidance; no auto-tap"
+    settings: "accessibility"
+  tap_for_me:
+    title: "Tap-for-me"
+    active: true
+    status: "off_by_default"
+    scope: "node-first taps and scrolls after Tap-for-me disclosure, per-action confirmation, and fresh screen verification; gesture fallback only on learned apps"
+    settings: "automations"
+  type_for_me:
+    title: "Type-for-me"
+    active: true
+    status: "off_by_default"
+    scope: "ordinary non-sensitive editable fields only; password, OTP, card, CVV, recovery-code, private-key, and secure-window typing is blocked"
+    settings: "automations"
+  recipes:
+    title: "Deterministic recipes"
+    active: true
+    status: "active"
+    scope: "registered, bounded, policy-checked recipes only; no LLM-authored free-form plans"
+    settings: "automations"
+    list: [open_app, install_app, clock_alarm, set_timer, web_search, chrome_open_url, chrome_search, chrome_visible_tap, android_settings, gmail_draft, whatsapp_draft, calendar_event, maps_search, maps_navigation, youtube_search, notes_draft, contacts_handoff, files_picker, photos_handoff, calculator, food_delivery, ride_hailing_prep, shopping_search, visible_tap, visible_text_entry, visible_search, visible_scroll]
+  tts_system:
+    title: "System speech output"
+    active: true
+    status: "active"
+    scope: "Android TextToSpeech for spoken replies"
+    settings: "voice"
+  tts_sarvam:
+    title: "Sarvam speech output"
+    active: true
+    status: "off_by_default"
+    scope: "Sarvam Bulbul v3 cloud TTS, opt-in, user-supplied API key required"
+    settings: "voice"
+  stt_android:
+    title: "Android speech recognition"
+    active: true
+    status: "active"
+    scope: "Android SpeechRecognizer for push-to-talk voice input; on-device-first or on-device-only modes"
+    settings: "voice"
+  stt_sarvam:
+    title: "Sarvam speech recognition"
+    active: true
+    status: "off_by_default"
+    scope: "Sarvam Saarika v2 cloud STT, opt-in consent, user-supplied API key required"
+    settings: "voice"
+  web_tools:
+    title: "Web tools"
+    active: true
+    status: "off_by_default"
+    scope: "Brave web_search, Jina fetch_page, and GitHub github_search for public information only; fetched content cannot trigger device actions"
+    settings: "web_search"
+  tutor_mode:
+    title: "Tutor mode"
+    active: true
+    status: "off_by_default"
+    scope: "rate-limited advisory guidance after idle time; cannot click, type, scroll, or run recipes by itself"
+    settings: "web_search"
+  clipboard_assist:
+    title: "Clipboard assist"
+    active: true
+    status: "off_by_default"
+    scope: "visible-only clipboard text help with size caps, dedupe, and secret-like content skips"
+    settings: "privacy"
+  notification_summaries:
+    title: "Notification summaries"
+    active: false
+    status: "coming_soon"
+    scope: "notification listener plumbing exists, but user-facing notification processing and RemoteInput replies are not active"
+    reason: "out of beta scope"
+    settings: "notifications"
+  payments:
+    title: "Payments and checkout"
+    active: false
+    status: "coming_soon"
+    scope: "payments, purchases, checkout, money transfer, add-to-cart, applying coupons, and address or card edits stay blocked"
+    reason: "out of beta scope"
+    settings: "none"
+  banking_app_automation:
+    title: "Banking app automation"
+    active: false
+    status: "coming_soon"
+    scope: "banking, wallet, payment, authenticator, password-manager, and secure-window actions stay blocked"
+    reason: "out of beta scope"
+    settings: "none"

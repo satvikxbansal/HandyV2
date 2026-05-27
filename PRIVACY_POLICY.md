@@ -13,60 +13,57 @@ talks directly to the selected provider using your own API key.
 
 ## What Handy can do
 
-- Show a floating widget and overlay chat panel so you can ask about
-  the app you are using.
-- Listen only when you start voice input, such as long-pressing the
-  widget or using the chat voice control.
-- Use Android speech recognition by default, or Sarvam Saarika v2 cloud
-  transcription only after you enable it in Settings, consent to sending
-  voice audio to Sarvam, and store a Sarvam API key.
-- Read visible screen text, UI labels, roles, bounds, view IDs, and
-  current app/window metadata through Android Accessibility after you
-  grant that access.
-- Capture the active window for a user-initiated turn when visual
-  context is needed.
-- Point at a visible control without tapping it.
-- Use Android intents for explicit system tasks, such as opening an
-  app, opening a settings screen, creating a calendar event, opening a
-  Maps search, or opening a share/compose flow.
-- Use optional web-search tools when web search is enabled in Settings.
-- Use Tap-for-me after a second disclosure and consent step. Tap-for-me
-  can tap, scroll, long-press, or type ordinary text only after Handy
-  shows the exact action and you confirm it.
-- Run deterministic recipes for explicit do-it-for-me requests. Current
-  recipe families include Clock, Android Settings, Gmail drafts,
-  WhatsApp drafts, Chrome navigation, Maps search/navigation, and
-  shopping search/compare/coupon flows.
-- Keep a local, redacted action audit so you can inspect actions,
-  cancellations, failures, and policy blocks.
-- Offer Tutor mode when enabled. Tutor mode is advisory and rate
-  limited; it does not act on the device by itself.
+<!-- CAPABILITIES:PRIVACY_DISCLOSURES:START -->
+This section is generated from [`docs/CAPABILITIES.yaml`](docs/CAPABILITIES.yaml).
+
+### Active by default or permission
+
+- **Screen explanations** (`screen_explain`) - reads visible UI text, labels, roles, bounds, view IDs, and app/window metadata via Android Accessibility after consent.
+- **Pointing** (`pointing`) - buddy flies to visible controls for guidance; no auto-tap.
+- **Deterministic recipes** (`recipes`) - registered, bounded, policy-checked recipes only; no LLM-authored free-form plans. Includes: `open_app`, `install_app`, `clock_alarm`, `set_timer`, `web_search`, `chrome_open_url`, `chrome_search`, `chrome_visible_tap`, `android_settings`, `gmail_draft`, `whatsapp_draft`, `calendar_event`, `maps_search`, `maps_navigation`, `youtube_search`, `notes_draft`, `contacts_handoff`, `files_picker`, `photos_handoff`, `calculator`, `food_delivery`, `ride_hailing_prep`, `shopping_search`, `visible_tap`, `visible_text_entry`, `visible_search`, `visible_scroll`.
+- **System speech output** (`tts_system`) - Android TextToSpeech for spoken replies.
+- **Android speech recognition** (`stt_android`) - Android SpeechRecognizer for push-to-talk voice input; on-device-first or on-device-only modes.
+
+### Off by default until you opt in
+
+- **Tap-for-me** (`tap_for_me`) - node-first taps and scrolls after Tap-for-me disclosure, per-action confirmation, and fresh screen verification; gesture fallback only on learned apps.
+- **Type-for-me** (`type_for_me`) - ordinary non-sensitive editable fields only; password, OTP, card, CVV, recovery-code, private-key, and secure-window typing is blocked.
+- **Sarvam speech output** (`tts_sarvam`) - Sarvam Bulbul v3 cloud TTS, opt-in, user-supplied API key required.
+- **Sarvam speech recognition** (`stt_sarvam`) - Sarvam Saarika v2 cloud STT, opt-in consent, user-supplied API key required.
+- **Web tools** (`web_tools`) - Brave web_search, Jina fetch_page, and GitHub github_search for public information only; fetched content cannot trigger device actions.
+- **Tutor mode** (`tutor_mode`) - rate-limited advisory guidance after idle time; cannot click, type, scroll, or run recipes by itself.
+- **Clipboard assist** (`clipboard_assist`) - visible-only clipboard text help with size caps, dedupe, and secret-like content skips.
+
+### Not active in this beta
+
+- **Notification summaries** (`notification_summaries`) - notification listener plumbing exists, but user-facing notification processing and RemoteInput replies are not active. Reason: out of beta scope.
+- **Payments and checkout** (`payments`) - payments, purchases, checkout, money transfer, add-to-cart, applying coupons, and address or card edits stay blocked. Reason: out of beta scope.
+- **Banking app automation** (`banking_app_automation`) - banking, wallet, payment, authenticator, password-manager, and secure-window actions stay blocked. Reason: out of beta scope.
 
 ## What Handy will not do
 
-- Handy will not listen in the background.
-- Handy will not send microphone audio to Sarvam unless Sarvam STT is
-  selected, consent is saved, a Sarvam API key is present, and you start
-  a push-to-talk session.
-- Handy will not capture the screen in the background.
-- Handy will not read secure-window content, password fields, OTPs,
-  card numbers, CVVs, or credential-like fields.
-- Handy will not type passwords, OTPs, card details, CVVs, recovery
-  codes, private keys, or short verification codes.
-- Handy will not pay, purchase, checkout, transfer money, delete,
-  submit personal data, or change sensitive account/security settings
-  in this build.
-- Handy will not let fetched web pages or tool results trigger actions
-  on your phone.
-- Handy will not run open-ended LLM-authored plans. Recipes are
-  deterministic, capped, checked against current screen state, and
-  stopped when the app or screen changes.
-- Handy will not auto-send messages. Gmail and WhatsApp recipes draft
-  or open flows, then require confirmation before any send step.
-- Handy will not auto-triage, auto-reply, auto-dismiss, or archive your
-  notifications in the background.
-- Handy will not read your clipboard in the background.
-- Handy will not sell, rent, or share your data with advertisers.
+- Handy will not listen or capture the screen in the background.
+- Handy will not let fetched web pages or tool results trigger actions on your phone.
+- Handy will not run open-ended LLM-authored plans.
+- Handy will not type passwords, OTPs, card numbers, CVVs, recovery codes, private keys, seed phrases, or secure-window content.
+- Handy will not pay, purchase, checkout, transfer money, delete, add to cart, apply coupons, submit personal data, or automate banking/payment/password-manager/authenticator apps in this beta.
+
+## What leaves the device
+
+- Your typed message or recognized voice transcript when you send a turn.
+- The minimum screen context needed for that turn when Accessibility is enabled, such as visible labels, roles, bounds, app/window metadata, and optional screenshot data when needed.
+- Optional public web-search queries, fetched-page URLs, and public GitHub queries when web tools are enabled.
+- Optional Sarvam cloud voice traffic only when the matching Sarvam voice feature is selected, consent is saved where required, and a user-supplied Sarvam API key is present.
+- Action arguments sent through visible Android platform flows, such as a Maps query, calendar title, mail draft, or share text.
+
+## What stays on the device
+
+- API keys in Android Keystore-backed encrypted storage.
+- Chat history in app-private storage.
+- Redacted local action and timeline audit entries.
+- Per-turn screen snapshots after the turn; they are ephemeral and are not appended to chat history as hidden raw data.
+- Timber/logcat diagnostics must not contain API keys, screenshots, raw prompts, raw notification bodies, raw clipboard contents, or raw accessibility trees.
+<!-- CAPABILITIES:PRIVACY_DISCLOSURES:END -->
 
 ## Tap-for-me
 
@@ -156,42 +153,6 @@ Safeguards:
 - URI and binary clips are ignored.
 - Sensitive write-back is marked with Android's sensitive clip extras
   where supported.
-
-## What leaves the device
-
-- Your typed message or voice transcript.
-- If Sarvam Saarika v2 STT is enabled, up to 30 seconds of microphone
-  audio from that push-to-talk session is uploaded to Sarvam after you
-  release the press. Sarvam returns a transcript and language code.
-- The minimum screen context needed for that turn, such as visible
-  labels, roles, bounds, app/window metadata, and optional screenshot
-  data when needed.
-- Optional web-search queries and fetched-page URLs when web search is
-  enabled.
-- Action arguments sent to Android target apps through visible platform
-  flows, such as a Maps query, calendar title, mail draft, or share text.
-
-Cloud AI traffic goes directly to Anthropic today using your API key.
-Optional Sarvam STT/TTS traffic goes directly to Sarvam using your
-Sarvam API key. Web tools, when enabled, use Brave Search, Jina Reader,
-and the public GitHub API over HTTPS.
-
-## What stays on the device
-
-- API keys are stored in Android Keystore-backed encrypted storage.
-- Chat history is stored as JSON in app-private storage.
-- Action audit entries are stored locally and redacted.
-- Per-turn screen snapshots are ephemeral and are not appended to chat
-  history as hidden raw data.
-- Handy does not retain microphone audio after recognition. Sarvam STT
-  keeps audio in memory only while recording/uploading and never writes
-  that audio to disk.
-- Sarvam STT audit rows are local and contain provider, language,
-  audio duration, latency, and success/failure only. They do not contain
-  the transcript or audio.
-- Timber/logcat diagnostics must not contain API keys, screenshots, raw
-  prompts, raw notification bodies, raw clipboard contents, or raw
-  accessibility trees.
 
 ## Permissions
 

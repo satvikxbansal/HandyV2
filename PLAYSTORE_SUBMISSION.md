@@ -103,38 +103,39 @@ and provides a usable reduced-mode fallback.
 
 ### 4.3 What does the service do?
 
-Use this answer in the Play Console:
+<!-- CAPABILITIES:PLAY_FEATURE_CLAIMS:START -->
+Handy uses AccessibilityService for a general screen-aware AI copilot experience. After prominent disclosure and user consent, the service supports only the capabilities marked active in [`docs/CAPABILITIES.yaml`](docs/CAPABILITIES.yaml).
 
-Handy uses AccessibilityService for a general screen-aware AI copilot
-experience. After prominent disclosure and user consent, the service can:
+Active capabilities
 
-- Read visible screen text, UI labels, roles, bounds, view IDs, content
-  descriptions, current app/package, and current window metadata.
-- Build a compact visible-UI snapshot so the assistant can answer
-  questions like "what does this screen mean?" or "where should I tap?"
-- Point at visible controls through Handy's own overlay. Pointing is
-  guidance only and does not perform an action.
-- Verify targets and screen freshness for actions the user explicitly
-  requests.
-- After a second Tap-for-me disclosure, perform a confirmed tap,
-  scroll, long-press, or ordinary text entry on a visible foreground
-  control.
+- **Screen explanations** (`screen_explain`) - reads visible UI text, labels, roles, bounds, view IDs, and app/window metadata via Android Accessibility after consent.
+- **Pointing** (`pointing`) - buddy flies to visible controls for guidance; no auto-tap.
+- **Deterministic recipes** (`recipes`) - registered, bounded, policy-checked recipes only; no LLM-authored free-form plans. Includes: `open_app`, `install_app`, `clock_alarm`, `set_timer`, `web_search`, `chrome_open_url`, `chrome_search`, `chrome_visible_tap`, `android_settings`, `gmail_draft`, `whatsapp_draft`, `calendar_event`, `maps_search`, `maps_navigation`, `youtube_search`, `notes_draft`, `contacts_handoff`, `files_picker`, `photos_handoff`, `calculator`, `food_delivery`, `ride_hailing_prep`, `shopping_search`, `visible_tap`, `visible_text_entry`, `visible_search`, `visible_scroll`.
+- **System speech output** (`tts_system`) - Android TextToSpeech for spoken replies.
+- **Android speech recognition** (`stt_android`) - Android SpeechRecognizer for push-to-talk voice input; on-device-first or on-device-only modes.
 
-The service does not provide disability-focused assistive technology.
-It is submitted as a productivity augmentation feature.
+Off-by-default capabilities
 
-What the service will not do:
+- **Tap-for-me** (`tap_for_me`) - node-first taps and scrolls after Tap-for-me disclosure, per-action confirmation, and fresh screen verification; gesture fallback only on learned apps.
+- **Type-for-me** (`type_for_me`) - ordinary non-sensitive editable fields only; password, OTP, card, CVV, recovery-code, private-key, and secure-window typing is blocked.
+- **Sarvam speech output** (`tts_sarvam`) - Sarvam Bulbul v3 cloud TTS, opt-in, user-supplied API key required.
+- **Sarvam speech recognition** (`stt_sarvam`) - Sarvam Saarika v2 cloud STT, opt-in consent, user-supplied API key required.
+- **Web tools** (`web_tools`) - Brave web_search, Jina fetch_page, and GitHub github_search for public information only; fetched content cannot trigger device actions.
+- **Tutor mode** (`tutor_mode`) - rate-limited advisory guidance after idle time; cannot click, type, scroll, or run recipes by itself.
+- **Clipboard assist** (`clipboard_assist`) - visible-only clipboard text help with size caps, dedupe, and secret-like content skips.
 
-- It will not read or send secure-window content, password fields, OTPs,
-  card numbers, CVVs, or credential-like fields.
-- It will not capture the screen in the background.
-- It will not perform hidden UI traversal or open-ended automation.
-- It will not pay, purchase, checkout, transfer money, delete, submit
-  personal data, or change sensitive account/security settings in this
-  beta.
-- It will not act on banking, payment, wallet, password-manager, secure,
-  stale, or low-confidence surfaces.
+Not active in this beta
 
+- **Notification summaries** (`notification_summaries`) - notification listener plumbing exists, but user-facing notification processing and RemoteInput replies are not active. Reason: out of beta scope.
+- **Payments and checkout** (`payments`) - payments, purchases, checkout, money transfer, add-to-cart, applying coupons, and address or card edits stay blocked. Reason: out of beta scope.
+- **Banking app automation** (`banking_app_automation`) - banking, wallet, payment, authenticator, password-manager, and secure-window actions stay blocked. Reason: out of beta scope.
+
+Safety boundaries generated from the manifest:
+
+- Web-tool output is informational evidence only and cannot trigger device actions.
+- Tap-for-me and Type-for-me require a separate disclosure, a visible target, policy approval, and user confirmation.
+- Payments, banking app automation, password/OTP/card typing, secure-window content, purchases, checkout, deletion, and personal-data submission are outside the active beta scope.
+<!-- CAPABILITIES:PLAY_FEATURE_CLAIMS:END -->
 Verbatim in-app Accessibility service description
 ([`strings.xml -> accessibility_service_description`](app/src/main/res/values/strings.xml)):
 
@@ -165,9 +166,10 @@ Disclosure locations:
   shows the separate Tap-for-me disclosure after Accessibility has been
   visited/enabled.
 - [`SettingsActivity`](app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt)
-  has a "What Handy can do today" section generated from the policy
-  capability table and current feature flags. It tells reviewers which
-  capabilities are on, off, limited, muted, or blocked.
+  has a "What Handy can do today" section generated from
+  [`docs/CAPABILITIES.yaml`](docs/CAPABILITIES.yaml). It tells
+  reviewers which capabilities are active, off by default, or outside
+  the active beta scope.
 
 Main onboarding disclosure, exact copy from
 [`strings.xml -> onboarding_disclosure_body`](app/src/main/res/values/strings.xml):

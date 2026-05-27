@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.handy.app.R
 import com.handy.app.design.HandyDesign
 import com.handy.app.design.HandyDesignType
+import com.handy.app.settings.CapabilityTruthScreen
 import com.handy.app.settings.design.CompactKeyField
 import com.handy.app.settings.design.SectionCard
 import com.handy.app.settings.design.SectionHead
@@ -32,13 +33,12 @@ import com.handy.app.settings.design.SectionTone
 import com.handy.app.settings.design.SwitchRow
 
 /**
- * Cobalt capabilities accordion.
+ * Cobalt capability-truth accordion.
  *
- * Screen reading, voice input, and notifications are read-only mirrors
- * of OS permission state. When one is off, tapping its switch opens
- * the relevant system grant flow. When one is already on, tapping it is
- * a no-op because Handy cannot revoke that permission from inside the
- * app; users must revoke it in Android Settings.
+ * The truth rows are generated from `docs/CAPABILITIES.yaml`. The
+ * controls below still mirror OS permission state and local feature
+ * toggles so users can jump from a manifest row to the setting that
+ * controls it.
  */
 @Composable
 fun CapabilitiesSection(
@@ -52,6 +52,7 @@ fun CapabilitiesSection(
     onOpenAccessibilitySettings: () -> Unit,
     onRequestMic: () -> Unit,
     onOpenNotificationListenerSettings: () -> Unit,
+    onOpenCapabilitySettingsTarget: (String) -> Unit,
 
     // Web search + nested keys
     webSearchOn: Boolean,
@@ -71,12 +72,13 @@ fun CapabilitiesSection(
         SectionHead(
             iconRes = R.drawable.ic_sparkle,
             tone = SectionTone.CobaltCapabilities,
-            title = "Capabilities",
-            subtitle = "Voice, vision, and intelligence",
+            title = "What Handy can do today",
+            subtitle = "Generated from the capability manifest",
             expanded = expanded,
             onToggle = onToggleExpanded,
         )
         if (expanded) {
+            CapabilityTruthScreen(onOpenSettingsTarget = onOpenCapabilitySettingsTarget)
             SwitchRow(
                 title = "Screen reading",
                 checked = screenReadingOn,

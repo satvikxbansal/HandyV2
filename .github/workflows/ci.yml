@@ -49,6 +49,9 @@ jobs:
             exit 1
           fi
 
+      - name: Capability manifest sync
+        run: ./gradlew verifyCapabilityDocs --stacktrace
+
       - name: Unit tests
         run: ./gradlew test --stacktrace
 
