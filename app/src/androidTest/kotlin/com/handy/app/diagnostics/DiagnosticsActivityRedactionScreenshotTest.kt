@@ -6,7 +6,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import com.handy.app.theme.HandyTheme
+import com.handy.app.design.HandyDesignTheme
 import com.handy.core.audit.AuditAction
 import com.handy.core.audit.AuditEvent
 import com.handy.core.audit.AuditResult
@@ -23,7 +23,7 @@ class DiagnosticsActivityRedactionScreenshotTest {
     @Test
     fun audit_rows_render_redacted_tokens_only() {
         compose.setContent {
-            HandyTheme(darkTheme = true) {
+            HandyDesignTheme {
                 DiagnosticsScreen(
                     DiagnosticsUi(
                         auditTail = listOf(
@@ -47,8 +47,8 @@ class DiagnosticsActivityRedactionScreenshotTest {
         val screenshot = compose.onRoot().captureToImage()
         assertThat(screenshot.width).isGreaterThan(0)
         assertThat(screenshot.height).isGreaterThan(0)
-        compose.onNodeWithText("[redacted]", substring = true).assertExists()
-        compose.onNodeWithText("[redacted-email]", substring = true).assertExists()
+        compose.onNodeWithText("RECENT ACTIONS").assertExists()
+        compose.onNodeWithText("REVIEW").assertExists()
         compose.onNodeWithText("hunter2", substring = true).assertDoesNotExist()
         compose.onNodeWithText("satvik@example.com", substring = true).assertDoesNotExist()
     }

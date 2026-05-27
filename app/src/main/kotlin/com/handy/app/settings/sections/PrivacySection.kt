@@ -18,6 +18,7 @@ fun PrivacySection(
     onClipboardAssistToggle: (Boolean) -> Unit,
     auditEntriesCount: Int,
     onOpenActivityLog: () -> Unit,
+    onOpenDiagnostics: () -> Unit,
     onClearHistory: () -> Unit,
 ) {
     SectionCard(tone = SectionTone.EmeraldPrivacy, glow = expanded) {
@@ -44,6 +45,11 @@ fun PrivacySection(
                 title = "Activity log",
                 value = if (auditEntriesCount > 0) "$auditEntriesCount entries" else null,
                 onClick = onOpenActivityLog,
+            )
+            NavRow(
+                title = "Diagnostics",
+                value = "Read-only",
+                onClick = onOpenDiagnostics,
             )
             NavRow(
                 title = "Clear chat history",

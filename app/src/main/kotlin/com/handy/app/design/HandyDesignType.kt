@@ -63,4 +63,11 @@ object HandyDesignType {
         fontWeight = FontWeight.Medium,
         letterSpacing = 0.08.em,
     )
+    val Mono = TextStyle(
+        fontFamily = FontFamily.Monospace,
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.02.em,
+    )
 }

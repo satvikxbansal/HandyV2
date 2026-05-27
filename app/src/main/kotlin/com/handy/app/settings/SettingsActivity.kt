@@ -49,6 +49,7 @@ import com.handy.app.accessibility.AccessibilityStateMonitor
 import com.handy.app.design.HandyDesign
 import com.handy.app.design.HandyDesignTheme
 import com.handy.app.diagnostics.AuditReviewActivity
+import com.handy.app.diagnostics.DiagnosticsActivity
 import com.handy.app.notifications.HandyNotificationListenerService
 import com.handy.app.onboarding.ActionDisclosureActivity
 import com.handy.app.onboarding.OnboardingActivity
@@ -140,6 +141,7 @@ class SettingsActivity : ComponentActivity() {
                     onRecipesToggle = viewModel::setRecipesEnabled,
                     onClipboardAssistToggle = viewModel::setClipboardAssistEnabled,
                     onOpenActivityLog = { AuditReviewActivity.open(context) },
+                    onOpenDiagnostics = { DiagnosticsActivity.open(context) },
                     onOpenBubblePreview = if (BuildConfig.DEBUG) {
                         {
                             startActivity(
@@ -209,6 +211,7 @@ internal fun SettingsScreen(
     onRecipesToggle: (Boolean) -> Unit = {},
     onClipboardAssistToggle: (Boolean) -> Unit = {},
     onOpenActivityLog: () -> Unit = {},
+    onOpenDiagnostics: () -> Unit = {},
     onOpenBubblePreview: (() -> Unit)? = null,
     onRequestMic: () -> Unit = {},
     onResetOnboarding: (() -> Unit)? = null,
@@ -406,6 +409,7 @@ internal fun SettingsScreen(
                         onClipboardAssistToggle = onClipboardAssistToggle,
                         auditEntriesCount = 0,
                         onOpenActivityLog = onOpenActivityLog,
+                        onOpenDiagnostics = onOpenDiagnostics,
                         onClearHistory = onClearHistory,
                     )
                 }
