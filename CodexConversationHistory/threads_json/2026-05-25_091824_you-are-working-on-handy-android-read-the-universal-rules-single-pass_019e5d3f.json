@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 39,
-    "summary": "This conversation focused on: Change the LIVE chip in ChatTopBarV2 (next to \"Handy\" wordmark) from \"any chat activity\" to \"AI brain has a valid API key configured.\" The chip's existing visual (small pulsing accent dot + accent \"LIVE\" label) stays exactly as is; only th… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
+    "summary": "This conversation focused on: Change the LIVE chip in ChatTopBarV2 (next to \"Handy\" wordmark) from \"any chat activity\" to \"AI brain has a valid API key configured.\" The chip's existing visual (small pulsing accent dot + accent \"LIVE\" label) stays exactly as is; only the truthy condition c… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": []
   },

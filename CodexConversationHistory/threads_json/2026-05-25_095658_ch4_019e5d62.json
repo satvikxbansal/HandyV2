@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 11,
-    "summary": "This conversation focused on: - Stop using AlertDialog for dispatch_action confirmations. - New sheet follows the same family as PrivacyDisclosureSheet and ModelPickerSheet (ModalBottomSheet, SurfaceElevated bg, CornerSheetTop=24.dp, PrimaryButton/SecondaryTextButton s… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
+    "summary": "This conversation focused on: - Stop using AlertDialog for dispatch_action confirmations. - New sheet follows the same family as PrivacyDisclosureSheet and ModelPickerSheet (ModalBottomSheet, SurfaceElevated bg, CornerSheetTop=24.dp, PrimaryButton/SecondaryTextButton stack at the bottom). No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": []
   },

@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 17,
-    "summary": "This conversation focused on: - Stop rendering ChatActivity's legacy ErrorBanner and BudgetWarningBanner (they import HandyColors/HandyDimens and don't match the design system). - Introduce a small ChatBannersV2.kt that defines ErrorBannerV2 and BudgetBannerV2, modelle… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
+    "summary": "This conversation focused on: - Stop rendering ChatActivity's legacy ErrorBanner and BudgetWarningBanner (they import HandyColors/HandyDimens and don't match the design system). - Introduce a small ChatBannersV2.kt that defines ErrorBannerV2 and BudgetBannerV2, modelled on the existing Re… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": []
   },
