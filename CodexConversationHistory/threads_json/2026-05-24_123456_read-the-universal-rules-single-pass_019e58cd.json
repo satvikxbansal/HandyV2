@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 36,
-    "summary": "This conversation focused on: Replace the existing Brain section (3 stacked BrainModelCard radios) with the new \"always-expanded\" hero card from scenes-settings.jsx lines 232–300. It shows ONLY the currently selected model + a \"Change\" link. Tapping \"Change\" opens a ne… Likely related git changes: 1a34da3 Add redesigned settings primitives; 2028fb9 S (C+D+E): settings page redesign - all done!; 1f95269 bug fixes.",
+    "summary": "This conversation focused on: Replace the existing Brain section (3 stacked BrainModelCard radios) with the new \"always-expanded\" hero card from scenes-settings.jsx lines 232–300. It shows ONLY the currently selected model + a \"Change\" link. Tapping \"Change\" opens a new ModelPickerSheet (… Likely related git changes: 1a34da3 Add redesigned settings primitives; 2028fb9 S (C+D+E): settings page redesign - all done!; 1f95269 bug fixes.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": [
       {
