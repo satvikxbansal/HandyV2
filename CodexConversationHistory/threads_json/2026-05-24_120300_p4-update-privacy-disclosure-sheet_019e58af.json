@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 17,
-    "summary": "This conversation focused on: Replace the body of PrivacyDetailsBottomSheet.kt with the new design's `08 · Privacy disclosure` — a full-height bottom sheet (starts 60dp below the top of the screen), with a drag handle, a header (shield tile + title + close button), 4 c… Likely related git changes: 26a219e Privacy bottom sheet.",
+    "summary": "This conversation focused on: Replace the body of PrivacyDetailsBottomSheet.kt with the new design's `08 · Privacy disclosure` — a full-height bottom sheet (starts 60dp below the top of the screen), with a drag handle, a header (shield tile + title + close button), 4 color-coded sections… Likely related git changes: 26a219e Privacy bottom sheet.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": [
       {
