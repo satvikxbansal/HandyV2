@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 34,
-    "summary": "This conversation focused on: Replace the existing PostDisclosureStep inside OnboardingActivity with a new design-matching permissions screen that: - Renders a left-aligned Display title \"One more step.\" where \"step.\" is the accent word (color #D97757 + SemiBold weight… Likely related git changes: 64fad2a Simplify Value card active states; 72df9d0 Added Value Prop cards in onboarding.",
+    "summary": "This conversation focused on: Replace the existing PostDisclosureStep inside OnboardingActivity with a new design-matching permissions screen that: - Renders a left-aligned Display title \"One more step.\" where \"step.\" is the accent word (color #D97757 + SemiBold weight, not italic). - Sub… Likely related git changes: 64fad2a Simplify Value card active states; 72df9d0 Added Value Prop cards in onboarding.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": [
       {
