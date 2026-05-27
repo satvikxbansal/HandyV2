@@ -3,6 +3,11 @@ package com.handy.runtime.llm
 import com.google.common.truth.Truth.assertThat
 import com.handy.core.action.ActionAppPolicy
 import com.handy.core.action.AssistantAction
+import com.handy.core.audit.AuditAction
+import com.handy.core.audit.AuditEvent
+import com.handy.core.audit.AuditResult
+import com.handy.core.audit.AuditStore
+import com.handy.core.audit.TimelineEvent
 import com.handy.core.intent.IntentResult
 import com.handy.core.llm.ConfirmationPrompter
 import com.handy.core.llm.ToolResult
@@ -14,6 +19,8 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.Test
@@ -101,9 +108,68 @@ class HandyToolRunnerPolicyTest {
         assertThat((capped as ToolResult.Failed).message).contains("quota_exceeded")
     }
 
+    @Test fun `dispatch action appends native audit event`() = runTest {
+        val store = RecordingAuditStore()
+        val dispatcher = mockk<AndroidIntentDispatcher>().also { dispatcher ->
+            every { dispatcher.dispatch(any<AssistantAction>()) } returns
+                IntentResult.Dispatched("com.android.deskclock/.TimerActivity")
+            every { dispatcher.dispatchConfirmed(any<AssistantAction>()) } returns
+                IntentResult.Dispatched("com.android.deskclock/.TimerActivity")
+        }
+        val runner = runner(dispatcher = dispatcher, auditStore = store)
+
+        val result = runner.run(
+            "dispatch_action",
+            """{"type":"start_timer","seconds":90,"label":"tea"}""",
+        )
+
+        assertThat(result).isInstanceOf(ToolResult.Ok::class.java)
+        val event = store.events.single()
+        assertThat(event.action).isEqualTo(AuditAction.Intent("StartTimer"))
+        assertThat(event.targetApp).isEqualTo("com.android.deskclock")
+        assertThat(event.semanticTarget).contains("start_timer;seconds=90")
+        assertThat(event.semanticTarget).contains("labelChars=3")
+        assertThat(event.semanticTarget).doesNotContain("tea")
+        assertThat(event.confirmationRequired).isFalse()
+        assertThat(event.userConfirmed).isFalse()
+        assertThat(event.result).isEqualTo(
+            AuditResult.Dispatched("com.android.deskclock/.TimerActivity"),
+        )
+    }
+
+    @Test fun `dispatch action audit failure does not change tool result`() = runTest {
+        val dispatcher = mockDispatcher()
+        val runner = runner(dispatcher = dispatcher, auditStore = ThrowingAuditStore())
+
+        val result = runner.run("dispatch_action", """{"type":"start_timer","seconds":60}""")
+
+        assertThat(result).isInstanceOf(ToolResult.Ok::class.java)
+        assertThat((result as ToolResult.Ok).text).contains("dispatched")
+        verify(exactly = 1) { dispatcher.dispatch(any<AssistantAction>()) }
+    }
+
+    @Test fun `declined confirmed dispatch action appends cancelled audit event`() = runTest {
+        val store = RecordingAuditStore()
+        val dispatcher = mockDispatcher()
+        val runner = runner(dispatcher = dispatcher, auditStore = store)
+
+        val result = runner.run("dispatch_action", """{"type":"install_app","packageHint":"com.example.app"}""")
+
+        assertThat(result).isEqualTo(ToolResult.Ok("user_declined"))
+        verify(exactly = 0) { dispatcher.dispatch(any<AssistantAction>()) }
+        verify(exactly = 0) { dispatcher.dispatchConfirmed(any<AssistantAction>()) }
+        val event = store.events.single()
+        assertThat(event.action).isEqualTo(AuditAction.Intent("InstallApp"))
+        assertThat(event.confirmationRequired).isTrue()
+        assertThat(event.userConfirmed).isFalse()
+        assertThat(event.result).isEqualTo(AuditResult.Cancelled)
+        assertThat(event.failureReason).isEqualTo("user_declined")
+    }
+
     private fun runner(
         dispatcher: AndroidIntentDispatcher,
         webSearch: WebSearchService = mockWebSearch(),
+        auditStore: AuditStore? = null,
     ): HandyToolRunner =
         HandyToolRunner(
             webSearchService = webSearch,
@@ -113,6 +179,7 @@ class HandyToolRunnerPolicyTest {
                 appPolicy = ActionAppPolicy(),
             ),
             json = Json { ignoreUnknownKeys = true; classDiscriminator = "type" },
+            auditStore = auditStore,
         )
 
     private fun mockWebSearch(): WebSearchService =
@@ -133,4 +200,31 @@ class HandyToolRunnerPolicyTest {
             every { dispatcher.dispatch(any<AssistantAction>()) } returns IntentResult.Dispatched("fake")
             every { dispatcher.dispatchConfirmed(any<AssistantAction>()) } returns IntentResult.Dispatched("fake")
         }
+
+    private class RecordingAuditStore : AuditStore {
+        val events = mutableListOf<AuditEvent>()
+        val timeline = mutableListOf<TimelineEvent>()
+
+        override suspend fun append(event: AuditEvent) {
+            events += event
+        }
+
+        override suspend fun append(event: TimelineEvent) {
+            timeline += event
+        }
+
+        override suspend fun recent(limit: Int): List<AuditEvent> = events.takeLast(limit)
+
+        override fun observe(limit: Int): Flow<List<AuditEvent>> = flowOf(events.takeLast(limit))
+    }
+
+    private class ThrowingAuditStore : AuditStore {
+        override suspend fun append(event: AuditEvent) {
+            error("audit unavailable")
+        }
+
+        override suspend fun recent(limit: Int): List<AuditEvent> = emptyList()
+
+        override fun observe(limit: Int): Flow<List<AuditEvent>> = flowOf(emptyList())
+    }
 }

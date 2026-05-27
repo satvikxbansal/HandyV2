@@ -407,7 +407,7 @@ internal fun SettingsScreen(
                         onBlockInIncognitoToggle = onNoActionsInIncognitoToggle,
                         clipboardAssist = state.settings?.clipboardAssistEnabled == true,
                         onClipboardAssistToggle = onClipboardAssistToggle,
-                        auditEntriesCount = 0,
+                        auditEntriesCount = state.auditEntriesCount,
                         onOpenActivityLog = onOpenActivityLog,
                         onOpenDiagnostics = onOpenDiagnostics,
                         onClearHistory = onClearHistory,

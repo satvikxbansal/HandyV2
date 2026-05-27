@@ -18,6 +18,7 @@ import androidx.annotation.RequiresApi
 import androidx.lifecycle.lifecycleScope
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
+import com.handy.app.accessibility.ActionAuditSuppression
 import com.handy.app.widget.BezierFlightController
 import com.handy.app.widget.LensRenderer
 import com.handy.core.agent.CorrectionIntent
@@ -571,7 +572,9 @@ class BuddyFlightDriver @Inject constructor(
         val performTarget = tapTarget.copy(allowGestureFallback = decision.allowGestureFallback)
         val actionStartedAt = SystemClock.uptimeMillis()
         val result = runCatching {
-            actionPerformer.tap(performTarget, sourceTrust)
+            ActionAuditSuppression.suppress {
+                actionPerformer.tap(performTarget, sourceTrust)
+            }
         }.onFailure { Timber.w(it, "BuddyFlightDriver tap failed") }.getOrNull()
         appendTimeline(
             TimelineEvent(
@@ -731,7 +734,9 @@ class BuddyFlightDriver @Inject constructor(
         presenter.onActionInProgressBubble(UiActionKind.TYPE, displayLabel, progress = null)
         val actionStartedAt = SystemClock.uptimeMillis()
         val result = runCatching {
-            actionPerformer.typeText(typeTarget, confirmedText, sourceTrust)
+            ActionAuditSuppression.suppress {
+                actionPerformer.typeText(typeTarget, confirmedText, sourceTrust)
+            }
         }.onFailure { Timber.w(it, "BuddyFlightDriver type failed") }.getOrNull()
         appendTimeline(
             TimelineEvent(
@@ -1363,19 +1368,22 @@ class BuddyFlightDriver @Inject constructor(
         confirmationRequired: Boolean,
         userConfirmed: Boolean,
     ) {
-        val event = AuditEvent(
-            timestampEpochMs = System.currentTimeMillis(),
-            requestId = java.util.UUID.randomUUID().toString(),
-            provider = "tap-for-me",
-            action = AuditAction.Tap,
-            targetApp = targetPackage ?: tapTarget.expectedPackage ?: "unknown",
-            semanticTarget = tapTarget.auditDescription(),
-            confirmationRequired = confirmationRequired,
-            userConfirmed = userConfirmed,
-            result = result,
-            failureReason = (result as? AuditResult.Failed)?.reason,
-        )
-        runCatching { auditStore.append(event) }
+        runCatching {
+            auditStore.append(
+                AuditEvent(
+                    timestampEpochMs = System.currentTimeMillis(),
+                    requestId = java.util.UUID.randomUUID().toString(),
+                    provider = "tap-for-me",
+                    action = AuditAction.Tap,
+                    targetApp = targetPackage ?: tapTarget.expectedPackage ?: "unknown",
+                    semanticTarget = tapTarget.auditDescription(),
+                    confirmationRequired = confirmationRequired,
+                    userConfirmed = userConfirmed,
+                    result = result,
+                    failureReason = (result as? AuditResult.Failed)?.reason,
+                ),
+            )
+        }
             .onFailure { Timber.w(it, "AuditStore tap-for-me append failed") }
     }
 
@@ -1444,19 +1452,22 @@ class BuddyFlightDriver @Inject constructor(
         selectedAtEpochMs: Long,
         result: AuditResult,
     ) {
-        val event = AuditEvent(
-            timestampEpochMs = selectedAtEpochMs,
-            requestId = java.util.UUID.randomUUID().toString(),
-            provider = "manual-fallback",
-            action = AuditAction.ManualSelect,
-            targetApp = target.packageName ?: "unknown",
-            semanticTarget = target.auditDescription(),
-            confirmationRequired = false,
-            userConfirmed = true,
-            result = result,
-            failureReason = (result as? AuditResult.Failed)?.reason,
-        )
-        runCatching { auditStore.append(event) }
+        runCatching {
+            auditStore.append(
+                AuditEvent(
+                    timestampEpochMs = selectedAtEpochMs,
+                    requestId = java.util.UUID.randomUUID().toString(),
+                    provider = "manual-fallback",
+                    action = AuditAction.ManualSelect,
+                    targetApp = target.packageName ?: "unknown",
+                    semanticTarget = target.auditDescription(),
+                    confirmationRequired = false,
+                    userConfirmed = true,
+                    result = result,
+                    failureReason = (result as? AuditResult.Failed)?.reason,
+                ),
+            )
+        }
             .onFailure { Timber.w(it, "AuditStore manual selection append failed") }
     }
 
@@ -1469,20 +1480,23 @@ class BuddyFlightDriver @Inject constructor(
         userConfirmed: Boolean,
         verifiedBy: String? = null,
     ) {
-        val event = AuditEvent(
-            timestampEpochMs = System.currentTimeMillis(),
-            requestId = java.util.UUID.randomUUID().toString(),
-            provider = "tap-for-me",
-            action = AuditAction.TypeText,
-            targetApp = targetPackage ?: typeTarget.expectedPackage ?: "unknown",
-            semanticTarget = typeTarget.auditDescriptionWithInput(typedText),
-            confirmationRequired = confirmationRequired,
-            userConfirmed = userConfirmed,
-            result = result,
-            failureReason = (result as? AuditResult.Failed)?.reason,
-            verifiedBy = verifiedBy,
-        )
-        runCatching { auditStore.append(event) }
+        runCatching {
+            auditStore.append(
+                AuditEvent(
+                    timestampEpochMs = System.currentTimeMillis(),
+                    requestId = java.util.UUID.randomUUID().toString(),
+                    provider = "type-for-me",
+                    action = AuditAction.TypeText,
+                    targetApp = targetPackage ?: typeTarget.expectedPackage ?: "unknown",
+                    semanticTarget = typeTarget.auditDescriptionWithInput(typedText),
+                    confirmationRequired = confirmationRequired,
+                    userConfirmed = userConfirmed,
+                    result = result,
+                    failureReason = (result as? AuditResult.Failed)?.reason,
+                    verifiedBy = verifiedBy,
+                ),
+            )
+        }
             .onFailure { Timber.w(it, "AuditStore type-for-me append failed") }
     }
 

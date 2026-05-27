@@ -343,7 +343,7 @@ private fun ActivityEmpty() {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "When Handy taps, types, or fetches a page for you, the action shows up here with the target redacted.",
+            text = "When Handy taps, types, uses voice, or opens a native action for you, the action shows up here with the target redacted.",
             style = HandyDesignType.Body.copy(fontSize = 13.sp, lineHeight = 20.sp),
             color = HandyDesign.Colors.TextSecondary,
             textAlign = TextAlign.Center,
@@ -439,6 +439,8 @@ private fun ActivityRow(
     val illu = when (event.action) {
         AuditAction.TypeText -> R.drawable.ic_keyboard
         is AuditAction.Intent -> R.drawable.ic_globe
+        is AuditAction.SpeechToText -> R.drawable.ic_mic
+        is AuditAction.TextToSpeech -> R.drawable.ic_volume_2
         else -> R.drawable.ic_hand_tap
     }
     Column(
@@ -571,11 +573,21 @@ private fun AuditAction.displayName(): String = when (this) {
     AuditAction.LongPress -> "Long-press"
     AuditAction.TypeText -> "Type"
     AuditAction.ManualSelect -> "Pick"
-    is AuditAction.Intent -> "Web fetch"
+    is AuditAction.Intent -> name.intentActionDisplayName()
     AuditAction.RecipeStepFailed -> "Recipe step failed"
     AuditAction.RecipeCompleted -> "Recipe completed"
-    else -> this::class.simpleName.orEmpty()
+    is AuditAction.Scroll -> "Scroll"
+    is AuditAction.Swipe -> "Swipe"
+    is AuditAction.SpeechToText -> "Voice input"
+    is AuditAction.TextToSpeech -> "Voice reply"
 }
+
+private fun String.intentActionDisplayName(): String =
+    replace(Regex("""(?<=[a-z])(?=[A-Z])"""), " ")
+        .replace('_', ' ')
+        .trim()
+        .replaceFirstChar { it.titlecase(Locale.ROOT) }
+        .ifBlank { "Native action" }
 
 private fun AuditResult.displayName(): String = when (this) {
     is AuditResult.Dispatched -> "Dispatched"

@@ -444,20 +444,24 @@ class AccessibilityGestureActionPerformer(
         result: AuditResult,
         verifiedBy: String? = null,
     ) {
-        val event = AuditEvent(
-            timestampEpochMs = clock(),
-            requestId = requestIdProvider(),
-            provider = providerId,
-            action = action,
-            targetApp = foregroundPackageProvider() ?: "unknown",
-            semanticTarget = targetDescription,
-            confirmationRequired = confirmationRequired,
-            userConfirmed = userConfirmed,
-            result = result,
-            failureReason = (result as? AuditResult.Failed)?.reason,
-            verifiedBy = verifiedBy,
-        )
-        runCatching { auditStore.append(event) }
+        if (ActionAuditSuppression.isSuppressed()) return
+        runCatching {
+            auditStore.append(
+                AuditEvent(
+                    timestampEpochMs = clock(),
+                    requestId = requestIdProvider(),
+                    provider = providerId,
+                    action = action,
+                    targetApp = foregroundPackageProvider() ?: "unknown",
+                    semanticTarget = targetDescription,
+                    confirmationRequired = confirmationRequired,
+                    userConfirmed = userConfirmed,
+                    result = result,
+                    failureReason = (result as? AuditResult.Failed)?.reason,
+                    verifiedBy = verifiedBy,
+                ),
+            )
+        }
             .onFailure { Timber.w(it, "AuditStore append failed") }
     }
 

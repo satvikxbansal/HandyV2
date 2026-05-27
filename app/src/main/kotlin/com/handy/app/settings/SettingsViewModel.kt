@@ -3,6 +3,7 @@ package com.handy.app.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.handy.core.action.ActionExecutionGate
+import com.handy.core.audit.AuditStore
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.model.AssistantMode
 import com.handy.core.model.HandySettings
@@ -47,6 +48,7 @@ class SettingsViewModel @Inject constructor(
     private val keyStore: KeyStore,
     private val history: ChatHistoryStore,
     private val ttsClient: TtsClient,
+    private val auditStore: AuditStore,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
@@ -85,6 +87,11 @@ class SettingsViewModel @Inject constructor(
                         testingVoice = _state.value.voice.testingVoice,
                     ),
                 )
+            }
+        }
+        viewModelScope.launch {
+            auditStore.observe(limit = MAX_AUDIT_ENTRY_BADGE_COUNT).collectLatest { events ->
+                _state.value = _state.value.copy(auditEntriesCount = events.size)
             }
         }
     }
@@ -539,6 +546,7 @@ class SettingsViewModel @Inject constructor(
 
     private companion object {
         const val ONE_HOUR_MS: Long = 60L * 60L * 1_000L
+        const val MAX_AUDIT_ENTRY_BADGE_COUNT = 200
     }
 }
 
@@ -551,4 +559,5 @@ data class SettingsUiState(
     val sarvamKeyMasked: String? = null,
     val voice: VoiceSectionState = VoiceSectionState(),
     val assistantModes: List<AssistantMode> = AssistantMode.entries,
+    val auditEntriesCount: Int = 0,
 )

@@ -4,6 +4,9 @@ import com.handy.core.action.ActionPolicyEngine
 import com.handy.core.action.AssistantAction
 import com.handy.core.action.ConfirmationLevel
 import com.handy.core.action.SourceTrust
+import com.handy.core.audit.AuditAction
+import com.handy.core.audit.AuditEvent
+import com.handy.core.audit.AuditResult
 import com.handy.core.audit.AuditStore
 import com.handy.core.audit.Stage
 import com.handy.core.audit.TimelineEvent
@@ -184,16 +187,39 @@ class HandyToolRunner @Inject constructor(
             sourceTrust = sourceTrust,
         )
         if (!decision.allowed) {
+            auditDispatchAction(
+                action = action,
+                result = AuditResult.NotPermitted,
+                confirmationRequired = false,
+                userConfirmed = false,
+                failureReason = decision.reason ?: "policy_denied",
+            )
             return ToolResult.Failed("policy_denied: ${decision.reason ?: "denied"}")
         }
         if (decision.confirmation != ConfirmationLevel.NONE) {
             val ok = confirmationPrompter.confirm(policyConfirmationReason(action, decision.confirmation))
-            if (!ok) return ToolResult.Ok("user_declined")
+            if (!ok) {
+                auditDispatchAction(
+                    action = action,
+                    result = AuditResult.Cancelled,
+                    confirmationRequired = true,
+                    userConfirmed = false,
+                    failureReason = "user_declined",
+                )
+                return ToolResult.Ok("user_declined")
+            }
             val confirmed = if (action.isDestructive) {
                 intentDispatcher.dispatchConfirmed(action)
             } else {
                 intentDispatcher.dispatch(action)
             }
+            auditDispatchAction(
+                action = action,
+                result = confirmed.toAuditResult(),
+                confirmationRequired = true,
+                userConfirmed = true,
+                failureReason = confirmed.auditFailureReasonOrNull(),
+            )
             return confirmed.toToolResult(action, confirmedByUser = true)
         }
 
@@ -201,10 +227,36 @@ class HandyToolRunner @Inject constructor(
         return when (initial) {
             is IntentResult.NeedsConfirmation -> {
                 val ok = confirmationPrompter.confirm(initial.reason)
-                if (!ok) return ToolResult.Ok("user_declined")
-                intentDispatcher.dispatchConfirmed(action).toToolResult(action, confirmedByUser = true)
+                if (!ok) {
+                    auditDispatchAction(
+                        action = action,
+                        result = AuditResult.Cancelled,
+                        confirmationRequired = true,
+                        userConfirmed = false,
+                        failureReason = "user_declined",
+                    )
+                    return ToolResult.Ok("user_declined")
+                }
+                val confirmed = intentDispatcher.dispatchConfirmed(action)
+                auditDispatchAction(
+                    action = action,
+                    result = confirmed.toAuditResult(),
+                    confirmationRequired = true,
+                    userConfirmed = true,
+                    failureReason = confirmed.auditFailureReasonOrNull(),
+                )
+                confirmed.toToolResult(action, confirmedByUser = true)
             }
-            else -> initial.toToolResult(action, confirmedByUser = false)
+            else -> {
+                auditDispatchAction(
+                    action = action,
+                    result = initial.toAuditResult(),
+                    confirmationRequired = false,
+                    userConfirmed = false,
+                    failureReason = initial.auditFailureReasonOrNull(),
+                )
+                initial.toToolResult(action, confirmedByUser = false)
+            }
         }
     }
 
@@ -224,6 +276,89 @@ class HandyToolRunner @Inject constructor(
             is IntentResult.Failed -> ToolResult.Failed("${prefix}dispatch_failed: $reason")
             is IntentResult.NeedsConfirmation -> ToolResult.Failed("double_confirmation_required: $reason")
         }
+    }
+
+    private suspend fun auditDispatchAction(
+        action: AssistantAction,
+        result: AuditResult,
+        confirmationRequired: Boolean,
+        userConfirmed: Boolean,
+        failureReason: String?,
+    ) {
+        val store = auditStore ?: return
+        runCatching {
+            store.append(
+                AuditEvent(
+                    timestampEpochMs = System.currentTimeMillis(),
+                    requestId = "dispatch:${action.auditName()}:${System.nanoTime()}",
+                    provider = "dispatch_action",
+                    action = AuditAction.Intent(action.auditName()),
+                    targetApp = action.auditTargetApp(result),
+                    semanticTarget = action.auditDescription(),
+                    confirmationRequired = confirmationRequired,
+                    userConfirmed = userConfirmed,
+                    result = result,
+                    failureReason = failureReason,
+                ),
+            )
+        }.onFailure { Timber.w(it, "ToolRunner dispatch audit append failed") }
+    }
+
+    private fun IntentResult.toAuditResult(): AuditResult = when (this) {
+        is IntentResult.Dispatched -> AuditResult.Dispatched(component = component)
+        IntentResult.ChooserShown -> AuditResult.ChooserShown
+        IntentResult.NoHandler -> AuditResult.NotFound
+        is IntentResult.Failed -> AuditResult.Failed(reason.toReasonCode())
+        is IntentResult.NeedsConfirmation -> AuditResult.Failed("confirmation_still_required")
+    }
+
+    private fun IntentResult.auditFailureReasonOrNull(): String? = when (this) {
+        IntentResult.NoHandler -> "no_handler"
+        is IntentResult.Failed -> reason.toReasonCode()
+        is IntentResult.NeedsConfirmation -> "confirmation_still_required"
+        else -> null
+    }
+
+    private fun AssistantAction.auditName(): String =
+        this::class.simpleName?.takeIf { it.isNotBlank() } ?: "AssistantAction"
+
+    private fun AssistantAction.auditTargetApp(result: AuditResult): String {
+        val dispatchedPackage = (result as? AuditResult.Dispatched)
+            ?.component
+            ?.substringBefore('/')
+            ?.takeIf { it.isNotBlank() }
+        return (dispatchedPackage ?: when (this) {
+            is AssistantAction.OpenApp -> packageHint
+            is AssistantAction.OpenAppInfo -> packageHint
+            is AssistantAction.InstallApp -> packageHint ?: "android.intent"
+            is AssistantAction.OpenSettings -> "android.settings"
+            else -> "android.intent"
+        }).safeAuditToken()
+    }
+
+    private fun AssistantAction.auditDescription(): String = when (this) {
+        is AssistantAction.StartTimer -> "start_timer;seconds=${seconds.coerceAtLeast(1)};labelChars=${label?.length ?: 0}"
+        is AssistantAction.SetAlarm -> "set_alarm;hour=${hour.coerceIn(0, 23)};minute=${minute.coerceIn(0, 59)};labelChars=${label?.length ?: 0}"
+        is AssistantAction.OpenUrl -> "open_url;host=${url.safeHost()}"
+        is AssistantAction.OpenApp -> "open_app;packageHint=${packageHint.safeAuditToken()}"
+        is AssistantAction.InstallApp -> "install_app;packageHint=${packageHint.safeAuditTokenOrNull() ?: "none"};searchChars=${searchQuery?.length ?: 0}"
+        is AssistantAction.DialNumber -> "dial_number;numberChars=${number.length}"
+        is AssistantAction.MapsSearch -> "maps_search;queryChars=${query.length}"
+        is AssistantAction.ComposeEmail -> "compose_email;toChars=${to?.length ?: 0};subjectChars=${subject?.length ?: 0};bodyChars=${body?.length ?: 0}"
+        is AssistantAction.ShareText -> "share_text;chars=${text.length};mimeType=${mimeType.safeAuditToken()}"
+        is AssistantAction.WebSearchIntent -> "web_search;queryChars=${query.length}"
+        is AssistantAction.ComposeSms -> "compose_sms;toChars=${to?.length ?: 0};bodyChars=${body?.length ?: 0}"
+        is AssistantAction.CreateCalendarEvent -> "create_event;titleChars=${title.length};locationChars=${location?.length ?: 0};notesChars=${notes?.length ?: 0};attendees=${attendees.size}"
+        is AssistantAction.OpenSettings -> "open_settings;target=${target.name.safeAuditToken()}"
+        is AssistantAction.OpenAppInfo -> "open_app_info;packageHint=${packageHint.safeAuditToken()}"
+        is AssistantAction.OpenContact -> "open_contact;uriChars=${contactUri.length}"
+        is AssistantAction.OpenFilePicker -> "open_file_picker;mode=${mode.name.safeAuditToken()};mimeType=${mimeType.safeAuditToken()}"
+        AssistantAction.OpenPhotos -> "open_photos"
+        AssistantAction.OpenCalculator -> "open_calculator"
+        is AssistantAction.StartNavigation -> "start_navigation;queryChars=${query.length}"
+        is AssistantAction.ShareUrl -> "share_url;host=${url.safeHost()};titleChars=${title?.length ?: 0}"
+        is AssistantAction.TypeText -> "type_text;chars=${text.length}"
+        is AssistantAction.UiAction -> "ui_action;kind=${kind.name.safeAuditToken()};targetLabelChars=${targetLabel?.length ?: 0};typedChars=${typedText?.length ?: 0}"
     }
 
     private fun policyConfirmationReason(
@@ -334,6 +469,19 @@ class HandyToolRunner @Inject constructor(
                 ?.removePrefix("www.")
                 ?.takeIf { it.isNotBlank() }
         }.getOrNull()
+
+    private fun String.safeHost(): String =
+        domainOrNull()?.safeAuditToken() ?: "unknown"
+
+    private fun String?.safeAuditTokenOrNull(): String? =
+        this?.safeAuditToken()?.takeIf { it != "unknown" }
+
+    private fun String.safeAuditToken(maxChars: Int = 96): String =
+        trim()
+            .replace(Regex("""[^A-Za-z0-9_.:-]+"""), "_")
+            .trim('_')
+            .take(maxChars)
+            .ifBlank { "unknown" }
 
     private fun String.bodyContainsActionLikeInstruction(): Boolean =
         ACTION_LIKE_INSTRUCTION_REGEX.containsMatchIn(this)
