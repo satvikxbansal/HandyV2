@@ -2,6 +2,7 @@ package com.handy.app.settings.sections
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -19,26 +21,27 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.handy.app.R
 import com.handy.app.design.HandyDesign
 import com.handy.app.design.HandyDesignType
-import com.handy.app.settings.CapabilityTruthScreen
 import com.handy.app.settings.design.CompactKeyField
 import com.handy.app.settings.design.SectionCard
 import com.handy.app.settings.design.SectionHead
+import com.handy.app.settings.design.SectionRowDivider
 import com.handy.app.settings.design.SectionTone
 import com.handy.app.settings.design.SwitchRow
 
 /**
  * Cobalt capability-truth accordion.
  *
- * The truth rows are generated from `docs/CAPABILITIES.yaml`. The
- * controls below still mirror OS permission state and local feature
- * toggles so users can jump from a manifest row to the setting that
- * controls it.
+ * The controls mirror OS permission state and local feature toggles.
+ * The full capability manifest lives in a bottom sheet launched from
+ * the tertiary CTA at the end of the card.
  */
 @Composable
 fun CapabilitiesSection(
@@ -52,7 +55,7 @@ fun CapabilitiesSection(
     onOpenAccessibilitySettings: () -> Unit,
     onRequestMic: () -> Unit,
     onOpenNotificationListenerSettings: () -> Unit,
-    onOpenCapabilitySettingsTarget: (String) -> Unit,
+    onOpenManifest: () -> Unit,
 
     // Web search + nested keys
     webSearchOn: Boolean,
@@ -72,13 +75,12 @@ fun CapabilitiesSection(
         SectionHead(
             iconRes = R.drawable.ic_sparkle,
             tone = SectionTone.CobaltCapabilities,
-            title = "What Handy can do today",
-            subtitle = "Generated from the capability manifest",
+            title = "Capabilities",
+            subtitle = "Manage Tools & Permissions",
             expanded = expanded,
             onToggle = onToggleExpanded,
         )
         if (expanded) {
-            CapabilityTruthScreen(onOpenSettingsTarget = onOpenCapabilitySettingsTarget)
             SwitchRow(
                 title = "Screen reading",
                 checked = screenReadingOn,
@@ -118,6 +120,63 @@ fun CapabilitiesSection(
                 checked = tutorOn,
                 enabled = true,
                 onCheckedChange = onTutorToggle,
+            )
+            ManifestLinkRow(onClick = onOpenManifest)
+        }
+    }
+}
+
+@Composable
+private fun ManifestLinkRow(onClick: () -> Unit) {
+    Column {
+        SectionRowDivider()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(role = Role.Button, onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(HandyDesign.Colors.PointSoft),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_message_circle_question),
+                    contentDescription = null,
+                    tint = HandyDesign.Colors.Point,
+                    modifier = Modifier.size(12.dp),
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "What Handy can do today",
+                    style = HandyDesignType.Body.copy(
+                        fontSize = 13.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                    color = HandyDesign.Colors.TextPrimary,
+                )
+                Text(
+                    text = "The full capability manifest — what's on, off, and coming",
+                    style = HandyDesignType.Caption.copy(
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp,
+                    ),
+                    color = HandyDesign.Colors.TextMuted,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+            Icon(
+                painter = painterResource(R.drawable.ic_chevron_right),
+                contentDescription = null,
+                tint = HandyDesign.Colors.TextMuted,
+                modifier = Modifier.size(12.dp),
             )
         }
     }

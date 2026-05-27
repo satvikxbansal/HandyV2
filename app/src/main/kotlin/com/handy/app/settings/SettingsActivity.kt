@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -33,6 +34,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -220,6 +222,9 @@ internal fun SettingsScreen(
     var automationsOpen by rememberSaveable { mutableStateOf(false) }
     var privacyOpen by rememberSaveable { mutableStateOf(false) }
     var brainSheetOpen by rememberSaveable { mutableStateOf(false) }
+    var manifestSheetOpen by rememberSaveable { mutableStateOf(false) }
+    val settingsListState = rememberLazyListState()
+    val scrollScope = rememberCoroutineScope()
 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -282,6 +287,44 @@ internal fun SettingsScreen(
             }
     }
 
+    fun scrollToSettingsItem(index: Int) {
+        scrollScope.launch {
+            settingsListState.animateScrollToItem(index)
+        }
+    }
+
+    fun handleCapabilitySettingsTarget(target: String) {
+        when (target) {
+            "accessibility" -> {
+                context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+            "voice" -> {
+                if (!state.voice.expanded) {
+                    onVoiceAction(VoiceAction.ToggleExpanded)
+                }
+                scrollToSettingsItem(1)
+            }
+            "automations" -> {
+                automationsOpen = true
+                scrollToSettingsItem(3)
+            }
+            "privacy" -> {
+                privacyOpen = true
+                scrollToSettingsItem(4)
+            }
+            "notifications" -> {
+                context.startActivity(
+                    Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
+                )
+            }
+            "web_search" -> {
+                capabilitiesOpen = true
+                scrollToSettingsItem(2)
+            }
+            else -> Unit
+        }
+    }
+
     Box(Modifier.fillMaxSize().background(HandyDesign.Colors.PageBg)) {
         Column(
             modifier = Modifier
@@ -292,6 +335,7 @@ internal fun SettingsScreen(
             SettingsHeader(onBack = onBack)
 
             LazyColumn(
+                state = settingsListState,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
@@ -341,33 +385,7 @@ internal fun SettingsScreen(
                         onOpenNotificationListenerSettings = {
                             context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                         },
-                        onOpenCapabilitySettingsTarget = { target ->
-                            when (target) {
-                                "accessibility" -> {
-                                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                                }
-                                "voice" -> {
-                                    if (!state.voice.expanded) {
-                                        onVoiceAction(VoiceAction.ToggleExpanded)
-                                    }
-                                }
-                                "automations" -> {
-                                    automationsOpen = true
-                                }
-                                "privacy" -> {
-                                    privacyOpen = true
-                                }
-                                "notifications" -> {
-                                    context.startActivity(
-                                        Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
-                                    )
-                                }
-                                "web_search" -> {
-                                    capabilitiesOpen = true
-                                }
-                                else -> Unit
-                            }
-                        },
+                        onOpenManifest = { manifestSheetOpen = true },
                         webSearchOn = state.settings?.webSearchEnabled == true,
                         onWebSearchToggle = onWebSearchToggle,
                         braveKeyMasked = state.braveKeyMasked,
@@ -457,6 +475,16 @@ internal fun SettingsScreen(
                     }
                 },
                 onDismiss = { brainSheetOpen = false },
+            )
+        }
+
+        if (manifestSheetOpen) {
+            CapabilityManifestSheet(
+                onDismiss = { manifestSheetOpen = false },
+                onOpenSettingsTarget = { target ->
+                    manifestSheetOpen = false
+                    handleCapabilitySettingsTarget(target)
+                },
             )
         }
     }
