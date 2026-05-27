@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 13,
-    "summary": "This conversation focused on: Replace the existing HandyHeaderBar + EmptyHero in ChatActivity with the redesign (scenes-chat.jsx lines 3–100). Top bar gets a \"LIVE\" chip next to the wordmark when the chat is connected; the empty hero becomes a centered hand mark on a s… Likely related git changes: 1f95269 bug fixes.",
+    "summary": "This conversation focused on: Replace the existing HandyHeaderBar + EmptyHero in ChatActivity with the redesign (scenes-chat.jsx lines 3–100). Top bar gets a \"LIVE\" chip next to the wordmark when the chat is connected; the empty hero becomes a centered hand mark on a subtle bare disc + la… Likely related git changes: 1f95269 bug fixes.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": [
       {

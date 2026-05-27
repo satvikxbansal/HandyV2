@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 55,
-    "summary": "This conversation focused on: 1) Build the Privacy & data accordion (4 rows). 2) Build the new SettingsHeader (40 dp back tile + title) and SettingsFooter (Handy mark + version line). 3) Rewrite SettingsScreen / SettingsActivity body to use the 4 accordion sections + M… Likely related git changes: 2028fb9 S (C+D+E): settings page redesign - all done!; 1f95269 bug fixes.",
+    "summary": "This conversation focused on: 1) Build the Privacy & data accordion (4 rows). 2) Build the new SettingsHeader (40 dp back tile + title) and SettingsFooter (Handy mark + version line). 3) Rewrite SettingsScreen / SettingsActivity body to use the 4 accordion sections + ModelPickerSheet. Del… Likely related git changes: 2028fb9 S (C+D+E): settings page redesign - all done!; 1f95269 bug fixes.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": [
       {
