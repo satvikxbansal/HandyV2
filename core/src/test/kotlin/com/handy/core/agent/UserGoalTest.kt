@@ -64,6 +64,14 @@ class UserGoalTest {
             "find cheap saree on meesho",
             "draft email to mom",
             "reply to john on whatsapp",
+            "take a note: buy milk",
+            "remind me to call mom",
+            "call Mom",
+            "share this photo",
+            "track my Zomato order",
+            "play lo-fi on YouTube",
+            "order biryani",
+            "compute 12*47",
         ).forEach { request ->
             assertThat(UserGoal.allowsRecipeExecution(request)).isTrue()
         }

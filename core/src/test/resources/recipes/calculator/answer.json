@@ -1,0 +1,1 @@
+{"name":"answer","app":"Launcher","packageName":"com.google.android.apps.nexuslauncher","screen":"Launcher","marks":[],"userGoal":"I can do that.\n[INTENT:calculate]\nuse recipe calculate with args {\"expression\":\"23% of 4500\"}","expectedRecipe":null,"expectedRefusal":null,"expectedAnswer":"1035","expectedRisk":null,"mustConfirm":false,"sideEffect":"NONE"}

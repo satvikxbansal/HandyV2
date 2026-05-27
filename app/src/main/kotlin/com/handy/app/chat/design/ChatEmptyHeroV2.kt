@@ -67,7 +67,7 @@ fun ChatEmptyHeroV2(onPick: (String) -> Unit) {
                 fontSize = 32.sp,
                 lineHeight = 34.sp,
                 fontWeight = FontWeight.SemiBold,
-                letterSpacing = (-0.026).em,
+                letterSpacing = 0.em,
             ),
             color = HandyDesign.Colors.TextPrimary,
             textAlign = TextAlign.Center,
@@ -155,7 +155,7 @@ private fun QuickPromptCardV2(
                 fontSize = 15.sp,
                 lineHeight = 18.75.sp,
                 fontWeight = FontWeight.SemiBold,
-                letterSpacing = (-0.010).em,
+                letterSpacing = 0.em,
             ),
             color = HandyDesign.Colors.TextPrimary,
         )

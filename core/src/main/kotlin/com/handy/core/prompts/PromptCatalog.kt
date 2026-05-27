@@ -276,10 +276,19 @@ object PromptCatalog {
      * action tool). Body is spec'd verbatim in
      * `10-handy-project-guardrails.mdc → Android-only prompt addendums`.
      */
-    val INTENT_TOOL_ADDENDUM: String = """
+    val INTENT_TOOL_ADDENDUM: String = intentToolAddendum(agentRecipesEnabled = true)
 
-        direct actions: for well-defined requests like "set a 10-minute timer", "open youtube", "call mom", "text sarah 'on my way'", "search google for X", prefer the `dispatch_action` tool over verbal instructions. Handy will show its own confirmation UI for destructive or high-risk actions, so don't ask for a separate chat confirmation first. for simple one-step actions, just dispatch.
-    """.trimIndent()
+    fun intentToolAddendum(agentRecipesEnabled: Boolean): String {
+        val contactNameGuidance = if (agentRecipesEnabled) {
+            "for contact-name requests such as \"call mom\" or \"text sarah\", use canonical recipe intents when agent-mode recipes are available; dispatch_action only when the exact number/address/contact uri is already known."
+        } else {
+            "for contact-name requests such as \"call mom\" or \"text sarah\", do not use dispatch_action unless the exact number/address/contact uri is already known; ask the user to pick the contact or turn recipes on."
+        }
+        return """
+
+            direct actions: for well-defined one-step requests like "set a 10-minute timer", "open youtube", "dial +15551234567", "text +15551234567 'on my way'", or "search google for X", prefer the `dispatch_action` tool over verbal instructions. $contactNameGuidance Handy will show its own confirmation UI for destructive or high-risk actions, so don't ask for a separate chat confirmation first. for simple one-step actions, just dispatch.
+        """.trimIndent()
+    }
 
     val TYPE_CAPABILITY_ADDENDUM: String = """
 
@@ -322,8 +331,21 @@ object PromptCatalog {
         - open_chrome_url: args include url to open via intent, query for explicit "search chrome for X" or "in chrome" omnibox searches, or markId/label/desc/viewId to navigate within the visible page. example: search chrome for cats → [INTENT:open_chrome_url]. generic "search the web" stays [INTENT:web_search]. for summarizing a visible/current page, use fetch_page on the page URL instead of a recipe.
         - shopping_search: only for meesho, amazon shopping, or flipkart; args include query, plus optional searchMarkId/searchViewId/searchDesc/field and optional submitMarkId/submitViewId/submitDesc. use it only when the user explicitly asks you to search products in the visible shopping surface.
         - shopping_find_coupons: only for meesho, amazon shopping, or flipkart; args may include couponMarkId/couponViewId/couponDesc/target/label/text. use it only to open a visible coupons/offers affordance, not to apply a coupon.
+        - youtube_search: args include query. example: play lofi beats on youtube → [INTENT:youtube_search]. never like, subscribe, or comment.
+        - youtube_open_channel: args include channel. example: open android developers channel → [INTENT:youtube_open_channel].
+        - create_note: args include note. example: take a note: buy milk → [INTENT:create_note]. this opens the share sheet; the user chooses the notes app.
+        - open_contact: args include name. example: open mom's contact → [INTENT:open_contact].
+        - prepare_call: args include name/contact. example: call mom → [INTENT:prepare_call]. this only opens the dialer with the number filled; the user taps Call.
+        - prepare_sms: args include name/contact and message. example: text maya "on my way" → [INTENT:prepare_sms]. this only opens an SMS draft; the user sends.
+        - files_search: args include name/query. example: find file invoice.pdf → [INTENT:files_search]. opens the Android file picker.
+        - files_open: args include name/file when known. example: open resume.docx → [INTENT:files_open]. opens the Android document picker.
+        - photos_open: opens Photos/Gallery.
+        - photos_share_current: only when the user is already viewing a photo and explicitly asks to share this photo; args should include a visible shareMarkId/shareDesc when available. never delete photos.
+        - calculate: for arithmetic like "what's 23% of 4500", answer directly in chat without a recipe when you can. use [INTENT:calculate] only for safe local arithmetic you want Handy to evaluate deterministically, or with args {"mode":"open"} for "open calculator".
+        - food_search: args include app (swiggy or zomato) and query. example: find biryani on swiggy → [INTENT:food_search]. never place or pay for an order.
+        - food_track_order: args include app (swiggy or zomato). example: track my zomato order → [INTENT:food_track_order].
 
-        never use recipes for payment, checkout, buying, add-to-cart, deleting, sending money, password/passcode/otp/cvv entry, or private/financial data submission. for shopping compare, price check, returnability, or summary questions, answer with visible/fetched evidence instead of a recipe. email and whatsapp drafting recipes are the only messaging exception: draft only from the user's own requested text, stop before Send, and rely on the STRONG_HOLD Send step. recipes are only proposals; Handy will re-check policy on a fresh snapshot before every step and will ask the user before the plan and every sensitive step.
+        never use recipes for payment, checkout, buying, add-to-cart, deleting, sending money, password/passcode/otp/cvv entry, private/financial data submission, placing food orders, subscribing/liking/commenting, sending messages, or deleting photos/files. for shopping compare, price check, returnability, or summary questions, answer with visible/fetched evidence instead of a recipe. email, whatsapp, sms, notes, and sharing recipes are draft-only exceptions: draft only from the user's own requested text, stop before Send/share-recipient choice/final save, and rely on confirmation before any handoff. recipes are only proposals; Handy will re-check policy on a fresh snapshot before every step and will ask the user before the plan and every sensitive step.
     """.trimIndent()
 
     /**
@@ -386,7 +408,7 @@ object PromptCatalog {
 
         if (intentToolEnabled) {
             buffer.append("\n\n")
-            buffer.append(INTENT_TOOL_ADDENDUM)
+            buffer.append(intentToolAddendum(agentRecipesEnabled = agentRecipesEnabled))
         }
 
         return buffer.toString()

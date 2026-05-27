@@ -45,7 +45,7 @@ fun CandidateChipsBar(
                 CandidateChip(
                     option = option,
                     selected = option.id == options.activeCandidateId,
-                    onPick = { onPick(option.id) },
+                    onPick = { if (option.actionable) onPick(option.id) },
                 )
             }
         }
@@ -80,7 +80,7 @@ private fun CandidateChip(
                     Modifier.border(0.5.dp, HandyColors.ChipBorder, shape)
                 },
             )
-            .noRippleClickable(onClick = onPick)
+            .then(if (option.actionable) Modifier.noRippleClickable(onClick = onPick) else Modifier)
             .widthIn(max = 132.dp)
             .padding(horizontal = HandyDimens.StackM, vertical = 6.dp),
     )

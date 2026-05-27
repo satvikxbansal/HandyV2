@@ -383,6 +383,7 @@ class ChatViewModel @Inject constructor(
             val automationEnabled =
                 current.accessibilityDisclosureAcknowledged &&
                     accessibilityStateMonitor.isEnabled.value
+            val recipesEnabled = automationEnabled && current.recipesEnabled
             // Mirrors V1 `ClaudeAPIService.availableTools`: web tools
             // ride on `webSearchEnabled`; `dispatch_action` stays off
             // in reduced mode so code matches the Play disclosure.
@@ -417,7 +418,7 @@ class ChatViewModel @Inject constructor(
                 screenText = turnContext.screenText,
                 hasBraveKey = hasBraveKey,
                 tools = tools,
-                agentRecipesEnabled = automationEnabled,
+                agentRecipesEnabled = recipesEnabled,
                 contextFailureReason = turnContext.failureReason,
                 grounding = turnContext,
             )

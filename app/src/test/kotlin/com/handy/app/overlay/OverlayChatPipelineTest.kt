@@ -1,5 +1,6 @@
 package com.handy.app.overlay
 
+import com.google.common.truth.Truth.assertThat
 import com.handy.app.accessibility.AccessibilityStateMonitor
 import com.handy.app.agent.AgentSessionController
 import com.handy.app.chat.ChatConfirmationBroker
@@ -25,6 +26,7 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
+import io.mockk.coVerify
 import io.mockk.runs
 import io.mockk.verify
 import kotlinx.coroutines.CoroutineScope
@@ -108,10 +110,46 @@ class OverlayChatPipelineTest {
         verify(timeout = 2_000) { fixture.speechOutputController.stop("turn_error") }
     }
 
+    @Test
+    fun `recipes toggle disables recipe prompt and runner while keeping intent dispatch tools`() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val llm = FakeLlmClient(
+            flowOf(
+                LlmChunk.Text("""I can do that.
+                    |[INTENT:create_note]
+                    |use recipe create_note with args {"note":"buy milk"}
+                """.trimMargin()),
+                LlmChunk.Done("end"),
+            ),
+        )
+        val fixture = fixture(
+            llmClient = llm,
+            scope = this,
+            requestId = "overlay-recipes-off",
+            settingsValue = HandySettings(
+                accessibilityDisclosureAcknowledged = true,
+                recipesEnabled = false,
+            ),
+            accessibilityEnabled = true,
+        )
+
+        fixture.pipeline.runTurn("take a note: buy milk", fromVoice = false)
+        advanceUntilIdle()
+
+        val request = llm.requests.single()
+        assertThat(request.systemPrompt).doesNotContain("agent-mode recipes")
+        assertThat(request.tools.map { it.name }).contains("dispatch_action")
+        coVerify(exactly = 0) {
+            fixture.agentSessionController.runIfRecipeRequested(any(), any(), any(), any(), any(), any())
+        }
+    }
+
     private fun fixture(
         llmClient: LlmClient,
         scope: CoroutineScope,
         requestId: String,
+        settingsValue: HandySettings = HandySettings(),
+        accessibilityEnabled: Boolean = false,
     ): Fixture {
         val presenter = mockk<OverlayPresenter>()
         every { presenter.state } returns MutableStateFlow(OverlayPanelState())
@@ -133,13 +171,13 @@ class OverlayChatPipelineTest {
         )
 
         val settings = mockk<DataStoreSettings>()
-        coEvery { settings.current() } returns HandySettings()
+        coEvery { settings.current() } returns settingsValue
 
         val keyStore = mockk<KeyStore>()
         every { keyStore.get(any()) } returns null
 
         val accessibilityStateMonitor = mockk<AccessibilityStateMonitor>()
-        every { accessibilityStateMonitor.isEnabled } returns MutableStateFlow(false)
+        every { accessibilityStateMonitor.isEnabled } returns MutableStateFlow(accessibilityEnabled)
 
         val screenContextBuilder = mockk<ScreenContextBuilder>()
         coEvery {
@@ -179,6 +217,7 @@ class OverlayChatPipelineTest {
             bridge = bridge,
             pipeline = pipeline,
             speechOutputController = speechOutputController,
+            agentSessionController = agentSessionController,
         )
     }
 
@@ -186,14 +225,23 @@ class OverlayChatPipelineTest {
         val bridge: OverlayPanelBridge,
         val pipeline: OverlayChatPipeline,
         val speechOutputController: SpeechOutputController,
+        val agentSessionController: AgentSessionController,
     )
 
     private class FakeLlmClient(
         private val chunks: Flow<LlmChunk>,
     ) : LlmClient {
         override val modelId: String = "fake"
-        override fun streamChat(request: LlmRequest): Flow<LlmChunk> = chunks
-        override fun streamToolAwareChat(request: LlmRequest, runner: ToolRunner): Flow<LlmChunk> = chunks
+        val requests = mutableListOf<LlmRequest>()
+        override fun streamChat(request: LlmRequest): Flow<LlmChunk> {
+            requests += request
+            return chunks
+        }
+
+        override fun streamToolAwareChat(request: LlmRequest, runner: ToolRunner): Flow<LlmChunk> {
+            requests += request
+            return chunks
+        }
     }
 
     private class FakeHistoryStore : ChatHistoryStore {

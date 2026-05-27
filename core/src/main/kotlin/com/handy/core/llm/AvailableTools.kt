@@ -57,7 +57,7 @@ fun availableTools(
 }
 
 private const val DISPATCH_ACTION_DESCRIPTION =
-    "Fire a native Android Intent on the user's behalf. Call this for well-defined one-step requests: set a timer, set an alarm, open an app, open a URL, open a Play Store listing/search for an app, search Maps, dial a number, compose an email or SMS, share text, share a URL, create a calendar event, open a settings deep-link, start navigation, or run a web-search intent. Destructive or higher-friction handoffs (call, email, SMS, share, navigation start, Play Store app install handoff, browser web-search handoff) are confirmed by Handy's UI before dispatch; do not ask the user to confirm separately unless the tool reports that the user declined or no handler exists."
+    "Fire a native Android Intent on the user's behalf. Call this for well-defined one-step requests: set a timer, set an alarm, open an app, open a URL, open a Play Store listing/search for an app, search Maps, dial a number, compose an email or SMS, share text, share a URL, create a calendar event, open a settings deep-link, open Contacts/Files/Photos/Calculator handoffs, start navigation, or run a web-search intent. Destructive or higher-friction handoffs (call, email, SMS, share, navigation start, Play Store app install handoff, browser web-search handoff) are confirmed by Handy's UI before dispatch; do not ask the user to confirm separately unless the tool reports that the user declined or no handler exists."
 
 private val DISPATCH_ACTION_INPUT_SCHEMA_JSON: String = """
 {
@@ -80,6 +80,10 @@ private val DISPATCH_ACTION_INPUT_SCHEMA_JSON: String = """
         "create_event",
         "open_settings",
         "open_app_info",
+        "open_contact",
+        "open_file_picker",
+        "open_photos",
+        "open_calculator",
         "start_navigation",
         "share_url"
       ],
@@ -98,11 +102,15 @@ private val DISPATCH_ACTION_INPUT_SCHEMA_JSON: String = """
     "subject": {"type": "string", "description": "compose_email: email subject."},
     "body": {"type": "string", "description": "compose_email / compose_sms: message body."},
     "text": {"type": "string", "description": "share_text: the text to share."},
+    "mimeType": {"type": "string", "description": "share_text / open_file_picker: MIME type, defaults to text/plain for share_text and */* for files."},
+    "mode": {"type": "string", "enum": ["search", "open"], "description": "open_file_picker: whether to show ACTION_GET_CONTENT search/pick mode or ACTION_OPEN_DOCUMENT open mode."},
+    "contactUri": {"type": "string", "description": "open_contact: ContactsContract contact URI from com.android.contacts only; do not invent this value."},
     "title": {"type": "string", "description": "create_event: event title."},
     "startEpochMs": {"type": "integer", "description": "create_event: event start time in milliseconds since epoch."},
     "endEpochMs": {"type": "integer", "description": "create_event: event end time in milliseconds since epoch."},
     "location": {"type": "string", "description": "create_event: event location."},
     "notes": {"type": "string", "description": "create_event: additional notes / description."},
+    "attendees": {"type": "array", "items": {"type": "string"}, "description": "create_event: optional attendee email addresses."},
     "target": {"type": "string", "enum": ["app_info", "accessibility", "notifications", "battery_optimization", "dark_mode", "wifi", "bluetooth", "security", "biometric", "apps", "ringtone", "dnd", "brightness", "screen_timeout"], "description": "open_settings: which settings screen to open."}
   },
   "required": ["type"]

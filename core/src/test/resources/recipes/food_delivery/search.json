@@ -1,0 +1,1 @@
+{"name":"search","app":"Launcher","packageName":"com.google.android.apps.nexuslauncher","screen":"Launcher","marks":[],"userGoal":"I can do that.\n[INTENT:food_search]\nuse recipe food_search with args {\"app\":\"Swiggy\",\"query\":\"biryani\"}","expectedRecipe":"food_delivery","expectedRefusal":null,"expectedRisk":null,"mustConfirm":false,"sideEffect":"OPENS_EXTERNAL_UI"}

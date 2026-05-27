@@ -112,7 +112,7 @@ fun ConfirmActionSheetV2(
                         fontSize = 22.sp,
                         lineHeight = 26.sp,
                         fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.01).em,
+                        letterSpacing = 0.em,
                     ),
                     color = HandyDesign.Colors.TextPrimary,
                     textAlign = TextAlign.Center,

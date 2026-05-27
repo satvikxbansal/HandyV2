@@ -64,7 +64,10 @@ sealed class AssistantAction {
 
     @Serializable
     @SerialName("share_text")
-    data class ShareText(val text: String) : AssistantAction()
+    data class ShareText(
+        val text: String,
+        val mimeType: String = "text/plain",
+    ) : AssistantAction()
 
     @Serializable
     @SerialName("web_search")
@@ -88,6 +91,7 @@ sealed class AssistantAction {
         val endEpochMs: Long? = null,
         val location: String? = null,
         val notes: String? = null,
+        val attendees: List<String> = emptyList(),
     ) : AssistantAction()
 
     @Serializable
@@ -97,6 +101,25 @@ sealed class AssistantAction {
     @Serializable
     @SerialName("open_app_info")
     data class OpenAppInfo(val packageHint: String) : AssistantAction()
+
+    @Serializable
+    @SerialName("open_contact")
+    data class OpenContact(val contactUri: String) : AssistantAction()
+
+    @Serializable
+    @SerialName("open_file_picker")
+    data class OpenFilePicker(
+        val mode: FilePickerMode = FilePickerMode.OPEN,
+        val mimeType: String = "*/*",
+    ) : AssistantAction()
+
+    @Serializable
+    @SerialName("open_photos")
+    data object OpenPhotos : AssistantAction()
+
+    @Serializable
+    @SerialName("open_calculator")
+    data object OpenCalculator : AssistantAction()
 
     @Serializable
     @SerialName("start_navigation")
@@ -144,6 +167,12 @@ enum class UiActionKind {
     SCROLL_LEFT,
     SCROLL_RIGHT,
     TYPE,
+}
+
+@Serializable
+enum class FilePickerMode {
+    @SerialName("search") SEARCH,
+    @SerialName("open") OPEN,
 }
 
 /** Settings deep-link targets for `AssistantAction.OpenSettings`. */

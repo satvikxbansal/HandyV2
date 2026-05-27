@@ -381,7 +381,7 @@ fun ContextBarPillV2(
                     lineHeight = 16.sp,
                     color = HandyDesign.Colors.TextPrimary,
                     fontWeight = FontWeight.Medium,
-                    letterSpacing = (-0.005).em,
+                    letterSpacing = 0.em,
                 ),
                 cursorBrush = SolidColor(HandyDesign.Colors.Point),
                 keyboardOptions = KeyboardOptions.Default.copy(

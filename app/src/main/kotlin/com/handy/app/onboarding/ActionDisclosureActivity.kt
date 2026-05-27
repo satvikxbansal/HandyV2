@@ -156,7 +156,7 @@ private fun ActionDisclosureScreen(
                     fontSize = 32.sp,
                     lineHeight = 36.sp,
                     fontWeight = FontWeight.SemiBold,
-                    letterSpacing = (-0.028).em,
+                    letterSpacing = 0.em,
                 ),
                 color = HandyDesign.Colors.TextPrimary,
                 textAlign = TextAlign.Center,

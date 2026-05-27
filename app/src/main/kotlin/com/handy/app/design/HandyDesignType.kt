@@ -21,28 +21,28 @@ object HandyDesignType {
         fontSize = 32.sp,
         lineHeight = 38.sp,
         fontWeight = FontWeight.SemiBold,
-        letterSpacing = (-0.022).em,
+        letterSpacing = 0.em,
     )
     val Title = TextStyle(
         fontFamily = HandyDesignSans,
         fontSize = 22.sp,
         lineHeight = 28.sp,
         fontWeight = FontWeight.SemiBold,
-        letterSpacing = (-0.012).em,
+        letterSpacing = 0.em,
     )
     val TitleSmall = TextStyle(
         fontFamily = HandyDesignSans,
         fontSize = 18.sp,
         lineHeight = 24.sp,
         fontWeight = FontWeight.SemiBold,
-        letterSpacing = (-0.008).em,
+        letterSpacing = 0.em,
     )
     val BodyStrong = TextStyle(
         fontFamily = HandyDesignSans,
         fontSize = 15.sp,
         lineHeight = 22.sp,
         fontWeight = FontWeight.Medium,
-        letterSpacing = (-0.002).em,
+        letterSpacing = 0.em,
     )
     val Body = TextStyle(
         fontFamily = HandyDesignSans,

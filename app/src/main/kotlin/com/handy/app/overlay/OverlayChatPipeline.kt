@@ -134,6 +134,7 @@ class OverlayChatPipeline @Inject constructor(
         val automationEnabled =
             current.accessibilityDisclosureAcknowledged &&
                 accessibilityStateMonitor.isEnabled.value
+        val recipesEnabled = automationEnabled && current.recipesEnabled
         val tools = availableTools(
             webSearchEnabled = current.webSearchEnabled,
             hasBraveKey = hasBraveKey,
@@ -171,7 +172,7 @@ class OverlayChatPipeline @Inject constructor(
             hasBraveKey = hasBraveKey,
             tools = tools,
             quickOverlayResponse = true,
-            agentRecipesEnabled = automationEnabled,
+            agentRecipesEnabled = recipesEnabled,
             contextFailureReason = turnContext.failureReason,
             grounding = turnContext,
         )
@@ -240,7 +241,7 @@ class OverlayChatPipeline @Inject constructor(
                 presenter.onResponseFinalized(displayOverlaySpoken, displayChatText)
             }
             val fallbackMarks = groundedSnapshot?.marks.orEmpty().withStableMarkIds()
-            if (automationEnabled) {
+            if (recipesEnabled) {
                 val recipeHandled = agentSessionController.runIfRecipeRequested(
                     assistantText = finalChatText,
                     userText = userText,
@@ -254,7 +255,7 @@ class OverlayChatPipeline @Inject constructor(
                     return@launch
                 }
             } else {
-                Timber.d("OverlayChatPipeline: reduced mode skips recipe routing")
+                Timber.d("OverlayChatPipeline: recipe routing disabled")
             }
             // V2: buddy flight — fire after the response is in the
             // green bubble. The bubble taxonomy flips to Navigation

@@ -18,5 +18,9 @@ interface AppRecipe {
 
 sealed class RecipeProposal {
     data class Proposed(val plan: RecipePlan) : RecipeProposal()
-    data class Refused(val reason: String) : RecipeProposal()
+    data class Refused(
+        val reason: String,
+        val candidateLabels: List<String> = emptyList(),
+    ) : RecipeProposal()
+    data class Answered(val message: String) : RecipeProposal()
 }

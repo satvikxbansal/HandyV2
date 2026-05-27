@@ -19,18 +19,27 @@ object AndroidRuntimeRecipes {
 
     fun defaultRecipes(
         findLaunchableApps: (String) -> List<LaunchableAppIndex.Entry> = { emptyList() },
+        findContacts: (String) -> ContactLookupResult = { ContactLookupResult.Matches(emptyList()) },
     ): List<AppRecipe> = listOf(
         OpenAppRecipe(findLaunchableApps),
         InstallAppRecipe,
         ClockRecipe,
         TimerRecipe,
         CalendarEventRecipe,
+        CalendarEventRecipeV2,
         WebSearchRecipe,
         AndroidSettingsRecipe,
         MapsRecipe,
         GmailRecipe,
         WhatsAppRecipe,
         ChromeRecipe,
+        YouTubeRecipe,
+        NotesRecipe,
+        ContactsRecipe(findContacts),
+        FilesRecipe,
+        PhotosRecipe,
+        CalculatorRecipe,
+        FoodDeliveryRecipe(findLaunchableApps),
     ) + ShoppingRecipePack.defaultRecipes() + RideHailingRecipePack.defaultRecipes()
 }
 

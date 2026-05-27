@@ -78,7 +78,7 @@ data class UserGoal(
         )
 
         private const val EXECUTION_VERBS =
-            "tap|click|press|select|choose|open|type|enter|fill|search|find|google|look\\s+up|scroll|swipe|set|start|install|schedule|create|make|add|draft|compose|reply|text|message|send|book|turn\\s+on|turn\\s+off|enable|disable"
+            "tap|click|press|select|choose|open|type|enter|fill|search|find|google|look\\s+up|scroll|swipe|set|start|install|schedule|create|make|add|take|remind|draft|compose|reply|text|message|send|call|share|play|track|order|book|calculate|compute|turn\\s+on|turn\\s+off|enable|disable"
 
         private val EXECUTION_PATTERNS = listOf(
             Regex("""^(please\s+)?($EXECUTION_VERBS)\b"""),

@@ -14,6 +14,19 @@ enum class RecipeIntent(val canonical: String) {
     SHOPPING_SEARCH("shopping_search"),
     SHOPPING_FIND_COUPONS("shopping_find_coupons"),
     BOOK_RIDE("book_ride"),
+    YOUTUBE_SEARCH("youtube_search"),
+    YOUTUBE_OPEN_CHANNEL("youtube_open_channel"),
+    CREATE_NOTE("create_note"),
+    OPEN_CONTACT("open_contact"),
+    PREPARE_CALL("prepare_call"),
+    PREPARE_SMS("prepare_sms"),
+    FILES_SEARCH("files_search"),
+    FILES_OPEN("files_open"),
+    PHOTOS_OPEN("photos_open"),
+    PHOTOS_SHARE_CURRENT("photos_share_current"),
+    CALCULATE("calculate"),
+    FOOD_SEARCH("food_search"),
+    FOOD_TRACK_ORDER("food_track_order"),
     ;
 
     companion object {

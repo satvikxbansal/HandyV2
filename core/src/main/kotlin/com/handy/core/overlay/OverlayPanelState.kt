@@ -76,6 +76,7 @@ data class CandidateOption(
     val viewId: String?,
     val bounds: IntRect,
     val confidence: Float,
+    val actionable: Boolean = true,
 )
 
 data class TapForMeConfirmation(

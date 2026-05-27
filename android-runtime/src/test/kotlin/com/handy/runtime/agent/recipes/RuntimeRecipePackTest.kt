@@ -16,6 +16,7 @@ import com.handy.core.screen.TurnSource
 import com.handy.core.screen.UiNode
 import com.handy.core.tool.ToolContext
 import com.handy.runtime.action.DefaultActionPolicyEngine
+import com.handy.runtime.intent.LaunchableAppIndex
 import org.junit.Test
 
 class RuntimeRecipePackTest {
@@ -95,6 +96,14 @@ class RuntimeRecipePackTest {
                 "gmail_compose",
                 "whatsapp_reply",
                 "chrome",
+                "youtube",
+                "notes",
+                "contacts",
+                "files",
+                "photos",
+                "calculator",
+                "food_delivery",
+                "create_calendar_event_v2",
                 "shopping_search",
                 "shopping_find_coupons",
                 "uber_ride",
@@ -185,6 +194,80 @@ class RuntimeRecipePackTest {
         )
 
         assertThat(proposal).isEqualTo(RecipeProposal.Refused("use-fetch-page-for-summary"))
+    }
+
+    @Test fun `youtube recipe opens search URL and blocks engagement`() {
+        val action = YouTubeRecipe.propose(
+            goal = goal("Play lofi beats on YouTube", "youtube", "query" to "lofi beats"),
+            invocation = invocation("youtube", "query" to "lofi beats"),
+            grounding = grounding(),
+        ).singleNativeAction()
+
+        assertThat(action).isEqualTo(
+            AssistantAction.OpenUrl("https://www.youtube.com/results?search_query=lofi%20beats"),
+        )
+        assertThat(
+            YouTubeRecipe.propose(
+                goal = goal("Subscribe to this channel", "youtube", "query" to "subscribe to channel"),
+                invocation = invocation("youtube", "query" to "subscribe to channel"),
+                grounding = grounding(),
+            ),
+        ).isEqualTo(RecipeProposal.Refused("youtube-engagement-blocked"))
+        assertThat(
+            YouTubeRecipe.propose(
+                goal = goal("Comment great video", "youtube", "query" to "comment: great video"),
+                invocation = invocation("youtube", "query" to "comment: great video"),
+                grounding = grounding(),
+            ),
+        ).isEqualTo(RecipeProposal.Refused("youtube-engagement-blocked"))
+    }
+
+    @Test fun `notes recipe opens text share sheet`() {
+        val action = NotesRecipe.propose(
+            goal = goal("Take a note: buy milk", "notes", "note" to "buy milk"),
+            invocation = invocation("notes", "note" to "buy milk"),
+            grounding = grounding(),
+        ).singleNativeAction()
+
+        assertThat(action).isEqualTo(AssistantAction.ShareText(text = "buy milk", mimeType = "text/plain"))
+    }
+
+    @Test fun `food delivery recipe searches but refuses ordering`() {
+        val recipe = FoodDeliveryRecipe { name ->
+            if (name.equals("Swiggy", ignoreCase = true)) {
+                listOf(LaunchableAppIndex.Entry("in.swiggy.android", "Swiggy", "in.swiggy.android/.Main"))
+            } else {
+                emptyList()
+            }
+        }
+        val action = recipe.propose(
+            goal = goal("Find biryani on Swiggy", "food_delivery", "app" to "Swiggy", "query" to "biryani"),
+            invocation = invocation("food_delivery", "app" to "Swiggy", "query" to "biryani"),
+            grounding = grounding(),
+        ).singleNativeAction()
+
+        assertThat(action).isEqualTo(AssistantAction.OpenUrl("swiggy://search?query=biryani"))
+        assertThat(
+            recipe.propose(
+                goal = goal("Order biryani", "food_delivery", "query" to "order biryani"),
+                invocation = invocation("food_delivery", "query" to "order biryani"),
+                grounding = grounding(),
+            ),
+        ).isEqualTo(RecipeProposal.Refused("i-can-search-but-cant-order"))
+        assertThat(
+            recipe.propose(
+                goal = goal("Find payasam on Swiggy", "food_delivery", "app" to "Swiggy", "query" to "payasam"),
+                invocation = invocation("food_delivery", "app" to "Swiggy", "query" to "payasam"),
+                grounding = grounding(),
+            ),
+        ).isInstanceOf(RecipeProposal.Proposed::class.java)
+        assertThat(
+            recipe.propose(
+                goal = goal("Pay for biryani", "food_delivery", "query" to "pay for biryani"),
+                invocation = invocation("food_delivery", "query" to "pay for biryani"),
+                grounding = grounding(),
+            ),
+        ).isEqualTo(RecipeProposal.Refused("food-payment-blocked"))
     }
 
     @Test fun `shopping search proposes scoped product search`() {

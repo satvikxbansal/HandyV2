@@ -304,7 +304,7 @@ private fun PermissionsStep(
                     style = HandyDesignType.Display.copy(
                         fontSize = 36.sp,
                         lineHeight = 37.sp,
-                        letterSpacing = (-0.030).em,
+                        letterSpacing = 0.em,
                     ),
                     color = HandyDesign.Colors.TextPrimary,
                     modifier = Modifier.padding(top = 8.dp),
@@ -430,7 +430,7 @@ private fun PermissionRow(
                 style = HandyDesignType.BodyStrong.copy(
                     fontSize = 15.sp,
                     lineHeight = 19.5.sp,
-                    letterSpacing = (-0.005).em,
+                    letterSpacing = 0.em,
                 ),
                 color = HandyDesign.Colors.TextPrimary,
             )

@@ -201,49 +201,49 @@ val Inter: FontFamily = FontFamily(
 )
 
 /**
- * Typography tokens — Inter with the exact `fontSize` / `fontWeight` /
- * `lineHeight` / `letterSpacing` values from the handoff `HandyType`
- * block. Match these in every composable instead of inventing local
- * `TextStyle`s.
+ * Typography tokens — Inter with the handoff `fontSize` / `fontWeight` /
+ * `lineHeight` values and neutral letter spacing for reliable Android
+ * font scaling. Match these in every composable instead of inventing
+ * local `TextStyle`s.
  */
 object HandyType {
     /** Hero headings — "Ready when you are", Permissions H1. */
     val Display       : TextStyle = TextStyle(
         fontFamily = Inter, fontSize = 26.sp, fontWeight = FontWeight.Bold,
-        lineHeight = 30.sp, letterSpacing = (-0.6).sp,
+        lineHeight = 30.sp, letterSpacing = 0.sp,
     )
     /** Large title — full-app header "Handy". */
     val TitleLarge    : TextStyle = TextStyle(
         fontFamily = Inter, fontSize = 20.sp, fontWeight = FontWeight.Bold,
-        lineHeight = 22.sp, letterSpacing = (-0.4).sp,
+        lineHeight = 22.sp, letterSpacing = 0.sp,
     )
     /** Medium title — overlay header "Handy". */
     val TitleMedium   : TextStyle = TextStyle(
         fontFamily = Inter, fontSize = 18.sp, fontWeight = FontWeight.Bold,
-        lineHeight = 20.sp, letterSpacing = (-0.3).sp,
+        lineHeight = 20.sp, letterSpacing = 0.sp,
     )
     /**
-     * Settings screen top-bar title — 20sp **SemiBold** (not Bold) with
-     * -0.3 letter-spacing. Distinct from `TitleLarge` (20sp Bold) which
+     * Settings screen top-bar title — 20sp **SemiBold** (not Bold).
+     * Distinct from `TitleLarge` (20sp Bold) which
      * is used by the full chat app header. Spec: `handy-settings.jsx`.
      */
     val SettingsTitle : TextStyle = TextStyle(
         fontFamily = Inter, fontSize = 20.sp, fontWeight = FontWeight.SemiBold,
-        lineHeight = 22.sp, letterSpacing = (-0.3).sp,
+        lineHeight = 22.sp, letterSpacing = 0.sp,
     )
     /**
-     * Empty-state hero title — 22sp SemiBold -0.4. Distinct from
+     * Empty-state hero title — 22sp SemiBold. Distinct from
      * `Display` (26sp Bold). Spec: `handy-fullapp.jsx` `EmptyState`
      * "Ready when you are" title.
      */
     val EmptyHeroTitle : TextStyle = TextStyle(
         fontFamily = Inter, fontSize = 22.sp, fontWeight = FontWeight.SemiBold,
-        lineHeight = 26.sp, letterSpacing = (-0.4).sp,
+        lineHeight = 26.sp, letterSpacing = 0.sp,
     )
     /** Settings "Brain", "Modes" headers. */
     val SectionHeader : TextStyle = TextStyle(
         fontFamily = Inter, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
-        lineHeight = 20.sp, letterSpacing = (-0.2).sp,
+        lineHeight = 20.sp, letterSpacing = 0.sp,
     )
     /** Chip labels, row titles, chat bubbles. */
     val Body          : TextStyle = TextStyle(

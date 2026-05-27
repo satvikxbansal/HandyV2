@@ -61,7 +61,14 @@ abstract class RuntimeRecipeContractTest {
     @Test fun `proposes correctly for all fixtures`() {
         fixtures().forEach { fixture ->
             val proposal = propose(fixture)
-            if (fixture.expectedRefusal != null) {
+            if (fixture.expectedAnswer != null) {
+                assertWithMessage("${recipeId}:${fixture.name}")
+                    .that(proposal)
+                    .isInstanceOf(RecipeProposal.Answered::class.java)
+                assertWithMessage("${recipeId}:${fixture.name}")
+                    .that((proposal as RecipeProposal.Answered).message)
+                    .isEqualTo(fixture.expectedAnswer)
+            } else if (fixture.expectedRefusal != null) {
                 assertWithMessage("${recipeId}:${fixture.name}")
                     .that(proposal)
                     .isInstanceOf(RecipeProposal.Refused::class.java)
@@ -142,6 +149,11 @@ class CalendarEventRecipeContractTest : RuntimeRecipeContractTest() {
     override val recipe: AppRecipe = CalendarEventRecipe
 }
 
+class CalendarEventRecipeV2ContractTest : RuntimeRecipeContractTest() {
+    override val recipeId: String = "create_calendar_event_v2"
+    override val recipe: AppRecipe = CalendarEventRecipeV2
+}
+
 class WebSearchRecipeContractTest : RuntimeRecipeContractTest() {
     override val recipeId: String = "web_search"
     override val recipe: AppRecipe = WebSearchRecipe
@@ -182,6 +194,41 @@ class ShoppingFindCouponsRecipeContractTest : RuntimeRecipeContractTest() {
     override val recipe: AppRecipe = ShoppingFindCouponsRecipe
 }
 
+class YouTubeRecipeContractTest : RuntimeRecipeContractTest() {
+    override val recipeId: String = "youtube"
+    override val recipe: AppRecipe = YouTubeRecipe
+}
+
+class NotesRecipeContractTest : RuntimeRecipeContractTest() {
+    override val recipeId: String = "notes"
+    override val recipe: AppRecipe = NotesRecipe
+}
+
+class ContactsRecipeContractTest : RuntimeRecipeContractTest() {
+    override val recipeId: String = "contacts"
+    override val recipe: AppRecipe = ContactsRecipe(::fakeContacts)
+}
+
+class FilesRecipeContractTest : RuntimeRecipeContractTest() {
+    override val recipeId: String = "files"
+    override val recipe: AppRecipe = FilesRecipe
+}
+
+class PhotosRecipeContractTest : RuntimeRecipeContractTest() {
+    override val recipeId: String = "photos"
+    override val recipe: AppRecipe = PhotosRecipe
+}
+
+class CalculatorRecipeContractTest : RuntimeRecipeContractTest() {
+    override val recipeId: String = "calculator"
+    override val recipe: AppRecipe = CalculatorRecipe
+}
+
+class FoodDeliveryRecipeContractTest : RuntimeRecipeContractTest() {
+    override val recipeId: String = "food_delivery"
+    override val recipe: AppRecipe = FoodDeliveryRecipe(::fakeLaunchableApps)
+}
+
 class UberRideRecipeContractTest : RuntimeRecipeContractTest() {
     override val recipeId: String = "uber_ride"
     override val recipe: AppRecipe = UberRideRecipe
@@ -217,12 +264,20 @@ internal val contractRecipeIds: Set<String> = setOf(
     "clock_alarm",
     "set_timer",
     "create_calendar_event",
+    "create_calendar_event_v2",
     "web_search",
     "android_settings",
     "maps",
     "gmail_compose",
     "whatsapp_reply",
     "chrome",
+    "youtube",
+    "notes",
+    "contacts",
+    "files",
+    "photos",
+    "calculator",
+    "food_delivery",
     "shopping_search",
     "shopping_find_coupons",
     "uber_ride",
@@ -269,6 +324,8 @@ private fun preflight(
 private fun fakeLaunchableApps(query: String): List<LaunchableAppIndex.Entry> =
     when (query.trim().lowercase()) {
         "spotify" -> listOf(entry("com.spotify.music", "Spotify"))
+        "swiggy" -> listOf(entry("in.swiggy.android", "Swiggy"))
+        "zomato" -> listOf(entry("com.application.zomato", "Zomato"))
         "maps" -> listOf(
             entry("com.google.android.apps.maps", "Maps"),
             entry("com.example.citymaps", "Maps Lite"),
@@ -283,6 +340,19 @@ private fun entry(packageName: String, label: String): LaunchableAppIndex.Entry 
         activityComponentFlat = "$packageName/.MainActivity",
     )
 
+private fun fakeContacts(query: String): ContactLookupResult =
+    ContactLookupResult.Matches(
+        when (query.trim().lowercase()) {
+            "mom" -> listOf(ContactMatch("Mom", "content://com.android.contacts/contacts/lookup/mom/1", "+15551234567"))
+            "maya" -> listOf(ContactMatch("Maya", "content://com.android.contacts/contacts/lookup/maya/2", "+15557654321"))
+            "rohan" -> listOf(
+                ContactMatch("Rohan S", "content://com.android.contacts/contacts/lookup/rohan-s/3", "+15550000001"),
+                ContactMatch("Rohan B", "content://com.android.contacts/contacts/lookup/rohan-b/4", "+15550000002"),
+            )
+            else -> emptyList()
+        },
+    )
+
 data class RuntimeRecipeFixture(
     val name: String,
     val app: String,
@@ -292,6 +362,7 @@ data class RuntimeRecipeFixture(
     val userGoal: String,
     val expectedRecipe: String?,
     val expectedRefusal: String?,
+    val expectedAnswer: String?,
     val expectedRisk: ActionRisk?,
     val mustConfirm: Boolean,
     val sideEffect: SideEffectClassification,
@@ -383,6 +454,7 @@ private data class RuntimeRecipeFixtureJson(
     val userGoal: String,
     val expectedRecipe: String? = null,
     val expectedRefusal: String? = null,
+    val expectedAnswer: String? = null,
     val expectedRisk: ActionRisk? = null,
     val mustConfirm: Boolean = false,
     val sideEffect: SideEffectClassification = SideEffectClassification.NONE,
@@ -398,6 +470,7 @@ private data class RuntimeRecipeFixtureJson(
             userGoal = userGoal,
             expectedRecipe = expectedRecipe,
             expectedRefusal = expectedRefusal,
+            expectedAnswer = expectedAnswer,
             expectedRisk = expectedRisk,
             mustConfirm = mustConfirm,
             sideEffect = sideEffect,

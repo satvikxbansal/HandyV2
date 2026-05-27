@@ -1,5 +1,6 @@
 package com.handy.app.agent
 
+import android.content.Context
 import com.google.common.truth.Truth.assertThat
 import com.handy.app.overlay.AgentProgressBubbleState
 import com.handy.app.overlay.BuddyFlightDriver
@@ -29,6 +30,7 @@ import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
+import io.mockk.verify
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -36,11 +38,44 @@ import org.junit.Test
 
 class AgentSessionControllerTest {
 
+    @Test fun `answer-only calculator recipe can respond to arithmetic question without execution verb`() = runTest {
+        val presenter = mockk<OverlayPresenter>()
+        every { presenter.onStreamingStart() } just runs
+        every { presenter.onResponseFinalized("1035", "1035") } just runs
+        val controller = AgentSessionController(
+            context = mockk<Context>(relaxed = true),
+            presenter = presenter,
+            screenContextBuilder = mockk<ScreenContextBuilder>(relaxed = true),
+            actionPerformer = mockk<ActionPerformer>(relaxed = true),
+            policyEngine = RecordingPolicy(),
+            intentDispatcher = mockk<AndroidIntentDispatcher>(relaxed = true),
+            launchableAppIndex = mockk<LaunchableAppIndex>(relaxed = true),
+            flightDriver = mockk<BuddyFlightDriver>(relaxed = true),
+            speechOutputController = mockk<SpeechOutputController>(relaxed = true),
+            auditStore = InMemoryAuditStore(),
+            resultVerifier = ResultVerifier.Default,
+        )
+
+        val handled = controller.runIfRecipeRequested(
+            assistantText = """[INTENT:calculate]
+                |use recipe calculate with args {"expression":"23% of 4500"}
+            """.trimMargin(),
+            userText = "What's 23% of 4500?",
+            initialGrounding = grounding(),
+            source = TurnSource.OVERLAY_PANEL,
+            toolContext = ToolContext(packageName = "com.example.app", appLabel = "Example"),
+        )
+
+        assertThat(handled).isTrue()
+        verify { presenter.onResponseFinalized("1035", "1035") }
+    }
+
     @Test fun `recipe step with untrusted provenance is refused before execution`() = runTest {
         val presenter = mockk<OverlayPresenter>()
         every { presenter.onError(any()) } just runs
         val policy = RecordingPolicy()
         val controller = AgentSessionController(
+            context = mockk<Context>(relaxed = true),
             presenter = presenter,
             screenContextBuilder = mockk<ScreenContextBuilder>(relaxed = true),
             actionPerformer = mockk<ActionPerformer>(relaxed = true),

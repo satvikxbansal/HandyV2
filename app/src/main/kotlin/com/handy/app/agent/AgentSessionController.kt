@@ -1,5 +1,6 @@
 package com.handy.app.agent
 
+import android.content.Context
 import com.handy.app.overlay.AgentProgressBubbleState
 import com.handy.app.overlay.BuddyFlightDriver
 import com.handy.app.overlay.OverlayPresenter
@@ -20,6 +21,7 @@ import com.handy.core.agent.RecipePlan
 import com.handy.core.agent.RecipePlanConfirmer
 import com.handy.core.agent.RecipeProposal
 import com.handy.core.agent.RecipeCommand
+import com.handy.core.agent.RecipeIntent
 import com.handy.core.agent.RecipeRegistry
 import com.handy.core.agent.RecipeIntentDispatcher
 import com.handy.core.agent.RecipeRunEvent
@@ -33,14 +35,19 @@ import com.handy.core.agent.RecipeStepPolicyCheck
 import com.handy.core.agent.ResultVerifier
 import com.handy.core.agent.UserGoal
 import com.handy.core.parsing.AssistantMarkupParser
+import com.handy.core.overlay.CandidateOption
+import com.handy.core.overlay.CandidateOptions
 import com.handy.core.llm.ToolProvenance
+import com.handy.core.screen.IntRect
 import com.handy.core.screen.GroundingSnapshot
 import com.handy.core.screen.TurnSource
 import com.handy.core.tool.ToolContext
 import com.handy.runtime.agent.recipes.AndroidRuntimeRecipes
+import com.handy.runtime.agent.recipes.AndroidContactsResolver
 import com.handy.runtime.audit.RecipeAuditObserver
 import com.handy.runtime.intent.AndroidIntentDispatcher
 import com.handy.runtime.intent.LaunchableAppIndex
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.delay
@@ -52,6 +59,7 @@ import timber.log.Timber
 
 @Singleton
 class AgentSessionController @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val presenter: OverlayPresenter,
     private val screenContextBuilder: ScreenContextBuilder,
     private val actionPerformer: ActionPerformer,
@@ -64,7 +72,10 @@ class AgentSessionController @Inject constructor(
     private val resultVerifier: ResultVerifier,
 ) {
     private val registry = RecipeRegistry(
-        RecipeRegistry.defaultRecipes() + AndroidRuntimeRecipes.defaultRecipes(launchableAppIndex),
+        RecipeRegistry.defaultRecipes() + AndroidRuntimeRecipes.defaultRecipes(
+            findLaunchableApps = launchableAppIndex::find,
+            findContacts = AndroidContactsResolver(context)::find,
+        ),
     )
     private val _progress = MutableStateFlow(AgentProgressBubbleState.Hidden)
     val progress: StateFlow<AgentProgressBubbleState> = _progress.asStateFlow()
@@ -79,7 +90,8 @@ class AgentSessionController @Inject constructor(
     ): Boolean {
         val goal = UserGoal.fromAssistantText(assistantText)
         if (goal.requestedRecipe == null && goal.requestedIntent == null) return false
-        if (!UserGoal.allowsRecipeExecution(userText)) {
+        val allowsExecution = UserGoal.allowsRecipeExecution(userText)
+        if (!allowsExecution && !goal.isAnswerOnlyCalculatorRequest()) {
             Timber.d(
                 "AgentSessionController: ignored recipe directive for guidance-only user intent queryChars=%d",
                 userText.length,
@@ -87,8 +99,22 @@ class AgentSessionController @Inject constructor(
             return false
         }
 
-        when (val proposal = registry.propose(goal, initialGrounding)) {
+        val proposal = registry.propose(goal, initialGrounding)
+        if (!allowsExecution && proposal !is RecipeProposal.Answered) {
+            Timber.d(
+                "AgentSessionController: ignored non-answer recipe directive for guidance-only user intent queryChars=%d",
+                userText.length,
+            )
+            return false
+        }
+
+        when (proposal) {
+            is RecipeProposal.Answered -> {
+                postRecipeCompletionMessage(proposal.message)
+                return true
+            }
             is RecipeProposal.Refused -> {
+                presenter.setCandidateOptions(proposal.candidateLabels.toCandidateOptions())
                 showError("recipe refused: ${proposal.reason}")
                 return true
             }
@@ -205,7 +231,11 @@ class AgentSessionController @Inject constructor(
             performer = performer,
             policy = policyEngine,
             intentDispatcher = RecipeIntentDispatcher { action ->
-                intentDispatcher.dispatch(action)
+                if (action.isDestructive) {
+                    intentDispatcher.dispatchConfirmed(action)
+                } else {
+                    intentDispatcher.dispatch(action)
+                }
             },
             snapshotProvider = snapshotProvider,
             planConfirmer = RecipePlanConfirmer { _, _, _ -> true },
@@ -342,6 +372,32 @@ class AgentSessionController @Inject constructor(
         presenter.onError(message)
     }
 
+    private fun List<String>.toCandidateOptions(): CandidateOptions? {
+        val labels = mapNotNull { it.trim().takeIf(String::isNotBlank) }.take(5)
+        if (labels.size < 2) return null
+        return CandidateOptions(
+            options = labels.mapIndexed { index, label ->
+                CandidateOption(
+                    id = "recipe_candidate_$index",
+                    label = label,
+                    role = null,
+                    markId = null,
+                    viewId = null,
+                    bounds = IntRect.ZERO,
+                    confidence = 1f,
+                    actionable = false,
+                )
+            },
+            visible = true,
+        )
+    }
+
+    private fun UserGoal.isAnswerOnlyCalculatorRequest(): Boolean {
+        val requested = listOfNotNull(requestedIntent, requestedRecipe?.recipeId)
+            .map { it.lowercase() }
+        return requested.any { it == RecipeIntent.CALCULATE.canonical || it == CALCULATOR_RECIPE_ID }
+    }
+
     private fun deniedDecision(reason: String): PolicyDecision =
         PolicyDecision(
             allowed = false,
@@ -376,6 +432,7 @@ class AgentSessionController @Inject constructor(
 
     companion object {
         private const val CHROME_RECIPE_ID = "chrome"
+        private const val CALCULATOR_RECIPE_ID = "calculator"
         private val rideRecipeAppLabels = mapOf(
             "uber_ride" to "Uber",
             "ola_ride" to "Ola",

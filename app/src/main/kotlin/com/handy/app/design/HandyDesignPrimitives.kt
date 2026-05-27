@@ -151,7 +151,7 @@ private fun PrimaryButtonContent(
             color = labelColor,
             style = HandyDesignType.BodyStrong.copy(
                 fontSize = 16.sp,
-                letterSpacing = (-0.005).em,
+                letterSpacing = 0.em,
             ),
         )
         if (showTrailingChevron && enabled) {
@@ -314,7 +314,7 @@ fun Row(
             Text(
                 text = title,
                 color = colors.TextPrimary,
-                style = HandyDesignType.BodyStrong.copy(letterSpacing = (-0.005).em),
+                style = HandyDesignType.BodyStrong.copy(letterSpacing = 0.em),
             )
             if (caption != null) {
                 Text(
@@ -389,7 +389,7 @@ fun HandyWordmark(
             style = HandyDesignType.TitleSmall.copy(
                 fontSize = size.sp,
                 fontWeight = FontWeight.SemiBold,
-                letterSpacing = (-0.02).em,
+                letterSpacing = 0.em,
             ),
         )
     }

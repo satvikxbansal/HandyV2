@@ -88,12 +88,15 @@ submission documentation.
   AI chooses a canonical recipe intent and arguments; it does not invent
   arbitrary executable steps.
 
-- **Locked recipe families after S-1..S-10**
+- **Locked recipe families after S-1..S-10 plus P-RECIPES-2**
   The deterministic set is: open app, install app Play Store handoff,
   alarm, timer, web search handoff, Chrome URL/search/page navigation,
   Android Settings, Gmail draft, WhatsApp draft, calendar event draft,
-  Maps search/navigation, ride-hailing prep for Uber/Ola/Rapido, and
-  shopping search/coupon flows for Meesho, Amazon, and Flipkart.
+  Maps search/navigation, YouTube search/channel open, notes share-sheet
+  drafts, Contacts handoffs, Files picker handoffs, Photos/Gallery
+  handoffs, local calculator answers/open, food-delivery search/tracking,
+  ride-hailing prep for Uber/Ola/Rapido, and shopping search/coupon flows
+  for Meesho, Amazon, and Flipkart.
 
 - **Visible-UI recipes**
   The generic visible-screen recipe set covers one visible tap, one
@@ -395,8 +398,15 @@ and docs coverage together.
 | Android Settings | Open app info, notifications, battery optimization, dark theme, apps, ringtone, DND, brightness, and screen-timeout settings. | Accessibility, network, Bluetooth, security, and biometric changes are too sensitive for recipes. |
 | Gmail | Open a draft with recipient, subject, and body. | Send requires strong hold confirmation. |
 | WhatsApp | Open a chat by phone deep link or contact search, fill a draft, and pause before Send. | Send requires strong hold confirmation; no broadcasts, calls, payments, or forwarding unknown content. |
-| Calendar | Open Calendar compose with title, time, location, and notes when parseable. | The user reviews and taps Save. |
+| Calendar | Open Calendar compose with title, time, location, notes, and attendees when parseable. | The user reviews and taps Save; recurring rules are refused until the user explicitly confirms repeat behavior. |
 | Maps | Search places or start navigation after confirmation. | No ride booking, payment, or location sharing. |
+| YouTube | Open YouTube search results or a channel lookup URL. | No liking, subscribing, or commenting. |
+| Notes | Open the system share sheet with note text. | The user chooses the notes app and saves; no hidden write. |
+| Contacts | Open a contact, dialer draft, or SMS draft after local Contacts resolution. | No `ACTION_CALL`, no SMS send, and ambiguous matches surface candidate chips. |
+| Files | Open Android file/document picker for search/open handoff. | No delete, rename, move, upload, or automatic file access. |
+| Photos | Open Photos/Gallery or tap a visible Share affordance only while viewing a photo. | No photo deletion; share recipient remains the user's choice. |
+| Calculator | Answer safe arithmetic locally or open Calculator. | No network/tool call and no unsupported functions beyond `+ - * / % ()`. |
+| Food delivery | Search food in Swiggy/Zomato or open order tracking. | No placing orders, checkout, payment, or confirmation. |
 | Ride hailing | Prepare Uber, Ola, or Rapido by opening the app, entering destination, opening the result, and optionally selecting a class with hold confirmation. | The final Confirm/Request/Book action remains the user's tap. |
 | Shopping | Search products and open coupons/offers in Meesho, Amazon, or Flipkart. | No add-to-cart, checkout, payment, address changes, saved card use, or applying coupons. |
 
@@ -531,8 +541,10 @@ instrumentation sources. The important lanes are:
 - Recipe router, registry smoke, resolver conflict, runner, and user-goal
   execution-gate tests.
 - Date/time parsing tests for calendar recipes.
-- Runtime recipe tests for open app, install app, timer, calendar, web
-  search, Android Settings, Chrome, ride hailing, and pack registration.
+- Runtime recipe tests for open app, install app, timer, calendar,
+  YouTube, notes, contacts, files, photos, calculator, food delivery,
+  web search, Android Settings, Chrome, ride hailing, and pack
+  registration.
 - Action policy tests for sensitive fields, incognito, install handoff,
   settings targets, ride confirmation labels, and gesture fallback.
 - Eval tests for duplicate targets, Hinglish shopping, intent-first
@@ -631,6 +643,19 @@ Use this before any Play submission or release candidate.
    - Maps: search a place; start navigation only after confirmation.
    - Chrome: open a URL, search the omnibox, and tap a visible page
      control.
+   - YouTube: search a video and open a channel; verify like/subscribe/
+     comment requests are refused.
+   - Notes: share "buy milk" and confirm the chooser has that text.
+   - Contacts: call Mom opens the dialer draft, text Maya opens an SMS
+     draft, and duplicate Rohan contacts show candidate chips.
+   - Files: open file search/document picker; verify mutation language is
+     refused.
+   - Photos: open Gallery, share the currently viewed photo via the
+     visible Share control, and verify delete requests are refused.
+   - Calculator: verify "23% of 4500" answers in chat with no recipe run;
+     open Calculator separately.
+   - Food delivery: find biryani on Swiggy/Zomato and track an order;
+     verify ordering/payment language is refused.
    - Gmail/WhatsApp: draft only; verify Send requires hold confirmation.
    - Ride hailing: prepare a ride and verify Handy stops before Confirm
      or Request.

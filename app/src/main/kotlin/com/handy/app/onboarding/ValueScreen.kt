@@ -177,7 +177,7 @@ fun ValueScreen(
                         fontSize = 36.sp,
                         lineHeight = 37.sp,
                         fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.030).em,
+                        letterSpacing = 0.em,
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -304,7 +304,7 @@ private fun USPHeroCard(
                     fontSize = 24.sp,
                     lineHeight = 26.sp,
                     fontWeight = FontWeight.SemiBold,
-                    letterSpacing = (-0.020).em,
+                    letterSpacing = 0.em,
                 ),
                 color = HandyDesign.Colors.TextPrimary,
             )

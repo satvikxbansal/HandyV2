@@ -188,7 +188,7 @@ private fun SheetHeader(onDismiss: () -> Unit) {
             style = HandyDesignType.Title.copy(
                 fontSize = 22.sp,
                 lineHeight = 22.sp,
-                letterSpacing = (-0.020).em,
+                letterSpacing = 0.em,
             ),
             color = HandyDesign.Colors.TextPrimary,
             modifier = Modifier.weight(1f),
@@ -264,7 +264,7 @@ private fun DisclosureSection(
             style = HandyDesignType.Title.copy(
                 fontSize = 22.sp,
                 lineHeight = 25.3.sp,
-                letterSpacing = (-0.020).em,
+                letterSpacing = 0.em,
             ),
             color = HandyDesign.Colors.TextPrimary,
         )
@@ -372,7 +372,7 @@ private fun SheetCta(
                 style = HandyDesignType.BodyStrong.copy(
                     fontSize = 16.sp,
                     lineHeight = 16.sp,
-                    letterSpacing = (-0.005).em,
+                    letterSpacing = 0.em,
                 ),
                 color = HandyDesign.Colors.TextPrimary,
             )
