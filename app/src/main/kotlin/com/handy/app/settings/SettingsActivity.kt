@@ -140,6 +140,18 @@ class SettingsActivity : ComponentActivity() {
                     onRecipesToggle = viewModel::setRecipesEnabled,
                     onClipboardAssistToggle = viewModel::setClipboardAssistEnabled,
                     onOpenActivityLog = { AuditReviewActivity.open(context) },
+                    onOpenBubblePreview = if (BuildConfig.DEBUG) {
+                        {
+                            startActivity(
+                                Intent(
+                                    this@SettingsActivity,
+                                    SideBubblePreviewActivity::class.java,
+                                ),
+                            )
+                        }
+                    } else {
+                        null
+                    },
                     onRequestMic = {
                         micLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     },
@@ -197,6 +209,7 @@ internal fun SettingsScreen(
     onRecipesToggle: (Boolean) -> Unit = {},
     onClipboardAssistToggle: (Boolean) -> Unit = {},
     onOpenActivityLog: () -> Unit = {},
+    onOpenBubblePreview: (() -> Unit)? = null,
     onRequestMic: () -> Unit = {},
     onResetOnboarding: (() -> Unit)? = null,
 ) {
@@ -399,6 +412,7 @@ internal fun SettingsScreen(
                 item {
                     SettingsFooter(
                         versionName = BuildConfig.VERSION_NAME,
+                        onOpenBubblePreview = onOpenBubblePreview,
                         onResetOnboarding = onResetOnboarding,
                     )
                 }

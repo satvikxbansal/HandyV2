@@ -177,6 +177,11 @@
             android:theme="@style/Theme.Handy" />
 
         <activity
+            android:name=".settings.SideBubblePreviewActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Handy" />
+
+        <activity
             android:name=".diagnostics.DiagnosticsActivity"
             android:exported="false"
             android:theme="@style/Theme.Handy" />

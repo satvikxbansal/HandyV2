@@ -1,6 +1,7 @@
 package com.handy.app.settings.sections
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,7 +31,10 @@ import com.handy.app.design.HandyDesign
 import com.handy.app.design.HandyDesignType
 
 @Composable
-fun SettingsHeader(onBack: () -> Unit) {
+fun SettingsHeader(
+    title: String = "Settings",
+    onBack: () -> Unit,
+) {
     Column {
         Row(
             modifier = Modifier
@@ -55,7 +59,7 @@ fun SettingsHeader(onBack: () -> Unit) {
                 )
             }
             Text(
-                text = "Settings",
+                text = title,
                 style = HandyDesignType.Display.copy(
                     fontSize = 26.sp,
                     lineHeight = 26.sp,
@@ -77,6 +81,7 @@ fun SettingsHeader(onBack: () -> Unit) {
 @Composable
 fun SettingsFooter(
     versionName: String,
+    onOpenBubblePreview: (() -> Unit)? = null,
     onResetOnboarding: (() -> Unit)? = null,
 ) {
     Column(
@@ -119,6 +124,42 @@ fun SettingsFooter(
                 color = HandyDesign.Colors.TextMuted,
             ),
         )
+        if (onOpenBubblePreview != null) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 4.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(HandyDesign.Colors.PointSoft)
+                    .border(
+                        0.5.dp,
+                        HandyDesign.Colors.Point.copy(alpha = 0.35f),
+                        RoundedCornerShape(999.dp),
+                    )
+                    .clickable(role = Role.Button, onClick = onOpenBubblePreview)
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_lucide_overlay),
+                        contentDescription = null,
+                        tint = HandyDesign.Colors.Point,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Text(
+                        text = "Bubble UI preview",
+                        style = HandyDesignType.BodyStrong.copy(
+                            fontSize = 12.sp,
+                            lineHeight = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        ),
+                        color = HandyDesign.Colors.Point,
+                    )
+                }
+            }
+        }
         if (onResetOnboarding != null) {
             Box(
                 modifier = Modifier
