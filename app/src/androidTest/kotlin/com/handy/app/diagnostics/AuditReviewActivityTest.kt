@@ -9,7 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import com.handy.app.theme.HandyTheme
+import com.handy.app.design.HandyDesignTheme
 import com.handy.core.audit.AuditAction
 import com.handy.core.audit.AuditEvent
 import com.handy.core.audit.AuditResult
@@ -40,7 +40,7 @@ class AuditReviewActivityTest {
         val reported = mutableStateOf<AuditEvent?>(null)
 
         compose.setContent {
-            HandyTheme(darkTheme = true) {
+            HandyDesignTheme {
                 AuditReviewScreen(
                     state = AuditReviewUiState(
                         events = listOf(event),
@@ -54,12 +54,14 @@ class AuditReviewActivityTest {
             }
         }
 
+        compose.onNodeWithText("Activity").assertExists()
+        compose.onNodeWithText("1 event").assertExists()
         compose.onAllNodesWithText("com.example.target", substring = true)
-            .assertCountEquals(2)
-        compose.onNodeWithText("Disable here").performClick()
-        compose.onNodeWithText("Disabled here").assertExists()
+            .assertCountEquals(1)
+        compose.onNodeWithText("DISABLE IN THIS APP").performClick()
+        compose.onNodeWithText("DISABLED HERE").assertExists()
 
-        compose.onNodeWithText("Report wrong action").performClick()
+        compose.onNodeWithText("REPORT WRONG ACTION").performClick()
         compose.runOnIdle {
             assertThat(reported.value).isEqualTo(event)
         }
