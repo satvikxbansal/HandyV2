@@ -15,7 +15,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,7 +29,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -259,7 +257,6 @@ private fun PreviewStage(content: @Composable () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
             .clip(RoundedCornerShape(14.dp))
             .background(Color.White.copy(alpha = 0.035f))
             .border(0.5.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(14.dp))
@@ -338,10 +335,10 @@ private fun CaseHeader(item: BubblePreviewCase) {
 private fun WidgetBubblePair(case: BubblePreviewCase) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         if (case.anchor == BubbleAnchor.RIGHT) {
-            BubbleWithHaloPadding(case.bubble)
+            BubbleWithHaloPadding(case.bubble, anchor = BubbleAnchor.RIGHT)
             WidgetGlyphV2(
                 state = case.widgetState,
                 pointerRotationRadians = case.pointerRotationRadians,
@@ -353,14 +350,22 @@ private fun WidgetBubblePair(case: BubblePreviewCase) {
                 pointerRotationRadians = case.pointerRotationRadians,
                 pointerScale = case.pointerScale,
             )
-            BubbleWithHaloPadding(case.bubble)
+            BubbleWithHaloPadding(case.bubble, anchor = BubbleAnchor.LEFT)
         }
     }
 }
 
 @Composable
-private fun BubbleWithHaloPadding(bubble: BuddyBubble) {
-    Box(Modifier.padding(12.dp)) {
+private fun BubbleWithHaloPadding(
+    bubble: BuddyBubble,
+    anchor: BubbleAnchor,
+) {
+    val modifier = if (anchor == BubbleAnchor.RIGHT) {
+        Modifier.padding(start = 12.dp, top = 12.dp, end = 0.dp, bottom = 12.dp)
+    } else {
+        Modifier.padding(start = 0.dp, top = 12.dp, end = 12.dp, bottom = 12.dp)
+    }
+    Box(modifier) {
         SideBubbleV2(bubble)
     }
 }
@@ -558,13 +563,13 @@ private fun sideBubblePreviewCases(): List<BubblePreviewCase> = listOf(
     BubblePreviewCase(
         title = "Voice transcript",
         detail = "Italic amber transcript while the widget is listening.",
-        bubble = BuddyBubble.transcript("Set a 20 minute timer for pasta"),
+        bubble = BuddyBubble.transcript("Set a 20 minute timer for pasta and remind me to stir halfway"),
         widgetState = WidgetState.LISTENING,
     ),
     BubblePreviewCase(
         title = "Spoken answer",
         detail = "Short voice response that clears when audio returns idle.",
-        bubble = BuddyBubble.spokenAnswer("Done. I’ll show the alarm screen next."),
+        bubble = BuddyBubble.spokenAnswer("Done. I’ll show the alarm screen next and wait for you there."),
         widgetState = WidgetState.LISTENING,
     ),
     BubblePreviewCase(
@@ -616,13 +621,13 @@ private fun sideBubblePreviewCases(): List<BubblePreviewCase> = listOf(
     BubblePreviewCase(
         title = "Acting · type",
         detail = "Emerald type bubble with keyboard icon and progress.",
-        bubble = BuddyBubble.actingType("Typing in \"Search field\"…", progress = 0.36f),
+        bubble = BuddyBubble.actingType("Typing in \"Search field\" with the requested reminder…", progress = 0.36f),
         widgetState = WidgetState.ACTING,
     ),
     BubblePreviewCase(
         title = "Recipe step",
         detail = "Amber recipe progress with prefix and recipe icon.",
-        bubble = BuddyBubble.recipeStep(2, 5, "Open Alarms tab"),
+        bubble = BuddyBubble.recipeStep(2, 5, "Open Alarms tab and choose the weekday schedule"),
         widgetState = WidgetState.ACTING,
     ),
     BubblePreviewCase(
@@ -665,8 +670,8 @@ private fun widgetStateSamples(): List<WidgetStateSample> = listOf(
 private fun iconSamples(): List<IconSample> = listOf(
     IconSample(
         label = "Hand tap",
-        fileName = "ic_phosphor_hand_pointing_fill.xml",
-        drawableRes = R.drawable.ic_phosphor_hand_pointing_fill,
+        fileName = "ic_mouse_pointer_click.xml",
+        drawableRes = R.drawable.ic_mouse_pointer_click,
         tone = HandyDesign.Colors.Act,
     ),
     IconSample(

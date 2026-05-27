@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Handy — Android Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; background: #efece6; font-family: 'Inter', system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+  code { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  /* Animations used by the floating widget + chat hero */
+  @keyframes handy-livedot {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(217, 119, 87, 0.45); transform: scale(1); }
+    50%      { box-shadow: 0 0 0 6px rgba(217, 119, 87, 0); transform: scale(1.08); }
+  }
+  @keyframes handy-widget-pulse {
+    0%   { transform: scale(1);   opacity: 0.55; }
+    100% { transform: scale(1.55); opacity: 0; }
+  }
+  @keyframes handy-spin { to { transform: rotate(360deg); } }
+  @keyframes handy-mark-breath {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.06); }
+  }
+  @keyframes handy-breath {
+    0%, 100% { transform: scale(1);    opacity: var(--ring-opacity, 0.2); }
+    50%      { transform: scale(1.06); opacity: calc(var(--ring-opacity, 0.2) * 1.4); }
+  }
+  @keyframes handy-flow {
+    0%   { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: -24; }
+  }
+  @keyframes handy-splash-pulse {
+    0%   { transform: scale(0.85); opacity: 0.55; }
+    100% { transform: scale(2.2);  opacity: 0; }
+  }
+  @keyframes handy-splash-breath {
+    0%, 100% { transform: scale(1);    box-shadow: inset 0 0 24px 0 rgba(217,119,87,0.28), 0 8px 32px -10px rgba(217,119,87,0.45); }
+    50%      { transform: scale(1.04); box-shadow: inset 0 0 32px 0 rgba(217,119,87,0.40), 0 12px 38px -10px rgba(217,119,87,0.65); }
+  }
+  @keyframes handy-vignette-glow {
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 0.95; }
+  }
+  @keyframes handy-listening-bar {
+    0%, 100% { transform: scaleY(0.30); }
+    50%      { transform: scaleY(1);    }
+  }
+  @keyframes handy-caret-blink {
+    0%, 49%   { opacity: 1; }
+    50%, 100% { opacity: 0; }
+  }
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail" data-bg-color="#08090B">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#08090B"/>
+    <!-- Soft amber halo behind the mark -->
+    <defs>
+      <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+        <stop offset="0%"  stop-color="#D97757" stop-opacity="0.5"/>
+        <stop offset="60%" stop-color="#D97757" stop-opacity="0.1"/>
+        <stop offset="100%" stop-color="#D97757" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <circle cx="600" cy="400" r="280" fill="url(#halo)"/>
+    <!-- Concentric breathing rings -->
+    <circle cx="600" cy="400" r="220" fill="none" stroke="#D97757" stroke-opacity="0.18" stroke-width="2"/>
+    <circle cx="600" cy="400" r="170" fill="none" stroke="#D97757" stroke-opacity="0.30" stroke-width="2"/>
+    <!-- Central amber disc with hand mark (Phosphor hand-palm-fill) -->
+    <circle cx="600" cy="400" r="120" fill="#D97757"/>
+    <g transform="translate(536 336) scale(0.5)">
+      <path d="M216 104v48a88 88 0 0 1-176 0V64a16 16 0 0 1 32 0v56a8 8 0 0 0 16 0V32a16 16 0 0 1 32 0v80a8 8 0 0 0 16 0V48a16 16 0 0 1 32 0v80.67A48.08 48.08 0 0 0 128 176a8 8 0 0 0 16 0a32 32 0 0 1 32-32a8 8 0 0 0 8-8v-32a16 16 0 0 1 32 0" fill="#1A0E07"/>
+    </g>
+    <!-- Wordmark -->
+    <text x="600" y="610" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="64" fill="#F4F2EE" text-anchor="middle" letter-spacing="-1.5">Handy</text>
+    <text x="600" y="650" font-family="system-ui, -apple-system, sans-serif" font-weight="400" font-size="18" fill="#A8A39B" text-anchor="middle">Android · Design canvas</text>
+  </svg>
+</template>
+
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="src/design-canvas.jsx"></script>
+<script type="text/babel" src="src/tokens.jsx"></script>
+<script type="text/babel" src="src/illustrations.jsx"></script>
+<script type="text/babel" src="src/phone.jsx"></script>
+<script type="text/babel" src="src/hand-mark.jsx"></script>
+<script type="text/babel" src="src/primitives.jsx"></script>
+<script type="text/babel" src="src/scenes-system.jsx"></script>
+<script type="text/babel" src="src/scenes-brand.jsx"></script>
+<script type="text/babel" src="src/scenes-onboarding.jsx"></script>
+<script type="text/babel" src="src/scenes-chat.jsx"></script>
+<script type="text/babel" src="src/scenes-overlay.jsx"></script>
+<script type="text/babel" src="src/scenes-bubbles.jsx"></script>
+<script type="text/babel" src="src/scenes-legacy.jsx"></script>
+<script type="text/babel" src="src/scenes-settings.jsx"></script>
+<script type="text/babel" src="src/scenes-sheets.jsx"></script>
+<script type="text/babel" src="src/scenes-handoff.jsx"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState } = React;
+
+function App() {
+  return (
+    <DesignCanvas>
+
+      <DCSection id="direction" title="Direction" subtitle="Two palettes — pick one and the rest of the canvas follows">
+        <DCArtboard id="sys-amber" label="A · Amber (recommended)" width={560} height={700}>
+          <PaletteHero themeKey="amber" />
+        </DCArtboard>
+        <DCArtboard id="sys-bone"  label="B · Bone (monochrome)"     width={560} height={700}>
+          <PaletteHero themeKey="bone" />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="system" title="System" subtitle="Tokens, type, illustration set, component library">
+        <DCArtboard id="colors" label="Color tokens"      width={560}  height={700}><ColorTokens /></DCArtboard>
+        <DCArtboard id="type"   label="Type scale"        width={720}  height={700}><TypeScale /></DCArtboard>
+        <DCArtboard id="illus"  label="Illustration sheet" width={1160} height={760}><IllustrationSheet /></DCArtboard>
+        <DCArtboard id="comp"   label="Component library" width={1160} height={1080}><ComponentLibrary /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="brand" title="Brand" subtitle="Hand-mark, wordmark, launcher icons">
+        <DCArtboard id="brand-system" label="Mark + wordmark + app icons" width={1160} height={520}>
+          <BrandSystem />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="onboarding" title="Onboarding" subtitle="Splash → value (two variants) → permissions">
+        <DCArtboard id="splash"        label="01 · Splash"              width={PHONE_W} height={PHONE_H}><SplashScreen /></DCArtboard>
+        <DCArtboard id="value-cards"   label="02a · Value (cards · Pos 1)" width={PHONE_W} height={PHONE_H}><ValueScreenCards activeIndex={0} /></DCArtboard>
+        <DCArtboard id="value-cards-2" label="02a · Value (cards · Pos 2)" width={PHONE_W} height={PHONE_H}><ValueScreenCards activeIndex={1} /></DCArtboard>
+        <DCArtboard id="value-cards-3" label="02a · Value (cards · Pos 3)" width={PHONE_W} height={PHONE_H}><ValueScreenCards activeIndex={2} /></DCArtboard>
+        <DCArtboard id="value-list"    label="02b · Value (list)"        width={PHONE_W} height={PHONE_H}><ValueScreenList /></DCArtboard>
+        <DCArtboard id="perm-partial"  label="03 · Permissions (3 of 4)" width={PHONE_W} height={PHONE_H}><PermissionsScreen state="partial" /></DCArtboard>
+        <DCArtboard id="perm-all"      label="03b · Permissions (all set)" width={PHONE_W} height={PHONE_H}><PermissionsScreen state="all" /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="chat" title="Chat" subtitle="Full-app surfaces, two context-bar positions, floating composer">
+        <DCArtboard id="chat-empty"        label="04 · Ready state"             width={PHONE_W} height={PHONE_H}><ChatEmpty /></DCArtboard>
+        <DCArtboard id="chat-active-top"   label="04b · Active · context top"   width={PHONE_W} height={PHONE_H}><ChatActive contextBarPosition="top" /></DCArtboard>
+        <DCArtboard id="chat-active-bot"   label="04c · Active · context above composer" width={PHONE_W} height={PHONE_H}><ChatActive contextBarPosition="bottom" /></DCArtboard>
+        <DCArtboard id="chat-context-edit" label="04d · Active · editing context name" width={PHONE_W} height={PHONE_H}><ChatActive contextBarPosition="bottom" editing /></DCArtboard>
+        <DCArtboard id="chat-reduced"      label="04e · Reduced-mode banner"    width={PHONE_W} height={PHONE_H}><ChatReduced /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="overlay" title="Floating overlay" subtitle="The most-used surface — widget states + glass quick-chat">
+        <DCArtboard id="widget-states" label="05 · Widget states" width={780} height={520}><WidgetStates /></DCArtboard>
+        <DCArtboard id="bubble-states" label="05b · Bubble system" width={980} height={1500}><BubbleStatesBoard /></DCArtboard>
+        <DCArtboard id="overlay-home"  label="06a · Quick chat on Home"      width={PHONE_W} height={PHONE_H}><OverlayQuickChat host="home" /></DCArtboard>
+        <DCArtboard id="overlay-maps"  label="06b · Quick chat on Maps"      width={PHONE_W} height={PHONE_H}><OverlayQuickChat host="maps" /></DCArtboard>
+        <DCArtboard id="overlay-photos" label="06c · Quick chat on Photos"   width={PHONE_W} height={PHONE_H}><OverlayQuickChat host="photos" /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="settings" title="Settings" subtitle="One accordion variant — color-coded sections, expanded states show only actionable controls">
+        <DCArtboard id="set-default"       label="07 · Settings (collapsed Voice)"            width={PHONE_W} height={1080}><SettingsAccordion mode="default" /></DCArtboard>
+        <DCArtboard id="set-voice-tts"     label="07b · Voice · TTS expanded (Sarvam, no key)" width={PHONE_W} height={1680}><SettingsAccordion mode="default" tts={{ provider: "sarvam", keyState: "empty", voice: "Ritu", lang: "Auto" }} ttsOpen /></DCArtboard>
+        <DCArtboard id="set-voice-stt"     label="07c · Voice · STT expanded (Android)"        width={PHONE_W} height={1480}><SettingsAccordion mode="default" sttOpen /></DCArtboard>
+        <DCArtboard id="set-voice-both"    label="07d · Voice · both expanded, all ready"      width={PHONE_W} height={2100}><SettingsAccordion mode="default" tts={{ provider: "sarvam", keyState: "saved", voice: "Ritu", lang: "Auto" }} stt={{ provider: "saarika", keyState: "saved", mode: "Auto", lang: "Auto" }} ttsOpen sttOpen /></DCArtboard>
+        <DCArtboard id="set-full"          label="07e · Settings (full page)"                  width={PHONE_W} height={2780}><SettingsAccordion mode="full" tts={{ provider: "sarvam", keyState: "saved", voice: "Ritu", lang: "Auto" }} stt={{ provider: "saarika", keyState: "saved", mode: "Auto", lang: "Auto" }} ttsOpen sttOpen /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="sheets" title="Confirmation & audit" subtitle="Glass action sheets, privacy + model pickers, and the audit log">
+        <DCArtboard id="sheet-privacy" label="08 · Privacy disclosure"     width={PHONE_W} height={PHONE_H}><PrivacyDisclosureSheet /></DCArtboard>
+        <DCArtboard id="sheet-model"   label="08b · Model picker"          width={PHONE_W} height={PHONE_H}><ModelPickerSheet /></DCArtboard>
+        <DCArtboard id="sheet-tap"     label="08c · Tap-for-me confirmation" width={PHONE_W} height={PHONE_H}><TapConfirmSheet /></DCArtboard>
+        <DCArtboard id="sheet-recipe"  label="08d · Recipe plan approval"   width={PHONE_W} height={PHONE_H}><RecipeApprovalSheet /></DCArtboard>
+        <DCArtboard id="audit"         label="09 · Audit / review activity" width={PHONE_W} height={PHONE_H}><AuditScreen /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="legacy" title="Legacy surfaces — redesigned" subtitle="Manual target picker, Activity log, Diagnostics — now on the new design system">
+        <DCArtboard id="manual-cands"  label="10 · Manual target picker · candidates" width={PHONE_W} height={PHONE_H}><ManualTargetSelectorScreen state="candidates" /></DCArtboard>
+        <DCArtboard id="manual-captured" label="10b · Manual target picker · captured" width={PHONE_W} height={PHONE_H}><ManualTargetSelectorScreen state="captured" /></DCArtboard>
+        <DCArtboard id="activity-log"  label="11 · Activity log · with entries"        width={PHONE_W} height={PHONE_H}><ActivityLogScreen /></DCArtboard>
+        <DCArtboard id="activity-empty" label="11b · Activity log · empty"             width={PHONE_W} height={PHONE_H}><ActivityLogScreen empty /></DCArtboard>
+        <DCArtboard id="diag-overview" label="12 · Diagnostics · Overview"             width={PHONE_W} height={PHONE_H}><DiagnosticsScreen tab="overview" /></DCArtboard>
+        <DCArtboard id="diag-timeline" label="12b · Diagnostics · Timeline"            width={PHONE_W} height={PHONE_H}><DiagnosticsScreen tab="timeline" /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="handoff" title="Compose handoff" subtitle="Drop these straight into the Android codebase">
+        <DCArtboard id="theme-kt" label="Color.kt + Type.kt + Theme.kt" width={1160} height={1100}><ComposeThemeHandoff /></DCArtboard>
+        <DCArtboard id="composables" label="Composable name map" width={1160} height={700}><ComposableMap /></DCArtboard>
+      </DCSection>
+
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

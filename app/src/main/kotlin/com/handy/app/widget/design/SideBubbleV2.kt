@@ -90,11 +90,11 @@ private fun BubbleHalo(tone: Color) {
         Box(
             Modifier
                 .fillMaxSize()
-                .blur(radius = 6.dp)
+                .blur(radius = 8.dp)
                 .background(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            tone.copy(alpha = 0.22f),
+                            tone.copy(alpha = 0.34f),
                             Color.Transparent,
                         ),
                     ),
@@ -105,19 +105,19 @@ private fun BubbleHalo(tone: Color) {
         Box(
             Modifier
                 .fillMaxSize()
-                .background(tone.copy(alpha = 0.06f), RoundedCornerShape(30.dp)),
+                .background(tone.copy(alpha = 0.10f), RoundedCornerShape(30.dp)),
         )
         Box(
             Modifier
                 .fillMaxSize()
                 .padding(2.dp)
-                .background(tone.copy(alpha = 0.10f), RoundedCornerShape(28.dp)),
+                .background(tone.copy(alpha = 0.16f), RoundedCornerShape(28.dp)),
         )
         Box(
             Modifier
                 .fillMaxSize()
                 .padding(4.dp)
-                .background(tone.copy(alpha = 0.16f), RoundedCornerShape(26.dp)),
+                .background(tone.copy(alpha = 0.24f), RoundedCornerShape(26.dp)),
         )
     }
 }
@@ -132,6 +132,8 @@ private fun BubbleSurface(
     val prefix = bubble.prefix
     val leading = bubble.leading
     val progress = bubble.progress
+    val contentMaxWidth = if (bubble.small) 216.dp else 252.dp
+    val labelMaxWidth = if (leading != null) contentMaxWidth - 22.dp else contentMaxWidth
     Box(
         modifier = Modifier
             .widthIn(max = if (bubble.small) 240.dp else 280.dp)
@@ -147,8 +149,8 @@ private fun BubbleSurface(
                 )
             }
             .border(
-                width = 0.5.dp,
-                color = Color.White.copy(alpha = 0.12f),
+                width = 1.dp,
+                color = bubble.tone.borderColor(),
                 shape = shape,
             )
             .padding(
@@ -195,9 +197,9 @@ private fun BubbleSurface(
                         letterSpacing = 0.em,
                     ),
                     color = HandyDesign.Colors.TextPrimary,
-                    maxLines = 2,
+                    maxLines = if (bubble.small) 3 else 4,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
+                    modifier = Modifier.widthIn(max = labelMaxWidth),
                 )
             }
             if (progress != null) {
@@ -236,9 +238,19 @@ private fun BubbleTone.color(): Color = when (this) {
     BubbleTone.DANGER -> HandyDesign.Colors.Danger
 }
 
+private fun BubbleTone.borderColor(): Color = when (this) {
+    BubbleTone.ACCENT -> HandyDesign.Colors.AccentHairline
+    BubbleTone.MUTED -> HandyDesign.Colors.TextMuted.copy(alpha = 0.30f)
+    BubbleTone.VIOLET -> HandyDesign.Colors.Violet.copy(alpha = 0.30f)
+    BubbleTone.HONEY -> HandyDesign.Colors.HoneyHair
+    BubbleTone.POINT -> HandyDesign.Colors.PointHairline
+    BubbleTone.ACT -> HandyDesign.Colors.Act.copy(alpha = 0.30f)
+    BubbleTone.DANGER -> HandyDesign.Colors.Danger.copy(alpha = 0.30f)
+}
+
 @DrawableRes
 private fun BubbleIcon.drawableRes(): Int = when (this) {
-    BubbleIcon.HAND_TAP -> R.drawable.ic_phosphor_hand_pointing_fill
+    BubbleIcon.HAND_TAP -> R.drawable.ic_mouse_pointer_click
     BubbleIcon.KEYBOARD -> R.drawable.ic_keyboard
     BubbleIcon.RECIPE -> R.drawable.ic_recipe
     BubbleIcon.BACK -> R.drawable.ic_chevron_left

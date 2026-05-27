@@ -1046,7 +1046,12 @@ class FloatingWidgetOverlayService : LifecycleService() {
         val widget = view ?: return
         val bubble = bubbleView ?: return
         val lp = bubbleParams ?: return
-        val gap = (resources.displayMetrics.density * 8f).toInt()
+        val density = resources.displayMetrics.density
+        val haloPadding = (
+            density * if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) 8f else 12f
+        ).toInt()
+        val surfaceGap = (density * 2f).toInt()
+        val windowGap = surfaceGap - haloPadding
         val screenW = resources.displayMetrics.widthPixels
         val screenH = resources.displayMetrics.heightPixels
         val widgetW = widget.width.takeIf { it > 0 } ?: 1
@@ -1062,9 +1067,9 @@ class FloatingWidgetOverlayService : LifecycleService() {
         ) {
             widgetCenterX - bubbleW / 2
         } else if (widgetCenterX > screenW / 2) {
-            params.x - bubbleW - gap
+            params.x - bubbleW - windowGap
         } else {
-            params.x + widgetW + gap
+            params.x + widgetW + windowGap
         }
         val clampedX = preferredX.coerceIn(0, maxBubbleX)
         val centeredY = (widgetCenterY - bubbleH / 2).coerceIn(0, maxBubbleY)
@@ -1073,12 +1078,12 @@ class FloatingWidgetOverlayService : LifecycleService() {
         val widgetTop = params.y
         val widgetRight = params.x + widgetW
         val widgetBottom = params.y + (widget.height.takeIf { it > 0 } ?: 1)
-        val bubbleLeft = clampedX
-        val bubbleRight = clampedX + bubbleW
+        val bubbleLeft = clampedX + haloPadding
+        val bubbleRight = clampedX + bubbleW - haloPadding
         val overlapsHorizontally = bubbleLeft < widgetRight && bubbleRight > widgetLeft
 
-        val aboveY = (widgetTop - bubbleH - gap).coerceIn(0, maxBubbleY)
-        val belowY = (widgetBottom + gap).coerceIn(0, maxBubbleY)
+        val aboveY = (widgetTop - bubbleH - windowGap).coerceIn(0, maxBubbleY)
+        val belowY = (widgetBottom + windowGap).coerceIn(0, maxBubbleY)
         val roomAbove = widgetTop
         val roomBelow = screenH - widgetBottom
         val hintedY = when (bubblePlacementHint) {
