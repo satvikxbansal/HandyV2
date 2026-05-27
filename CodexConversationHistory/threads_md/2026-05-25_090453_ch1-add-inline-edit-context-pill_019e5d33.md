@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Mount the existing ContextBarPillV2 above the FloatingComposerV2 as its `bottomChrome` slot, and add a sleek inline-edit mode so tapping "Change" flips the pill into a text-field + Done/Cancel inside the same pill shape. Remove the redunda… Likely related git changes: f8888ed C-C: chat bubbles and improvements; 7274bd4 Mount context pill above composer; 1d64447 CH1+2+3+SF: fixing missing new design elements.
+This conversation focused on: Mount the existing ContextBarPillV2 above the FloatingComposerV2 as its `bottomChrome` slot, and add a sleek inline-edit mode so tapping "Change" flips the pill into a text-field + Done/Cancel inside the same pill shape. Remove the redundant top ContextBarFul… Likely related git changes: f8888ed C-C: chat bubbles and improvements; 7274bd4 Mount context pill above composer; 1d64447 CH1+2+3+SF: fixing missing new design elements.
 
 ## Git Commit Linkage
 

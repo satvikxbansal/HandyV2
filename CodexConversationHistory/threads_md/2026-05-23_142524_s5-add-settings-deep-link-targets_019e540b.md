@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Add RINGTONE, DND, BRIGHTNESS, SCREEN_TIMEOUT to SettingsTarget so common Settings requests have a deterministic deep-link. None of these toggle anything — they only open the screen. FILES TO KNOW - core/src/main/kotlin/com/handy/core/acti… Likely related git changes: 9a3b522 Add deterministic open app recipe; 325d239 S5.
+This conversation focused on: Add RINGTONE, DND, BRIGHTNESS, SCREEN_TIMEOUT to SettingsTarget so common Settings requests have a deterministic deep-link. None of these toggle anything — they only open the screen. FILES TO KNOW - core/src/main/kotlin/com/handy/core/action/AssistantAction.k… Likely related git changes: 9a3b522 Add deterministic open app recipe; 325d239 S5.
 
 ## Git Commit Linkage
 

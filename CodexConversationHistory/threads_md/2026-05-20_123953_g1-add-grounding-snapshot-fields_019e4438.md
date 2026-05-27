@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: 1) Extend TurnScreenContext into GroundingSnapshot (added fields: windowId, displayId, orientation, windowBounds, safeInsets, imeVisible, imeBounds, densityDpi, locale, uiMode, rootBoundsHash, treeHash, capturedAtMs, privacyFlags). Keep Tu… Likely related git changes: 796f32d Add MediaProjection capture source and grounding.
+This conversation focused on: 1) Extend TurnScreenContext into GroundingSnapshot (added fields: windowId, displayId, orientation, windowBounds, safeInsets, imeVisible, imeBounds, densityDpi, locale, uiMode, rootBoundsHash, treeHash, capturedAtMs, privacyFlags). Keep TurnScreenContext as a… Likely related git changes: 796f32d Add MediaProjection capture source and grounding.
 
 ## Git Commit Linkage
 

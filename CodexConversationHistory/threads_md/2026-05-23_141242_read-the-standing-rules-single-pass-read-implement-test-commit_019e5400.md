@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Add a deterministic OpenAppRecipe. "Open Spotify" routes through LaunchableAppIndex.find(name) → launcher intent. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/intent/LaunchableAppIndex.kt - android-runtime/src/main/kot… Likely related git changes: 9a3b522 Add deterministic open app recipe.
+This conversation focused on: Add a deterministic OpenAppRecipe. "Open Spotify" routes through LaunchableAppIndex.find(name) → launcher intent. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/intent/LaunchableAppIndex.kt - android-runtime/src/main/kotlin/com/handy/runtim… Likely related git changes: 9a3b522 Add deterministic open app recipe.
 
 ## Git Commit Linkage
 

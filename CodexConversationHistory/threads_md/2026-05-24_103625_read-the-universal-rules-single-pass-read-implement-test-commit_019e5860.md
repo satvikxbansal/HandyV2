@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Replace the current ValueScreen.kt (a single static list with stock icons) with the new design's `02a · Value (cards)` — a HorizontalPager with three hero cards (See / Point / Do), each its own color family (amber / cobalt / emerald), cust… Likely related git changes: 297d0c7 Migrate splash to HandyDesign tokens; cce9eef Redesign ValueScreen as USP card pager; 8be3bfd Audit ValueScreen pager fidelity; 64fad2a Simplify Value card active states; 72df9d0 Added Value Prop cards in onboarding.
+This conversation focused on: Replace the current ValueScreen.kt (a single static list with stock icons) with the new design's `02a · Value (cards)` — a HorizontalPager with three hero cards (See / Point / Do), each its own color family (amber / cobalt / emerald), custom hero scenes built… Likely related git changes: 297d0c7 Migrate splash to HandyDesign tokens; cce9eef Redesign ValueScreen as USP card pager; 8be3bfd Audit ValueScreen pager fidelity; 64fad2a Simplify Value card active states; 72df9d0 Added Value Prop cards in onboarding.
 
 ## Git Commit Linkage
 

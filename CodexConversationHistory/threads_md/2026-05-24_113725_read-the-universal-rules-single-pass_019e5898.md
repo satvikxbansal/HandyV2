@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Replace the existing PostDisclosureStep inside OnboardingActivity with a new design-matching permissions screen that: - Renders a left-aligned Display title "One more step." where "step." is the accent word (color #D97757 + SemiBold weight… Likely related git changes: 64fad2a Simplify Value card active states; 72df9d0 Added Value Prop cards in onboarding.
+This conversation focused on: Replace the existing PostDisclosureStep inside OnboardingActivity with a new design-matching permissions screen that: - Renders a left-aligned Display title "One more step." where "step." is the accent word (color #D97757 + SemiBold weight, not italic). - Sub… Likely related git changes: 64fad2a Simplify Value card active states; 72df9d0 Added Value Prop cards in onboarding.
 
 ## Git Commit Linkage
 

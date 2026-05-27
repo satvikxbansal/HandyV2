@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Replace the existing HandyHeaderBar + EmptyHero in ChatActivity with the redesign (scenes-chat.jsx lines 3–100). Top bar gets a "LIVE" chip next to the wordmark when the chat is connected; the empty hero becomes a centered hand mark on a s… Likely related git changes: 1f95269 bug fixes.
+This conversation focused on: Replace the existing HandyHeaderBar + EmptyHero in ChatActivity with the redesign (scenes-chat.jsx lines 3–100). Top bar gets a "LIVE" chip next to the wordmark when the chat is connected; the empty hero becomes a centered hand mark on a subtle bare disc + la… Likely related git changes: 1f95269 bug fixes.
 
 ## Git Commit Linkage
 

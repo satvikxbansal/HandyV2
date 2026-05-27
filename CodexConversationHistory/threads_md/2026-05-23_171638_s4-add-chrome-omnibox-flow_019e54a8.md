@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Add an omnibox-typing subflow to the existing ChromeRecipe. Uses flyToAndType against the Chrome url_bar viewId. Keep all current ChromeRecipe paths intact. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/Ch… Likely related git changes: 5275e07 S3: Add web search recipe; 50d0992 S4: Strengthen ChromeRecipe with omnibox typing.
+This conversation focused on: Add an omnibox-typing subflow to the existing ChromeRecipe. Uses flyToAndType against the Chrome url_bar viewId. Keep all current ChromeRecipe paths intact. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ChromeRecipe.kt (curre… Likely related git changes: 5275e07 S3: Add web search recipe; 50d0992 S4: Strengthen ChromeRecipe with omnibox typing.
 
 ## Git Commit Linkage
 

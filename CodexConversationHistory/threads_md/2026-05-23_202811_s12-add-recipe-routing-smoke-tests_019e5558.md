@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Lock recipe routing for future contributors. Smoke-test every canonical user utterance against the registry. Add a conflict test that detects recipe overlap. Update README and DEVICE_MATRIX. FILES TO KNOW - android-runtime/src/main/kotlin/… Likely related git changes: 2b78200 S12: Add recipe routing smoke tests.
+This conversation focused on: Lock recipe routing for future contributors. Smoke-test every canonical user utterance against the registry. Add a conflict test that detects recipe overlap. Update README and DEVICE_MATRIX. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/ag… Likely related git changes: 2b78200 S12: Add recipe routing smoke tests.
 
 ## Git Commit Linkage
 

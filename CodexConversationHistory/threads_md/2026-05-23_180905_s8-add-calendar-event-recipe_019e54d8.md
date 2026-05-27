@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Add CalendarEventRecipe + a bounded DateTimeParser. The recipe never auto-creates events; it always opens the OS Calendar compose UI with prefilled fields. User taps Save. FILES TO KNOW - core/src/main/kotlin/com/handy/core/action/Assistan… Likely related git changes: 6c2a51c S8: Calendar event recipe with bounded date/time parser.
+This conversation focused on: Add CalendarEventRecipe + a bounded DateTimeParser. The recipe never auto-creates events; it always opens the OS Calendar compose UI with prefilled fields. User taps Save. FILES TO KNOW - core/src/main/kotlin/com/handy/core/action/AssistantAction.kt (CreateCa… Likely related git changes: 6c2a51c S8: Calendar event recipe with bounded date/time parser.
 
 ## Git Commit Linkage
 

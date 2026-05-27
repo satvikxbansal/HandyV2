@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 20,
-    "summary": "This conversation focused on: Mount the existing ContextBarPillV2 above the FloatingComposerV2 as its `bottomChrome` slot, and add a sleek inline-edit mode so tapping \"Change\" flips the pill into a text-field + Done/Cancel inside the same pill shape. Remove the redunda… Likely related git changes: f8888ed C-C: chat bubbles and improvements; 7274bd4 Mount context pill above composer; 1d64447 CH1+2+3+SF: fixing missing new design elements.",
+    "summary": "This conversation focused on: Mount the existing ContextBarPillV2 above the FloatingComposerV2 as its `bottomChrome` slot, and add a sleek inline-edit mode so tapping \"Change\" flips the pill into a text-field + Done/Cancel inside the same pill shape. Remove the redundant top ContextBarFul… Likely related git changes: f8888ed C-C: chat bubbles and improvements; 7274bd4 Mount context pill above composer; 1d64447 CH1+2+3+SF: fixing missing new design elements.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": [
       {
@@ -40,7 +40,7 @@
         "score": 8,
         "reasons": [
           "inside/near active thread window",
-          "matched words above, composer, context, mount, pill"
+          "matched words composer, context, mount, pill"
         ],
         "files": [
           "DEBUG_LOG.md",

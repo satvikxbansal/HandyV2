@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Add AssistantAction.InstallApp and InstallAppRecipe that opens the Play Store listing for a given package or search query. We never auto-install — the user taps Install. FILES TO KNOW - core/src/main/kotlin/com/handy/core/action/AssistantA… Likely related git changes: c7027a5 S9: Add playstore install action.
+This conversation focused on: Add AssistantAction.InstallApp and InstallAppRecipe that opens the Play Store listing for a given package or search query. We never auto-install — the user taps Install. FILES TO KNOW - core/src/main/kotlin/com/handy/core/action/AssistantAction.kt - android-r… Likely related git changes: c7027a5 S9: Add playstore install action.
 
 ## Git Commit Linkage
 

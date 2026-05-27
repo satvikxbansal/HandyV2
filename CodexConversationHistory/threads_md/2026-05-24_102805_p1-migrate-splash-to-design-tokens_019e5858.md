@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: The splash you already shipped (app/src/main/kotlin/com/handy/app/ onboarding/SplashScreen.kt) hard-codes its own colors and timings. Migrate it to read from the new HandyDesign tokens shipped in P-0 so the rest of the onboarding inherits… Likely related git changes: e6d67f9 Add missing handoff drawable assets; 297d0c7 Migrate splash to HandyDesign tokens.
+This conversation focused on: The splash you already shipped (app/src/main/kotlin/com/handy/app/ onboarding/SplashScreen.kt) hard-codes its own colors and timings. Migrate it to read from the new HandyDesign tokens shipped in P-0 so the rest of the onboarding inherits the same accent valu… Likely related git changes: e6d67f9 Add missing handoff drawable assets; 297d0c7 Migrate splash to HandyDesign tokens.
 
 ## Git Commit Linkage
 

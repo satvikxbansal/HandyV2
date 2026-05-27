@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: 1) Build the Privacy & data accordion (4 rows). 2) Build the new SettingsHeader (40 dp back tile + title) and SettingsFooter (Handy mark + version line). 3) Rewrite SettingsScreen / SettingsActivity body to use the 4 accordion sections + M… Likely related git changes: 2028fb9 S (C+D+E): settings page redesign - all done!; 1f95269 bug fixes.
+This conversation focused on: 1) Build the Privacy & data accordion (4 rows). 2) Build the new SettingsHeader (40 dp back tile + title) and SettingsFooter (Handy mark + version line). 3) Rewrite SettingsScreen / SettingsActivity body to use the 4 accordion sections + ModelPickerSheet. Del… Likely related git changes: 2028fb9 S (C+D+E): settings page redesign - all done!; 1f95269 bug fixes.
 
 ## Git Commit Linkage
 

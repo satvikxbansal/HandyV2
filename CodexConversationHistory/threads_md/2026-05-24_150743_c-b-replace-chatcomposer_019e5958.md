@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Replace the existing ChatComposer (a bottom Row inside the Column) with a FloatingComposer that sits ABSOLUTE-positioned at the bottom of the chat surface. It has a backdrop blur (API 31+), a thin gradient fade above it so messages dissolv… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.
+This conversation focused on: Replace the existing ChatComposer (a bottom Row inside the Column) with a FloatingComposer that sits ABSOLUTE-positioned at the bottom of the chat surface. It has a backdrop blur (API 31+), a thin gradient fade above it so messages dissolve into it, a 28 dp p… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.
 
 ## Git Commit Linkage
 

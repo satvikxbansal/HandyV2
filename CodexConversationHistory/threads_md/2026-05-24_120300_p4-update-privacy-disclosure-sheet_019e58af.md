@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Replace the body of PrivacyDetailsBottomSheet.kt with the new design's `08 · Privacy disclosure` — a full-height bottom sheet (starts 60dp below the top of the screen), with a drag handle, a header (shield tile + title + close button), 4 c… Likely related git changes: 26a219e Privacy bottom sheet.
+This conversation focused on: Replace the body of PrivacyDetailsBottomSheet.kt with the new design's `08 · Privacy disclosure` — a full-height bottom sheet (starts 60dp below the top of the screen), with a drag handle, a header (shield tile + title + close button), 4 color-coded sections… Likely related git changes: 26a219e Privacy bottom sheet.
 
 ## Git Commit Linkage
 

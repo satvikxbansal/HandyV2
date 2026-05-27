@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Wrap AssistantAction.StartTimer in a TimerRecipe so "set a 10-minute timer" follows the plan-approval flow. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ClockRecipe.kt (mirror structure) - core/src/main/k… Likely related git changes: 1c44ee5 S2: Add TimerRecipe for StartTimer.
+This conversation focused on: Wrap AssistantAction.StartTimer in a TimerRecipe so "set a 10-minute timer" follows the plan-approval flow. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ClockRecipe.kt (mirror structure) - core/src/main/kotlin/com/handy/core… Likely related git changes: 1c44ee5 S2: Add TimerRecipe for StartTimer.
 
 ## Git Commit Linkage
 

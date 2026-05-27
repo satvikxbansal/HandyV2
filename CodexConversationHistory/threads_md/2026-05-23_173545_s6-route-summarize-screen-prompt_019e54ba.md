@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Wire the existing "Summarize this screen" quick-prompt to a special non-tool, non-pointer turn that bypasses the recipe runner and tool layer. No new gesture, no new compose screen — just routes the existing chip differently. FILES TO KNOW… Likely related git changes: f31c22a S6: "Help me read this" mode.
+This conversation focused on: Wire the existing "Summarize this screen" quick-prompt to a special non-tool, non-pointer turn that bypasses the recipe runner and tool layer. No new gesture, no new compose screen — just routes the existing chip differently. FILES TO KNOW - core/src/main/kot… Likely related git changes: f31c22a S6: "Help me read this" mode.
 
 ## Git Commit Linkage
 

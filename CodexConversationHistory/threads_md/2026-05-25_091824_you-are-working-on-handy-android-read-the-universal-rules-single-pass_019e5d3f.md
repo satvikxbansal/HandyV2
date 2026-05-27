@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Change the LIVE chip in ChatTopBarV2 (next to "Handy" wordmark) from "any chat activity" to "AI brain has a valid API key configured." The chip's existing visual (small pulsing accent dot + accent "LIVE" label) stays exactly as is; only th… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.
+This conversation focused on: Change the LIVE chip in ChatTopBarV2 (next to "Handy" wordmark) from "any chat activity" to "AI brain has a valid API key configured." The chip's existing visual (small pulsing accent dot + accent "LIVE" label) stays exactly as is; only the truthy condition c… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.
 
 ## Git Commit Linkage
 

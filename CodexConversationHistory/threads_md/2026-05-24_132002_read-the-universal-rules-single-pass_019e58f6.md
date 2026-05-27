@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Build the Automations accordion per scenes-settings.jsx lines 510–552. Rows: 1. Tap-for-me (settings.tapForMeEnabled) 2. Type-for-me (NEW flag — see ViewModel change below) 3. Recipes (NEW flag — see ViewModel change below) 4. Triggers pil… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.
+This conversation focused on: Build the Automations accordion per scenes-settings.jsx lines 510–552. Rows: 1. Tap-for-me (settings.tapForMeEnabled) 2. Type-for-me (NEW flag — see ViewModel change below) 3. Recipes (NEW flag — see ViewModel change below) 4. Triggers pill-select with 3 opti… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.
 
 ## Git Commit Linkage
 

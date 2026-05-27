@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Build the Capabilities accordion per scenes-settings.jsx lines 391–414 + WebSearchRow lines 339–388. Five toggle rows: 1. Screen reading (a11y permission proxy) 2. Voice input (mic permission proxy) 3. Notifications (notification listener… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.
+This conversation focused on: Build the Capabilities accordion per scenes-settings.jsx lines 391–414 + WebSearchRow lines 339–388. Five toggle rows: 1. Screen reading (a11y permission proxy) 2. Voice input (mic permission proxy) 3. Notifications (notification listener proxy) 4. Web search… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.
 
 ## Git Commit Linkage
 

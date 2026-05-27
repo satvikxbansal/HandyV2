@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Before adding S-1..S-10 recipes, introduce a tiny intent-routing layer so that "open Spotify", "set a timer for 10 minutes", "search the web for X", "install X from Play Store", "remind me at 6 PM" each map to exactly one recipe without LL… Likely related git changes: 9a3b522 Add deterministic open app recipe.
+This conversation focused on: Before adding S-1..S-10 recipes, introduce a tiny intent-routing layer so that "open Spotify", "set a timer for 10 minutes", "search the web for X", "install X from Play Store", "remind me at 6 PM" each map to exactly one recipe without LLM-side ambiguity. To… Likely related git changes: 9a3b522 Add deterministic open app recipe.
 
 ## Git Commit Linkage
 

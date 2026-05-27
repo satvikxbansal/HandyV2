@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Add a NEW parallel theme package `app/src/main/kotlin/com/handy/app/design/` that mirrors the tokens defined in `handy-new-design-handoff/project/src/tokens.jsx`. Add the vector drawables that the new onboarding screens (P-1..P-4) will nee… Likely related git changes: 2bcfcee Add parallel HandyDesign onboarding foundation; a5e1aff removed old design handoff; e6d67f9 Add missing handoff drawable assets; 297d0c7 Migrate splash to HandyDesign tokens.
+This conversation focused on: Add a NEW parallel theme package `app/src/main/kotlin/com/handy/app/design/` that mirrors the tokens defined in `handy-new-design-handoff/project/src/tokens.jsx`. Add the vector drawables that the new onboarding screens (P-1..P-4) will need. Do NOT delete the… Likely related git changes: 2bcfcee Add parallel HandyDesign onboarding foundation; a5e1aff removed old design handoff; e6d67f9 Add missing handoff drawable assets; 297d0c7 Migrate splash to HandyDesign tokens.
 
 ## Git Commit Linkage
 

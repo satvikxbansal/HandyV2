@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: - Stop rendering ChatActivity's legacy ErrorBanner and BudgetWarningBanner (they import HandyColors/HandyDimens and don't match the design system). - Introduce a small ChatBannersV2.kt that defines ErrorBannerV2 and BudgetBannerV2, modelle… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.
+This conversation focused on: - Stop rendering ChatActivity's legacy ErrorBanner and BudgetWarningBanner (they import HandyColors/HandyDimens and don't match the design system). - Introduce a small ChatBannersV2.kt that defines ErrorBannerV2 and BudgetBannerV2, modelled on the existing Re… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.
 
 ## Git Commit Linkage
 

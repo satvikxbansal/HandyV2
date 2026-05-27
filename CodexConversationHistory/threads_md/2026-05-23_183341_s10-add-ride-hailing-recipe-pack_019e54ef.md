@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: A recipe pack that opens Uber / Ola / Rapido, searches for the destination, lets the user see the cheapest option, and STOPS BEFORE the final "Confirm Ride" tap. Same pattern as WhatsApp recipe stopping before Send. THIS RECIPE PACK NEVER… Likely related git changes: 762e93f S10: Ride-hailing recipe pack (Uber + Ola + Rapido).
+This conversation focused on: A recipe pack that opens Uber / Ola / Rapido, searches for the destination, lets the user see the cheapest option, and STOPS BEFORE the final "Confirm Ride" tap. Same pattern as WhatsApp recipe stopping before Send. THIS RECIPE PACK NEVER TAPS A CONFIRM/REQUE… Likely related git changes: 762e93f S10: Ride-hailing recipe pack (Uber + Ola + Rapido).
 
 ## Git Commit Linkage
 

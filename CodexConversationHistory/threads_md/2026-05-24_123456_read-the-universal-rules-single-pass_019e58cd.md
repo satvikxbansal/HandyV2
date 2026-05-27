@@ -13,7 +13,7 @@
 
 ## Brief Summary
 
-This conversation focused on: Replace the existing Brain section (3 stacked BrainModelCard radios) with the new "always-expanded" hero card from scenes-settings.jsx lines 232–300. It shows ONLY the currently selected model + a "Change" link. Tapping "Change" opens a ne… Likely related git changes: 1a34da3 Add redesigned settings primitives; 2028fb9 S (C+D+E): settings page redesign - all done!; 1f95269 bug fixes.
+This conversation focused on: Replace the existing Brain section (3 stacked BrainModelCard radios) with the new "always-expanded" hero card from scenes-settings.jsx lines 232–300. It shows ONLY the currently selected model + a "Change" link. Tapping "Change" opens a new ModelPickerSheet (… Likely related git changes: 1a34da3 Add redesigned settings primitives; 2028fb9 S (C+D+E): settings page redesign - all done!; 1f95269 bug fixes.
 
 ## Git Commit Linkage
 

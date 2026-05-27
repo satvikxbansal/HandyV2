@@ -1,0 +1,267 @@
+{
+  "metadata": {
+    "thread_id": "019e6341-9854-76c2-ac17-499b548895a3",
+    "title": "GOAL",
+    "created_local": "2026-05-26 13:18:23 IST",
+    "updated_local": "2026-05-26 14:19:27 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/26/rollout-2026-05-26T13-18-23-019e6341-9854-76c2-ac17-499b548895a3.jsonl",
+    "recorded_git_sha_at_start": "f5b206b4f26ca1c66ca906dde7a0059bfcc59731",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 44,
+    "summary": "This conversation focused on: Make Handy's transcription explicit, testable, and Hindi/Hinglish-friendly. Likely related git changes: 0101729 P-STT1: STT mode, language, MAX_RESULTS=3, confidence, Andr….",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "0101729ae72f4c296ad34a9bdcb897bd56bc7895",
+        "short": "0101729",
+        "author_time": "2026-05-26 14:21:30 IST",
+        "subject": "P-STT1: STT mode, language, MAX_RESULTS=3, confidence, Andr…",
+        "confidence": "medium",
+        "score": 8,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words confidence, language, mode, results"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/build.gradle.kts",
+          "android-runtime/src/main/kotlin/com/handy/runtime/di/RuntimeModule.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/AndroidSttClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/AndroidTtsClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/storage/DataStoreSettings.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/speech/AndroidSttClientTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/speech/TtsChunkerTest.kt",
+          "app/src/main/AndroidManifest.xml",
+          "app/src/main/kotlin/com/handy/app/chat/ChatViewModel.kt",
+          "app/src/main/kotlin/com/handy/app/diagnostics/DiagnosticsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-26T07:48:26.703Z",
+      "role": "user",
+      "text": "GOAL\nMake Handy's transcription explicit, testable, and Hindi/Hinglish-friendly.\nDo NOT add cloud STT providers in this prompt (that's P-STT-2). All\nchanges are within the existing AndroidSttClient and its plumbing.\n\nVERIFIED PRE-CONDITIONS\n- android-runtime/.../speech/AndroidSttClient.kt\n    languageTag default = \"en-US\" (line 38)\n    EXTRA_MAX_RESULTS = 1 (line 90)\n    DL-015 (lines 112-134) — on-device language-pack-missing → cloud\n      fallback in-place.\n    DL-024 (lines 145-164) — second-tier retry with EXTRA_PREFER_OFFLINE=false.\n- core/src/main/kotlin/com/handy/core/speech/SttClient.kt\n    interface SttClient. SttEvent.Final(transcript: String). No alternatives,\n    no confidence.\n- android-runtime/.../RuntimeModule.kt:189-190\n    provideSttClient takes only Context. No settings.\n\nIMPLEMENTATION\n\n1. Add settings:\n   File: core/src/main/kotlin/com/handy/core/model/Settings.kt\n       enum class SttMode(val displayName: String) {\n           AUTO(\"Auto (on-device first)\"),\n           ON_DEVICE_ONLY(\"On-device only (private)\"),\n           NETWORK_ALLOWED(\"Network allowed\"),\n       }\n       enum class SttLanguage(val tag: String) {\n           SYSTEM(Locale.getDefault().toLanguageTag()),\n           ENGLISH(\"en-US\"),\n           HINDI(\"hi-IN\"),\n           HINGLISH(\"hi-IN\"),   // hi-IN but with language-switch extras on Android 14+\n       }\n       val sttMode: SttMode = SttMode.AUTO,\n       val sttLanguage: SttLanguage = SttLanguage.SYSTEM,\n   Migrate the existing SttProvider (currently ANDROID only) — leave that\n   enum intact; sttMode is orthogonal (provider = Android, mode = how it runs).\n\n2. Extend SttEvent with alternatives/confidence:\n   File: core/src/main/kotlin/com/handy/core/speech/SttClient.kt\n       data class Final(\n           val transcript: String,\n           val alternatives: List<String> = emptyList(),\n           val confidence: Float? = null,\n           val isOnDevice: Boolean = false,\n       ) : SttEvent()\n   Existing call sites (VoiceController) read `transcript` — keep the\n   default values so binary compatibility holds.\n\n3. Rewrite AndroidSttClient.listen() to accept mode + language:\n   File: android-runtime/.../speech/AndroidSttClient.kt\n\n   Constructor:\n       class AndroidSttClient(\n           private val context: Context,\n           private val settingsProvider: () -> AndroidSttConfig,\n       )\n       data class AndroidSttConfig(\n           val mode: SttMode,\n           val languageTag: String,\n           val enableLanguageSwitch: Boolean,\n       )\n\n   listen() resolves config at session start (so per-session mode changes\n   take effect on the NEXT listen, not mid-session — keeps the recognizer\n   contract simple).\n\n   Mode behaviour:\n   - AUTO: existing two-tier fallback (DL-015 + DL-024) stays. Document.\n   - ON_DEVICE_ONLY: if `isOnDeviceRecognitionAvailable(context)` is false\n     OR onDeviceDisabled flag set OR API < 31 → emit SttEvent.Error(\n       \"On-device speech isn't available on this phone for this language.\",\n       isRecoverable = false) and close the flow. Do NOT fall back.\n     If on-device returns ERROR_LANGUAGE_UNAVAILABLE → emit\n       SttEvent.Error(\"On-device speech is missing the language pack.\",\n       false). Do NOT fall back.\n   - NETWORK_ALLOWED: skip on-device entirely, go straight to cloud\n     recognizer. (Useful for users who explicitly want better network\n     accuracy.)\n\n   Intent extras:\n   - EXTRA_LANGUAGE = config.languageTag\n   - EXTRA_MAX_RESULTS = 3\n   - On API 31+: EXTRA_PREFER_OFFLINE only when mode=AUTO and we picked\n     on-device (existing logic, no change).\n   - On API 33+ (TIRAMISU+): putExtra(\"android.speech.extra.ENABLE_FORMATTING\",\n     \"quality\") if available. Guard by SDK_INT.\n   - On API 34+ (UPSIDE_DOWN_CAKE+): if config.enableLanguageSwitch,\n     putExtra(\"android.speech.extra.ENABLE_LANGUAGE_SWITCH\", true) and\n     putExtra(\"android.speech.extra.LANGUAGE_SWITCH_ALLOWED_LANGUAGES\",\n     arrayListOf(\"en-IN\", \"hi-IN\")). Guard by SDK_INT and recognizer\n     support (catch SecurityException, log, continue without the extra).\n\n   Result parsing:\n   - SpeechRecognizer.RESULTS_RECOGNITION → top 3 alternatives.\n   - SpeechRecognizer.CONFIDENCE_SCORES → FloatArray; pair with\n     alternatives; take the first's confidence for SttEvent.Final.confidence.\n   - emit SttEvent.Final(transcript=best, alternatives=rest, confidence=…,\n     isOnDevice=usedOnDevice).\n\n4. DI rewire:\n   File: android-runtime/.../RuntimeModule.kt\n       @Provides @Singleton\n       fun provideSttClient(\n           @ApplicationContext context: Context,\n           settings: DataStoreSettings,\n       ): SttClient {\n           val provider = {\n               val s = settings.current()\n               AndroidSttConfig(\n                   mode = s.sttMode,\n                   languageTag = if (s.sttLanguage == SttLanguage.SYSTEM)\n                       Locale.getDefault().toLanguageTag() else s.sttLanguage.tag,\n                   enableLanguageSwitch = (s.sttLanguage == SttLanguage.HINGLISH),\n               )\n           }\n           return AndroidSttClient(context, provider)\n       }\n\n5. Low-confidence confirmation chip:\n   File: app/src/main/kotlin/com/handy/app/voice/VoiceController.kt\n   - Add a threshold constant: LOW_CONFIDENCE = 0.55f.\n   - When SttEvent.Final has confidence != null && confidence < LOW_CONFIDENCE\n     AND alternatives.isNotEmpty():\n       - Do not auto-submit.\n       - Set a new presenter state:\n           presenter.onLowConfidenceTranscript(best, alternatives)\n       - In OverlayPresenter, render a chip in the panel: \"I heard '<best>'.\n         Did you mean: <alt1>? <alt2>?\". User picks one or types over.\n   - When confidence is null (older recognizers), preserve current behavior.\n\n6. Settings UI:\n   File: app/src/main/kotlin/com/handy/app/settings/sections/BrainSection.kt\n   Add under the existing STT row:\n   - STT mode picker: Auto / On-device only / Network allowed.\n   - Language picker: System / English / Hindi / Hinglish.\n   - Subtitle: \"Hinglish enables Android's code-mix recognition where\n     supported (Android 14+).\"\n\nACCEPTANCE\n- ON_DEVICE_ONLY with no English pack on the device → user sees error,\n  no network call made (network inspector confirms).\n- AUTO with language pack present → uses on-device.\n- AUTO with language pack missing → falls back to cloud (existing\n  behaviour preserved).\n- NETWORK_ALLOWED → skips on-device.\n- Hindi-only setting → speech recognizer uses hi-IN.\n- Hinglish setting → on API 34+ enables language switch; below 34 falls\n  back to hi-IN single-language recognition.\n- MAX_RESULTS=3 → alternatives populated in SttEvent.Final.\n- Low confidence with alternatives → confirmation chip shown, no LLM\n  call until user picks.\n- High confidence → submitted automatically (current behaviour).\n\nTESTS\n- AndroidSttClientTest (Robolectric, with a fake RecognitionListener-like\n  shim):\n  - mode=ON_DEVICE_ONLY + isOnDeviceRecognitionAvailable=false → Error,\n    no cloud recognizer constructed.\n  - mode=ON_DEVICE_ONLY + onDevice returns ERROR_LANGUAGE_UNAVAILABLE\n    → Error, NO retry path.\n  - mode=AUTO + onDevice returns ERROR_LANGUAGE_UNAVAILABLE → existing\n    fallback path (DL-015) still works.\n  - languageTag threaded into Intent EXTRA_LANGUAGE.\n  - SDK_INT < 34 → language-switch extras absent.\n  - SDK_INT >= 34 + Hinglish → language-switch extras present.\n  - bestResult parses top 3 + confidence array correctly.\n- VoiceControllerTest:\n  - low-confidence Final with alternatives → presenter.onLowConfidenceTranscript\n    called, no submission to chat.\n  - high-confidence Final → submitted directly.\n- Manual:\n  - Settings: Auto + English → say \"set a five minute timer\" → submits.\n  - Settings: On-device only on a fresh emulator with no English pack\n    → error chip, no submission.\n  - Settings: Hindi → say \"panch minute ka timer lagao\" → recognised\n    in hi-IN.\n  - Settings: Hinglish on Pixel running Android 14 → say\n    \"Subah saat baje alarm set kar do\" → recognised.\n\nDO NOT\n- Add a cloud STT provider (P-STT-2 handles that).\n- Persist audio.\n- Weaken DL-015 / DL-024 in AUTO mode — those tiers are important on\n  emulators.\n- Break the existing long-press / partial / final flow.\n\nUPDATE\n- DEBUG_LOG.md\n- Settings strings. \n\nAdditional stuff\nA) Mention the change the code brings to the application - the before and after with real life practical examples if possible. \nB) Share an indepth end to end manual testing plan of the changes done - be practical and ensure all aspects are tested well before we proceed.   \nC) ENSURE THERE ARE NO BUILDS ERRORS OR APP CRASHES. AUDIOT THE CODE COMPLETELY AND FIX ANY ERRORS"
+    },
+    {
+      "timestamp": "2026-05-26T07:48:33.085Z",
+      "role": "assistant",
+      "text": "I’ll trace the existing STT, settings, and overlay flow first so the change lands in the shape of this app, then I’ll patch and run the relevant tests/build checks."
+    },
+    {
+      "timestamp": "2026-05-26T07:48:48.630Z",
+      "role": "assistant",
+      "text": "I found the target files and the worktree only has an untracked `handy_macos_ref/`, so I’ll leave that alone. Now I’m reading the current STT lifecycle, settings persistence, and presenter API before editing."
+    },
+    {
+      "timestamp": "2026-05-26T07:49:20.937Z",
+      "role": "assistant",
+      "text": "The current voice path stores only a string and the panel bridge auto-submits whatever `stopAndAwaitFinal()` returns. The cleanest low-confidence hook is to let `VoiceController` return “needs confirmation” as no transcript while pushing a presenter state into the panel."
+    },
+    {
+      "timestamp": "2026-05-26T07:54:27.253Z",
+      "role": "assistant",
+      "text": "I’m going to make the STT adapter testable by adding a tiny recognizer factory seam, then wire settings through DataStore and the runtime provider. That keeps the production path on Android’s `SpeechRecognizer` while letting unit tests drive listener callbacks deterministically."
+    },
+    {
+      "timestamp": "2026-05-26T07:57:28.744Z",
+      "role": "assistant",
+      "text": "The core STT model and runtime adapter are now shaped around explicit mode/language config. Next I’m adding the low-confidence transcript state so the recognizer can stop the auto-submit path and ask the user to choose instead."
+    },
+    {
+      "timestamp": "2026-05-26T08:04:20.814Z",
+      "role": "assistant",
+      "text": "The low-confidence path now holds back the transcript and keeps the chip alive instead of letting the overlay bridge clear it as a “no transcript” case. I’ve also added the settings rows and recorded the change in `DEBUG_LOG.md`; now I’m moving into compile/test cleanup."
+    },
+    {
+      "timestamp": "2026-05-26T08:04:41.607Z",
+      "role": "assistant",
+      "text": "`git diff --check` is clean. I’m starting with the targeted STT and voice-controller tests, because they’ll catch both Kotlin compile mistakes and the behavior this change is meant to lock."
+    },
+    {
+      "timestamp": "2026-05-26T08:06:58.309Z",
+      "role": "assistant",
+      "text": "Targeted STT and voice-controller tests pass, and the new code compiled cleanly in both touched modules. I’m running the broader unit/lint/debug build now so we catch integration errors outside the exact test names too."
+    },
+    {
+      "timestamp": "2026-05-26T08:08:11.140Z",
+      "role": "assistant",
+      "text": "The full `:core:test :android-runtime:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug :app:assembleDebug` run is green. I’m checking whether there’s a device/emulator attached so I can do a launch smoke for crashes too."
+    },
+    {
+      "timestamp": "2026-05-26T08:08:36.665Z",
+      "role": "assistant",
+      "text": "There is an emulator attached; I’ll install the freshly built debug APK and do a quick launch/logcat smoke so the “no app crash” claim is backed by a real process start, not just compilation."
+    },
+    {
+      "timestamp": "2026-05-26T08:11:04.079Z",
+      "role": "assistant",
+      "text": "I made one tiny presenter hardening tweak after the full run so the chip can never be hidden behind a stale error banner. The affected app code recompiled and its voice tests passed; I’m re-running lint/assemble for the final post-tweak check."
+    },
+    {
+      "timestamp": "2026-05-26T08:11:38.095Z",
+      "role": "assistant",
+      "text": "Post-tweak lint and debug assemble are green. I’m reinstalling the final APK once more and repeating the launch smoke so the runtime check matches the exact build on disk."
+    },
+    {
+      "timestamp": "2026-05-26T08:13:25.574Z",
+      "role": "assistant",
+      "text": "Implemented the STT upgrade end to end.\n\n**What Changed**\nBefore: Handy always used Android STT as implicit `en-US`, asked for only one result, and auto-submitted the final transcript even if Android had low confidence.\n\nAfter: Handy now has explicit STT settings and richer final results:\n- STT mode: Auto, On-device only, Network allowed.\n- STT language: System, English, Hindi, Hinglish.\n- Android STT now requests top 3 results, parses alternatives/confidence, and marks whether the result came from on-device recognition.\n- AUTO keeps DL-015 and DL-024 fallback behavior.\n- ON_DEVICE_ONLY fails closed with no network fallback.\n- NETWORK_ALLOWED skips on-device.\n- Hinglish uses `hi-IN`, and on Android 14+ enables language switching for `en-IN`/`hi-IN`.\n- Low-confidence finals with alternatives now show a confirmation chip instead of going to the LLM.\n\nExample: before, “panch minute ka timer lagao” still went through `en-US` and often became nonsense. Now Hindi mode sends `hi-IN`. Hinglish on Android 14+ can handle “Subah saat baje alarm set kar do” with code-mix extras enabled.\n\nKey files touched include [AndroidSttClient.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/speech/AndroidSttClient.kt), [SttClient.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/speech/SttClient.kt), [Settings.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/model/Settings.kt), [VoiceController.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/voice/VoiceController.kt), and [BrainSection.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/settings/sections/BrainSection.kt).\n\n**Verification**\nPassed:\n- `git diff --check`\n- Targeted `AndroidSttClientTest` and `VoiceControllerTest`\n- Full `:core:test :android-runtime:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug :app:assembleDebug`\n- Final post-tweak `:app:lintDebug :app:assembleDebug`\n- Installed final debug APK on `emulator-5554`, launched onboarding, checked logcat: no fatal exception, no AndroidRuntime crash, no ANR, no process death; Handy process stayed live.\n\nI left the pre-existing untracked `handy_macos_ref/` untouched.\n\n**Manual Test Plan**\n1. Settings smoke: open Settings, verify AI Brain shows STT mode and Recognition language pickers. Toggle all modes/languages, leave Settings, reopen, confirm persistence.\n\n2. Auto + English: set Auto + English. Say “set a five minute timer.” Expect normal auto-submit and no confirmation chip on clear speech.\n\n3. Auto + pack present: on a device with English on-device pack installed, speak offline. Expect on-device path and successful final.\n\n4. Auto + pack missing: use a fresh emulator with no speech pack. Say the same phrase. Expect fallback to system/cloud recognizer, preserving existing emulator behavior.\n\n5. On-device only + no pack: set On-device only + English on a fresh emulator. Speak. Expect error: “On-device speech is missing the language pack” or unavailable-device error. Confirm no transcript submission.\n\n6. Network isolation check: repeat On-device only with network enabled and Android Studio Network Inspector open. Also repeat in airplane mode. Expected behavior should be the same fail-closed error, not a slower cloud attempt.\n\n7. Network allowed: set Network allowed + English. Speak. Confirm it skips on-device. On fresh emulator, it should not hit the on-device pack-missing fallback path first.\n\n8. Hindi: set Hindi. Say “panch minute ka timer lagao.” Confirm recognizer uses `hi-IN` and transcript is Hindi/Hinglish-friendly enough to submit.\n\n9. Hinglish API 34+: on Pixel/Android 14+, set Hinglish. Say “Subah saat baje alarm set kar do.” Confirm recognition works and log/test instrumentation shows language-switch extras present.\n\n10. Hinglish below API 34: on API 33 or lower, set Hinglish. Confirm no language-switch extras, but `hi-IN` single-language recognition still runs.\n\n11. Low confidence: induce noisy speech so Android returns confidence below `0.55` with alternatives. Expect chip: “I heard ‘...’. Did you mean: ...” and no LLM call until a chip or typed override is submitted.\n\n12. Regression flow: long-press widget, partial transcript, release, final submit; cancel voice; panel mic start/stop; full chat voice start/stop. Confirm no swallowed final transcript and no stuck listening state."
+    },
+    {
+      "timestamp": "2026-05-26T08:13:25.782Z",
+      "role": "user",
+      "text": "Lots of changes done above which included context compactions in the middle. 1300+ lines of code were written across 23+ files- that's a lot of code and it needs a deep deep thorough audit - functional as well as non-functional! The voice services especially are critical in Handy! Can you go through the original prompt, code changes done in extreme detail, audit them, ensure all the required changes were done and done correctly with no downstream impact. the code before this works fine with it - no suspicious lines of codes for app crashes, or faulty wirings. strengthen the STT really well so it works accurately. all the services that needed to be changed have been changed and nothing is left or missed. ensure the ui is also proper with correct spacings, colours, fonts and elements. be very thorough in your analysis and evaluation. use highest level of reasoning available. Log the rca in the debug log and explain why the misses were missed. use highest level of thinking possible and think deeply. Evaluate and understand very deeply. Be very thorough and detailed. use your highest level of intelligence to analyse the requirement, code generated and plug gaps. be very thorough and have highest attention to detail. carefully analyse all the code - new and old and all dependencies too."
+    },
+    {
+      "timestamp": "2026-05-26T08:13:46.404Z",
+      "role": "assistant",
+      "text": "I’ll do this as an audit-first pass: re-read the requirement against every touched path, identify gaps, patch anything real, then re-run tests/build/smoke and append a new debug-log RCA."
+    },
+    {
+      "timestamp": "2026-05-26T08:15:14.751Z",
+      "role": "assistant",
+      "text": "I found a couple of practical polish gaps in the confirmation flow: the “type over” field wasn’t prefilled with the heard text, and choosing a chip could leave that draft cached in presenter state. I’m patching that and tightening the bridge so a failed submit doesn’t clear the chip prematurely."
+    },
+    {
+      "timestamp": "2026-05-26T08:18:33.856Z",
+      "role": "assistant",
+      "text": "I’m picking up from the deep audit pass now. I’ll verify the actual tree first, then rerun targeted and full validation so the final result is based on the code as it exists on disk, not memory from the earlier compaction."
+    },
+    {
+      "timestamp": "2026-05-26T08:19:01.581Z",
+      "role": "assistant",
+      "text": "The diff is the expected STT-heavy surface, plus the unrelated untracked `handy_macos_ref/` still sitting outside this work. I’m going line-by-line through the runtime client, DI, presenter bridge, and tests now because those are the places most likely to create silent regressions."
+    },
+    {
+      "timestamp": "2026-05-26T08:21:55.475Z",
+      "role": "assistant",
+      "text": "A few concrete audit gaps surfaced: the new `Final` shape should expose a real one-argument JVM constructor for old compiled call sites, DL-024 deserved its own regression test, language-switch SecurityException fallback wasn’t covered, and the “older recognizer gives no confidence” path needed a direct VoiceController test. I’m patching those before the full verification run."
+    },
+    {
+      "timestamp": "2026-05-26T08:22:53.850Z",
+      "role": "assistant",
+      "text": "The audit hardening patches are in: the result model now has a real overload for old one-argument construction, Android STT tests cover both DL-015 and DL-024 plus Android 14 language-switch fallback, and VoiceController now explicitly proves null confidence still auto-submits. Next I’m doing mechanical checks, then the targeted test set."
+    },
+    {
+      "timestamp": "2026-05-26T08:24:24.127Z",
+      "role": "assistant",
+      "text": "Targeted STT and presenter/voice tests are green after the extra coverage. I’m doing one more static sweep for crash-prone patterns in the touched files, then I’ll run the full repo validation and device smoke."
+    },
+    {
+      "timestamp": "2026-05-26T08:24:57.488Z",
+      "role": "assistant",
+      "text": "The full run found one app unit-test failure in `ChatViewModelVoiceTest` around `Dispatchers.Main`, so I’m not treating the build as clean yet. I’m going into that test and the voice stop path now; this is exactly the kind of downstream edge the audit was meant to catch."
+    },
+    {
+      "timestamp": "2026-05-26T08:26:09.016Z",
+      "role": "assistant",
+      "text": "The failure is a test cleanup race, not an STT crash: `ChatViewModel` has real `Dispatchers.IO` hops during `send`, and the test reset `Dispatchers.Main` before all `viewModelScope` children had joined. I’m tightening that test cleanup so the suite reflects app behavior instead of racing the test dispatcher."
+    },
+    {
+      "timestamp": "2026-05-26T08:26:45.895Z",
+      "role": "assistant",
+      "text": "That cleanup race is fixed and the targeted ChatViewModel voice test now passes. I’m rerunning the full `core + android-runtime + app + lint + assemble` command from scratch so the validation ledger is clean."
+    },
+    {
+      "timestamp": "2026-05-26T08:27:26.720Z",
+      "role": "assistant",
+      "text": "Full validation is now green, including lint and `assembleDebug`. I’m installing the rebuilt APK on the emulator and doing a launch/logcat smoke next, because voice plumbing bugs that compile can still show up as app-start wiring crashes."
+    },
+    {
+      "timestamp": "2026-05-26T08:27:47.785Z",
+      "role": "assistant",
+      "text": "The rebuilt app installs and the onboarding launch stays alive with a clean fatal/ANR scan. I’m also opening Settings directly and grabbing a screenshot pass of the STT rows so the UI part of the audit is grounded in a real rendered screen, not just Compose code."
+    },
+    {
+      "timestamp": "2026-05-26T08:30:13.053Z",
+      "role": "assistant",
+      "text": "Deep audit done. I found and fixed several real gaps, then reran validation end to end.\n\nKey hardening:\n- [AndroidSttClient.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/speech/AndroidSttClient.kt:59): preserved AUTO DL-015/DL-024 behavior, added explicit DL-024 test coverage, added Android 14 language-switch fallback coverage.\n- [RuntimeModule.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/di/RuntimeModule.kt:197): changed STT config to read `DataStoreSettings.current()` per listen session, avoiding stale first-session defaults.\n- [SttClient.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/speech/SttClient.kt:48): added `@JvmOverloads` so old one-argument `Final(transcript)` construction remains ABI-safe.\n- [OverlayPresenter.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt:263): low-confidence chip now pre-fills the draft so users can actually type over the heard phrase.\n- [OverlayPanelBridge.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/OverlayPanelBridge.kt:57): confirmation state clears only after a submission emit succeeds.\n- [ChatViewModelVoiceTest.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/test/kotlin/com/handy/app/chat/ChatViewModelVoiceTest.kt:180): fixed a full-suite dispatcher cleanup race exposed by the audit.\n\nBefore/after in practical terms: before, Handy always asked Android STT for English with one result, so “panch minute ka timer lagao” could be poorly recognized and auto-sent. Now Hindi/Hinglish can route through `hi-IN`, Hinglish enables Android 14 code-mix extras where supported, STT asks for top 3 results, and low-confidence alternatives wait for user confirmation instead of going straight to the LLM.\n\nValidation is clean:\n- `git diff --check`\n- targeted `AndroidSttClientTest`\n- targeted `VoiceControllerTest`, `OverlayPresenterFsmTest`, `ChatViewModelVoiceTest`\n- full `:core:test :android-runtime:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug :app:assembleDebug`\n- installed `app-debug.apk` on `emulator-5554`, launched Handy, and fresh logcat scan found no `FATAL EXCEPTION`, no `E/AndroidRuntime`, no ANR, no forced finish, no process death.\n\nRCA and the detailed manual release plan are logged in [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md:1959). The remaining checks are physical/manual speech checks: real network inspector for On-device only, actual Hindi/Hinglish utterances, and Android 14 Pixel code-mix recognition. The unrelated untracked `handy_macos_ref/` folder was left untouched."
+    },
+    {
+      "timestamp": "2026-05-26T08:30:37.580Z",
+      "role": "user",
+      "text": "ensure on-device STT is really strong. do a deep audit of the code, the logic, the algo, and the complete wiring of the on-device speech-to-text and text-to-speech. I want you to use your highest level of reasoning and research. Feel free to search the web for best practices. Look at different forums, developer forums, voice AI forums, and come up with what are the different ways we can kind of make our on-device speech-to-text and text-to-speech really strong and accurate and very one of the best in the industry. Find such practices, list them out to me, and take the top highest confidence, highest impact levers and implement them. Share the before and after for each of the strengthening points that you pick up. And for each of the point and the code changes, for every code change, ensure that the pre and post code is very accurate, the wiring is thorough, and there are no breakage in the functional aspects of the current handyman. Ensure that there are no other issues that come up with the changes that you have done. Be very thorough, have highest attention to detail, and use the highest level of reasoning, thinking, and research skills possible. We want to have the best Android speech-to-text and text-to-speech available in the current app that we are building, the best possible with the best practices that are known to the industry. Deeply analyze all the code written by you in the past and the new code too in this session, and even after compacting of context, ensure that our code is really strong and does not break anything, and we are actually building a delta improvement in the performance. I would recommend even implementing logs and some basic evals so that we can measure the performance of our STT and TTS, the on-device STT and TTS. Do not download any extensive third party models or tools yet. do what is available within the android suite or simple light weight optimisations. we will use whisper.cpp and another local model in a future build. ensure the code is properly wired in and the transcription, thinking, tool call, navigation to coordniates, agentic recipes and response in text bubbles and chat are all srong and intact and working fine. audit all the recent code changes too and ensure the above is good."
+    },
+    {
+      "timestamp": "2026-05-26T08:30:48.733Z",
+      "role": "assistant",
+      "text": "I’ll do this as a research-backed hardening pass, not a vibes pass. I’m going to verify Android’s current official STT/TTS APIs first, then map those levers onto Handy’s existing STT/TTS wiring and only implement changes that are lightweight, high-confidence, and testable."
+    },
+    {
+      "timestamp": "2026-05-26T08:32:06.126Z",
+      "role": "assistant",
+      "text": "The official Android docs point to a few high-confidence levers: support/language probing on API 33+, contextual biasing strings and device-context biasing, Android 14 word confidence/language-switch telemetry, and TTS voice selection by offline/network requirement plus quality/latency. I’m mapping those onto the current Handy code now and I’ll avoid the tempting but risky knobs Android explicitly warns to use sparingly."
+    },
+    {
+      "timestamp": "2026-05-26T08:33:59.446Z",
+      "role": "assistant",
+      "text": "The code audit found two straightforward gaps worth fixing: the manifest queries speech recognizers but not TTS engines, and AndroidTtsClient uses the system default language without selecting the best installed embedded voice. I’m also adding STT biasing/telemetry extras that Android exposes specifically for recognition quality, while avoiding silence/endpointer knobs that the docs warn can create unexpected behavior."
+    },
+    {
+      "timestamp": "2026-05-26T08:37:19.019Z",
+      "role": "assistant",
+      "text": "The first code pass is in: STT now gives Android static command bias phrases, on-device device-context biasing, Android 14 language detection/word-confidence requests for Hinglish, and privacy-safe timing/quality logs. TTS now queries embedded voices and prefers installed offline voices by locale, quality, and latency, with script-based Hindi voice switching for Devanagari replies. I’m running focused tests now to shake out API or test-fixture mistakes."
+    },
+    {
+      "timestamp": "2026-05-26T08:39:28.131Z",
+      "role": "assistant",
+      "text": "I’m picking this back up from the audit pass where the STT/TTS hardening is implemented but the targeted Android runtime tests exposed a JVM/Robolectric gap around Android TTS framework types. I’ll fix that first, then run the broader validation so we’re not relying on hope in a voice path."
+    },
+    {
+      "timestamp": "2026-05-26T08:39:39.059Z",
+      "role": "assistant",
+      "text": "The failing tests are not pointing at the production TTS path; they’re plain JVM tests touching Android framework constants and `Voice`. I’m converting that test class to Robolectric so it exercises the same Android APIs without “method not mocked” failures."
+    },
+    {
+      "timestamp": "2026-05-26T08:40:14.100Z",
+      "role": "assistant",
+      "text": "The targeted STT/TTS runtime tests are now green. I’m broadening the audit to the wiring around settings, voice controller submission, overlay UI, dependency injection, and downstream chat/TTS flows before I run the full build."
+    },
+    {
+      "timestamp": "2026-05-26T08:42:48.391Z",
+      "role": "assistant",
+      "text": "I found one real tightening point in the STT route handoff: AUTO mode correctly removes `EXTRA_PREFER_OFFLINE` when falling back, but the newly added on-device context-bias extra could ride along into the system recognizer after fallback. I’m stripping that during cloud retries and adding a regression assertion so the privacy/route boundary stays crisp."
+    },
+    {
+      "timestamp": "2026-05-26T08:44:17.545Z",
+      "role": "assistant",
+      "text": "The Android API reference also turned up a subtle but important mismatch: `EXTRA_ENABLE_LANGUAGE_SWITCH` is documented as a string sensitivity value, not a boolean. I’m moving Hinglish to the documented balanced switch mode, which should make Android 14 code-mix handling more likely to actually engage."
+    },
+    {
+      "timestamp": "2026-05-26T08:45:12.603Z",
+      "role": "assistant",
+      "text": "Good, the route and Hinglish regressions are passing. I’m now running the affected app-level tests for low-confidence voice flow, overlay state, and voice-triggered TTS submission so the recognizer changes don’t accidentally break chat, tool dispatch, or panel behavior."
+    },
+    {
+      "timestamp": "2026-05-26T08:45:37.054Z",
+      "role": "assistant",
+      "text": "The app-level voice tests are green too. I’m doing the full safety sweep now: whitespace diff check, all core/runtime/app unit tests, lint, and debug APK assembly."
+    },
+    {
+      "timestamp": "2026-05-26T08:46:26.712Z",
+      "role": "assistant",
+      "text": "Full validation is still running, currently in lint analysis after all unit test tasks have completed. No failures have surfaced so far; I’m letting lint finish because that’s where Android API and manifest mistakes usually show up."
+    },
+    {
+      "timestamp": "2026-05-26T08:46:31.079Z",
+      "role": "assistant",
+      "text": "The full JVM/lint/build sweep passed. I’m doing a device-level smoke next: install the debug APK, launch the app, and scan logcat for startup crashes."
+    },
+    {
+      "timestamp": "2026-05-26T08:46:53.296Z",
+      "role": "assistant",
+      "text": "The APK installs and launches on the emulator; logcat showed no `AndroidRuntime` crash/ANR signatures and the Handy process is alive. I’m doing one last diff review and then I’ll write the RCA/audit entry into `DEBUG_LOG.md`."
+    },
+    {
+      "timestamp": "2026-05-26T08:49:27.147Z",
+      "role": "assistant",
+      "text": "Completed the deep speech audit and hardening pass. The strongest fixes landed in [AndroidSttClient.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/speech/AndroidSttClient.kt:415), [AndroidTtsClient.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/speech/AndroidTtsClient.kt:139), and the RCA/manual plan is logged in [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md:1969).\n\n**High-Impact Changes**\n- STT biasing: before, Handy asked Android for generic recognition. After, API 33+ sessions include Handy command bias strings for timers, alarms, app-open, tap/search/send, scroll, and Hindi/Hinglish phrases like “panch minute ka timer lagao”.\n- Hinglish: before, language switch used the prompt’s boolean sketch. After audit, it uses Android’s documented string mode `balanced`; docs say `EXTRA_ENABLE_LANGUAGE_SWITCH` is a string sensitivity value, not a boolean.\n- Route privacy: before, the new device-context bias extra could have survived AUTO fallback because the same intent is reused. After, cloud/system retries strip `EXTRA_ENABLE_BIASING_DEVICE_CONTEXT`.\n- STT eval logs: before, no measurable route/latency/confidence telemetry. After, logs capture mode, language, route, API, bias count, confidence, alternatives count, duration, ready latency, first partial latency, partial count, and RMS peak without transcript/audio.\n- TTS voice quality: before, Android TTS relied mostly on default language behavior. After, it chooses an installed embedded/offline voice using `getVoices()`/`setVoice()` and sorts by locale match, quality, and latency. Android docs expose voice metadata, quality/latency, and network-required flags for this path.\n- Hindi TTS: before, Hindi replies could stay on the default voice. After, Devanagari text switches to `hi-IN` and selects a Hindi system voice when installed.\n- I intentionally did not add cloud STT, persist audio, download models, or tune silence/endpointer extras; Android warns those silence extras are rarely needed and can cause unexpected results.\n\n**Audit Findings Fixed**\n- Fixed documented API mismatch for Android 14 language switching.\n- Fixed on-device context-bias leakage into AUTO cloud fallback.\n- Added tests around those exact boundaries.\n- Kept existing `SpeechRecognizer` lifecycle discipline: main-thread use and destroy-on-teardown are required by Android docs, and on-device recognizer creation still follows API 31+ behavior.\n\n**Validation**\nPassed:\n- `git diff --check`\n- `./gradlew --no-daemon :android-runtime:testDebugUnitTest --tests 'com.handy.runtime.speech.AndroidSttClientTest' --tests 'com.handy.runtime.speech.TtsChunkerTest' --stacktrace`\n- `./gradlew --no-daemon :app:testDebugUnitTest --tests 'com.handy.app.voice.VoiceControllerTest' --tests 'com.handy.app.chat.ChatViewModelVoiceTest' --tests 'com.handy.app.overlay.OverlayPresenterFsmTest' --stacktrace`\n- Full: `:core:test :android-runtime:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug :app:assembleDebug`\n- Installed `app-debug.apk` on `emulator-5554`, launched Handy, scanned logcat: no `FATAL EXCEPTION`, no `E/AndroidRuntime`, no ANR, process alive.\n\n**Manual Release Plan**\nRun the phrase suite across `AUTO`, `ON_DEVICE_ONLY`, and `NETWORK_ALLOWED`: “set a five minute timer”, “tap search”, “open WhatsApp”, “panch minute ka timer lagao”, “Subah saat baje alarm set kar do”. Verify route, fallback behavior, confidence, alternatives, and no transcript/audio in logs. Then test low-confidence chip gating, English/Hindi long TTS, barge-in while TTS is speaking, panel mic, widget long-press, full-chat mic, cancel, and mic-denied flows. Physical Android 14 Pixel testing is still the real accuracy gate for Hinglish code-mix."
+    }
+  ]
+}
