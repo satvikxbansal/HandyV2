@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 12,
-    "summary": "This conversation focused on: A recipe pack that opens Uber / Ola / Rapido, searches for the destination, lets the user see the cheapest option, and STOPS BEFORE the final \"Confirm Ride\" tap. Same pattern as WhatsApp recipe stopping before Send. THIS RECIPE PACK NEVER… Likely related git changes: 762e93f S10: Ride-hailing recipe pack (Uber + Ola + Rapido).",
+    "summary": "This conversation focused on: A recipe pack that opens Uber / Ola / Rapido, searches for the destination, lets the user see the cheapest option, and STOPS BEFORE the final \"Confirm Ride\" tap. Same pattern as WhatsApp recipe stopping before Send. THIS RECIPE PACK NEVER TAPS A CONFIRM/REQUE… Likely related git changes: 762e93f S10: Ride-hailing recipe pack (Uber + Ola + Rapido).",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": [
       {

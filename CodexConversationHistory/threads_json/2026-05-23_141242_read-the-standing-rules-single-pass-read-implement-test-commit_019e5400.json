@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 18,
-    "summary": "This conversation focused on: Add a deterministic OpenAppRecipe. \"Open Spotify\" routes through LaunchableAppIndex.find(name) → launcher intent. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/intent/LaunchableAppIndex.kt - android-runtime/src/main/kot… Likely related git changes: 9a3b522 Add deterministic open app recipe.",
+    "summary": "This conversation focused on: Add a deterministic OpenAppRecipe. \"Open Spotify\" routes through LaunchableAppIndex.find(name) → launcher intent. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/intent/LaunchableAppIndex.kt - android-runtime/src/main/kotlin/com/handy/runtim… Likely related git changes: 9a3b522 Add deterministic open app recipe.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": [
       {

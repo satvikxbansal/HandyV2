@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 17,
-    "summary": "This conversation focused on: Lock recipe routing for future contributors. Smoke-test every canonical user utterance against the registry. Add a conflict test that detects recipe overlap. Update README and DEVICE_MATRIX. FILES TO KNOW - android-runtime/src/main/kotlin/… Likely related git changes: 2b78200 S12: Add recipe routing smoke tests.",
+    "summary": "This conversation focused on: Lock recipe routing for future contributors. Smoke-test every canonical user utterance against the registry. Add a conflict test that detects recipe overlap. Update README and DEVICE_MATRIX. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/ag… Likely related git changes: 2b78200 S12: Add recipe routing smoke tests.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": [
       {

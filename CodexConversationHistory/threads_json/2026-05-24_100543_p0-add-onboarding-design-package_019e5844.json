@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 23,
-    "summary": "This conversation focused on: Add a NEW parallel theme package `app/src/main/kotlin/com/handy/app/design/` that mirrors the tokens defined in `handy-new-design-handoff/project/src/tokens.jsx`. Add the vector drawables that the new onboarding screens (P-1..P-4) will nee… Likely related git changes: 2bcfcee Add parallel HandyDesign onboarding foundation; a5e1aff removed old design handoff; e6d67f9 Add missing handoff drawable assets; 297d0c7 Migrate splash to HandyDesign tokens.",
+    "summary": "This conversation focused on: Add a NEW parallel theme package `app/src/main/kotlin/com/handy/app/design/` that mirrors the tokens defined in `handy-new-design-handoff/project/src/tokens.jsx`. Add the vector drawables that the new onboarding screens (P-1..P-4) will need. Do NOT delete the… Likely related git changes: 2bcfcee Add parallel HandyDesign onboarding foundation; a5e1aff removed old design handoff; e6d67f9 Add missing handoff drawable assets; 297d0c7 Migrate splash to HandyDesign tokens.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": [
       {

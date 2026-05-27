@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 13,
-    "summary": "This conversation focused on: Wire the existing \"Summarize this screen\" quick-prompt to a special non-tool, non-pointer turn that bypasses the recipe runner and tool layer. No new gesture, no new compose screen — just routes the existing chip differently. FILES TO KNOW… Likely related git changes: f31c22a S6: \"Help me read this\" mode.",
+    "summary": "This conversation focused on: Wire the existing \"Summarize this screen\" quick-prompt to a special non-tool, non-pointer turn that bypasses the recipe runner and tool layer. No new gesture, no new compose screen — just routes the existing chip differently. FILES TO KNOW - core/src/main/kot… Likely related git changes: f31c22a S6: \"Help me read this\" mode.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": [
       {
