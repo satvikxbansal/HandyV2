@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 29,
-    "summary": "This conversation focused on: Build the Capabilities accordion per scenes-settings.jsx lines 391–414 + WebSearchRow lines 339–388. Five toggle rows: 1. Screen reading (a11y permission proxy) 2. Voice input (mic permission proxy) 3. Notifications (notification listener… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
+    "summary": "This conversation focused on: Build the Capabilities accordion per scenes-settings.jsx lines 391–414 + WebSearchRow lines 339–388. Five toggle rows: 1. Screen reading (a11y permission proxy) 2. Voice input (mic permission proxy) 3. Notifications (notification listener proxy) 4. Web search… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": []
   },
