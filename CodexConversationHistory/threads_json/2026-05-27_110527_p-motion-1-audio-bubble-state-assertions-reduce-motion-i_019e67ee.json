@@ -1,0 +1,112 @@
+{
+  "metadata": {
+    "thread_id": "019e67ee-3f05-7551-8d9b-65b15df06768",
+    "title": "P-MOTION-1: Audio/bubble state assertions, reduce-motion, I…",
+    "created_local": "2026-05-27 11:05:27 IST",
+    "updated_local": "2026-05-27 11:30:37 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/27/rollout-2026-05-27T11-05-27-019e67ee-3f05-7551-8d9b-65b15df06768.jsonl",
+    "recorded_git_sha_at_start": "1c887705f26c7827a64370f1bdb3761ee05e9b57",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 13,
+    "summary": "This conversation focused on: With the flight controller and design system already mature, this is a small but important hardening pass: lock in legal FSM transitions, add a reduce-motion setting, and add the test sweeps that catch regressions. VERIFIED PRE-CONDITIONS - OverlayPresenterFs… Likely related git changes: b2a9b67 P-MOTION-1: Audio/bubble state assertions, reduce-motion, I….",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "b2a9b67036bc5e55be1e3c470dd0a226c288af96",
+        "short": "b2a9b67",
+        "author_time": "2026-05-27 11:30:59 IST",
+        "subject": "P-MOTION-1: Audio/bubble state assertions, reduce-motion, I…",
+        "confidence": "medium",
+        "score": 8,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words assertions, audio, bubble, motion, reduce"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/storage/DataStoreSettings.kt",
+          "app/build.gradle.kts",
+          "app/src/debug/AndroidManifest.xml",
+          "app/src/debug/kotlin/com/handy/app/benchmark/FlightBenchmarkReceiver.kt",
+          "app/src/main/kotlin/com/handy/app/accessibility/HandyAccessibilityService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/BuddyFlightCancellationPolicy.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenterFsm.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-27T05:35:32.473Z",
+      "role": "user",
+      "text": "GOAL\nWith the flight controller and design system already mature, this is a\nsmall but important hardening pass: lock in legal FSM transitions, add a\nreduce-motion setting, and add the test sweeps that catch regressions.\n\nVERIFIED PRE-CONDITIONS\n- OverlayPresenterFsmTest exists at app/src/test/kotlin/com/handy/app/overlay/.\n- BezierFlightController has reduce-motion fallback via\n  `reduceMotionEnabled: () -> Boolean = { !ValueAnimator.areAnimatorsEnabled() }`.\n- Accessibility content descriptions + liveRegion are already wired in\n  the V2 widget per the recent design migration.\n\nIMPLEMENTATION\n\n1. FSM legality assertion:\n   File: app/.../overlay/OverlayPresenterFsm.kt (new)\n   Encode the legal transition table:\n       Docked → Listening | Thinking\n       Listening → Thinking | Docked\n       Thinking → ResponseVisible | Error\n       ResponseVisible → AudioSpeaking | PreparingPoint | Docked\n       AudioSpeaking → ResponseVisible | Docked\n       PreparingPoint → Flying | Cancelled\n       Flying → Pointing | Cancelled\n       Pointing → ActionConfirm | Cancelled | Docked\n       ActionConfirm → Acting | Cancelled\n       Acting → ActionResult | Cancelled\n       ActionResult → Docked\n       Any → Cancelled → Docked\n   In OverlayPresenter, wrap every state mutation in an\n   `attemptTransition(next: BuddyState)` that consults this table.\n   Illegal transitions log Timber.w + are dropped (don't throw — we don't\n   want a UI bug to crash the service).\n\n2. Reduce-motion setting:\n   File: core/.../Settings.kt\n       val reduceBuddyMotion: Boolean = false\n   File: app/.../widget/BezierFlightController.kt\n   - The existing reduceMotionEnabled function already exists; AND it\n     with the setting:\n         reduceMotionEnabled = { !ValueAnimator.areAnimatorsEnabled() ||\n                                 settings.current().reduceBuddyMotion }\n\n3. Cancellation tests:\n   File: app/src/test/kotlin/com/handy/app/overlay/BuddyFlightDriverCancellationTest.kt\n   Cover:\n   - orientation change mid-flight → cancelIfStaleTarget(\"configuration_changed\")\n     (already in code at FloatingWidgetOverlayService.kt:342-343).\n   - IME open mid-flight → re-resolve or cancel.\n   - foreground package change mid-flight → cancelIfStaleTarget.\n   - user drag mid-flight → cancel.\n   - new voice turn while pointer is sticky → cancel.\n   - accessibility service disconnect mid-flight → cancel.\n\n4. Macrobenchmark:\n   File: macrobenchmark/.../FlightJankBenchmark.kt\n   - Drive a long-press → assistant point flow.\n   - Assert jank < 5% (Compose's StartupBenchmark style).\n\nACCEPTANCE\n- Illegal transitions logged but suppressed; legal ones execute.\n- Reduce-motion = on → flight uses crossFadeThere path; no Bezier curve.\n- Rotating mid-flight → pointer returns to dock, no stuck bubble.\n- macrobench passes <5% jank target on Pixel 9.\n\nDO NOT\n- Redesign any visual.\n- Touch contentDescription wiring (already shipped).\n- Change BuddyState ordinals.\n\nUPDATE\n- DEBUG_LOG.md. \n\nAdditional stuff\nA) Mention the change the code brings to the application - the before and after with real life practical examples if possible. \nB) Share an indepth end to end manual testing plan of the changes done - be practical and ensure all aspects are tested well before we proceed.   \nC) ENSURE THERE ARE NO BUILDS ERRORS OR APP CRASHES. AUDIOT THE CODE COMPLETELY AND FIX ANY ERRORS"
+    },
+    {
+      "timestamp": "2026-05-27T05:35:38.612Z",
+      "role": "assistant",
+      "text": "I’ll harden this in the existing Android codebase and keep the scope tight: state legality, reduce-motion setting, cancellation coverage, macrobench, and DEBUG_LOG. I’ll start by reading the relevant overlay, flight, settings, and test files so the changes match the current architecture."
+    },
+    {
+      "timestamp": "2026-05-27T05:35:52.325Z",
+      "role": "assistant",
+      "text": "I see the repo has an untracked `handy_macos_ref/` already present; I’ll leave that alone. There isn’t a top-level `macrobenchmark/` directory, so I’ll inspect the Gradle layout before deciding whether to add the benchmark under an existing module or create the expected module shape."
+    },
+    {
+      "timestamp": "2026-05-27T05:36:20.686Z",
+      "role": "assistant",
+      "text": "The existing presenter currently enforces flight FSM legality with `require`, which is the opposite of the requested production behavior. I’m going to replace that with a BuddyState legality gate that logs and drops illegal UI state changes, then keep any flight FSM checks compatible where they already exist."
+    },
+    {
+      "timestamp": "2026-05-27T05:42:40.372Z",
+      "role": "assistant",
+      "text": "I’ve got the shape now. The important compatibility point is that `BuddyState` has fewer concrete states than the product FSM in the prompt, so I’m encoding the table against the existing enum with documented aliases instead of adding enum values or changing ordinals."
+    },
+    {
+      "timestamp": "2026-05-27T05:44:16.755Z",
+      "role": "assistant",
+      "text": "Next I’m wiring the reduce-motion preference through the settings model and DataStore, then the overlay service will observe it as a cached boolean so the animation callback stays synchronous and doesn’t block the main thread."
+    },
+    {
+      "timestamp": "2026-05-27T05:46:25.429Z",
+      "role": "assistant",
+      "text": "I’m adding the cancellation sweep as policy-level tests around the same decision helper the driver now calls. That keeps the unit tests fast and JVM-friendly while still locking down the exact stale-target decisions for rotation, IME, package changes, drag, sticky pointer voice turns, and accessibility disconnect."
+    },
+    {
+      "timestamp": "2026-05-27T05:49:15.423Z",
+      "role": "assistant",
+      "text": "The benchmark module is going in as a normal `com.android.test` macrobenchmark module, with AndroidX Benchmark 1.4.1 from the current stable release notes. I’m adding a custom trace metric so the test fails when frame timeline jank crosses 5%, instead of only recording the number."
+    },
+    {
+      "timestamp": "2026-05-27T05:50:26.948Z",
+      "role": "assistant",
+      "text": "I’m at the validation pass now. I’ll start with the affected JVM tests and macrobenchmark compilation; if the AndroidX benchmark APIs differ from memory, this is where we’ll catch it and tighten the benchmark code before the full build."
+    },
+    {
+      "timestamp": "2026-05-27T05:53:58.489Z",
+      "role": "assistant",
+      "text": "The targeted tests and macrobenchmark Kotlin compile are green after two small Gradle/API fixes: the benchmark plugin is unnecessary for a `com.android.test` module, and the JUnit4 rule lives under `androidx.benchmark.macro.junit4`. I’m moving to the full build/test/lint sweep now."
+    },
+    {
+      "timestamp": "2026-05-27T05:55:50.226Z",
+      "role": "assistant",
+      "text": "Full unit tests, androidTest compilation, macrobenchmark assembly, lint, and debug APK assembly are green. I’m doing one last runtime smoke if a device/emulator is attached, then I’ll update the debug log with the implementation impact and a practical manual test matrix."
+    },
+    {
+      "timestamp": "2026-05-27T05:57:04.872Z",
+      "role": "assistant",
+      "text": "One more useful hardening for the benchmark: a real macrobenchmark cannot speak into Android STT, so I’m adding a debug-only benchmark receiver that cancels the synthetic long-press voice session and fires the same `flyToPoint` driver path. It is excluded from release builds and keeps the benchmark deterministic."
+    },
+    {
+      "timestamp": "2026-05-27T06:00:37.630Z",
+      "role": "assistant",
+      "text": "Implemented the flight hardening pass.\n\nChanged:\n- Added Buddy FSM legality in [OverlayPresenterFsm.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/overlay/OverlayPresenterFsm.kt). Illegal transitions now `Timber.w` and drop instead of crashing.\n- Wired `reduceBuddyMotion` through [Settings.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/model/Settings.kt), DataStore, Settings UI, and the flight controller callback.\n- Added cancellation policy coverage in [BuddyFlightDriverCancellationTest.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/test/kotlin/com/handy/app/overlay/BuddyFlightDriverCancellationTest.kt), including rotate, IME, package change, drag, sticky voice turn, and accessibility disconnect.\n- Added reduced-motion regression coverage in [BezierFlightControllerReduceMotionTest.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/test/kotlin/com/handy/app/widget/BezierFlightControllerReduceMotionTest.kt).\n- Added `:macrobenchmark` with [FlightJankBenchmark.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/macrobenchmark/src/main/kotlin/com/handy/macrobenchmark/FlightJankBenchmark.kt), using AndroidX Benchmark `1.4.1` per the official [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark).\n- Updated [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md) with before/after examples and a detailed manual test plan.\n\nPractical app impact:\nBefore, a bad overlay mutation like `Docked -> Flying` could crash in FSM enforcement paths. Now it logs and leaves Buddy safely docked. Before, users had to disable Android-wide animations to avoid Buddy’s flight arc. Now “Reduce Buddy motion” makes only Handy use the cross-fade path.\n\nValidation passed:\n```bash\ngit diff --check\n./gradlew --no-daemon :core:test :android-runtime:testDebugUnitTest :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :macrobenchmark:assembleDebug :app:lintDebug :app:assembleDebug --stacktrace\n```\n\nRuntime smoke:\nInstalled the debug APK on `emulator-5554`, launched onboarding, confirmed the Handy process stayed alive, and logcat showed no `FATAL EXCEPTION`, `AndroidRuntime`, Handy ANR, force-finish, or Handy process-death entry.\n\nNot run here: Pixel 9 macrobenchmark execution and the physical rotate/IME/accessibility-disconnect manual sweep. The exact Pixel 9 command and manual matrix are recorded in `DEBUG_LOG.md`."
+    }
+  ]
+}

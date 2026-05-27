@@ -1,0 +1,267 @@
+{
+  "metadata": {
+    "thread_id": "019e6803-397f-71c0-8566-bbf081b64ce2",
+    "title": "GOAL",
+    "created_local": "2026-05-27 11:28:22 IST",
+    "updated_local": "2026-05-27 12:21:54 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/27/rollout-2026-05-27T11-28-22-019e6803-397f-71c0-8566-bbf081b64ce2.jsonl",
+    "recorded_git_sha_at_start": "1c887705f26c7827a64370f1bdb3761ee05e9b57",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 44,
+    "summary": "This conversation focused on: Make release-blocking QA possible without leaking private screen content. Already-existing AuditStore + ScreenRedactor get a structured per-turn timeline view in DiagnosticsActivity. VERIFIED PRE-CONDITIONS - core/.../audit/AuditStore.kt exists with AuditEven… Likely related git changes: e68eed7 P-TELEMETRY-1: Redacted local timeline + diagnostics export.",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "e68eed72a46c5ff553065a69a48e8c20f7f52f04",
+        "short": "e68eed7",
+        "author_time": "2026-05-27 12:22:13 IST",
+        "subject": "P-TELEMETRY-1: Redacted local timeline + diagnostics export",
+        "confidence": "medium",
+        "score": 7,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words diagnostics, export, timeline"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/audit/FileAuditStore.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/llm/HandyToolRunner.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/SwitchingSttClient.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/audit/FileAuditStoreTimelineTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/speech/SwitchingSttClientTest.kt",
+          "app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt",
+          "app/src/main/kotlin/com/handy/app/chat/ChatActivity.kt",
+          "app/src/main/kotlin/com/handy/app/chat/ChatViewModel.kt",
+          "app/src/main/kotlin/com/handy/app/diagnostics/DiagnosticsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-27T06:01:15.486Z",
+      "role": "user",
+      "text": "GOAL\nMake release-blocking QA possible without leaking private screen content.\nAlready-existing AuditStore + ScreenRedactor get a structured per-turn\ntimeline view in DiagnosticsActivity.\n\nVERIFIED PRE-CONDITIONS\n- core/.../audit/AuditStore.kt exists with AuditEvent rows.\n- core/.../privacy/ScreenRedactor.kt exists.\n- DiagnosticsActivity exists.\n\nIMPLEMENTATION\n\n1. TimelineEvent:\n   File: core/.../audit/TimelineEvent.kt\n       data class TimelineEvent(\n           val turnId: String, val timestamp: Long, val stage: Stage,\n           val durationMs: Long?, val provider: String?, val recipeId: String?,\n           val toolName: String?, val policyDecision: String?,\n           val resolverConfidence: Float?, val error: String?,\n       )\n       enum class Stage { STT_START, STT_FINAL, CONTEXT_BUILT, LLM_FIRST_TOKEN,\n           TOOL_CALL, TOOL_RESULT, POINTER_RESOLVE, FLIGHT_START, FLIGHT_END,\n           TTS_START, TTS_END, ACTION_CONFIRM, ACTION_EXECUTE, ACTION_VERIFY,\n           ERROR }\n   No raw prompts, no screenshots, no screen text bodies. Provider/recipe/tool\n   names are safe. Errors are reason codes, never user-typed content.\n\n2. Emitters: thread emission through ConversationOrchestrator,\n   HandyToolRunner, BuddyFlightDriver, RecipeRunner, SpeechOutputController.\n   Each calls `auditStore.append(TimelineEvent(...))` at its lifecycle points.\n\n3. UI:\n   File: app/.../diagnostics/DiagnosticsActivity.kt\n   - Add a \"Timeline\" tab.\n   - Group rows by turnId.\n   - Tap a row → details (stage, duration, provider, policy reason).\n   - \"Export JSON\" button → writes to a user-chosen file via\n     ACTION_CREATE_DOCUMENT. Pure metadata only.\n\n4. Retention:\n   File: android-runtime/.../audit/FileAuditStore.kt\n   - 30-day rolling default.\n   - \"Clear all\" button in Diagnostics.\n\nACCEPTANCE\n- Timeline shows every release-relevant lifecycle event.\n- Export produces no PII (verified by a redaction test).\n- \"Clear all\" wipes within 100ms.\n\nTESTS\n- TimelineRedactionTest: feed in events with OTPs, card numbers, password\n  field content — assert ScreenRedactor strips them.\n- TimelineExportTest: export contains only the columns specified, no\n  extras.\n\nDO NOT\n- Upload to a remote service.\n- Persist screenshots, audio, raw prompts, or API keys.\n\nUPDATE\n- DEBUG_LOG.md. \n\nAdditional stuff\nA) Mention the change the code brings to the application - the before and after with real life practical examples if possible. \nB) Share an indepth end to end manual testing plan of the changes done - be practical and ensure all aspects are tested well before we proceed.   \nC) ENSURE THERE ARE NO BUILDS ERRORS OR APP CRASHES. AUDIOT THE CODE COMPLETELY AND FIX ANY ERRORS"
+    },
+    {
+      "timestamp": "2026-05-27T06:01:27.228Z",
+      "role": "assistant",
+      "text": "I’ll wire this through the existing audit/privacy pieces rather than inventing a separate log path. First I’m going to map the current audit store, diagnostics UI, and the lifecycle classes so the changes land in the repo’s existing shape."
+    },
+    {
+      "timestamp": "2026-05-27T06:01:37.360Z",
+      "role": "assistant",
+      "text": "I found the core classes and one untracked `handy_macos_ref/` directory already present. I’ll leave that alone and only touch the Android project files needed for the timeline, retention, UI, and tests."
+    },
+    {
+      "timestamp": "2026-05-27T06:04:35.351Z",
+      "role": "assistant",
+      "text": "The audit store is currently action-only, so I’m going to extend it with a second typed stream rather than reshaping existing `AuditEvent` rows. That lets Diagnostics keep the old “Recent actions” view and add timeline/export/clear behavior without putting raw prompts or screenshots anywhere near disk."
+    },
+    {
+      "timestamp": "2026-05-27T06:04:52.740Z",
+      "role": "assistant",
+      "text": "I’m starting with the schema and storage contract. The important bit here is making timeline records self-sanitizing before persistence/export, so even a bad caller passing an OTP or card-like string into a metadata field gets cleaned before QA sees it."
+    },
+    {
+      "timestamp": "2026-05-27T06:05:29.209Z",
+      "role": "assistant",
+      "text": "Next I’m updating the file-backed store. It will keep `events.json` for the existing action audit and add `timeline.json` for metadata-only lifecycle rows, both pruned by age and both cleared by the same Diagnostics “Clear all” action."
+    },
+    {
+      "timestamp": "2026-05-27T06:06:25.411Z",
+      "role": "assistant",
+      "text": "Now I’m threading the timeline into the turn coordinator. This records “context built,” first model token latency, tool call names, and safe error reason classes using the existing turn/request id; it deliberately never records prompt text, transcript text, screenshots, or tool input JSON."
+    },
+    {
+      "timestamp": "2026-05-27T06:07:43.534Z",
+      "role": "assistant",
+      "text": "I’m adding timeline markers around pointer resolution and Buddy flights now. The rows will show confidence, action policy state, and start/end timings, but they will not include target labels or typed text."
+    },
+    {
+      "timestamp": "2026-05-27T06:12:15.895Z",
+      "role": "assistant",
+      "text": "I’m moving to recipes. This is where QA needs to see “recipe reviewed, step executed, step verified/refused,” but we’ll keep the row at recipe id + command kind only, not the human-entered content or screen labels."
+    },
+    {
+      "timestamp": "2026-05-27T06:13:39.191Z",
+      "role": "assistant",
+      "text": "The speech output controller is next. I’m marking TTS start/end around actual playback attempts and cancellations, again with request id and provider name only, never the spoken text."
+    },
+    {
+      "timestamp": "2026-05-27T06:14:24.346Z",
+      "role": "assistant",
+      "text": "I’m reshaping Diagnostics into two tabs: the existing overview/action audit stays intact, and Timeline gets grouped per-turn rows, expandable metadata details, export, and clear-all. The export path uses Android’s create-document picker so QA chooses the destination themselves."
+    },
+    {
+      "timestamp": "2026-05-27T06:17:09.224Z",
+      "role": "assistant",
+      "text": "One small gap: STT lives behind a switching client, not the orchestrator. I’m adding start/final/error timeline markers there so voice QA can see recognizer lifecycle regardless of Android vs Sarvam, still without transcript text or audio."
+    },
+    {
+      "timestamp": "2026-05-27T06:17:41.952Z",
+      "role": "assistant",
+      "text": "I’m adding the two contract tests now: one attacks the timeline metadata fields with OTP/card/password-like content, and the other parses the exported JSON to prove the schema has only the allowed columns."
+    },
+    {
+      "timestamp": "2026-05-27T06:18:31.798Z",
+      "role": "assistant",
+      "text": "The implementation pass is in place. I’m switching into validation now: first the targeted timeline tests and Kotlin compile, then I’ll widen to app/runtime tests and assemble so we catch Hilt constructor or Compose issues before calling this done."
+    },
+    {
+      "timestamp": "2026-05-27T06:18:53.266Z",
+      "role": "assistant",
+      "text": "Targeted filters didn’t discover the new classes even though `compileTestKotlin` succeeded, so this looks like the module’s test discovery pattern rather than a compile failure. I’ll run the core suite without the narrow filter and fix any actual failures from there."
+    },
+    {
+      "timestamp": "2026-05-27T06:19:43.733Z",
+      "role": "assistant",
+      "text": "Good, the targeted timeline tests are now being discovered and passing. I’m widening to runtime/app compilation next; this is the pass most likely to catch Hilt injection and Compose API mistakes."
+    },
+    {
+      "timestamp": "2026-05-27T06:20:34.466Z",
+      "role": "assistant",
+      "text": "The widened build caught two test constructors that now need the injected audit store. I’ll update those test fixtures with tiny in-memory stores instead of weakening the production constructor."
+    },
+    {
+      "timestamp": "2026-05-27T06:21:19.125Z",
+      "role": "assistant",
+      "text": "Runtime/app tests and debug assemble are green after the fixture fix. I’m adding lint and a final full validation sweep now, then I’ll do a device/emulator launch smoke if there’s an attached target."
+    },
+    {
+      "timestamp": "2026-05-27T06:22:20.296Z",
+      "role": "assistant",
+      "text": "Full tests, lint, and debug assemble are green. I’m checking for an attached emulator/device now; if one is present, I’ll install and launch the APK and scan logcat for fresh crash signals."
+    },
+    {
+      "timestamp": "2026-05-27T06:22:43.754Z",
+      "role": "assistant",
+      "text": "There is an emulator attached at `emulator-5554`, so I’m doing the crash smoke: install the rebuilt debug APK, launch onboarding, then check that the process stays alive and logcat has no fresh fatal/ANR signals."
+    },
+    {
+      "timestamp": "2026-05-27T06:23:27.906Z",
+      "role": "assistant",
+      "text": "The emulator smoke passed: debug APK installed, onboarding launched, Handy stayed alive, and the fresh logcat scan had no fatal exception/ANR/process-death matches. I’m doing one last diff/status check and then I’ll update `DEBUG_LOG.md` with the before/after and manual QA plan."
+    },
+    {
+      "timestamp": "2026-05-27T06:25:36.459Z",
+      "role": "assistant",
+      "text": "I’m also adding a small Robolectric store test for the 100ms clear-all acceptance. It exercises the real `FileAuditStore` delete path, not just the UI callback."
+    },
+    {
+      "timestamp": "2026-05-27T06:26:55.472Z",
+      "role": "assistant",
+      "text": "I added the real file-store clear timing test; it passes targeted. I’m rerunning the full suite once more after that test/log update so the final validation statement is honest."
+    },
+    {
+      "timestamp": "2026-05-27T06:27:43.435Z",
+      "role": "assistant",
+      "text": "Implemented the metadata-only QA timeline end to end.\n\n**What Changed**\nBefore, Diagnostics could show recent actions/policy decisions, but not why a turn failed. After this, Diagnostics has a Timeline tab that groups lifecycle events by `turnId`: STT, context build, LLM first token, tool calls/results, pointer resolve confidence, Buddy flight, action confirm/execute/verify, TTS, and errors.\n\nExample: for “tap Send,” QA can now see whether the failure was low pointer confidence, a cancelled flight, policy denial, or action execution failure, without seeing the prompt, screen text, screenshots, audio, typed text, or keys.\n\nKey files:\n- [TimelineEvent.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/audit/TimelineEvent.kt:9)\n- [FileAuditStore.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/audit/FileAuditStore.kt:34)\n- [DiagnosticsActivity.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/diagnostics/DiagnosticsActivity.kt:87)\n- [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md:2101)\n\n**Tests / Validation**\n- `TimelineRedactionTest`: OTP/card/password-like metadata is stripped.\n- `TimelineExportTest`: JSON export contains only approved columns.\n- `FileAuditStoreTimelineTest`: Clear all wipes action + timeline rows within `100ms`.\n- Passed: `git diff --check`\n- Passed: `:core:test :android-runtime:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug :app:assembleDebug`\n- Installed debug APK on `emulator-5554`, launched onboarding, confirmed live process, and fresh logcat had no fatal exception/ANR/process-death matches.\n\n**Manual QA Plan**\n1. Fresh install, enable mic, overlay, accessibility, Tap-for-me.\n2. Open Diagnostics, verify Overview still shows existing diagnostics.\n3. Open Timeline, confirm empty state before events.\n4. Run a normal chat turn, confirm `CONTEXT_BUILT` and `LLM_FIRST_TOKEN`.\n5. Run web search, confirm `TOOL_CALL/TOOL_RESULT` show tool names only.\n6. Use voice, confirm STT/TTS rows have provider/duration but no transcript.\n7. Trigger pointer flight, confirm confidence and flight start/end.\n8. Accept tap/type action, confirm confirm/execute/verify rows and no typed text.\n9. Trigger denylist/ambiguous target, confirm reason codes only.\n10. Export JSON and search for prompt words, OTP/card/password fixtures, screenshots, audio, API-key-shaped strings.\n11. Tap Clear all and confirm Timeline + Recent actions empty immediately.\n\nNote: existing untracked `handy_macos_ref/` was left untouched."
+    },
+    {
+      "timestamp": "2026-05-27T06:27:44.301Z",
+      "role": "user",
+      "text": "That was a long lengthy task! Lots of changes done above which included context compactions in the middle. 1300+ lines of code were written across 20+ files- that's a lot of code and it needs a deep deep thorough audit - functional as well as non-functional! the task was also stuck in the middle so we need to deepl review the work done. Can you go through the original prompt, code changes done in extreme detail, audit them, ensure all the required changes were done and done correctly with no downstream impact. the code before this works fine with it - no suspicious lines of codes for app crashes, or faulty wirings. all the services that needed to be changed have been changed and nothing is left or missed. ensure the ui is also proper with correct spacings, colours, fonts and elements. be very thorough in your analysis and evaluation. use highest level of reasoning available. Log the rca in the debug log and explain why the misses were missed. use highest level of thinking possible and think deeply. Evaluate and understand very deeply. Be very thorough and detailed. use your highest level of intelligence to analyse the requirement, code generated and plug gaps. be very thorough and have highest attention to detail. carefully analyse all the code - new and old and all dependencies too. the latest commit is of the lengthy changes above. apart from the code written in this conversation do an audit of the neighbouring and downstream services too to find any improvements, possible edge cases or errors."
+    },
+    {
+      "timestamp": "2026-05-27T06:27:59.080Z",
+      "role": "assistant",
+      "text": "Absolutely. I’ll treat this as a release-blocking audit, not a skim: re-read the original acceptance, inspect the full diff and downstream call paths, fix anything suspect, update `DEBUG_LOG.md` with RCA/misses, then rerun validation."
+    },
+    {
+      "timestamp": "2026-05-27T06:28:48.767Z",
+      "role": "assistant",
+      "text": "I’ve confirmed the timeline changes are still uncommitted on top of `b2a9b67`; the repo’s `HEAD~1..HEAD` is the prior motion commit, so I’m auditing the dirty timeline diff plus nearby downstream services. One thing I’m already treating carefully: voice STT naturally starts before the LLM turn id exists, so correlation and fragmentation need scrutiny rather than just “it compiles.”"
+    },
+    {
+      "timestamp": "2026-05-27T06:30:24.850Z",
+      "role": "assistant",
+      "text": "I’m going to continue from the audit state rather than re-litigating the whole implementation from scratch. The next pass is focused on the risky edges: whether “reason” strings can carry private text, whether timeline grouping is genuinely per-turn, and whether the diagnostics UI/export paths stay bounded and crash-free."
+    },
+    {
+      "timestamp": "2026-05-27T06:30:38.450Z",
+      "role": "assistant",
+      "text": "One thing surfaced immediately: the core timeline type and new tests appear to be untracked rather than part of the tracked diff. That is not a runtime bug, but it is release-risky because the implementation depends on files that could be missed at commit time, so I’m keeping that in the audit record while I inspect the privacy-bearing call chains."
+    },
+    {
+      "timestamp": "2026-05-27T06:31:05.716Z",
+      "role": "assistant",
+      "text": "The policy engine itself is using stable reason codes, which is good. The first suspicious line I found is actually in a downstream tool path: `dispatch_action` can return failure strings that include intent-dispatcher confirmation reasons, and those reasons can include contact/email/share text. I’m also double-checking one generated snippet that looks like it may have a duplicated `ToolContext` token."
+    },
+    {
+      "timestamp": "2026-05-27T06:31:19.055Z",
+      "role": "assistant",
+      "text": "There are real compile-risk artifacts now: duplicated argument/initializer lines in a few downstream files (`ToolContext`, `installAppIntentTarget`, `targetPackage`). Those are exactly the kind of “generated during a long task” misses that can slip through compaction, so I’m going to clean those first, then rerun the build/test gates."
+    },
+    {
+      "timestamp": "2026-05-27T06:35:35.050Z",
+      "role": "assistant",
+      "text": "The timeline is privacy-safe in the LLM/tool path better than it first looked because tool failures are reduced to a reason prefix before append. The bigger functional gap is STT: the start/final events are emitted under a generated `stt-*` id, while the rest of the voice turn uses the screen-context request id, so the “per-turn” timeline splits one real user turn into two groups. I’m going to close that by carrying a voice timeline id from push-to-talk through STT, context build, orchestrator, and TTS."
+    },
+    {
+      "timestamp": "2026-05-27T06:36:11.600Z",
+      "role": "assistant",
+      "text": "Before editing, here’s the concrete patch set I’m applying: correlate voice turns with one id end to end, harden timeline `error`/`policyDecision` fields so accidental prose becomes a generic reason instead of exported text, and add tests around both. After that I’ll run the full Gradle validation again."
+    },
+    {
+      "timestamp": "2026-05-27T06:38:33.424Z",
+      "role": "assistant",
+      "text": "The voice correlation patch is in. I’ve also hardened the export sanitizer so `error` and `policyDecision` cannot quietly carry arbitrary prose; legitimate lifecycle strings like `blocked:high:none:secure` remain, but a sentence becomes `unstructured-reason`. Next I’m compiling and running the affected test slice."
+    },
+    {
+      "timestamp": "2026-05-27T06:39:11.618Z",
+      "role": "assistant",
+      "text": "The first targeted run caught a test-only compile issue: this MockK version doesn’t expose `firstArg`. The app/runtime code compiled past the modified production sources, so I’m replacing that with the answer-scope argument array and rerunning."
+    },
+    {
+      "timestamp": "2026-05-27T06:39:47.580Z",
+      "role": "assistant",
+      "text": "The targeted tests now pass. One cleanup from the correlation fix: the orchestrator was previously emitting an extra `STT_FINAL` as a workaround for the split ids; now that STT and the rest of the turn share the same id, that extra event would become a duplicate, so I’m removing the workaround instead of leaving noisy telemetry."
+    },
+    {
+      "timestamp": "2026-05-27T06:41:11.005Z",
+      "role": "assistant",
+      "text": "Another downstream voice entry point exists: the floating widget can auto-open full chat after STT. I’m threading the same voice id through that legacy handoff too, so panel and full-chat voice paths behave consistently."
+    },
+    {
+      "timestamp": "2026-05-27T06:43:38.855Z",
+      "role": "assistant",
+      "text": "The second targeted run is green. I’m making one UI polish/fidelity adjustment from the audit: keep turn groups ordered newest-first, but show lifecycle rows within each turn oldest-to-newest, which reads like an actual timeline. I’m also making confidence formatting locale-stable."
+    },
+    {
+      "timestamp": "2026-05-27T06:44:48.156Z",
+      "role": "assistant",
+      "text": "One non-functional crash edge turned up in the diagnostics export path: if the document provider rejects the output stream or write fails, the launched coroutine could throw up to the activity scope. I’m wrapping export in `runCatching` and logging, so a failed export does not take the app down."
+    },
+    {
+      "timestamp": "2026-05-27T06:46:21.052Z",
+      "role": "assistant",
+      "text": "The focused tests are green, and I’ve corrected the original timeline log text so it no longer claims the orchestrator emits STT final. I’m at the full gate now: diff whitespace check, all core/runtime/app unit tests, app lint, and debug assemble."
+    },
+    {
+      "timestamp": "2026-05-27T06:47:31.310Z",
+      "role": "assistant",
+      "text": "Full Gradle validation passed: whitespace, all unit tests, lint, and debug APK assembly. I’m doing one more runtime sanity pass on the emulator now: install the rebuilt APK, launch the app, and scan fresh logcat for fatal crashes/ANRs/process death."
+    },
+    {
+      "timestamp": "2026-05-27T06:47:42.634Z",
+      "role": "assistant",
+      "text": "The APK is built. `adb` isn’t on PATH in this shell, so I’m checking the standard Android SDK platform-tools location and will use that directly if present."
+    },
+    {
+      "timestamp": "2026-05-27T06:50:10.879Z",
+      "role": "assistant",
+      "text": "One last UI sanity check is worth doing since the audit touched Diagnostics layout. I’m going to try launching `DiagnosticsActivity` directly on the emulator and grab a screenshot if Android allows that activity start from shell."
+    },
+    {
+      "timestamp": "2026-05-27T06:51:54.925Z",
+      "role": "assistant",
+      "text": "Completed the deep audit and hardening pass.\n\nI found and fixed several release-blocking gaps:\n\n- STT events were being emitted under separate `stt-*` turn IDs, so one user turn could split across multiple Diagnostics groups. Voice, context, orchestration, overlay, and chat handoff now preserve the same timeline turn ID end to end.\n- Timeline reason fields could still accept arbitrary prose from future emitters. [TimelineEvent.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/audit/TimelineEvent.kt) now enforces structured reason-code sanitization at the sink.\n- Diagnostics export had a document-provider crash risk. [DiagnosticsActivity.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/diagnostics/DiagnosticsActivity.kt) now catches export write failures.\n- Timeline UI ordering/details were tightened: newest turns first, events inside a turn chronological, stable locale formatting.\n- Removed duplicate/workaround STT_FINAL emission from the orchestrator after fixing the actual turn propagation.\n\nI also updated [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md) with `DL-TIMELINE-2`, including RCA, why the misses happened, practical before/after app impact examples, and a detailed end-to-end manual QA plan.\n\nValidation passed:\n\n```bash\ngit diff --check\n./gradlew --no-daemon :core:test :android-runtime:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace\n```\n\nAlso installed and launched the debug APK on the emulator. No Handy fatal crash, ANR, or process death appeared in logcat. Direct shell-launching `DiagnosticsActivity` failed only because the activity is not exported, which is expected Android behavior, not an app crash.\n\nOne release hygiene note: the required new timeline files are still untracked and must be included in the eventual commit:\n\n- [TimelineEvent.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/audit/TimelineEvent.kt)\n- [TimelineExportTest.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/test/kotlin/com/handy/core/audit/TimelineExportTest.kt)\n- [TimelineRedactionTest.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/test/kotlin/com/handy/core/audit/TimelineRedactionTest.kt)\n- [FileAuditStoreTimelineTest.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/test/kotlin/com/handy/runtime/audit/FileAuditStoreTimelineTest.kt)\n\nThe unrelated untracked `handy_macos_ref/` folder was left untouched."
+    }
+  ]
+}

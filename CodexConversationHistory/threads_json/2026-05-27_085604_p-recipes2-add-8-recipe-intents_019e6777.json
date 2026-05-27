@@ -1,0 +1,263 @@
+{
+  "metadata": {
+    "thread_id": "019e6777-ca01-73a3-a591-500c59dab6ec",
+    "title": "P-RECIPES2: Add 8 recipe intents",
+    "created_local": "2026-05-27 08:56:04 IST",
+    "updated_local": "2026-05-27 10:21:07 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/27/rollout-2026-05-27T08-56-04-019e6777-ca01-73a3-a591-500c59dab6ec.jsonl",
+    "recorded_git_sha_at_start": "0229ca70aed1f56fbd4b768d63022ba5ffcf5625",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 43,
+    "summary": "This conversation focused on: Add 8 new recipes that significantly broaden Handy's helpfulness without expanding the risk surface. Each is intent-first, draft-only, or guide-only. Every recipe ships with fixtures from P-RECIPES-1. DEPENDS ON - P-RECIPES-1 (contract tests + verifiers + sid… Likely related git changes: 1c88770 P-RECIPES2: Add 8 recipe intents.",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "1c887705f26c7827a64370f1bdb3761ee05e9b57",
+        "short": "1c88770",
+        "author_time": "2026-05-27 11:05:24 IST",
+        "subject": "P-RECIPES2: Add 8 recipe intents",
+        "confidence": "high",
+        "score": 12,
+        "reasons": [
+          "near thread time window",
+          "matched phase/tag add8",
+          "matched words intents, recipe, recipes2"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "README.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/CalculatorRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/CalendarEventRecipeV2.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ClockRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ContactsRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/FilesRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/FoodDeliveryRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/NotesRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/PhotosRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/YouTubeRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/intent/AndroidIntentDispatcher.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-27T03:26:33.000Z",
+      "role": "user",
+      "text": "GOAL\nAdd 8 new recipes that significantly broaden Handy's helpfulness without\nexpanding the risk surface. Each is intent-first, draft-only, or\nguide-only. Every recipe ships with fixtures from P-RECIPES-1.\n\nDEPENDS ON\n- P-RECIPES-1 (contract tests + verifiers + side-effect classification).\n\nVERIFIED PRE-CONDITIONS\n- Existing AndroidRuntimeRecipes.defaultRecipes() adds 11 recipes plus\n  the Shopping and Ride packs.\n- RecipeIntentRouter.INTENT_TO_RECIPE_ID maps canonical intents to recipe\n  ids. New intents must be added there.\n- Canonical intents are defined in core/.../agent/RecipeIntent.kt.\n\nIMPLEMENTATION (one recipe each — fully concrete)\n\n1. YouTubeRecipe\n   File: android-runtime/.../agent/recipes/YouTubeRecipe.kt\n   Intents:\n     - YOUTUBE_SEARCH (\"play X on YouTube\", \"find X video\")\n     - YOUTUBE_OPEN_CHANNEL (\"open <channel> channel\")\n   Side effect: OPENS_EXTERNAL_UI.\n   Steps:\n     - NativeAction(OpenUrl(\"https://www.youtube.com/results?search_query=…\"))\n       (Chrome / YouTube app handles the URL.)\n   BLOCKED in fixtures: \"like this video\", \"subscribe to <channel>\",\n   \"comment <text>\".\n\n2. NotesRecipe\n   File: android-runtime/.../agent/recipes/NotesRecipe.kt\n   Intent: CREATE_NOTE (\"take a note: buy milk\", \"remind me to call mom\").\n   Side effect: DRAFT_ONLY.\n   Steps:\n     - NativeAction(ShareText(text=note, mimeType=\"text/plain\"))\n       — opens the system share sheet; Keep, Notion, Obsidian, etc. all\n       accept.\n   Verifier: package change after share.\n\n3. ContactsRecipe\n   File: android-runtime/.../agent/recipes/ContactsRecipe.kt\n   Intents:\n     - OPEN_CONTACT (\"open <name>'s contact\")\n     - PREPARE_CALL (\"call <name>\" → opens dialer with prefilled number,\n       NO auto-dial)\n     - PREPARE_SMS (\"text <name> <message>\" → opens SMS draft with\n       prefilled recipient + body)\n   Side effect: PREPARE_CALL / PREPARE_SMS = DRAFT_ONLY (no send/dial).\n   - Use ContactsContract to resolve name → contact_uri (URI only, no\n     phone number leaked to LLM).\n   - PREPARE_CALL emits Intent(ACTION_DIAL, tel:<resolved>) — never\n     ACTION_CALL.\n   - Multiple matches → recipe refuses with reason \"ambiguous-contact\"\n     and shows a chip \"Which one? Rohan S, Rohan B …\". (Reuses the\n     existing candidate-options UX.)\n\n4. FilesRecipe\n   File: android-runtime/.../agent/recipes/FilesRecipe.kt\n   Intents:\n     - FILES_SEARCH (\"find file <name>\")\n     - FILES_OPEN (\"open <file>\")\n   Side effect: OPENS_EXTERNAL_UI.\n   Uses ACTION_GET_CONTENT / ACTION_OPEN_DOCUMENT intents.\n\n5. PhotosRecipe\n   File: android-runtime/.../agent/recipes/PhotosRecipe.kt\n   Intents:\n     - PHOTOS_OPEN (\"open Photos / Gallery\")\n     - PHOTOS_SHARE_CURRENT (only when the user is already viewing a\n       photo and explicitly asks \"share this photo\" — recipe inspects\n       the foreground app, refuses otherwise)\n   Side effect: PHOTOS_OPEN = OPENS_EXTERNAL_UI; SHARE = DRAFT_ONLY (system\n   share sheet, user picks recipient).\n   BLOCKED: \"delete this photo\", \"delete all\".\n\n6. CalculatorRecipe\n   File: android-runtime/.../agent/recipes/CalculatorRecipe.kt\n   Intent: CALCULATE (\"what's 23% of 4500\", \"compute 12*47\").\n   Two paths:\n     - Direct: parse the expression locally via a tiny safe parser\n       (only +, -, *, /, %, parentheses). Answer returned in the chat;\n       no recipe execution.\n     - Open: \"open calculator\" → ACTION_MAIN + CATEGORY_APP_CALCULATOR.\n   Side effect: NONE.\n\n7. FoodDeliveryRecipe\n   File: android-runtime/.../agent/recipes/FoodDeliveryRecipe.kt\n   Intents:\n     - FOOD_SEARCH (\"find biryani on Swiggy\")\n     - FOOD_TRACK_ORDER (\"track my Zomato order\")\n   Side effect: OPENS_EXTERNAL_UI.\n   Steps:\n     - NativeAction(OpenUrl) → deep links per app (e.g. swiggy://…) if\n       installed, else web URL.\n   BLOCKED: \"place the order\", \"confirm payment\", \"pay\".\n\n8. CalendarRecipeV2 (replaces / supplements CalendarEventRecipe)\n   File: android-runtime/.../agent/recipes/CalendarEventRecipeV2.kt\n   Improvements over v1:\n     - Better recipient/attendee parsing.\n     - Strong-hold on final save.\n     - Refuses recurring rules until user confirms (\"every Tuesday at\n       4pm — should I make this repeat?\").\n   Keep CalendarEventRecipe v1 for backwards compat; switch the intent\n   router to v2.\n\n9. Update RecipeIntentRouter:\n   File: core/.../agent/RecipeIntentRouter.kt\n   Add intents to INTENT_TO_RECIPE_ID for each new recipe.\n\n10. Update AndroidRuntimeRecipes.defaultRecipes():\n    File: android-runtime/.../agent/recipes/ClockRecipe.kt (the\n    AndroidRuntimeRecipes object lives there).\n    Append the 8 new recipes to the list.\n\nACCEPTANCE\n- \"Take a note: buy milk\" → share sheet appears with the text.\n- \"Find biryani on Swiggy\" → Swiggy or browser opens to a biryani search.\n- \"Call Mom\" → dialer opens with Mom's number filled, user taps Call.\n- \"What's 23% of 4500?\" → answer in chat (\"1035\"). No recipe.\n- \"Order biryani\" without \"find\" → recipe refuses with\n  \"i-can-search-but-cant-order\".\n- \"Delete this photo\" → recipe refused; bubble explains.\n- Multi-match contact → candidate chips appear.\n\nTESTS\n- One contract test per new recipe with 3 fixtures.\n- Manual: each on Pixel + Samsung; CalculatorRecipe especially needs\n  unit tests for the expression parser.\n\nDO NOT\n- Add payment, purchase, checkout, place-order, send-message,\n  delete behaviour to any recipe.\n- Use ACTION_CALL (only ACTION_DIAL).\n- Hardcode third-party coordinates.\n- Auto-confirm; everything pauses at the system UI step.\n\nUPDATE\n- DEBUG_LOG.md, RECIPE_SWEEP_MATRIX.md, README recipe inventory. \n\nAdditional stuff\nA) Mention the change the code brings to the application - the before and after with real life practical examples if possible. \nB) Share an indepth end to end manual testing plan of the changes done - be practical and ensure all aspects are tested well before we proceed.   \nC) ENSURE THERE ARE NO BUILDS ERRORS OR APP CRASHES. AUDIOT THE CODE COMPLETELY AND FIX ANY ERRORS"
+    },
+    {
+      "timestamp": "2026-05-27T03:26:43.170Z",
+      "role": "assistant",
+      "text": "I’ll trace the existing recipe contracts, intent routing, and P-RECIPES-1 fixtures first, then wire the new recipes into the same shape instead of inventing a parallel path. After that I’ll run the relevant tests/build checks and tighten anything that shakes loose."
+    },
+    {
+      "timestamp": "2026-05-27T03:27:00.887Z",
+      "role": "assistant",
+      "text": "The repo already has the P-RECIPES-1 pieces: recipe resource fixtures, side-effect expectations, and the intent router. I’m going to read the exact contract APIs now so the new recipes participate in the same verifier path as the existing ones."
+    },
+    {
+      "timestamp": "2026-05-27T03:32:18.579Z",
+      "role": "assistant",
+      "text": "I’ve got the shape now. A couple of important existing constraints popped out: destructive native actions like share/SMS/dial currently need a confirmed-dispatch path inside recipes, and ambiguous choices only have a chip UI for candidate options, so I’m going to thread those through carefully while keeping the actual new recipes draft-only/open-only."
+    },
+    {
+      "timestamp": "2026-05-27T03:43:24.219Z",
+      "role": "assistant",
+      "text": "The main runtime pieces are now in place: new action types, Android intent dispatchers, local contact resolution, recipe routing, and default-pack registration. Next I’m adding the P-RECIPES-style fixtures and focused tests so we can catch the edge cases instead of trusting the wiring by inspection."
+    },
+    {
+      "timestamp": "2026-05-27T03:46:44.688Z",
+      "role": "assistant",
+      "text": "Fixtures and focused unit tests are down now, including the calculator parser cases and contact ambiguity labels. I’m going to run the core/runtime test slice before touching docs, because compiler feedback here will be more useful than polishing prose too early."
+    },
+    {
+      "timestamp": "2026-05-27T03:46:58.023Z",
+      "role": "assistant",
+      "text": "The first Gradle attempt hit the local shell’s missing Java runtime, which this repo has worked around before with a bundled/cached JDK. I’m checking the known JDK paths and will rerun with `JAVA_HOME` pinned."
+    },
+    {
+      "timestamp": "2026-05-27T03:47:44.619Z",
+      "role": "assistant",
+      "text": "Focused core/runtime tests are green with the repo-local JDK. I’m going to compile the app next because the production injection path and overlay chip tweak live there, and that’s where Hilt/Compose issues tend to show up."
+    },
+    {
+      "timestamp": "2026-05-27T03:48:13.066Z",
+      "role": "assistant",
+      "text": "App compile is clean too; only existing accessibility announcement deprecation warnings showed up. I’m moving to the requested documentation updates now, then I’ll do the larger validation sweep and installation/crash check."
+    },
+    {
+      "timestamp": "2026-05-27T03:51:52.559Z",
+      "role": "assistant",
+      "text": "I’ve got the implementation already in place and am doing the last pass now: full validation, crash/build checks where the local setup allows, then I’ll update the debug log with the exact evidence."
+    },
+    {
+      "timestamp": "2026-05-27T03:52:05.245Z",
+      "role": "assistant",
+      "text": "Whitespace checks are clean. I’m kicking off the full Gradle sweep now with the repo-local JDK so we catch compile, unit, lint, and packaging issues in one pass."
+    },
+    {
+      "timestamp": "2026-05-27T03:52:46.800Z",
+      "role": "assistant",
+      "text": "The full sweep found one real compile issue in app tests: `AgentSessionController` now needs the Android context for contact lookup, and the unit test still constructs it with the old signature. I’m patching that instead of papering over it."
+    },
+    {
+      "timestamp": "2026-05-27T03:53:36.507Z",
+      "role": "assistant",
+      "text": "That compile fix took; the full run has passed the test compile point and is now finishing lint/report tasks. Next I’ll do an install-and-launch smoke check if `adb` sees a device."
+    },
+    {
+      "timestamp": "2026-05-27T03:53:52.544Z",
+      "role": "assistant",
+      "text": "There is an emulator attached (`emulator-5554`), so I’m going one step beyond the build: installing the debug APK, launching the app, and checking logcat for startup crashes."
+    },
+    {
+      "timestamp": "2026-05-27T03:54:16.019Z",
+      "role": "assistant",
+      "text": "The emulator smoke test is clean: debug APK installed, app launched cold into `OnboardingActivity`, process stayed alive, and the focused crash scan found no fatal exception, ANR, or forced finish for Handy. I’m writing that evidence into the debug log now."
+    },
+    {
+      "timestamp": "2026-05-27T03:55:12.512Z",
+      "role": "assistant",
+      "text": "The documentation pass is in and the final whitespace check is clean. I’m doing one last code audit around the new dispatcher actions and recipe refusal paths, because these are exactly the places that can compile fine but surprise you on-device."
+    },
+    {
+      "timestamp": "2026-05-27T03:57:17.755Z",
+      "role": "assistant",
+      "text": "The audit caught an important non-crashy behavior gap: the recipe execution gate still only knew the older verbs, so prompts like “Call Mom,” “Take a note,” “share this photo,” “track my Zomato order,” and the calculator answer path could be ignored before the new recipes ever proposed. I’m tightening that gate and adding a regression so the acceptance examples actually reach the new safe recipes."
+    },
+    {
+      "timestamp": "2026-05-27T03:58:18.065Z",
+      "role": "assistant",
+      "text": "I patched the gate and added a regression for the calculator acceptance path: “What’s 23% of 4500?” can now produce the local answer even though it is not an execution request. I’m running the focused tests first, then I’ll repeat the full build/smoke because this touched core/app routing."
+    },
+    {
+      "timestamp": "2026-05-27T03:59:23.484Z",
+      "role": "assistant",
+      "text": "Focused regressions are green. I’m rerunning the full Gradle sweep now so the final state reflects the execution-gate fix too, not just the earlier implementation."
+    },
+    {
+      "timestamp": "2026-05-27T04:00:04.369Z",
+      "role": "assistant",
+      "text": "Full validation is through core evals, app/runtime unit tests, and APK assembly; lint is the remaining stretch. The late gate fix is behaving cleanly so far."
+    },
+    {
+      "timestamp": "2026-05-27T04:00:15.988Z",
+      "role": "assistant",
+      "text": "The full sweep passed after the gate fix. I’m reinstalling the fresh APK and doing one more emulator launch/crash scan so the runtime smoke reflects the exact final build."
+    },
+    {
+      "timestamp": "2026-05-27T04:01:46.588Z",
+      "role": "assistant",
+      "text": "Implemented P-RECIPES-2 end to end.\n\n**What Changed**\nBefore, Handy could handle the older recipe set, but prompts like “Take a note: buy milk,” “Call Mom,” “Find biryani on Swiggy,” or “What’s 23% of 4500?” either needed generic guidance or could miss the deterministic low-risk path.\n\nAfter this change, Handy has 8 new low-risk recipe families:\n\n- YouTube search/channel handoff, with like/subscribe/comment refused.\n- Notes share-sheet draft.\n- Contacts open/dialer/SMS draft, never `ACTION_CALL`.\n- Files picker/document handoff, no mutation/read/upload.\n- Photos/Gallery open and current-photo share only from a photo viewer.\n- Calculator local arithmetic answers or Calculator app open.\n- Food delivery search/tracking, no order/payment/checkout.\n- Calendar v2 event draft with attendees and recurrence refusal.\n\nI also updated router/default registration, native actions, dispatcher support, prompt/tool schemas, candidate chips for ambiguous contacts, calculator answer handling, docs, and 24 new JSON fixtures.\n\n**Important Audit Fix**\nI caught and fixed a subtle routing gap: the execution gate still only knew the older verbs, so acceptance prompts like “Call Mom,” “Take a note,” “share this photo,” “track my Zomato order,” and “order biryani” could be ignored before the new recipes proposed/refused. That gate now covers the new safe verbs, and calculator answer-only prompts can respond without treating arithmetic as automation.\n\n**Key Files**\n- [ClockRecipe.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ClockRecipe.kt)\n- [AndroidIntentDispatcher.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/intent/AndroidIntentDispatcher.kt)\n- [RecipeIntentRouter.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/agent/RecipeIntentRouter.kt)\n- [AgentSessionController.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt)\n- [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md)\n- [RECIPE_SWEEP_MATRIX.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/docs/qa/RECIPE_SWEEP_MATRIX.md)\n\n**Validation**\nPassed:\n\n```bash\ngit diff --check\nJAVA_HOME=/Users/satvik.bansal/.cache/codex-jdk17 PATH=/Users/satvik.bansal/.cache/codex-jdk17/bin:$PATH ./gradlew --no-daemon :core:test :android-runtime:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace\n```\n\nAlso installed the final debug APK on `emulator-5554`, launched `com.handy.android/com.handy.app.onboarding.OnboardingActivity`, confirmed the process stayed alive with PID `25574`, and logcat showed no `FATAL EXCEPTION`, ANR, force-finish, or Handy process-death entry.\n\n**Manual Test Plan**\nRun this on Pixel and Samsung before release:\n\n1. Fresh install, grant overlay/accessibility, grant contacts only for contacts tests.\n2. Seed contacts: `Mom`, `Rohan S`, `Rohan B`, and one SMS-capable contact.\n3. Happy paths:\n   - “Take a note: buy milk” opens share sheet with exact text.\n   - “Find biryani on Swiggy” opens Swiggy or web search.\n   - “Call Mom” opens dialer prefilled, no call placed.\n   - “Text Mom hello” opens SMS draft, no send.\n   - “Open Rohan’s contact” opens contact UI.\n   - “What’s 23% of 4500?” answers `1035` in chat.\n   - “Open calculator” opens Calculator.\n   - YouTube search/channel, Files picker, Photos open/share-current, Calendar v2 attendee draft, food tracking.\n4. Blocked paths:\n   - “Order biryani,” “confirm payment,” “like this video,” “subscribe,” “delete this photo,” “delete file,” unsupported calculator functions.\n   - Verify refusal appears and no external state changes.\n5. Ambiguity:\n   - “Call Rohan” with two matches shows candidate chips and does not open dialer.\n6. Permission/fallback:\n   - Deny contacts permission and verify contacts recipe refuses cleanly.\n   - Test food/YouTube with apps installed and absent to verify deep link/web fallback."
+    },
+    {
+      "timestamp": "2026-05-27T04:01:46.810Z",
+      "role": "user",
+      "text": "That was a long lengthy task! Lots of changes done above which included context compactions in the middle. 2000+ lines of code were written across 52+ files- that's a lot of code and it needs a deep deep thorough audit - functional as well as non-functional! the task was also stuck in the middle so we need to deepl review the work done. The Recipes especially are critical in Handy! Can you go through the original prompt, code changes done in extreme detail, audit them, ensure all the required changes were done and done correctly with no downstream impact. the code before this works fine with it - no suspicious lines of codes for app crashes, or faulty wirings. all the services that needed to be changed have been changed and nothing is left or missed. ensure the ui is also proper with correct spacings, colours, fonts and elements. be very thorough in your analysis and evaluation. use highest level of reasoning available. Log the rca in the debug log and explain why the misses were missed. use highest level of thinking possible and think deeply. Evaluate and understand very deeply. Be very thorough and detailed. use your highest level of intelligence to analyse the requirement, code generated and plug gaps. be very thorough and have highest attention to detail. carefully analyse all the code - new and old and all dependencies too. the latest commit is of the lengthy changes above."
+    },
+    {
+      "timestamp": "2026-05-27T04:01:54.695Z",
+      "role": "assistant",
+      "text": "Absolutely. I’m going to treat this as a safety audit, not a rubber stamp: compare the latest recipe commit against the original prompt, trace the wiring from intent selection through registry, policy, dispatcher, UI chips, fixtures, tests, docs, and then patch anything that looks even slightly wrong."
+    },
+    {
+      "timestamp": "2026-05-27T04:02:25.054Z",
+      "role": "assistant",
+      "text": "The first thing I found: the recipe expansion is currently dirty/uncommitted on top of `HEAD` (`b4f0310 Audit`), not actually inside the latest commit. I’m auditing the dirty P-RECIPES-2 surface as the change under review and keeping the unrelated pre-existing `handy_macos_ref/` alone."
+    },
+    {
+      "timestamp": "2026-05-27T04:02:56.911Z",
+      "role": "assistant",
+      "text": "I’m tracing the most failure-prone chain now: recipe proposal → plan policy → execution dispatcher → verifier/audit. One early red flag is contacts: phone numbers are intentionally resolved locally, but I need to make sure they do not leak into prompts, audit strings, progress copy, or LLM-facing tool schemas."
+    },
+    {
+      "timestamp": "2026-05-27T04:09:38.646Z",
+      "role": "assistant",
+      "text": "The audit has found real gaps, not just paperwork: recipe disabling was not actually preventing recipe prompts/runs in the overlay, `open_contact` needed URI validation to avoid becoming an arbitrary VIEW escape hatch, contacts lacked an OPEN_CONTACT fixture, and a few blocked-term checks were too narrow or too broad. I’m patching those now."
+    },
+    {
+      "timestamp": "2026-05-27T04:14:53.530Z",
+      "role": "assistant",
+      "text": "I also found a prompt conflict: the direct-action addendum was still using “call mom” as a `dispatch_action` example, which competes with the new ContactsRecipe and cannot resolve names safely. I’ve changed that to explicit numbers only and told the model to use recipe intents for contact-name flows."
+    },
+    {
+      "timestamp": "2026-05-27T04:15:42.918Z",
+      "role": "assistant",
+      "text": "The first focused run caught a compile issue in the calendar intent hardening: Android exposes the event MIME type in practice, but not as the constant I used on this SDK. I replaced it with the platform MIME literal and am rerunning."
+    },
+    {
+      "timestamp": "2026-05-27T04:38:17.437Z",
+      "role": "assistant",
+      "text": "I’m picking up the audit exactly where the compaction left off: the safety and wiring fixes are mostly in place, and one focused test is telling us there’s still a recipe-toggle propagation bug to chase. I’ll fix that first, then rerun the focused suite before widening to the full build and debug-log RCA."
+    },
+    {
+      "timestamp": "2026-05-27T04:38:36.970Z",
+      "role": "assistant",
+      "text": "The orchestrator itself does pass `agentRecipesEnabled` through, so the failing test is probably exposing a race or fixture issue rather than a pure core bug. I’m reading the overlay request path now to see whether the real setting value is being mixed with a second turn or a fallback default."
+    },
+    {
+      "timestamp": "2026-05-27T04:39:38.194Z",
+      "role": "assistant",
+      "text": "The single failing overlay test is still running in isolation; I’m using it as a narrow signal so we don’t bury a real app-state bug under a full test log. While it runs, the code path looks logically correct, so I’m prepared for either a test-fixture race or another layer injecting the recipe prompt."
+    },
+    {
+      "timestamp": "2026-05-27T04:41:28.835Z",
+      "role": "assistant",
+      "text": "That failure turned out to be a useful wording bug: the recipe block was absent, but the direct-action addendum still said “agent-mode recipes” even when recipes were disabled. I’m tightening the prompt so the model gets different contact-name guidance depending on whether recipes are actually available."
+    },
+    {
+      "timestamp": "2026-05-27T04:42:41.588Z",
+      "role": "assistant",
+      "text": "Good, the narrow prompt issue is fixed and the focused suite has moved past compilation into runtime tests. If that comes back green, I’ll widen the audit to static safety scans and then the full Gradle lane."
+    },
+    {
+      "timestamp": "2026-05-27T04:43:05.850Z",
+      "role": "assistant",
+      "text": "Static checks show no `ACTION_CALL`, and `git diff --check` is clean. I’m doing another pass over the recipe implementations themselves now, focusing on unsafe actions, resolver behavior, intent construction, and whether the tests/fixtures really cover the exact blocked phrases from the original prompt."
+    },
+    {
+      "timestamp": "2026-05-27T04:44:53.024Z",
+      "role": "assistant",
+      "text": "I found one Android 11+ package-visibility gap: the food recipe can decide Swiggy/Zomato is installed, but the dispatcher may still fail to resolve `swiggy://` or `zomato://` without explicit query visibility. I’m adding narrow package/scheme queries so installed apps get the deep link path and non-installed cases still fall back to web."
+    },
+    {
+      "timestamp": "2026-05-27T04:46:31.214Z",
+      "role": "assistant",
+      "text": "The broader UI sweep found inherited negative letter-spacing in onboarding/chat/design primitives, not just the recipe chip surface. Since this audit explicitly includes UI quality and the guardrail is clear, I’m normalizing those remaining negative values to `0.em` rather than leaving tight typography that can clip under OEM font scaling."
+    },
+    {
+      "timestamp": "2026-05-27T04:47:17.343Z",
+      "role": "assistant",
+      "text": "Focused validation is recompiling the app manifest and UI after the package-visibility and typography fixes. So far it’s past the runtime recipe tests and into app test compilation, which is the right place to catch manifest/schema or Compose type mistakes."
+    },
+    {
+      "timestamp": "2026-05-27T04:47:35.021Z",
+      "role": "assistant",
+      "text": "The focused suite is green after the audit fixes. I’m moving to the full lane now: core tests, runtime tests, app tests, lint, and debug APK assembly in one serial Gradle invocation so KSP/generated caches don’t get trampled."
+    },
+    {
+      "timestamp": "2026-05-27T04:47:59.695Z",
+      "role": "assistant",
+      "text": "The full build has assembled the debug APK and is in lint/test wrap-up now. No compile break or manifest rejection has shown up, including from the new content/deep-link queries."
+    },
+    {
+      "timestamp": "2026-05-27T04:48:37.085Z",
+      "role": "assistant",
+      "text": "Full validation is green. I’m going to do the crash smoke as well: install the built debug APK, launch Handy, and scan fresh logcat for process death, ANR, or AndroidRuntime crashes."
+    },
+    {
+      "timestamp": "2026-05-27T04:49:07.357Z",
+      "role": "assistant",
+      "text": "Crash smoke is clean: the app installed, cold-launched, and the Handy process stayed alive. I’m grabbing one screenshot of the launched surface now as a quick visual sanity pass after normalizing typography."
+    },
+    {
+      "timestamp": "2026-05-27T04:51:07.696Z",
+      "role": "assistant",
+      "text": "Deep audit is complete. I found and fixed several real gaps, then reran focused validation, full build/lint/tests, and emulator crash smoke.\n\n**Audit Fixes**\n- Recipes toggle now truly disables recipe prompting and recipe execution in both full chat and overlay, while keeping normal direct actions gated separately.\n- Direct-action prompt no longer references recipe mode when recipes are off, and avoids unsafe contact-name dispatch unless an exact number/contact URI is already known.\n- `open_contact` is now dispatcher-hardened: only `content://com.android.contacts/...` URIs are accepted.\n- Swiggy/Zomato deep links now have narrow package/scheme visibility plus HTTPS fallback when no handler exists.\n- Manifest queries were completed for Contacts, Photos/Gallery, Calendar event drafts, Files, Calculator, and food deep links.\n- Blocked fixtures were expanded for YouTube like/comment, Photos delete-all, Food pay/payment, and Contacts open-contact.\n- Food blocked-term matching now avoids false positives like `payasam` while still refusing `pay for biryani`.\n- Calendar recurrence refusal now includes the expected user-facing “should I make this repeat?” wording.\n- UI typography audit found inherited negative letter spacing outside recipe files; I normalized the remaining app-wide negative values to `0.em` / `0.sp`.\n\nRCA is logged in [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md:2074), including why the misses were missed.\n\n**Before / After**\nBefore: “Take a note: buy milk” could fall back to generic guidance, “Call Mom” risked prompt confusion with direct actions, Recipes-off could still leave recipe instructions in the model prompt, and installed Swiggy/Zomato deep links could fail visibility resolution.\n\nAfter: Notes open the share sheet with text drafted, contact calls stop at `ACTION_DIAL`, food search opens app/web without ordering, calculator answers locally, unsafe photo/order/payment/YouTube engagement requests refuse, and Recipes-off actually suppresses recipe mode.\n\n**Validation**\nPassed:\n- `git diff --check`\n- Focused recipe/prompt/app validation\n- Full validation: `:core:test :android-runtime:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug :app:assembleDebug`\n- Static safety scans: no `ACTION_CALL`, `SEND_SMS`, `CALL_PHONE`, broad storage/SMS/contact-write permissions, or `QUERY_ALL_PACKAGES` usage beyond forbidding comments.\n- Emulator smoke: installed `app-debug.apk`, cold-launched Handy, process stayed live as PID `26895`, and fresh logcat had no `FATAL EXCEPTION`, `E/AndroidRuntime`, ANR, force-finish, or Handy process death.\n- Visual sanity screenshot captured at `/tmp/handy-recipes-audit-onboarding.png`; no obvious text overlap after typography fixes.\n\nOnly notable build warning: pre-existing deprecated `announceForAccessibility(...)` in `ChatBubblesV2`.\n\n**Manual Testing Plan**\nRun this before release on Pixel and Samsung:\n\n1. Clean install, enable Handy accessibility/automation/recipes, grant Contacts, seed `Mom`, `Maya`, `Rohan S`, `Rohan B`.\n2. Happy paths: YouTube search/channel, Notes share text, Contacts open/dial/SMS drafts, Files picker/open document, Photos open/share-current from viewer, Calculator answer/open, Swiggy/Zomato search/track, Calendar v2 event draft with attendees.\n3. Blocked paths: YouTube like/subscribe/comment, photo delete/delete-all, food order/checkout/pay/payment, file delete/move/upload, sensitive note/contact/calendar values, unsupported calculator functions, calendar recurrence.\n4. Ambiguity: “Call Rohan” must show candidate chips and execute nothing.\n5. Gates: Recipes disabled must remove recipe prompt and skip recipe runner; accessibility off/reduced mode must not execute recipes.\n6. UI: verify candidate chips, confirmation sheets, progress bubble, and chat/onboarding text at normal and large font scale with no overlap.\n7. Audit/logs: verify refused runs show the reason, completed runs only appear after verified execution, and no phone numbers are exposed to the LLM path.\n\nI did not run the physical Pixel/Samsung sweep here; the emulator build, launch, and crash smoke are clean."
+    }
+  ]
+}
