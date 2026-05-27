@@ -15,7 +15,11 @@ import com.handy.core.action.ConfirmationLevel
 import com.handy.core.action.PolicyDecision
 import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
+import com.handy.core.action.ScrollDirection
 import com.handy.core.agent.ResultVerifier
+import com.handy.core.agent.RecipeCommand
+import com.handy.core.agent.RecipePlan
+import com.handy.core.agent.RecipeStep
 import com.handy.core.audit.AuditEvent
 import com.handy.core.audit.AuditStore
 import com.handy.core.llm.ToolProvenance
@@ -110,6 +114,33 @@ class AgentSessionControllerTest {
                 detail = "policy refused Tap Continue: tool-suggestion-only",
             ),
         )
+    }
+
+    @Test fun `plan preview contains recipe metadata and first three visible steps`() {
+        val plan = RecipePlan(
+            recipeId = "alarm",
+            displayName = "Set alarm",
+            packageName = "com.google.android.deskclock",
+            appLabel = "Clock",
+            summary = "Set an alarm for 7 AM",
+            steps = (1..5).map { index ->
+                RecipeStep(
+                    id = "step-$index",
+                    title = "Step $index",
+                    command = RecipeCommand.Scroll(ScrollDirection.DOWN),
+                    sensitive = index == 2,
+                )
+            },
+        )
+
+        val preview = plan.toPlanPreview()
+
+        assertThat(preview.recipeId).isEqualTo("alarm")
+        assertThat(preview.recipeDisplayName).isEqualTo("Set alarm")
+        assertThat(preview.totalStepCount).isEqualTo(5)
+        assertThat(preview.steps.map { it.title }).containsExactly("Step 1", "Step 2", "Step 3").inOrder()
+        assertThat(preview.steps.map { it.index }).containsExactly(1, 2, 3).inOrder()
+        assertThat(preview.steps.map { it.isSensitive }).containsExactly(false, true, false).inOrder()
     }
 
     private class RecordingPolicy : ActionPolicyEngine {

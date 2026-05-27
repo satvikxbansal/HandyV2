@@ -37,6 +37,8 @@ import com.handy.core.agent.UserGoal
 import com.handy.core.parsing.AssistantMarkupParser
 import com.handy.core.overlay.CandidateOption
 import com.handy.core.overlay.CandidateOptions
+import com.handy.core.overlay.PlanPreview
+import com.handy.core.overlay.PlanStep
 import com.handy.core.llm.ToolProvenance
 import com.handy.core.screen.IntRect
 import com.handy.core.screen.GroundingSnapshot
@@ -182,6 +184,7 @@ class AgentSessionController @Inject constructor(
         checks: List<RecipeStepPolicyCheck>,
     ): Boolean {
         val risk = checks.maxByOrNull { it.risk.ordinal }?.risk ?: ActionRisk.MEDIUM
+        val preview = plan.toPlanPreview()
         _progress.value = AgentProgressBubbleState(
             visible = true,
             title = "Review recipe",
@@ -194,9 +197,14 @@ class AgentSessionController @Inject constructor(
                 targetLabel = plan.summary.take(MAX_CONFIRMATION_LABEL),
                 appLabel = plan.appLabel,
                 packageName = plan.packageName,
-                confirmationLevel = ConfirmationLevel.NORMAL,
+                confirmationLevel = if (plan.hasSensitiveSteps) {
+                    ConfirmationLevel.STRONG_HOLD
+                } else {
+                    ConfirmationLevel.NORMAL
+                },
                 risk = risk,
                 reason = "recipe-plan:${plan.recipeId}",
+                planPreview = preview,
             )
         } == true
     }
@@ -455,6 +463,20 @@ class AgentSessionController @Inject constructor(
         private const val MAX_CONFIRMATION_LABEL = 42
     }
 }
+
+internal fun RecipePlan.toPlanPreview(): PlanPreview =
+    PlanPreview(
+        recipeId = recipeId,
+        recipeDisplayName = displayName,
+        totalStepCount = stepCount,
+        steps = steps.take(3).mapIndexed { index, step ->
+            PlanStep(
+                index = index + 1,
+                title = step.title,
+                isSensitive = step.sensitive,
+            )
+        },
+    )
 
 private class ChromeOmniboxFlightActionPerformer(
     private val delegate: ActionPerformer,

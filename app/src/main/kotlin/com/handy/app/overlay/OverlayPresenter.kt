@@ -13,6 +13,7 @@ import com.handy.core.overlay.OverlayMode
 import com.handy.core.overlay.OverlayPanelState
 import com.handy.core.overlay.PanelContent
 import com.handy.core.overlay.PanelSnapshot
+import com.handy.core.overlay.PlanPreview
 import com.handy.core.overlay.TapForMeConfirmation
 import com.handy.core.overlay.TapForMeConfirmationDecision
 import com.handy.core.overlay.WebToolProvider
@@ -625,6 +626,7 @@ class OverlayPresenter @Inject constructor(
         confirmationLevel: com.handy.core.action.ConfirmationLevel,
         risk: com.handy.core.action.ActionRisk,
         reason: String?,
+        planPreview: PlanPreview? = null,
     ): Boolean =
         requestTapForMeConfirmationDecision(
             targetLabel = targetLabel,
@@ -634,6 +636,7 @@ class OverlayPresenter @Inject constructor(
             risk = risk,
             reason = reason,
             typingText = null,
+            planPreview = planPreview,
         ).approved
 
     suspend fun requestTypeForMeConfirmation(
@@ -653,6 +656,7 @@ class OverlayPresenter @Inject constructor(
             risk = risk,
             reason = reason,
             typingText = typingText,
+            planPreview = null,
         ).takeIf { it.approved }?.typingText
 
     private suspend fun requestTapForMeConfirmationDecision(
@@ -663,6 +667,7 @@ class OverlayPresenter @Inject constructor(
         risk: com.handy.core.action.ActionRisk,
         reason: String?,
         typingText: String?,
+        planPreview: PlanPreview?,
     ): TapForMeConfirmationDecision {
         val id = tapConfirmationIds.getAndIncrement()
         val request = TapForMeConfirmation(
@@ -674,6 +679,7 @@ class OverlayPresenter @Inject constructor(
             risk = risk,
             reason = reason,
             typingText = typingText,
+            planPreview = planPreview,
         )
         return suspendCancellableCoroutine { cont ->
             tapConfirmationContinuations[id] = cont

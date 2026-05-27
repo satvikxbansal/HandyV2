@@ -87,6 +87,20 @@ data class TapForMeConfirmation(
     val risk: ActionRisk,
     val reason: String?,
     val typingText: String? = null,
+    val planPreview: PlanPreview? = null,
+)
+
+data class PlanPreview(
+    val recipeId: String,
+    val recipeDisplayName: String,
+    val totalStepCount: Int,
+    val steps: List<PlanStep>,
+)
+
+data class PlanStep(
+    val index: Int,
+    val title: String,
+    val isSensitive: Boolean,
 )
 
 data class TapForMeConfirmationDecision(

@@ -44,6 +44,7 @@ import com.handy.app.agent.AgentSessionController
 import com.handy.app.chat.ChatActivity
 import com.handy.app.chat.ChatTargetHandoffStore
 import com.handy.app.onboarding.ActionDisclosureActivity
+import com.handy.app.overlay.design.TapForMeConfirmationSheetV2
 import com.handy.app.voice.SpeechOutputController
 import com.handy.app.voice.VoiceController
 import com.handy.app.widget.BezierFlightController
@@ -677,10 +678,13 @@ class FloatingWidgetOverlayService : LifecycleService() {
         val composeView = host.createView {
             val overlayState by presenter.state.collectAsState()
             overlayState.tapForMeConfirmation?.let { request ->
-                TapForMeConfirmationSheet(
+                TapForMeConfirmationSheetV2(
                     request = request,
                     onDecision = { approved, typingText ->
                         presenter.respondTapForMeConfirmation(request.id, approved, typingText)
+                    },
+                    onSheetOpened = {
+                        speechOutputController.stop("tap_for_me_sheet_opened")
                     },
                 )
             }
