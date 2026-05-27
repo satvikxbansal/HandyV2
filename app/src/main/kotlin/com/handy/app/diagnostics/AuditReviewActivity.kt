@@ -435,6 +435,7 @@ private fun ActivityRow(
     onReport: () -> Unit,
 ) {
     val tone = event.resultTone()
+    val canDisable = event.targetApp.normalizedPackageName() != null && !disabled
     val illu = when (event.action) {
         AuditAction.TypeText -> R.drawable.ic_keyboard
         is AuditAction.Intent -> R.drawable.ic_globe
@@ -508,7 +509,7 @@ private fun ActivityRow(
                     .padding(horizontal = 9.dp, vertical = 4.dp),
             ) {
                 Text(
-                    text = tone.label.uppercase(),
+                    text = tone.label.uppercase(Locale.ROOT),
                     style = HandyDesignType.Overline.copy(
                         fontSize = 10.sp,
                         letterSpacing = 0.10.em,
@@ -533,7 +534,7 @@ private fun ActivityRow(
                 ActionChip(
                     label = "Disable in this app",
                     tone = ChipTone.Danger,
-                    enabled = true,
+                    enabled = canDisable,
                     onClick = onDisable,
                 )
             }

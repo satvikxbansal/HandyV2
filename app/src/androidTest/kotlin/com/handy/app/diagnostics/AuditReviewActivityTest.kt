@@ -3,6 +3,7 @@ package com.handy.app.diagnostics
 import android.content.Intent
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -72,5 +73,36 @@ class AuditReviewActivityTest {
         assertThat(intent.getStringExtra(Intent.EXTRA_SUBJECT)).isEqualTo("Handy wrong action report")
         assertThat(intent.getStringExtra(Intent.EXTRA_TEXT)).contains("request-review-test")
         assertThat(intent.getStringExtra(Intent.EXTRA_TEXT)).contains("com.example.target")
+    }
+
+    @Test
+    fun unknown_package_cannot_emit_disable_callback() {
+        val event = AuditEvent(
+            timestampEpochMs = System.currentTimeMillis(),
+            requestId = "request-unknown-package",
+            provider = "tap-for-me",
+            action = AuditAction.Tap,
+            targetApp = "unknown",
+            semanticTarget = "point(100,200)",
+            confirmationRequired = false,
+            userConfirmed = false,
+            result = AuditResult.NotFound,
+        )
+        var disableCalls = 0
+
+        compose.setContent {
+            HandyDesignTheme {
+                AuditReviewScreen(
+                    state = AuditReviewUiState(events = listOf(event)),
+                    onDisablePackage = { disableCalls++ },
+                )
+            }
+        }
+
+        compose.onNodeWithText("DISABLE IN THIS APP")
+            .assertHasNoClickAction()
+        compose.runOnIdle {
+            assertThat(disableCalls).isEqualTo(0)
+        }
     }
 }

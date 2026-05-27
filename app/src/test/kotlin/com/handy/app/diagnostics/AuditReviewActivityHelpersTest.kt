@@ -15,13 +15,21 @@ class AuditReviewActivityHelpersTest {
             .isEqualTo("TODAY")
 
         val yesterday = Calendar.getInstance().apply {
-            add(Calendar.HOUR_OF_DAY, -24)
+            set(Calendar.HOUR_OF_DAY, 12)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            add(Calendar.DAY_OF_YEAR, -1)
         }
         assertThat(invokePrivateHelper("dayBucket", eventAt(yesterday.timeInMillis)).toString())
             .isEqualTo("YESTERDAY")
 
         val older = Calendar.getInstance().apply {
-            add(Calendar.HOUR_OF_DAY, -48)
+            set(Calendar.HOUR_OF_DAY, 12)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            add(Calendar.DAY_OF_YEAR, -2)
         }
         assertThat(invokePrivateHelper("dayBucket", eventAt(older.timeInMillis)).toString())
             .isEqualTo("OLDER")
