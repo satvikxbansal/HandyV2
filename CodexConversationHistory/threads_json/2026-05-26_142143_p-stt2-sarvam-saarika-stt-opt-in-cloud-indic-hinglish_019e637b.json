@@ -1,0 +1,279 @@
+{
+  "metadata": {
+    "thread_id": "019e637b-939a-7da3-a3df-d70688a0b2af",
+    "title": "P-STT2: Sarvam Saarika STT (opt-in cloud, Indic + Hinglish…",
+    "created_local": "2026-05-26 14:21:43 IST",
+    "updated_local": "2026-05-26 15:07:46 IST",
+    "cwd": "/Users/satvik.bansal/Desktop/Handy.android/HandyV2",
+    "archived": false,
+    "source_rollout_path": "/Users/satvik.bansal/.codex/sessions/2026/05/26/rollout-2026-05-26T14-21-43-019e637b-939a-7da3-a3df-d70688a0b2af.jsonl",
+    "recorded_git_sha_at_start": "0101729ae72f4c296ad34a9bdcb897bd56bc7895",
+    "recorded_git_branch_at_start": "main",
+    "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
+    "message_count": 41,
+    "summary": "This conversation focused on: Add an opt-in Sarvam Saarika v2 STT provider for high-quality Indic and code-mix Hinglish transcription. Cloud-only, gated by explicit user consent in settings. The original macOS Handy used Sarvam; this brings parity. Does NOT replace AndroidSttClient — adds… Likely related git changes: 0101729 P-STT1: STT mode, language, MAX_RESULTS=3, confidence, Andr…; 4744f20 P-STT2: Sarvam Saarika STT (opt-in cloud, Indic + Hinglish premium path).",
+    "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
+    "likely_related_commits": [
+      {
+        "hash": "0101729ae72f4c296ad34a9bdcb897bd56bc7895",
+        "short": "0101729",
+        "author_time": "2026-05-26 14:21:30 IST",
+        "subject": "P-STT1: STT mode, language, MAX_RESULTS=3, confidence, Andr…",
+        "confidence": "medium",
+        "score": 6,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words language, mode"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/build.gradle.kts",
+          "android-runtime/src/main/kotlin/com/handy/runtime/di/RuntimeModule.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/AndroidSttClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/AndroidTtsClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/storage/DataStoreSettings.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/speech/AndroidSttClientTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/speech/TtsChunkerTest.kt",
+          "app/src/main/AndroidManifest.xml",
+          "app/src/main/kotlin/com/handy/app/chat/ChatViewModel.kt",
+          "app/src/main/kotlin/com/handy/app/diagnostics/DiagnosticsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt"
+        ]
+      },
+      {
+        "hash": "4744f20cead651482ecf33b1a984977cccb453fd",
+        "short": "4744f20",
+        "author_time": "2026-05-26 15:08:55 IST",
+        "subject": "P-STT2: Sarvam Saarika STT (opt-in cloud, Indic + Hinglish premium path)",
+        "confidence": "high",
+        "score": 15,
+        "reasons": [
+          "inside/near active thread window",
+          "matched phase/tag stt2",
+          "matched words cloud, hinglish, indic, saarika, sarvam"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "PRIVACY_POLICY.md",
+          "README.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/di/RuntimeModule.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/MicAudioRecorder.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/SarvamSttClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/SwitchingSttClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/storage/DataStoreSettings.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/speech/SarvamSttClientHttpTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/speech/SwitchingSttClientTest.kt",
+          "app/src/main/kotlin/com/handy/app/chat/ChatActivity.kt",
+          "app/src/main/kotlin/com/handy/app/chat/ChatViewModel.kt"
+        ]
+      }
+    ]
+  },
+  "messages": [
+    {
+      "timestamp": "2026-05-26T08:51:47.752Z",
+      "role": "user",
+      "text": "GOAL\nAdd an opt-in Sarvam Saarika v2 STT provider for high-quality Indic and\ncode-mix Hinglish transcription. Cloud-only, gated by explicit user\nconsent in settings. The original macOS Handy used Sarvam; this brings\nparity. Does NOT replace AndroidSttClient — adds a switcher.\n\nVERIFIED PRE-CONDITIONS\n- SttClient interface accepts a Flow<SttEvent>. Suitable for a\n  non-streaming HTTP STT if we batch one utterance per session\n  (long-press → release → upload → emit Final).\n- Sarvam Saarika v2 batch endpoint: POST https://api.sarvam.ai/speech-to-text\n    multipart with `file` (audio) and `model=saarika:v2`,\n    optional `language_code`, `with_timestamps=false`.\n    Response: { \"request_id\", \"transcript\", \"language_code\", \"diarized_transcript\" }\n    Streaming endpoint exists too (`speech-to-text-translate`) but for\n    simplicity v1 of this provider does batch upload after release.\n\nIMPLEMENTATION\n\n1. Settings additions:\n   File: core/src/main/kotlin/com/handy/core/model/Settings.kt\n       enum class SttProvider {\n           ANDROID,           // existing\n           SARVAM_SAARIKA,    // new\n       }\n       (SttProvider already exists with ANDROID only — add SARVAM_SAARIKA.)\n\n2. Audio recorder:\n   File: android-runtime/src/main/kotlin/com/handy/runtime/speech/MicAudioRecorder.kt\n   - Records raw PCM into a memory buffer (no disk) when the user holds\n     long-press.\n   - Encodes to WAV on stop.\n   - 16kHz mono, 16-bit PCM (Sarvam preferred).\n   - Enforces max session = 30s; refuses to upload anything longer.\n   - Uses AudioRecord; respects RECORD_AUDIO permission already gated by\n     VoiceController.\n\n3. Implement SarvamSttClient:\n   File: android-runtime/src/main/kotlin/com/handy/runtime/speech/SarvamSttClient.kt\n       class SarvamSttClient @Inject constructor(\n           private val recorder: MicAudioRecorder,\n           private val keyStore: KeyStore,\n           private val settings: DataStoreSettings,\n           private val httpClient: OkHttpClient,\n           private val json: Json,\n       ) : SttClient {\n           override val isOnDeviceAvailable: Boolean = false\n\n           override fun listen(): Flow<SttEvent> = callbackFlow {\n               val key = keyStore.get(EncryptedKeyStore.KEY_SARVAM)\n                   ?: run {\n                       trySend(SttEvent.Error(\"Add a Sarvam API key in Settings.\", false))\n                       close(); return@callbackFlow\n                   }\n               recorder.start()\n               trySend(SttEvent.BeginningOfSpeech)\n               awaitClose {\n                   recorder.stop()\n                   // Upload synchronously; can't stream partials with the batch endpoint.\n                   uploadBlocking(key, recorder.consumeWavBytes())\n                       .fold(\n                           onSuccess = { tr -> trySend(SttEvent.Final(tr, isOnDevice = false)); close() },\n                           onFailure = { e -> trySend(SttEvent.Error(e.message ?: \"Sarvam STT failed\", true)); close() },\n                       )\n               }\n           }\n           override fun stopListening() { /* signals awaitClose */ }\n           override fun release() { recorder.release() }\n       }\n   - HTTP timeouts: 15s upload.\n   - On 401: clear key + emit error.\n   - The UX trade-off: Sarvam batch STT means no live partial transcripts.\n     That's OK for short turns. Document in settings: \"Sarvam transcribes\n     after you release the press. No live preview.\"\n\n4. SwitchingSttClient:\n   File: android-runtime/src/main/kotlin/com/handy/runtime/speech/SwitchingSttClient.kt\n   Same pattern as SwitchingTtsClient. Defaults to AndroidSttClient.\n   Switches when:\n       settings.sttProvider == SARVAM_SAARIKA && keyStore.get(KEY_SARVAM) != null\n\n5. DI rewire:\n   File: android-runtime/.../RuntimeModule.kt\n   Change provideSttClient to return SwitchingSttClient with both arms.\n\n6. Settings UI:\n   File: app/src/main/kotlin/com/handy/app/settings/sections/BrainSection.kt\n   Add provider picker (Android / Sarvam Saarika). When Sarvam picked:\n   - Show the same Sarvam API key field as P-VOICE-2 (same key, same\n     storage slot — reuse).\n   - Caption: \"Cloud transcription. Better Hindi and Hinglish; no live\n     preview. Audio is sent to Sarvam.\"\n   - First-time enable shows a one-tap consent sheet (\"Send audio to\n     Sarvam? Each session uploads up to ~30s of audio.\").\n\nPRIVACY\n- Audio is never written to disk. The PCM buffer is freed after upload.\n- Audit log records provider=sarvam-saarika, language, audio_ms,\n  latency_ms, success/fail — never the transcript or the audio.\n\nACCEPTANCE\n- ANDROID provider + AndroidSttClient continue working unchanged.\n- SARVAM_SAARIKA + key + consent → long-press → release → spinner →\n  transcript appears, then submits.\n- SARVAM_SAARIKA + no key → friendly settings prompt, no upload.\n- SARVAM_SAARIKA + airplane mode → graceful failure (\"Sarvam needs\n  internet — switch to Android STT or reconnect\").\n- Cancelling mid-press (no release) → no upload.\n- Sessions > 30s are truncated; user sees a chip \"Cut off at 30s\".\n\nTESTS\n- SarvamSttClientHttpTest (MockWebServer):\n  - 200 + transcript → SttEvent.Final.\n  - 401 → SttEvent.Error(\"auth_failed\").\n  - >30s recording → truncated upload, transcript reflects only first 30s.\n- SwitchingSttClientTest:\n  - settings flow flips → routing updates.\n- Manual:\n  - Hinglish utterance via Sarvam — transcript noticeably better than\n    Android STT on the same device.\n  - Switch back to Android — no regressions.\n\nDO NOT\n- Persist audio.\n- Auto-enable Sarvam. Default stays ANDROID.\n- Send audio if RECORD_AUDIO is not granted.\n- Re-prompt for consent every session — once is enough; revoke via\n  settings.\n\nUPDATE\n- DEBUG_LOG.md, README, privacy policy (Sarvam cloud STT disclosed).\nAdditional stuff\nA) Mention the change the code brings to the application - the before and after with real life practical examples if possible. \nB) Share an indepth end to end manual testing plan of the changes done - be practical and ensure all aspects are tested well before we proceed.   \nC) ENSURE THERE ARE NO BUILDS ERRORS OR APP CRASHES. AUDIOT THE CODE COMPLETELY AND FIX ANY ERRORS"
+    },
+    {
+      "timestamp": "2026-05-26T08:51:57.219Z",
+      "role": "assistant",
+      "text": "I’ll wire this in end to end: first I’m going to map the existing STT, settings, DI, key storage, and TTS switcher patterns so the Sarvam path lands in the app’s own architecture instead of feeling bolted on."
+    },
+    {
+      "timestamp": "2026-05-26T08:52:12.810Z",
+      "role": "assistant",
+      "text": "I found the existing Sarvam TTS plumbing and the settings model already has Sarvam language/voice concepts, which is good news: STT can reuse the same encrypted key slot and settings idioms. Next I’m reading the voice lifecycle and switcher patterns so `stopListening()` matches how long-press release actually closes the flow."
+    },
+    {
+      "timestamp": "2026-05-26T08:53:26.699Z",
+      "role": "assistant",
+      "text": "There’s a small requirements tension in the prompt: one line says “refuses to upload anything longer,” while acceptance says “sessions >30s are truncated.” I’m going to implement the privacy-preserving version that records at most 30 seconds in memory, uploads only that clipped WAV, and emits a user-visible non-transcript status event so the turn can still complete."
+    },
+    {
+      "timestamp": "2026-05-26T08:56:08.068Z",
+      "role": "assistant",
+      "text": "I have enough of the shape now. The main pieces I’m changing are: settings + consent state, an in-memory 16 kHz WAV recorder, Sarvam batch HTTP client with audit-safe telemetry, an STT switcher, settings UI disclosure/key controls, and focused unit coverage for HTTP/routing/recording limits."
+    },
+    {
+      "timestamp": "2026-05-26T08:56:21.712Z",
+      "role": "assistant",
+      "text": "I’m starting with the pure model layer so downstream code has stable names to compile against: new provider enum value, persisted consent bit, a transcript-safe STT notice event, and a speech-to-text audit action that stores metadata only."
+    },
+    {
+      "timestamp": "2026-05-26T08:59:01.382Z",
+      "role": "assistant",
+      "text": "Now I’m adding the cloud path itself. The client waits for the existing long-press release signal, stops the in-memory recorder, uploads a single WAV to Sarvam, clears the key on auth failure, and writes only provider/language/audio/latency metadata to the local audit."
+    },
+    {
+      "timestamp": "2026-05-26T09:01:03.629Z",
+      "role": "assistant",
+      "text": "The switcher is now in place and Android STT is still its own arm. I’m updating the voice controller next so Sarvam-specific runtime messages like “cut off at 30s” and “needs internet” can be shown without ever treating those messages as transcript text."
+    },
+    {
+      "timestamp": "2026-05-26T09:04:06.000Z",
+      "role": "assistant",
+      "text": "I’m moving into Settings now. The provider choice stays inside the Brain card, but Sarvam gets its own explicit consent path and reuses the existing encrypted Sarvam key so users do not manage two separate Sarvam secrets."
+    },
+    {
+      "timestamp": "2026-05-26T09:06:27.167Z",
+      "role": "assistant",
+      "text": "I’m adding tests against the seam that matters most: Sarvam HTTP with MockWebServer, including auth/key clearing and the 30-second clamp, plus switcher tests so flipping settings routes between Android and Sarvam without replacing the Android recognizer."
+    },
+    {
+      "timestamp": "2026-05-26T09:08:11.154Z",
+      "role": "assistant",
+      "text": "The code path is broad enough that I’m going to let the compiler complain early before I polish docs. First pass will be targeted Kotlin/test compilation around `:core`, `:android-runtime`, and `:app` so we can catch type/DI/Compose issues while the diff is still fresh."
+    },
+    {
+      "timestamp": "2026-05-26T09:08:49.127Z",
+      "role": "assistant",
+      "text": "The first compile pass got through the new runtime tests and then caught an exhaustive `when` in the audit UI, which is exactly the kind of downstream break I wanted surfaced early. I’m adding the new STT audit action to the diagnostics renderers now, still without exposing transcript/audio."
+    },
+    {
+      "timestamp": "2026-05-26T09:10:04.166Z",
+      "role": "assistant",
+      "text": "The implementation pieces are in place and compiling. I’m updating the user-facing docs now so the README and privacy policy say the same thing the code does: Android STT remains default, Sarvam STT is explicit opt-in, audio goes only after release, and logs/audit never store transcript or audio."
+    },
+    {
+      "timestamp": "2026-05-26T09:13:31.733Z",
+      "role": "assistant",
+      "text": "I’ve got the Sarvam path wired through the app and the targeted Kotlin/test fixes are already green. I’m doing the last sweep now: docs/debug log, full Gradle validation, and a smoke check for install/launch if an Android device or emulator is visible."
+    },
+    {
+      "timestamp": "2026-05-26T09:13:39.723Z",
+      "role": "assistant",
+      "text": "The workspace has the expected modified files plus the new Sarvam runtime/test files; `git diff --check` is clean. I’m finding the next debug-log slot now so the audit trail lands with the change instead of living only in my notes."
+    },
+    {
+      "timestamp": "2026-05-26T09:13:50.621Z",
+      "role": "assistant",
+      "text": "Next I’m running the broad verification pass, not just the new tests. This is the part that catches the unglamorous failures: lint exhaustiveness, generated resource references, Hilt wiring, and APK assembly."
+    },
+    {
+      "timestamp": "2026-05-26T09:14:39.319Z",
+      "role": "assistant",
+      "text": "Full Gradle validation passed, including lint and `assembleDebug`. I’m doing the runtime smoke next: check for a connected emulator/device, install the fresh APK if possible, launch the app, then scan fresh logcat for process-crash signatures."
+    },
+    {
+      "timestamp": "2026-05-26T09:14:48.644Z",
+      "role": "assistant",
+      "text": "The APK exists, but `adb` is not on the shell PATH. I’m checking the usual Android SDK locations before I mark runtime smoke as unavailable."
+    },
+    {
+      "timestamp": "2026-05-26T09:15:19.050Z",
+      "role": "assistant",
+      "text": "A device is online (`emulator-5554`), so I can do the crash smoke properly. I’ll install the freshly assembled debug APK, clear logcat, launch through the launcher intent, and then read only the fresh crash/error signatures."
+    },
+    {
+      "timestamp": "2026-05-26T09:16:13.424Z",
+      "role": "assistant",
+      "text": "Runtime smoke is clean: the rebuilt APK installs, launches, and the Handy process stays alive. The only fresh logcat noise is the repo’s known debug StrictMode disk-read logging; a stricter crash scan found no `FATAL EXCEPTION`, `E/AndroidRuntime`, ANR, force-finish, or Handy process death."
+    },
+    {
+      "timestamp": "2026-05-26T09:16:56.830Z",
+      "role": "assistant",
+      "text": "While reviewing the new tests, I spotted a couple of acceptance paths that were behaviorally implemented but not explicitly pinned: missing key and missing consent. I’m adding small MockWebServer assertions for those so the “no upload” guarantee stays locked."
+    },
+    {
+      "timestamp": "2026-05-26T09:17:43.430Z",
+      "role": "assistant",
+      "text": "The acceptance pins are in: missing key and missing consent now assert recorder never starts and no HTTP request is made; network failure asserts the exact offline guidance and audit reason. I’m rerunning the Sarvam STT test class first, then I’ll rerun the broad build once the debug log is appended."
+    },
+    {
+      "timestamp": "2026-05-26T09:18:20.454Z",
+      "role": "assistant",
+      "text": "One new test exposed a harmless race in the fake recorder assertion: cancellation can call `cancel()` from both the flow close path and the waiting upload coroutine, but neither path uploads. I’m tightening the assertion to the actual contract: recorder was cancelled, never stopped for upload, and no HTTP request was sent."
+    },
+    {
+      "timestamp": "2026-05-26T09:18:52.012Z",
+      "role": "assistant",
+      "text": "Targeted Sarvam STT tests are green again with the stricter no-upload coverage. I’m rerunning the full validation because the test file changed after the earlier successful full pass."
+    },
+    {
+      "timestamp": "2026-05-26T09:19:52.117Z",
+      "role": "assistant",
+      "text": "Full validation is green after the extra acceptance tests. I’m appending the required `DEBUG_LOG.md` entry now with the implementation summary, practical before/after impact, manual release plan, and the exact validation I ran."
+    },
+    {
+      "timestamp": "2026-05-26T09:21:19.502Z",
+      "role": "assistant",
+      "text": "The debug log is appended and the final whitespace check is clean. I’m doing one last status/stat pass so I can give you a tight close-out with the exact files and validation state."
+    },
+    {
+      "timestamp": "2026-05-26T09:22:25.448Z",
+      "role": "assistant",
+      "text": "Implemented the opt-in Sarvam Saarika v2 STT path end to end. Android STT remains the default and unchanged; Sarvam is only used after Settings consent plus a saved Sarvam key.\n\n**What Changed**\n- Added `SARVAM_SAARIKA` and consent persistence in [Settings.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/model/Settings.kt:39) and `DataStoreSettings`.\n- Added in-memory WAV recording with 16 kHz mono PCM, no disk writes, and a 30s cap in [MicAudioRecorder.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/speech/MicAudioRecorder.kt:38).\n- Added Sarvam batch upload, 401 key clearing, network-friendly errors, buffer zeroing, and transcript-free audit logs in [SarvamSttClient.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/speech/SarvamSttClient.kt:47).\n- Added provider routing in [SwitchingSttClient.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/speech/SwitchingSttClient.kt:21) and rewired DI in [RuntimeModule.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/di/RuntimeModule.kt:198).\n- Added Settings provider picker, Sarvam key reuse, revoke consent, and consent dialog in [BrainSection.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/settings/sections/BrainSection.kt:221) and [SettingsActivity.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt:451).\n- Added `SttEvent.Notice` for the “Cut off at 30s” chip/status without polluting transcript text in [SttClient.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/core/src/main/kotlin/com/handy/core/speech/SttClient.kt:45).\n- Updated README, privacy policy, and [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md:1981).\n\n**Before / After**\nBefore: a Hinglish command like “panch minute ka timer lagao” or “Subah 7 baje alarm set kar do” depended entirely on Android SpeechRecognizer and could mishear the code-mix.\n\nAfter: users who explicitly opt in can use Sarvam for better Hindi/Hinglish transcription. The flow is long-press -> release -> transcribing -> final transcript submits. No live preview on Sarvam because this v1 uses batch upload; Android STT still gives the existing behavior when selected.\n\n**Manual Testing Plan**\n1. Clean install: confirm provider is Android, Sarvam consent is off, and no Sarvam key is required.\n2. Android regression: test long-press voice in chat and overlay with Auto, On-device only, and Network allowed.\n3. Select Sarvam, dismiss consent, long-press: confirm no recording/upload and a consent prompt/error.\n4. Select Sarvam, grant consent, no key: confirm friendly “Add a Sarvam API key in Settings.” and no upload.\n5. Add real Sarvam key: speak English, Hindi, and Hinglish; confirm release triggers spinner/transcribing and one final submit.\n6. A/B test same Hinglish phrase with Android vs Sarvam on the same device.\n7. Hold beyond 30s: confirm “Cut off at 30s” and transcript only covers the capped audio.\n8. Cancel mid-press: confirm no HTTP request.\n9. Airplane mode: confirm “Sarvam needs internet — switch to Android STT or reconnect.”\n10. Audit/privacy: confirm audit has provider/language/audio_ms/latency/success-fail only, never transcript/audio.\n11. Revoke consent: confirm Sarvam cannot upload again until consent is re-granted.\n12. Switch back to Android: repeat normal voice, cancel, mic-denied, chat mic, and overlay mic flows.\n\n**Validation**\n- `git diff --check` passed.\n- Targeted Sarvam/Switching/Voice tests passed.\n- Full validation passed: `:core:test :android-runtime:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug :app:assembleDebug`.\n- Installed `app-debug.apk` on `emulator-5554`, launched `com.handy.android`, process stayed alive, and fresh logcat crash scan found no `FATAL EXCEPTION`, `E/AndroidRuntime`, ANR, force-finish, or Handy process death. Only the known debug StrictMode disk-read logs appeared.\n\nI did not run a live real-key Sarvam Hinglish A/B call here because no Sarvam API key was available in the workspace; the HTTP path is covered with MockWebServer and the release manual plan above covers the real provider check."
+    },
+    {
+      "timestamp": "2026-05-26T09:22:25.711Z",
+      "role": "user",
+      "text": "Lots of changes done above which included context compactions in the middle. 1700+ lines of code were written across 30+ files- that's a lot of code and it needs a deep deep thorough audit - functional as well as non-functional! The voice services especially are critical in Handy! Can you go through the original prompt, code changes done in extreme detail, audit them, ensure all the required changes were done and done correctly with no downstream impact. the code before this works fine with it - no suspicious lines of codes for app crashes, or faulty wirings. all the services that needed to be changed have been changed and nothing is left or missed. ensure the ui is also proper with correct spacings, colours, fonts and elements. be very thorough in your analysis and evaluation. use highest level of reasoning available. Log the rca in the debug log and explain why the misses were missed. use highest level of thinking possible and think deeply. Evaluate and understand very deeply. Be very thorough and detailed. use your highest level of intelligence to analyse the requirement, code generated and plug gaps. be very thorough and have highest attention to detail. carefully analyse all the code - new and old and all dependencies too."
+    },
+    {
+      "timestamp": "2026-05-26T09:22:44.903Z",
+      "role": "assistant",
+      "text": "I’ll treat this as a fresh audit pass, not as a rubber stamp. I’m going back through the original requirement against the diff and the surrounding voice/settings/DI code, then I’ll patch any gaps I find, rerun validation, and add a debug-log audit entry that names what was missed and why."
+    },
+    {
+      "timestamp": "2026-05-26T09:22:56.920Z",
+      "role": "assistant",
+      "text": "The first pass confirms the tree is exactly the Sarvam STT patch plus the pre-existing untracked `handy_macos_ref/`. I’m drilling into the runtime lifecycles now: recorder ownership, callbackFlow close paths, DI scoping, VoiceController stop/cancel behavior, and Settings state propagation."
+    },
+    {
+      "timestamp": "2026-05-26T09:24:14.173Z",
+      "role": "assistant",
+      "text": "A real issue surfaced: Sarvam batch STT can legitimately take longer than the old Android recognizer’s 2 second final-grace window, so the first implementation could cancel the upload before the final transcript arrived on a normal network. I’m going to add an explicit per-provider final timeout so Android keeps the fast behavior and Sarvam gets enough time for its 15s upload timeout."
+    },
+    {
+      "timestamp": "2026-05-26T09:26:47.266Z",
+      "role": "assistant",
+      "text": "I patched the timeout hole and added regression coverage so this cannot silently regress: Sarvam now advertises a 20s terminal-result window, Android keeps the default 2s, and the switcher/VoiceController delegate to the active provider. I also hardened Sarvam release/cancellation so service teardown can cancel an in-flight upload instead of letting it drift."
+    },
+    {
+      "timestamp": "2026-05-26T09:27:31.733Z",
+      "role": "assistant",
+      "text": "The next UI audit found a smaller but real future-value problem: this repo already has hidden `ASSEMBLY_AI` / `OPEN_AI` enum values, and the Sarvam settings rows treated every non-Android value as Sarvam. Runtime routing fell back to Android, but Settings could show the wrong cloud key/consent rows for a stale or future value. I’m normalizing the UI to “Sarvam only when explicitly Sarvam; everything else displays Android.”"
+    },
+    {
+      "timestamp": "2026-05-26T09:29:01.295Z",
+      "role": "assistant",
+      "text": "One acceptance nuance also needed tightening: the cutoff notice is emitted after release, when the widget path has already moved from LISTENING to THINKING. The overlay presenter was ignoring voice notices outside LISTENING, so the full chat/panel could show the chip but the widget path could miss it. I’m allowing voice notices during the immediate THINKING drain as well."
+    },
+    {
+      "timestamp": "2026-05-26T09:29:48.140Z",
+      "role": "assistant",
+      "text": "The privacy audit found one memory hygiene gap worth fixing: upload bytes were zeroed, but the recorder’s internal PCM buffer relied on garbage collection after stop/cancel. It was never written to disk, but for a voice/privacy path we can do better. I’m replacing the recorder buffer with a wipeable in-memory buffer and zeroing the PCM copy after WAV encoding."
+    },
+    {
+      "timestamp": "2026-05-26T09:30:22.456Z",
+      "role": "assistant",
+      "text": "The requirement also asked that Sarvam STT audit success/failure without transcript/audio. Success and HTTP failures were covered, but pre-upload failures like missing consent/key were not logged. I’m adding zero-audio failure audit rows for those gated exits so the audit contract is consistent without weakening privacy."
+    },
+    {
+      "timestamp": "2026-05-26T09:33:11.668Z",
+      "role": "assistant",
+      "text": "The audit checklist is now in a better place: provider timeout, cancellation, memory wiping, pre-upload audit rows, hidden-provider UI fallback, and cutoff notice visibility are all patched and covered by targeted tests. I’m running the full build/lint/test suite again before I write the final audit RCA entry."
+    },
+    {
+      "timestamp": "2026-05-26T09:34:02.941Z",
+      "role": "assistant",
+      "text": "Full Gradle validation passed again after the audit fixes. I’m doing the final device smoke now with the rebuilt APK, then I’ll append the audit RCA entry to `DEBUG_LOG.md`."
+    },
+    {
+      "timestamp": "2026-05-26T09:34:34.376Z",
+      "role": "assistant",
+      "text": "Device smoke is clean with the rebuilt APK: install succeeded, launcher start succeeded, the Handy process stayed alive, and a strict crash scan found no fatal exception, AndroidRuntime error, ANR, force-finish, or process death. I’m appending the deep-audit RCA now."
+    },
+    {
+      "timestamp": "2026-05-26T09:37:14.302Z",
+      "role": "assistant",
+      "text": "I’ve completed the deep audit pass and the build/device verification; I’m just grabbing the exact anchors for the audit log and docs so the close-out points to the right places."
+    },
+    {
+      "timestamp": "2026-05-26T09:37:46.755Z",
+      "role": "assistant",
+      "text": "Deep audit is complete. I found and fixed several real issues in the Sarvam STT work, including the most important one: batch Sarvam uploads could have been cancelled by the old Android STT 2s final-result timeout. Sarvam now gets a longer provider-specific timeout, cancellation does not upload audio, missing consent/key paths do not record or upload, auth failures clear the key, audio buffers are wiped after use, and the UI now matches runtime routing instead of accidentally treating hidden/future providers as Sarvam.\n\nI logged the RCA and audit hardening in [DEBUG_LOG.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/DEBUG_LOG.md:1993). Short version: the misses came from adapting an Android live-streaming STT flow to a batch-upload provider, plus context-compacted work hiding cross-layer timing/state edges. The fixed areas are concentrated around [SarvamSttClient.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/speech/SarvamSttClient.kt), [MicAudioRecorder.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/speech/MicAudioRecorder.kt), [SwitchingSttClient.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/android-runtime/src/main/kotlin/com/handy/runtime/speech/SwitchingSttClient.kt), [VoiceController.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/voice/VoiceController.kt), and [BrainSection.kt](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/app/src/main/kotlin/com/handy/app/settings/sections/BrainSection.kt).\n\nBefore/after: before this, Handy always used Android STT, so code-mix commands like “kal subah 7 baje alarm laga do” depended on Android’s recognition quality. After this change, Android remains the default, but a user who explicitly consents and adds a Sarvam key can choose Sarvam Saarika for better Hindi/Hinglish transcription; audio uploads only after release, with no live preview, capped at 30s.\n\nValidation passed:\n\n```bash\nJAVA_HOME=/Users/satvik.bansal/.cache/codex-jdk17 PATH=/Users/satvik.bansal/.cache/codex-jdk17/bin:$PATH ./gradlew --no-daemon :core:test :android-runtime:testDebugUnitTest :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace\ngit diff --check\nadb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk\n```\n\nThe full Gradle test/lint/assemble pass is clean. Emulator smoke launch was clean too: app process stayed alive and strict logcat scan found no `FATAL EXCEPTION`, `E/AndroidRuntime`, ANR, force-finish, or process-death signal.\n\nManual test plan to run on-device before release:\n\n1. Android default: fresh install, do not enable Sarvam, long-press voice, confirm Android STT still returns live/normal results.\n2. Sarvam no key: select Sarvam, deny or omit key, long-press, confirm friendly settings prompt and no network upload.\n3. Sarvam consent: select Sarvam, accept one-tap consent, verify it does not re-prompt every session.\n4. Sarvam success: add real key, speak Hinglish, release, verify spinner/transcribing state, final transcript appears and submits.\n5. Airplane mode: Sarvam selected with key/consent, record and release, verify “Sarvam needs internet — switch to Android STT or reconnect”.\n6. Cancel path: start press, cancel before release, verify no upload request is made.\n7. Long session: hold past 30s, verify cutoff notice/chip appears and only first 30s uploads.\n8. Switch back: choose Android again and verify no Sarvam UI/network behavior remains in the voice path.\n9. Audit/privacy: verify audit shows provider/language/audio_ms/latency/success-fail only, never transcript or audio.\n10. UI pass: settings spacing, consent dialog copy, key field, revoke consent, chat composer notice, overlay notice.\n\nOne thing I could not genuinely verify without a real Sarvam key and physical microphone flow is the live “Sarvam transcript noticeably better than Android” manual comparison. Everything local, mocked, linted, assembled, and emulator-smoked is clean."
+    }
+  ]
+}
