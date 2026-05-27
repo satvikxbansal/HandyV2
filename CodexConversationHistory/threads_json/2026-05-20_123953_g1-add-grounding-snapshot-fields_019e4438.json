@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 13,
-    "summary": "This conversation focused on: 1) Extend TurnScreenContext into GroundingSnapshot (added fields: windowId, displayId, orientation, windowBounds, safeInsets, imeVisible, imeBounds, densityDpi, locale, uiMode, rootBoundsHash, treeHash, capturedAtMs, privacyFlags). Keep Tu… Likely related git changes: 796f32d Add MediaProjection capture source and grounding.",
+    "summary": "This conversation focused on: 1) Extend TurnScreenContext into GroundingSnapshot (added fields: windowId, displayId, orientation, windowBounds, safeInsets, imeVisible, imeBounds, densityDpi, locale, uiMode, rootBoundsHash, treeHash, capturedAtMs, privacyFlags). Keep TurnScreenContext as a… Likely related git changes: 796f32d Add MediaProjection capture source and grounding.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": [
       {
