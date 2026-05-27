@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 15,
-    "summary": "This conversation focused on: Wrap AssistantAction.StartTimer in a TimerRecipe so \"set a 10-minute timer\" follows the plan-approval flow. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ClockRecipe.kt (mirror structure) - core/src/main/k… Likely related git changes: 1c44ee5 S2: Add TimerRecipe for StartTimer.",
+    "summary": "This conversation focused on: Wrap AssistantAction.StartTimer in a TimerRecipe so \"set a 10-minute timer\" follows the plan-approval flow. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ClockRecipe.kt (mirror structure) - core/src/main/kotlin/com/handy/core… Likely related git changes: 1c44ee5 S2: Add TimerRecipe for StartTimer.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": [
       {

@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 16,
-    "summary": "This conversation focused on: Add WebSearchRecipe that opens the user's default browser with a search URL via AssistantAction.WebSearchIntent. Does not use the web_search tool quota. FILES TO KNOW - core/src/main/kotlin/com/handy/core/action/AssistantAction.kt (WebSear… Likely related git changes: 5275e07 S3: Add web search recipe.",
+    "summary": "This conversation focused on: Add WebSearchRecipe that opens the user's default browser with a search URL via AssistantAction.WebSearchIntent. Does not use the web_search tool quota. FILES TO KNOW - core/src/main/kotlin/com/handy/core/action/AssistantAction.kt (WebSearchIntent) - android-… Likely related git changes: 5275e07 S3: Add web search recipe.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": [
       {

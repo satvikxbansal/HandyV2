@@ -11,7 +11,7 @@
     "recorded_git_branch_at_start": "main",
     "recorded_git_origin_url": "https://github.com/satvikxbansal/HandyV2.git",
     "message_count": 13,
-    "summary": "This conversation focused on: Add AssistantAction.InstallApp and InstallAppRecipe that opens the Play Store listing for a given package or search query. We never auto-install — the user taps Install. FILES TO KNOW - core/src/main/kotlin/com/handy/core/action/AssistantA… Likely related git changes: c7027a5 S9: Add playstore install action.",
+    "summary": "This conversation focused on: Add AssistantAction.InstallApp and InstallAppRecipe that opens the Play Store listing for a given package or search query. We never auto-install — the user taps Install. FILES TO KNOW - core/src/main/kotlin/com/handy/core/action/AssistantAction.kt - android-r… Likely related git changes: c7027a5 S9: Add playstore install action.",
     "commit_association_note": "Commit links are heuristic: recorded starting SHA from Codex plus likely related commits inferred from commit timestamps and title/subject token matches.",
     "likely_related_commits": [
       {
