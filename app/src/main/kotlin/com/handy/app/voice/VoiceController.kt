@@ -62,6 +62,8 @@ class VoiceController @Inject constructor(
     @Volatile private var finalConfidence: Float? = null
     @Volatile private var lastError: String? = null
     @Volatile private var consumableError: String? = null
+    @Volatile private var activeTimelineTurnId: String? = null
+    @Volatile private var completedTimelineTurnId: String? = null
     @Volatile private var startedWhilePointing: Boolean = false
     @Volatile private var lastPointingCorrectionHandled: Boolean = false
     @Volatile private var lastLowConfidenceTranscriptHandled: Boolean = false
@@ -84,6 +86,9 @@ class VoiceController @Inject constructor(
         finalConfidence = null
         lastError = null
         consumableError = null
+        val timelineTurnId = "voice-${java.util.UUID.randomUUID()}"
+        activeTimelineTurnId = timelineTurnId
+        completedTimelineTurnId = null
         lastPointingCorrectionHandled = false
         lastLowConfidenceTranscriptHandled = false
         startedWhilePointing = presenter.state.value.let { overlay ->
@@ -98,7 +103,7 @@ class VoiceController @Inject constructor(
 
         collectJob = appScope.launch(Dispatchers.Main.immediate) {
             runCatching {
-                sttClient.listen().collect { event ->
+                sttClient.listen(timelineTurnId).collect { event ->
                     Timber.d("VoiceController: STT event=%s", event::class.simpleName)
                     when (event) {
                         is SttEvent.Partial -> {
@@ -209,6 +214,7 @@ class VoiceController @Inject constructor(
 
         Timber.d("VoiceController.stopAndAwaitFinal: returningChars=%d err=%s", result?.length ?: 0, lastError)
 
+        completedTimelineTurnId = activeTimelineTurnId
         resetBuffers()
         return if (correctionHandled) null else result
     }
@@ -221,6 +227,7 @@ class VoiceController @Inject constructor(
         lastPointingCorrectionHandled = false
         lastLowConfidenceTranscriptHandled = false
         consumableError = null
+        completedTimelineTurnId = null
         resetBuffers()
     }
 
@@ -239,11 +246,15 @@ class VoiceController @Inject constructor(
     fun consumeLastError(): String? =
         consumableError.also { consumableError = null }
 
+    fun consumeLastTimelineTurnId(): String? =
+        completedTimelineTurnId.also { completedTimelineTurnId = null }
+
     private fun resetBuffers() {
         finalTranscript = ""
         finalAlternatives = emptyList()
         finalConfidence = null
         lastError = null
+        activeTimelineTurnId = null
         _latestPartial.value = ""
         _latestNotice.value = ""
         _state.value = State.IDLE

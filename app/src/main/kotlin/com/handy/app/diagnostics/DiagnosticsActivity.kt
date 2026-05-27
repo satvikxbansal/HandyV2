@@ -3,6 +3,7 @@ package com.handy.app.diagnostics
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -29,12 +30,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewModelScope
 import com.handy.app.accessibility.AccessibilityStateMonitor
 import com.handy.app.clipboard.ClipboardAssist
@@ -48,6 +53,8 @@ import com.handy.core.action.ActionExecutionGate
 import com.handy.core.action.PolicyDecision
 import com.handy.core.audit.AuditEvent
 import com.handy.core.audit.AuditStore
+import com.handy.core.audit.TimelineEvent
+import com.handy.core.audit.TimelineExport
 import com.handy.core.llm.LocalAvailability
 import com.handy.core.llm.LocalGenAiClient
 import com.handy.core.model.HandySettings
@@ -56,6 +63,7 @@ import com.handy.runtime.action.DefaultActionPolicyEngine
 import com.handy.runtime.storage.DataStoreSettings
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,6 +72,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import timber.log.Timber
 
 /**
  * DiagnosticsActivity — scope §10.
@@ -76,6 +86,22 @@ import kotlinx.coroutines.withContext
 class DiagnosticsActivity : ComponentActivity() {
 
     private val viewModel: DiagnosticsViewModel by viewModels()
+    private val exportTimelineLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        if (uri != null) {
+            lifecycleScope.launch {
+                runCatching {
+                    val body = viewModel.timelineExportJson()
+                    withContext(Dispatchers.IO) {
+                        contentResolver.openOutputStream(uri)?.use { output ->
+                            output.write(body.toByteArray(Charsets.UTF_8))
+                        }
+                    }
+                }.onFailure { Timber.w(it, "DiagnosticsActivity: timeline export failed") }
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -86,6 +112,10 @@ class DiagnosticsActivity : ComponentActivity() {
                 DiagnosticsScreen(
                     state = state,
                     onReviewActions = { AuditReviewActivity.open(this) },
+                    onExportTimeline = {
+                        exportTimelineLauncher.launch("handy-timeline-${System.currentTimeMillis()}.json")
+                    },
+                    onClearAll = viewModel::clearAll,
                 )
             }
         }
@@ -109,6 +139,7 @@ class DiagnosticsViewModel @Inject constructor(
     private val clipboardAssist: ClipboardAssist,
     private val overlayPresenter: OverlayPresenter,
     private val policyEngine: DefaultActionPolicyEngine,
+    private val json: Json,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DiagnosticsUi())
@@ -128,6 +159,11 @@ class DiagnosticsViewModel @Inject constructor(
         viewModelScope.launch {
             auditStore.observe(limit = 20).collectLatest { tail ->
                 _state.value = _state.value.copy(auditTail = tail)
+            }
+        }
+        viewModelScope.launch {
+            auditStore.observeTimeline(limit = 200).collectLatest { tail ->
+                _state.value = _state.value.copy(timelineTail = tail)
             }
         }
         viewModelScope.launch {
@@ -169,12 +205,20 @@ class DiagnosticsViewModel @Inject constructor(
         LocalAvailability.Unsupported -> "unsupported"
         is LocalAvailability.TemporarilyUnavailable -> "unavailable: $reason"
     }
+
+    suspend fun timelineExportJson(): String =
+        TimelineExport.encode(json, auditStore.timelineRecent(limit = 1_000))
+
+    fun clearAll() {
+        viewModelScope.launch { auditStore.clearAll() }
+    }
 }
 
 data class DiagnosticsUi(
     val settings: HandySettings? = null,
     val accessibility: AccessibilityConnectionState = AccessibilityConnectionState.NeverConnected,
     val auditTail: List<AuditEvent> = emptyList(),
+    val timelineTail: List<TimelineEvent> = emptyList(),
     val policyTail: List<PolicyDecision> = emptyList(),
     val clipState: String = "idle",
     val localAvailability: String = "loading…",
@@ -188,7 +232,11 @@ data class DiagnosticsUi(
 fun DiagnosticsScreen(
     state: DiagnosticsUi,
     onReviewActions: () -> Unit = {},
+    onExportTimeline: () -> Unit = {},
+    onClearAll: () -> Unit = {},
 ) {
+    var selectedTab by remember { mutableStateOf(DiagnosticsTab.Overview) }
+    var expandedTimelineEvent by remember { mutableStateOf<TimelineEvent?>(null) }
     Surface(
         color = HandyColors.Background,
         contentColor = HandyColors.TextPrimary,
@@ -207,57 +255,100 @@ fun DiagnosticsScreen(
                 color = HandyColors.TextPrimary,
             )
             Spacer(Modifier.height(16.dp))
+            DiagnosticsTabs(
+                selected = selectedTab,
+                onSelect = {
+                    selectedTab = it
+                    expandedTimelineEvent = null
+                },
+            )
+            Spacer(Modifier.height(12.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                item { DiagRow("Accessibility", state.accessibility.name) }
-                item { DiagRow("Local GenAI", state.localAvailability) }
-                item { DiagRow("Clipboard", state.clipState) }
-                item { DiagRow("Buddy flight", state.flightFsm) }
-                item { DiagRow("Last flight cancel", state.lastFlightCancellationReason ?: "none") }
-                state.settings?.let { s ->
-                    item { DiagRow("Cloud provider", s.cloudProvider.displayName) }
-                    item { DiagRow("STT mode", s.sttMode.displayName) }
-                    item { DiagRow("STT language", s.sttLanguage.name.lowercase().replaceFirstChar { it.uppercase() }) }
-                    item { DiagRow("Tap-for-me", s.tapForMeEnabled.onOff()) }
-                    item { DiagRow("Gesture action gate", ActionExecutionGate.gesturesAllowed(s).onOff()) }
-                    item { DiagRow("Overlay panel", s.useOverlayChatPanel.onOff()) }
-                    item { DiagRow("Web search", s.webSearchEnabled.onOff()) }
-                    item { DiagRow("Notifications", s.notificationListenerEnabled.onOff()) }
-                    item { DiagRow("Clipboard assist", s.clipboardAssistEnabled.onOff()) }
-                    item { DiagRow("Tutor mode", s.tutorModeEnabled.onOff()) }
-                    item { DiagRow("Quick tile action", s.quickTileAction.displayName) }
-                }
-                if (state.auditTail.isNotEmpty()) {
-                    item {
-                        Spacer(Modifier.height(12.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
-                        ) {
-                            Text(
-                                text = "Recent actions",
-                                style = HandyType.SectionHeader,
-                                color = HandyColors.TextPrimary,
-                                modifier = Modifier.weight(1f),
-                            )
-                            ReviewActionsButton(onClick = onReviewActions)
+                when (selectedTab) {
+                    DiagnosticsTab.Overview -> {
+                        item { DiagRow("Accessibility", state.accessibility.name) }
+                        item { DiagRow("Local GenAI", state.localAvailability) }
+                        item { DiagRow("Clipboard", state.clipState) }
+                        item { DiagRow("Buddy flight", state.flightFsm) }
+                        item { DiagRow("Last flight cancel", state.lastFlightCancellationReason ?: "none") }
+                        state.settings?.let { s ->
+                            item { DiagRow("Cloud provider", s.cloudProvider.displayName) }
+                            item { DiagRow("STT mode", s.sttMode.displayName) }
+                            item { DiagRow("STT language", s.sttLanguage.name.lowercase().replaceFirstChar { it.uppercase() }) }
+                            item { DiagRow("Tap-for-me", s.tapForMeEnabled.onOff()) }
+                            item { DiagRow("Gesture action gate", ActionExecutionGate.gesturesAllowed(s).onOff()) }
+                            item { DiagRow("Overlay panel", s.useOverlayChatPanel.onOff()) }
+                            item { DiagRow("Web search", s.webSearchEnabled.onOff()) }
+                            item { DiagRow("Notifications", s.notificationListenerEnabled.onOff()) }
+                            item { DiagRow("Clipboard assist", s.clipboardAssistEnabled.onOff()) }
+                            item { DiagRow("Tutor mode", s.tutorModeEnabled.onOff()) }
+                            item { DiagRow("Quick tile action", s.quickTileAction.displayName) }
+                        }
+                        if (state.auditTail.isNotEmpty()) {
+                            item {
+                                Spacer(Modifier.height(12.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
+                                ) {
+                                    Text(
+                                        text = "Recent actions",
+                                        style = HandyType.SectionHeader,
+                                        color = HandyColors.TextPrimary,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    DiagActionButton(text = "Review", onClick = onReviewActions)
+                                }
+                            }
+                            items(state.auditTail.reversed()) { event ->
+                                AuditRow(event)
+                            }
+                        }
+                        if (state.policyTail.isNotEmpty()) {
+                            item {
+                                Spacer(Modifier.height(12.dp))
+                                Text(
+                                    text = "Recent policy decisions",
+                                    style = HandyType.SectionHeader,
+                                    color = HandyColors.TextPrimary,
+                                )
+                            }
+                            items(state.policyTail.reversed()) { decision ->
+                                PolicyDecisionRow(decision)
+                            }
                         }
                     }
-                    items(state.auditTail.reversed()) { event ->
-                        AuditRow(event)
-                    }
-                }
-                if (state.policyTail.isNotEmpty()) {
-                    item {
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            text = "Recent policy decisions",
-                            style = HandyType.SectionHeader,
-                            color = HandyColors.TextPrimary,
-                        )
-                    }
-                    items(state.policyTail.reversed()) { decision ->
-                        PolicyDecisionRow(decision)
+                    DiagnosticsTab.Timeline -> {
+                        item {
+                            TimelineToolbar(
+                                count = state.timelineTail.size,
+                                onExport = onExportTimeline,
+                                onClearAll = onClearAll,
+                            )
+                        }
+                        val grouped = state.timelineTail.groupBy { it.turnId }
+                        val orderedTurnIds = state.timelineTail
+                            .asReversed()
+                            .map { it.turnId }
+                            .distinct()
+                        if (orderedTurnIds.isEmpty()) {
+                            item { DiagRow("Timeline", "no events yet") }
+                        }
+                        orderedTurnIds.forEach { turnId ->
+                            val events = grouped[turnId].orEmpty()
+                            item { TimelineTurnHeader(turnId = turnId, count = events.size) }
+                            items(events) { event ->
+                                TimelineRow(
+                                    event = event,
+                                    expanded = expandedTimelineEvent == event,
+                                    onClick = {
+                                        expandedTimelineEvent =
+                                            if (expandedTimelineEvent == event) null else event
+                                    },
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -265,21 +356,172 @@ fun DiagnosticsScreen(
     }
 }
 
+private enum class DiagnosticsTab { Overview, Timeline }
+
 @Composable
-private fun ReviewActionsButton(onClick: () -> Unit) {
+private fun DiagnosticsTabs(
+    selected: DiagnosticsTab,
+    onSelect: (DiagnosticsTab) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
+    ) {
+        DiagnosticsTab.values().forEach { tab ->
+            val active = tab == selected
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(HandyDimens.RadiusSm))
+                    .background(if (active) HandyColors.Accent.copy(alpha = 0.18f) else HandyColors.ChipBg)
+                    .border(
+                        0.5.dp,
+                        if (active) HandyColors.Accent.copy(alpha = 0.50f) else HandyColors.ChipBorder,
+                        RoundedCornerShape(HandyDimens.RadiusSm),
+                    )
+                    .clickable { onSelect(tab) }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = tab.name,
+                    style = HandyType.Overline,
+                    color = if (active) HandyColors.Accent else HandyColors.TextSecondary,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiagActionButton(
+    text: String,
+    danger: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val tint = if (danger) HandyColors.Danger else HandyColors.Accent
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
-            .background(HandyColors.Accent.copy(alpha = 0.14f))
-            .border(0.5.dp, HandyColors.Accent.copy(alpha = 0.40f), RoundedCornerShape(10.dp))
+            .background(tint.copy(alpha = 0.14f))
+            .border(0.5.dp, tint.copy(alpha = 0.40f), RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = "Review",
+            text = text,
             style = HandyType.Overline,
-            color = HandyColors.Accent,
+            color = tint,
+        )
+    }
+}
+
+@Composable
+private fun TimelineToolbar(
+    count: Int,
+    onExport: () -> Unit,
+    onClearAll: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = "Timeline · $count",
+            style = HandyType.SectionHeader,
+            color = HandyColors.TextPrimary,
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(HandyDimens.StackM),
+        ) {
+            DiagActionButton(text = "Export JSON", onClick = onExport)
+            DiagActionButton(text = "Clear all", danger = true, onClick = onClearAll)
+        }
+    }
+}
+
+@Composable
+private fun TimelineTurnHeader(turnId: String, count: Int) {
+    Text(
+        text = "${turnId.take(8)} · $count events",
+        style = HandyType.Overline,
+        color = HandyColors.TextSecondary,
+        modifier = Modifier.padding(top = HandyDimens.StackM),
+    )
+}
+
+@Composable
+private fun TimelineRow(
+    event: TimelineEvent,
+    expanded: Boolean,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(HandyDimens.RadiusSm)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(HandyColors.GlassTint)
+            .border(0.5.dp, HandyColors.GlassBorder, shape)
+            .clickable(onClick = onClick)
+            .padding(HandyDimens.StackM),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = event.stage.name,
+                style = HandyType.CaptionSmall,
+                color = HandyColors.TextPrimary,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
+            )
+            event.durationMs?.let {
+                Text(
+                    text = "${it}ms",
+                    style = HandyType.Overline,
+                    color = HandyColors.TextSecondary,
+                )
+            }
+        }
+        Text(
+            text = listOfNotNull(event.provider, event.recipeId, event.toolName).joinToString(" · ")
+                .ifBlank { "metadata only" },
+            style = HandyType.Overline,
+            color = if (event.error == null) HandyColors.TextSecondary else HandyColors.Danger,
+        )
+        if (expanded) {
+            Spacer(Modifier.height(8.dp))
+            TimelineDetail("Stage", event.stage.name)
+            TimelineDetail("Duration", event.durationMs?.let { "${it}ms" } ?: "n/a")
+            TimelineDetail("Provider", event.provider ?: "n/a")
+            TimelineDetail("Recipe", event.recipeId ?: "n/a")
+            TimelineDetail("Tool", event.toolName ?: "n/a")
+            TimelineDetail("Policy", event.policyDecision ?: "n/a")
+            TimelineDetail(
+                "Confidence",
+                event.resolverConfidence?.let { String.format(Locale.US, "%.2f", it) } ?: "n/a",
+            )
+            TimelineDetail("Error", event.error ?: "none")
+        }
+    }
+}
+
+@Composable
+private fun TimelineDetail(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            style = HandyType.Overline,
+            color = HandyColors.TextSecondary,
+            modifier = Modifier.weight(0.8f),
+        )
+        Text(
+            text = value,
+            style = HandyType.Overline,
+            color = HandyColors.TextPrimary,
+            modifier = Modifier.weight(1.4f),
         )
     }
 }

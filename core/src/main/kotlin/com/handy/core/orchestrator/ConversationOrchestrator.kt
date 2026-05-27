@@ -1,5 +1,8 @@
 package com.handy.core.orchestrator
 
+import com.handy.core.audit.AuditStore
+import com.handy.core.audit.Stage
+import com.handy.core.audit.TimelineEvent
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.LlmChunk
 import com.handy.core.llm.LlmClient
@@ -43,6 +46,7 @@ class ConversationOrchestrator(
     private val llmClient: LlmClient,
     private val historyStore: ChatHistoryStore,
     private val toolRunner: ToolRunner? = null,
+    private val auditStore: AuditStore? = null,
     private val clock: () -> Long = { System.currentTimeMillis() },
     private val uuid: () -> String = { java.util.UUID.randomUUID().toString() },
     private val rng: Random = Random.Default,
@@ -74,7 +78,16 @@ class ConversationOrchestrator(
         val capture = grounding.capture ?: request.capture
         val screenText = grounding.screenText ?: request.screenText
         val contextFailureReason = grounding.failureReason ?: request.contextFailureReason
-
+        appendTimeline(
+            TimelineEvent(
+                turnId = turnId,
+                timestamp = clock(),
+                stage = Stage.CONTEXT_BUILT,
+                durationMs = (clock() - grounding.capturedAtMs).takeIf { it >= 0L },
+                provider = request.settings.cloudProvider.name.lowercase(),
+                error = contextFailureReason?.name?.lowercase(),
+            ),
+        )
         if (capture is CaptureResult.SecureWindow ||
             contextFailureReason == ContextFailureReason.SECURE_WINDOW
         ) {
@@ -166,6 +179,8 @@ class ConversationOrchestrator(
         var accumulated = ""
         val collectedSearchTools = mutableListOf<String>()
         var toolTurnStarted = false
+        var firstTokenSeen = false
+        val llmStartedAt = clock()
 
         val stream = if (llmRequest.tools.isNotEmpty() && toolRunner != null) {
             toolRunner.beginTurn(turnId)
@@ -179,6 +194,18 @@ class ConversationOrchestrator(
             stream.collect { chunk ->
                 when (chunk) {
                     is LlmChunk.Text -> {
+                        if (!firstTokenSeen && chunk.delta.isNotEmpty()) {
+                            firstTokenSeen = true
+                            appendTimeline(
+                                TimelineEvent(
+                                    turnId = turnId,
+                                    timestamp = clock(),
+                                    stage = Stage.LLM_FIRST_TOKEN,
+                                    durationMs = (clock() - llmStartedAt).takeIf { it >= 0L },
+                                    provider = request.settings.cloudProvider.name.lowercase(),
+                                ),
+                            )
+                        }
                         accumulated += chunk.delta
                         emit(
                             OrchestrationEvent.StreamingDelta(
@@ -187,6 +214,15 @@ class ConversationOrchestrator(
                         )
                     }
                     is LlmChunk.ToolCall -> {
+                        appendTimeline(
+                            TimelineEvent(
+                                turnId = turnId,
+                                timestamp = clock(),
+                                stage = Stage.TOOL_CALL,
+                                provider = request.settings.cloudProvider.name.lowercase(),
+                                toolName = chunk.name,
+                            ),
+                        )
                         if (mode == ConversationMode.NORMAL) {
                             if (chunk.name !in collectedSearchTools) collectedSearchTools.add(chunk.name)
                             emit(
@@ -214,6 +250,15 @@ class ConversationOrchestrator(
                         )
                     }
                     is LlmChunk.Error -> {
+                        appendTimeline(
+                            TimelineEvent(
+                                turnId = turnId,
+                                timestamp = clock(),
+                                stage = Stage.ERROR,
+                                provider = request.settings.cloudProvider.name.lowercase(),
+                                error = chunk.throwable.timelineReason(),
+                            ),
+                        )
                         emit(
                             OrchestrationEvent.Error(
                                 chunk.throwable.message
@@ -225,6 +270,15 @@ class ConversationOrchestrator(
             }
         } catch (t: Throwable) {
             if (t is kotlinx.coroutines.CancellationException) throw t
+            appendTimeline(
+                TimelineEvent(
+                    turnId = turnId,
+                    timestamp = clock(),
+                    stage = Stage.ERROR,
+                    provider = request.settings.cloudProvider.name.lowercase(),
+                    error = t.timelineReason(),
+                ),
+            )
             emit(
                 OrchestrationEvent.Error(
                     t.message ?: t::class.simpleName.orEmpty(),
@@ -234,6 +288,12 @@ class ConversationOrchestrator(
             if (toolTurnStarted) {
                 toolRunner?.onTurnEnd(turnId)
             }
+        }
+    }
+
+    private suspend fun appendTimeline(event: TimelineEvent) {
+        auditStore?.let { store ->
+            runCatching { store.append(event) }
         }
     }
 
@@ -291,6 +351,9 @@ class ConversationOrchestrator(
         )
     }
 }
+
+private fun Throwable.timelineReason(): String =
+    this::class.simpleName?.takeIf { it.isNotBlank() } ?: "error"
 
 private fun HandySettings.cloudModelOverrideForSelectedProvider(): String? =
     when (cloudProvider) {

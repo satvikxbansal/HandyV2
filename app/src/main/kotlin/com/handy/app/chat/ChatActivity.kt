@@ -145,8 +145,10 @@ class ChatActivity : ComponentActivity() {
     private fun consumeVoiceExtra(intent: Intent?) {
         val voice = intent?.getStringExtra(EXTRA_VOICE_MESSAGE)?.trim().orEmpty()
         if (voice.isEmpty()) return
+        val voiceTurnId = intent?.getStringExtra(EXTRA_VOICE_TURN_ID)?.trim()?.takeIf { it.isNotEmpty() }
         intent?.removeExtra(EXTRA_VOICE_MESSAGE)
-        viewModel.send(voice, fromVoice = true)
+        intent?.removeExtra(EXTRA_VOICE_TURN_ID)
+        viewModel.send(voice, fromVoice = true, voiceTurnId = voiceTurnId)
     }
 
     /**
@@ -173,6 +175,7 @@ class ChatActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_VOICE_MESSAGE: String = "handy.voice.message"
+        const val EXTRA_VOICE_TURN_ID: String = "handy.voice.turn_id"
         const val EXTRA_TARGET_HANDOFF_ID: String = "handy.target.handoff_id"
     }
 }

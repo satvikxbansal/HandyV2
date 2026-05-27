@@ -140,6 +140,7 @@ class AgentSessionController @Inject constructor(
                     userText = userText,
                     source = source,
                     toolContext = toolContext,
+                    turnId = initialGrounding.requestId,
                     provenance = provenance,
                 )
                 return true
@@ -204,6 +205,7 @@ class AgentSessionController @Inject constructor(
         userText: String,
         source: TurnSource,
         toolContext: ToolContext,
+        turnId: String,
         provenance: ToolProvenance?,
     ) {
         suspend fun recipeGrounding(): GroundingSnapshot =
@@ -248,6 +250,8 @@ class AgentSessionController @Inject constructor(
                 auditObserver.onEvent(event)
             },
             sourceTrustProvider = { step -> step.sourceTrust(provenance) },
+            auditStore = auditStore,
+            turnId = turnId,
         )
         val result = runCatching { runner.run(plan) }
             .onFailure { Timber.w(it, "Agent recipe run failed") }

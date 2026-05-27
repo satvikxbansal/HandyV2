@@ -7,6 +7,9 @@ import com.handy.core.action.ConfirmationLevel
 import com.handy.core.action.PerformResult
 import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
+import com.handy.core.audit.AuditStore
+import com.handy.core.audit.Stage
+import com.handy.core.audit.TimelineEvent
 import com.handy.core.intent.IntentResult
 import com.handy.core.screen.GroundingSnapshot
 import kotlinx.coroutines.delay
@@ -27,9 +30,13 @@ class RecipeRunner(
     private val verifier: ResultVerifier = ResultVerifier.Default,
     private val observer: RecipeRunObserver = RecipeRunObserver.Noop,
     private val sourceTrustProvider: (RecipeStep) -> SourceTrust = { it.policySourceTrust() },
+    private val auditStore: AuditStore? = null,
+    private val turnId: String? = null,
+    private val clock: () -> Long = { System.currentTimeMillis() },
 ) {
     suspend fun run(plan: RecipePlan): RecipeRunResult {
         if (plan.steps.size > MAX_STEPS) {
+            appendTimeline(plan, Stage.ERROR, error = "too-many-steps")
             return RecipeRunResult.Aborted("too-many-steps")
         }
 
@@ -40,6 +47,7 @@ class RecipeRunner(
             initial.packageNameChangedFrom(expectedPackage) &&
             !plan.steps.first().canEnterPackage()
         ) {
+            appendTimeline(plan, Stage.ERROR, error = "package-changed")
             return RecipeRunResult.Aborted("package-changed")
                 .also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
         }
@@ -53,6 +61,7 @@ class RecipeRunner(
             }
             val target = step.resolveTarget(initial)
             if (target == null && step.requiresResolvedTarget()) {
+                appendTimeline(plan, Stage.ERROR, toolName = step.timelineToolName(), error = "target-not-found")
                 return RecipeRunResult.Failed(step.id, "target-not-found")
                     .also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
             }
@@ -63,6 +72,13 @@ class RecipeRunner(
                 sourceTrust = sourceTrustProvider(step),
             ).let(step::applyConfirmationOverride)
             if (!decision.allowed) {
+                appendTimeline(
+                    plan = plan,
+                    stage = Stage.ACTION_CONFIRM,
+                    toolName = step.timelineToolName(),
+                    policyDecision = decision.timelineLabel(),
+                    error = decision.reason ?: "policy-denied",
+                )
                 return RecipeRunResult.Refused(
                     stepId = step.id,
                     reason = decision.reason ?: "policy-denied",
@@ -76,6 +92,12 @@ class RecipeRunner(
         }
 
         val planApproved = planConfirmer.confirm(plan, initial, initialChecks)
+        appendTimeline(
+            plan = plan,
+            stage = Stage.ACTION_CONFIRM,
+            policyDecision = "plan:${if (planApproved) "approved" else "declined"}",
+            error = if (planApproved) null else "plan-declined",
+        )
         if (!planApproved) {
             return RecipeRunResult.Cancelled("plan-declined")
                 .also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
@@ -90,12 +112,14 @@ class RecipeRunner(
                 before.packageNameChangedFrom(expectedPackage) &&
                 !(index == 0 && step.canEnterPackage())
             ) {
+                appendTimeline(plan, Stage.ERROR, toolName = step.timelineToolName(), error = "package-changed")
                 return RecipeRunResult.Aborted("package-changed")
                     .also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
             }
 
             val target = step.resolveTarget(before)
             if (target == null && step.requiresResolvedTarget()) {
+                appendTimeline(plan, Stage.ERROR, toolName = step.timelineToolName(), error = "target-not-found")
                 return RecipeRunResult.Failed(step.id, "target-not-found")
                     .also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
             }
@@ -106,6 +130,13 @@ class RecipeRunner(
                 sourceTrust = sourceTrustProvider(step),
             ).let(step::applyConfirmationOverride)
             if (!decision.allowed) {
+                appendTimeline(
+                    plan = plan,
+                    stage = Stage.ACTION_CONFIRM,
+                    toolName = step.timelineToolName(),
+                    policyDecision = decision.timelineLabel(),
+                    error = decision.reason ?: "policy-denied",
+                )
                 return RecipeRunResult.Refused(
                     stepId = step.id,
                     reason = decision.reason ?: "policy-denied",
@@ -113,6 +144,13 @@ class RecipeRunner(
                 ).also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
             }
             if (decision.requireNodeActionOnly && target is TapTarget.AtScreenPoint) {
+                appendTimeline(
+                    plan = plan,
+                    stage = Stage.ACTION_CONFIRM,
+                    toolName = step.timelineToolName(),
+                    policyDecision = decision.timelineLabel(),
+                    error = "node-action-only",
+                )
                 return RecipeRunResult.Refused(
                     stepId = step.id,
                     reason = "node-action-only",
@@ -122,15 +160,31 @@ class RecipeRunner(
 
             if (step.requiresPerStepConfirmation(decision.confirmation)) {
                 val approved = sensitiveStepConfirmer.confirm(plan, step, before, decision)
+                appendTimeline(
+                    plan = plan,
+                    stage = Stage.ACTION_CONFIRM,
+                    toolName = step.timelineToolName(),
+                    policyDecision = decision.timelineLabel(),
+                    error = if (approved) null else "step-declined",
+                )
                 if (!approved) {
                     return RecipeRunResult.Cancelled("step-declined:${step.id}")
                         .also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
                 }
             }
 
+            val performStartedAt = clock()
             val performResult = step.perform(
                 target = target.withGestureFallback(decision.allowGestureFallback),
                 sourceTrust = sourceTrustProvider(step),
+            )
+            appendTimeline(
+                plan = plan,
+                stage = Stage.ACTION_EXECUTE,
+                durationMs = (clock() - performStartedAt).takeIf { it >= 0L },
+                toolName = step.timelineToolName(),
+                policyDecision = decision.timelineLabel(),
+                error = performResult.timelineError(),
             )
             if (step.allowsPackageChangeAfter()) {
                 delay(PACKAGE_SETTLE_DELAY_MS)
@@ -140,16 +194,25 @@ class RecipeRunner(
                 !step.allowsPackageChangeAfter() &&
                 after.packageNameChangedFrom(expectedPackage)
             ) {
+                appendTimeline(plan, Stage.ERROR, toolName = step.timelineToolName(), error = "package-changed")
                 return RecipeRunResult.Aborted("package-changed")
                     .also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
             }
             val verifierName = verifier.verifierNameFor(step)
+            val verifyStartedAt = clock()
             val verification = performResult.toVerificationResult(
                 observed = runCatching {
                     verifier.verify(step, before, after)
                 }.getOrElse { error ->
                     VerificationResult.Failed("verifier-error:${error.message ?: error::class.simpleName}")
                 },
+            )
+            appendTimeline(
+                plan = plan,
+                stage = Stage.ACTION_VERIFY,
+                durationMs = (clock() - verifyStartedAt).takeIf { it >= 0L },
+                toolName = verifierName,
+                error = verification.timelineError(),
             )
             observer.onEvent(
                 RecipeRunEvent.StepVerified(
@@ -218,6 +281,33 @@ class RecipeRunner(
     private fun GroundingSnapshot.packageNameChangedFrom(expected: String): Boolean {
         val current = packageNameOrNull() ?: return true
         return !current.equals(expected, ignoreCase = true)
+    }
+
+    private suspend fun appendTimeline(
+        plan: RecipePlan,
+        stage: Stage,
+        durationMs: Long? = null,
+        toolName: String? = null,
+        policyDecision: String? = null,
+        error: String? = null,
+    ) {
+        auditStore?.let { store ->
+            runCatching {
+                store.append(
+                    TimelineEvent(
+                        turnId = turnId?.takeIf { it.isNotBlank() } ?: "recipe:${plan.recipeId}",
+                        timestamp = clock(),
+                        stage = stage,
+                        durationMs = durationMs,
+                        provider = "recipe-runner",
+                        recipeId = plan.recipeId,
+                        toolName = toolName,
+                        policyDecision = policyDecision,
+                        error = error,
+                    ),
+                )
+            }
+        }
     }
 
     companion object {
@@ -329,6 +419,38 @@ private fun PerformResult.failureReason(): String = when (this) {
     is PerformResult.Unsupported -> reason
     is PerformResult.Failed -> reason
 }
+
+private fun PerformResult.timelineError(): String? = when (this) {
+    PerformResult.Ok -> null
+    PerformResult.NotFound -> "not-found"
+    is PerformResult.Unsupported -> reason
+    is PerformResult.Failed -> reason
+}
+
+private fun VerificationResult.timelineError(): String? = when (this) {
+    VerificationResult.Verified -> null
+    VerificationResult.Inconclusive -> "inconclusive"
+    is VerificationResult.Failed -> reason
+}
+
+private fun RecipeStep.timelineToolName(): String = when (val c = command) {
+    is RecipeCommand.Tap -> "tap"
+    is RecipeCommand.LongPress -> "long_press"
+    is RecipeCommand.TypeText -> "type_text"
+    is RecipeCommand.Scroll -> "scroll_${c.direction.name.lowercase()}"
+    is RecipeCommand.NativeAction -> "native_${c.action::class.simpleName.orEmpty()}"
+}
+
+private fun com.handy.core.action.PolicyDecision.timelineLabel(): String =
+    buildString {
+        append(if (allowed) "allowed" else "blocked")
+        append(':')
+        append(risk.name.lowercase())
+        append(':')
+        append(confirmation.name.lowercase())
+        append(':')
+        append(reason ?: "none")
+    }
 
 private fun IntentResult.toPerformResult(): PerformResult = when (this) {
     is IntentResult.Dispatched,

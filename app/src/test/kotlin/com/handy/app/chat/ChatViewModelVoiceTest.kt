@@ -5,6 +5,7 @@ import com.handy.app.accessibility.AccessibilityStateMonitor
 import com.handy.app.screen.ScreenContextBuilder
 import com.handy.app.voice.SpeechOutputController
 import com.handy.app.voice.VoiceController
+import com.handy.core.audit.AuditStore
 import com.handy.core.foreground.ForegroundAppMonitor
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.InMemoryLlmSessionBudget
@@ -154,7 +155,7 @@ class ChatViewModelVoiceTest {
 
         val screenContextBuilder = mockk<ScreenContextBuilder>()
         coEvery {
-            screenContextBuilder.build(any(), any(), any(), any(), any())
+            screenContextBuilder.build(any(), any(), any(), any(), any(), any())
         } returns GroundingSnapshot(
             requestId = requestId,
             source = TurnSource.FULL_CHAT,
@@ -175,6 +176,7 @@ class ChatViewModelVoiceTest {
             screenContextBuilder = screenContextBuilder,
             llmSessionBudget = InMemoryLlmSessionBudget(),
             speechOutputController = speechOutputController,
+            auditStore = mockk<AuditStore>(relaxed = true),
         )
     }
 

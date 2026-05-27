@@ -60,8 +60,10 @@ class ScreenContextBuilder @Inject constructor(
         toolContext: ToolContext,
         panelSnapshot: PanelSnapshot?,
         preferFocusedWindow: Boolean,
+        requestIdOverride: String? = null,
     ): GroundingSnapshot {
-        val requestId = java.util.UUID.randomUUID().toString()
+        val requestId = requestIdOverride?.safeRequestId()
+            ?: java.util.UUID.randomUUID().toString()
         runCatching { accessibilityStateMonitor.refresh() }
             .onFailure { Timber.w(it, "ScreenContextBuilder: accessibility refresh failed") }
         val accessibilityState = accessibilityStateMonitor.connection.value
@@ -488,3 +490,11 @@ class ScreenContextBuilder @Inject constructor(
         const val STEP_BUDGET_MS = 200L
     }
 }
+
+private fun String.safeRequestId(): String? =
+    trim()
+        .takeIf { it.isNotBlank() }
+        ?.replace(Regex("""[^A-Za-z0-9_.:-]"""), "_")
+        ?.take(MAX_REQUEST_ID_CHARS)
+
+private const val MAX_REQUEST_ID_CHARS = 96

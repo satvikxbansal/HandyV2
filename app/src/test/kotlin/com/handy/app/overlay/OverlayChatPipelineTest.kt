@@ -7,6 +7,7 @@ import com.handy.app.chat.ChatConfirmationBroker
 import com.handy.app.screen.ScreenContextBuilder
 import com.handy.app.voice.SpeechOutputController
 import com.handy.app.voice.VoiceController
+import com.handy.core.audit.AuditStore
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.LlmChunk
 import com.handy.core.llm.LlmClient
@@ -181,7 +182,7 @@ class OverlayChatPipelineTest {
 
         val screenContextBuilder = mockk<ScreenContextBuilder>()
         coEvery {
-            screenContextBuilder.build(any(), any(), any(), any(), any())
+            screenContextBuilder.build(any(), any(), any(), any(), any(), any())
         } returns GroundingSnapshot(
             requestId = requestId,
             source = TurnSource.OVERLAY_VOICE,
@@ -211,6 +212,7 @@ class OverlayChatPipelineTest {
             screenContextBuilder = screenContextBuilder,
             agentSessionController = agentSessionController,
             speechOutputController = speechOutputController,
+            auditStore = mockk<AuditStore>(relaxed = true),
             appScope = scope,
         )
         return Fixture(

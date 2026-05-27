@@ -38,6 +38,12 @@ interface SttClient {
     fun listen(): Flow<SttEvent>
 
     /**
+     * Start listening with a caller-provided diagnostics turn id. Providers that
+     * do not emit diagnostics can ignore it by using the default implementation.
+     */
+    fun listen(timelineTurnId: String): Flow<SttEvent> = listen()
+
+    /**
      * Politely stop capturing audio but *keep the session alive* until
      * the recognizer emits its final transcript (or errors out). The
      * flow returned by [listen] closes naturally after the terminal

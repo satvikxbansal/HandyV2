@@ -1,6 +1,9 @@
 package com.handy.app.voice
 
 import com.handy.app.overlay.OverlayPresenter
+import com.handy.core.audit.AuditStore
+import com.handy.core.audit.Stage
+import com.handy.core.audit.TimelineEvent
 import com.handy.core.speech.SpeechAudioState
 import com.handy.core.speech.TtsClient
 import com.handy.runtime.di.ApplicationScope
@@ -22,6 +25,7 @@ class SpeechOutputController @Inject constructor(
     private val presenter: OverlayPresenter,
     private val settings: DataStoreSettings,
     @ApplicationScope private val scope: CoroutineScope,
+    private val auditStore: AuditStore? = null,
 ) {
 
     private val _state = MutableStateFlow(SpeechAudioState.IDLE)
@@ -29,6 +33,7 @@ class SpeechOutputController @Inject constructor(
 
     @Volatile private var activeRequestId: String? = null
     @Volatile private var pendingRequestId: String? = null
+    @Volatile private var activeStartedAtMs: Long? = null
     private var speakJob: Job? = null
     private var monitorJob: Job? = null
     private val consumedRequestIds = ArrayDeque<String>()
@@ -74,15 +79,36 @@ class SpeechOutputController @Inject constructor(
                         rememberConsumed(requestId)
                         pendingRequestId = null
                         activeRequestId = requestId
+                        activeStartedAtMs = System.currentTimeMillis()
                         publish(SpeechAudioState.PREPARING)
+                        appendTimelineAsync(
+                            TimelineEvent(
+                                turnId = requestId,
+                                timestamp = System.currentTimeMillis(),
+                                stage = Stage.TTS_START,
+                                provider = tts::class.simpleName ?: "tts",
+                            ),
+                        )
                         val failure = runCatching {
                             tts.speak(text = text, utteranceId = utteranceIdFor(requestId))
                         }.exceptionOrNull()
                         if (failure != null) {
                             Timber.w(failure, "SpeechOutputController: speak failed id=%s", requestId)
+                            val startedAt = activeStartedAtMs
                             activeRequestId = null
+                            activeStartedAtMs = null
                             publish(SpeechAudioState.ERROR)
                             publish(SpeechAudioState.IDLE)
+                            appendTimelineAsync(
+                                TimelineEvent(
+                                    turnId = requestId,
+                                    timestamp = System.currentTimeMillis(),
+                                    stage = Stage.TTS_END,
+                                    durationMs = startedAt?.let { System.currentTimeMillis() - it },
+                                    provider = tts::class.simpleName ?: "tts",
+                                    error = failure::class.simpleName ?: "speak-failed",
+                                ),
+                            )
                             false
                         } else {
                             true
@@ -117,12 +143,27 @@ class SpeechOutputController @Inject constructor(
         speakJob = null
         monitorJob?.cancel()
         monitorJob = null
+        val stoppedRequestId = activeRequestId
+        val stoppedStartedAt = activeStartedAtMs
         publish(SpeechAudioState.STOPPING)
         runCatching { tts.stop() }
             .onFailure { Timber.w(it, "SpeechOutputController: stop failed reason=%s", reason) }
         pendingRequestId = null
         activeRequestId = null
+        activeStartedAtMs = null
         publish(SpeechAudioState.IDLE)
+        if (stoppedRequestId != null) {
+            appendTimelineAsync(
+                TimelineEvent(
+                    turnId = stoppedRequestId,
+                    timestamp = System.currentTimeMillis(),
+                    stage = Stage.TTS_END,
+                    durationMs = stoppedStartedAt?.let { System.currentTimeMillis() - it },
+                    provider = tts::class.simpleName ?: "tts",
+                    error = reason,
+                ),
+            )
+        }
     }
 
     private fun monitorPlayback(requestId: String) {
@@ -133,9 +174,21 @@ class SpeechOutputController @Inject constructor(
                 if (activeRequestId == requestId) {
                     Timber.w("SpeechOutputController: TTS never reported speaking id=%s", requestId)
                     synchronized(this@SpeechOutputController) {
+                        val startedAt = activeStartedAtMs
                         activeRequestId = null
+                        activeStartedAtMs = null
                         publish(SpeechAudioState.ERROR)
                         publish(SpeechAudioState.IDLE)
+                        appendTimelineAsync(
+                            TimelineEvent(
+                                turnId = requestId,
+                                timestamp = System.currentTimeMillis(),
+                                stage = Stage.TTS_END,
+                                durationMs = startedAt?.let { System.currentTimeMillis() - it },
+                                provider = tts::class.simpleName ?: "tts",
+                                error = "playback-start-timeout",
+                            ),
+                        )
                     }
                 }
                 return@launch
@@ -152,8 +205,19 @@ class SpeechOutputController @Inject constructor(
             }
             synchronized(this@SpeechOutputController) {
                 if (activeRequestId == requestId) {
+                    val startedAt = activeStartedAtMs
                     activeRequestId = null
+                    activeStartedAtMs = null
                     publish(SpeechAudioState.IDLE)
+                    appendTimelineAsync(
+                        TimelineEvent(
+                            turnId = requestId,
+                            timestamp = System.currentTimeMillis(),
+                            stage = Stage.TTS_END,
+                            durationMs = startedAt?.let { System.currentTimeMillis() - it },
+                            provider = tts::class.simpleName ?: "tts",
+                        ),
+                    )
                 }
             }
         }
@@ -189,6 +253,14 @@ class SpeechOutputController @Inject constructor(
 
     private fun utteranceIdFor(requestId: String): String =
         "handy-voice-$requestId"
+
+    private fun appendTimelineAsync(event: TimelineEvent) {
+        val store = auditStore ?: return
+        scope.launch {
+            runCatching { store.append(event) }
+                .onFailure { Timber.w(it, "SpeechOutputController timeline append failed") }
+        }
+    }
 
     private companion object {
         const val POLL_MS: Long = 50L

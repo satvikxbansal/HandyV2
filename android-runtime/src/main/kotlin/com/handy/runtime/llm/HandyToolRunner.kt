@@ -4,6 +4,9 @@ import com.handy.core.action.ActionPolicyEngine
 import com.handy.core.action.AssistantAction
 import com.handy.core.action.ConfirmationLevel
 import com.handy.core.action.SourceTrust
+import com.handy.core.audit.AuditStore
+import com.handy.core.audit.Stage
+import com.handy.core.audit.TimelineEvent
 import com.handy.core.intent.IntentResult
 import com.handy.core.llm.ConfirmationPrompter
 import com.handy.core.llm.ToolProvenance
@@ -51,6 +54,7 @@ class HandyToolRunner @Inject constructor(
     private val confirmationPrompter: ConfirmationPrompter,
     private val policyEngine: ActionPolicyEngine,
     private val json: Json = Json { ignoreUnknownKeys = true; classDiscriminator = "type" },
+    private val auditStore: AuditStore? = null,
 ) : ToolRunner {
 
     private val provenanceByTurn = ConcurrentHashMap<String, ToolProvenance>()
@@ -70,6 +74,7 @@ class HandyToolRunner @Inject constructor(
 
     override suspend fun run(turnId: String, name: String, inputJson: String): ToolResult {
         Timber.d("ToolRunner.run name=%s inputChars=%d", name, inputJson.length)
+        val startedAt = System.currentTimeMillis()
         val result = try {
             val input = parseObject(inputJson)
             when (name) {
@@ -88,6 +93,16 @@ class HandyToolRunner @Inject constructor(
             ToolResult.Failed(t.message ?: t::class.simpleName.orEmpty())
         }
         rememberToolProvenance(turnId, name, inputJson, result)
+        appendTimeline(
+            TimelineEvent(
+                turnId = turnId,
+                timestamp = System.currentTimeMillis(),
+                stage = Stage.TOOL_RESULT,
+                durationMs = (System.currentTimeMillis() - startedAt).takeIf { it >= 0L },
+                toolName = name,
+                error = (result as? ToolResult.Failed)?.message?.toReasonCode(),
+            ),
+        )
         return result
     }
 
@@ -290,6 +305,13 @@ class HandyToolRunner @Inject constructor(
         else -> ToolResult.Failed(message ?: this::class.simpleName.orEmpty())
     }
 
+    private suspend fun appendTimeline(event: TimelineEvent) {
+        auditStore?.let { store ->
+            runCatching { store.append(event) }
+                .onFailure { Timber.w(it, "ToolRunner timeline append failed") }
+        }
+    }
+
     private fun JsonObject.stringOrNull(key: String): String? =
         (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
 
@@ -334,3 +356,11 @@ class HandyToolRunner @Inject constructor(
         )
     }
 }
+
+private fun String.toReasonCode(): String =
+    trim()
+        .substringBefore(':')
+        .replace(Regex("""[^A-Za-z0-9_.-]+"""), "_")
+        .trim('_')
+        .take(80)
+        .ifBlank { "failed" }

@@ -6,6 +6,7 @@ import com.handy.app.accessibility.AccessibilityStateMonitor
 import com.handy.app.screen.ScreenContextBuilder
 import com.handy.app.voice.SpeechOutputController
 import com.handy.app.voice.VoiceController
+import com.handy.core.audit.AuditStore
 import com.handy.core.foreground.ForegroundAppMonitor
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.LlmClient
@@ -71,12 +72,14 @@ class ChatViewModel @Inject constructor(
     private val screenContextBuilder: ScreenContextBuilder,
     private val llmSessionBudget: LlmSessionBudget,
     private val speechOutputController: SpeechOutputController,
+    private val auditStore: AuditStore,
 ) : ViewModel() {
 
     private val orchestrator = ConversationOrchestrator(
         llmClient = llmClient,
         historyStore = historyStore,
         toolRunner = toolRunner,
+        auditStore = auditStore,
     )
 
     private val _state = MutableStateFlow(ChatUiState())
@@ -298,6 +301,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             val transcript = voiceController.stopAndAwaitFinal()
             if (voiceController.consumeLastPointingCorrectionHandled()) {
+                voiceController.consumeLastTimelineTurnId()
                 _state.value = _state.value.copy(
                     voiceState = VoiceUiState.IDLE,
                     pendingTranscript = "",
@@ -306,6 +310,7 @@ class ChatViewModel @Inject constructor(
                 return@launch
             }
             if (voiceController.consumeLastLowConfidenceTranscriptHandled()) {
+                voiceController.consumeLastTimelineTurnId()
                 _state.value = _state.value.copy(
                     voiceState = VoiceUiState.IDLE,
                     pendingTranscript = "",
@@ -316,6 +321,7 @@ class ChatViewModel @Inject constructor(
             Timber.d("stopVoice: final transcript chars=%d", transcript?.length ?: 0)
             if (transcript.isNullOrBlank()) {
                 val error = voiceController.consumeLastError()
+                voiceController.consumeLastTimelineTurnId()
                 _state.value = _state.value.copy(
                     voiceState = VoiceUiState.IDLE,
                     pendingTranscript = "",
@@ -327,7 +333,11 @@ class ChatViewModel @Inject constructor(
             // Non-empty transcript → auto-send. `send(...)` keeps
             // `voiceState = PROCESSING` until `AssistantTurnFinalized`.
             _state.value = _state.value.copy(pendingTranscript = "", voiceNotice = "")
-            send(transcript, fromVoice = true)
+            send(
+                userText = transcript,
+                fromVoice = true,
+                voiceTurnId = voiceController.consumeLastTimelineTurnId(),
+            )
         }
     }
 
@@ -368,7 +378,11 @@ class ChatViewModel @Inject constructor(
         )
     }
 
-    fun send(userText: String, fromVoice: Boolean = false) {
+    fun send(
+        userText: String,
+        fromVoice: Boolean = false,
+        voiceTurnId: String? = null,
+    ) {
         val trimmed = userText.trim()
         if (trimmed.isEmpty()) return
         sendJob?.cancel()
@@ -399,6 +413,7 @@ class ChatViewModel @Inject constructor(
                 toolContext = toolContextFlow.value,
                 panelSnapshot = targetSnapshot,
                 preferFocusedWindow = targetSnapshot != null,
+                requestIdOverride = voiceTurnId.takeIf { fromVoice },
             )
             Timber.d(
                 "ChatViewModel.send: request=%s app=%s screenText=%s captureMode=%s failure=%s",

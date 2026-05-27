@@ -27,6 +27,7 @@ import com.handy.core.action.ActionPerformer
 import com.handy.core.action.AssistantAction
 import com.handy.core.action.ConfirmationLevel
 import com.handy.core.action.PerformResult
+import com.handy.core.action.PolicyDecision
 import com.handy.core.action.SourceTrust
 import com.handy.core.action.TapTarget
 import com.handy.core.action.UiActionKind
@@ -34,6 +35,8 @@ import com.handy.core.audit.AuditAction
 import com.handy.core.audit.AuditEvent
 import com.handy.core.audit.AuditResult
 import com.handy.core.audit.AuditStore
+import com.handy.core.audit.Stage
+import com.handy.core.audit.TimelineEvent
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.overlay.BuddyState
 import com.handy.core.overlay.CandidateOption
@@ -137,12 +140,14 @@ class BuddyFlightDriver @Inject constructor(
         groundingSnapshot: GroundingSnapshot? = null,
         provenance: ToolProvenance? = null,
     ): Boolean {
+        val turnId = groundingSnapshot.timelineTurnId()
         val flight = resolveForFlight(
             spec = spec,
             label = label,
             fallbackMarks = fallbackMarks,
             expectedPackage = groundingSnapshot?.toolContext?.packageName,
             expectedWindowId = groundingSnapshot?.windowId,
+            turnId = turnId,
         ) ?: return false
         val resolved = flight.resolved
         return try {
@@ -153,6 +158,7 @@ class BuddyFlightDriver @Inject constructor(
                     label = label,
                     resolved = resolved,
                     targetPackage = flight.targetPackage,
+                    turnId = turnId,
                 )
             }
         } finally {
@@ -161,8 +167,18 @@ class BuddyFlightDriver @Inject constructor(
     }
 
     suspend fun flyToPoint(x: Int, y: Int, bubbleLabel: String?): Boolean {
+        val turnId = "point-${System.currentTimeMillis()}"
         val service = serviceRef?.get() ?: run {
             Timber.d("BuddyFlightDriver.flyToPoint: no service attached")
+            appendTimeline(
+                TimelineEvent(
+                    turnId = turnId,
+                    timestamp = System.currentTimeMillis(),
+                    stage = Stage.ERROR,
+                    provider = "buddy-flight",
+                    error = "no-service",
+                ),
+            )
             return false
         }
         val state = presenter.state.value
@@ -182,6 +198,7 @@ class BuddyFlightDriver @Inject constructor(
                 bounds = IntRect(x - POINT_TARGET_RADIUS, y - POINT_TARGET_RADIUS, x + POINT_TARGET_RADIUS, y + POINT_TARGET_RADIUS),
                 label = bubbleLabel,
                 targetPackage = null,
+                turnId = turnId,
             )
         }
     }
@@ -213,6 +230,7 @@ class BuddyFlightDriver @Inject constructor(
                     bounds = target.bounds,
                     label = label,
                     targetPackage = target.packageName,
+                    turnId = "manual-$selectedAtEpochMs",
                 )
             }.also { success ->
                 auditResult = if (success) {
@@ -240,7 +258,19 @@ class BuddyFlightDriver @Inject constructor(
         label: String?,
         resolved: ResolvedPointTarget? = null,
         targetPackage: String? = null,
-    ): Boolean = suspendCancellableCoroutine { cont ->
+        turnId: String,
+    ): Boolean {
+        val startedAtMs = SystemClock.uptimeMillis()
+        appendTimeline(
+            TimelineEvent(
+                turnId = turnId,
+                timestamp = System.currentTimeMillis(),
+                stage = Stage.FLIGHT_START,
+                provider = "buddy-flight",
+                resolverConfidence = resolved?.confidence,
+            ),
+        )
+        val landed = suspendCancellableCoroutine<Boolean> { cont ->
         val (widgetW, widgetH) = service.widgetSize().takeIf { it.first > 0 && it.second > 0 }
             ?: run {
                 cont.resume(false)
@@ -255,7 +285,6 @@ class BuddyFlightDriver @Inject constructor(
             packageName = targetPackage?.takeIf { it.isNotBlank() },
         )
         activeViewportSignature = viewport.signature
-        val startedAtMs = SystemClock.uptimeMillis()
         Timber.d(
             "BuddyFlightDriver.flyToBounds: markId=%s confidence=%.2f source=%s from=%d,%d target=%d,%d widget=%dx%d fitScale=%.2f kind=%s angle=%.2f blendStart=%.2f dock=%d,%d bounds=%s safe=%s labelChars=%d",
             resolved?.markId,
@@ -371,6 +400,19 @@ class BuddyFlightDriver @Inject constructor(
         cont.invokeOnCancellation {
             cancelIfStaleTarget("coroutine_cancelled")
         }
+        }
+        appendTimeline(
+            TimelineEvent(
+                turnId = turnId,
+                timestamp = System.currentTimeMillis(),
+                stage = Stage.FLIGHT_END,
+                durationMs = (SystemClock.uptimeMillis() - startedAtMs).takeIf { it >= 0L },
+                provider = "buddy-flight",
+                resolverConfidence = resolved?.confidence,
+                error = if (landed) null else "flight-cancelled",
+            ),
+        )
+        return landed
     }
     /**
      * Cross-cutting: fly to [spec] and, only after policy allows it
@@ -388,12 +430,14 @@ class BuddyFlightDriver @Inject constructor(
         userUtterance: String? = null,
         defaultSourceTrust: SourceTrust = SourceTrust.TRUSTED_USER,
     ): Boolean {
+        val turnId = groundingSnapshot.timelineTurnId()
         val flight = resolveForFlight(
             spec = spec,
             label = bubbleLabel,
             fallbackMarks = fallbackMarks,
             expectedPackage = groundingSnapshot?.toolContext?.packageName,
             expectedWindowId = groundingSnapshot?.windowId,
+            turnId = turnId,
         ) ?: return false
         val resolved = flight.resolved
         val landed = try {
@@ -404,6 +448,7 @@ class BuddyFlightDriver @Inject constructor(
                     label = bubbleLabel,
                     resolved = resolved,
                     targetPackage = flight.targetPackage,
+                    turnId = turnId,
                 )
             }
         } finally {
@@ -448,6 +493,16 @@ class BuddyFlightDriver @Inject constructor(
         }
         if (!decision.allowed) {
             val reason = decision.reason ?: "policy-denied"
+            appendTimeline(
+                TimelineEvent(
+                    turnId = turnId,
+                    timestamp = System.currentTimeMillis(),
+                    stage = Stage.ACTION_CONFIRM,
+                    provider = "tap-for-me",
+                    policyDecision = decision.timelineLabel(),
+                    error = reason,
+                ),
+            )
             auditTapForMe(
                 tapTarget = tapTarget,
                 targetPackage = policyPackage,
@@ -465,6 +520,15 @@ class BuddyFlightDriver @Inject constructor(
             ConfirmationLevel.NONE -> ConfirmationLevel.NORMAL
             else -> decision.confirmation
         }
+        appendTimeline(
+            TimelineEvent(
+                turnId = turnId,
+                timestamp = System.currentTimeMillis(),
+                stage = Stage.ACTION_CONFIRM,
+                provider = "tap-for-me",
+                policyDecision = decision.timelineLabel(),
+            ),
+        )
         val confirmed = withTimeoutOrNull(TAP_CONFIRMATION_TIMEOUT_MS) {
             presenter.requestTapForMeConfirmation(
                 targetLabel = displayLabel,
@@ -476,6 +540,16 @@ class BuddyFlightDriver @Inject constructor(
             )
         } == true
         if (!confirmed) {
+            appendTimeline(
+                TimelineEvent(
+                    turnId = turnId,
+                    timestamp = System.currentTimeMillis(),
+                    stage = Stage.ACTION_CONFIRM,
+                    provider = "tap-for-me",
+                    policyDecision = decision.timelineLabel(),
+                    error = "confirmation-cancelled",
+                ),
+            )
             auditTapForMe(
                 tapTarget = tapTarget,
                 targetPackage = policyPackage,
@@ -489,9 +563,21 @@ class BuddyFlightDriver @Inject constructor(
 
         presenter.onActionStarted("tapping $displayLabel")
         val performTarget = tapTarget.copy(allowGestureFallback = decision.allowGestureFallback)
+        val actionStartedAt = SystemClock.uptimeMillis()
         val result = runCatching {
             actionPerformer.tap(performTarget, sourceTrust)
         }.onFailure { Timber.w(it, "BuddyFlightDriver tap failed") }.getOrNull()
+        appendTimeline(
+            TimelineEvent(
+                turnId = turnId,
+                timestamp = System.currentTimeMillis(),
+                stage = Stage.ACTION_EXECUTE,
+                durationMs = (SystemClock.uptimeMillis() - actionStartedAt).takeIf { it >= 0L },
+                provider = "tap-for-me",
+                policyDecision = decision.timelineLabel(),
+                error = result.timelineError(defaultFailure = "tap-failed"),
+            ),
+        )
         auditTapForMe(
             tapTarget = performTarget,
             targetPackage = policyPackage,
@@ -514,12 +600,14 @@ class BuddyFlightDriver @Inject constructor(
         userUtterance: String? = null,
         defaultSourceTrust: SourceTrust = SourceTrust.TRUSTED_USER,
     ): Boolean {
+        val turnId = groundingSnapshot.timelineTurnId()
         val flight = resolveForFlight(
             spec = spec,
             label = bubbleLabel,
             fallbackMarks = fallbackMarks,
             expectedPackage = groundingSnapshot?.toolContext?.packageName,
             expectedWindowId = groundingSnapshot?.windowId,
+            turnId = turnId,
         ) ?: return false
         val resolved = flight.resolved
         val landed = try {
@@ -530,6 +618,7 @@ class BuddyFlightDriver @Inject constructor(
                     label = bubbleLabel,
                     resolved = resolved,
                     targetPackage = flight.targetPackage,
+                    turnId = turnId,
                 )
             }
         } finally {
@@ -559,6 +648,16 @@ class BuddyFlightDriver @Inject constructor(
         )
         if (!decision.allowed) {
             val reason = decision.reason ?: "policy-denied"
+            appendTimeline(
+                TimelineEvent(
+                    turnId = turnId,
+                    timestamp = System.currentTimeMillis(),
+                    stage = Stage.ACTION_CONFIRM,
+                    provider = "type-for-me",
+                    policyDecision = decision.timelineLabel(),
+                    error = reason,
+                ),
+            )
             auditTypeForMe(
                 typeTarget = typeTarget,
                 typedText = text,
@@ -575,6 +674,15 @@ class BuddyFlightDriver @Inject constructor(
             ConfirmationLevel.NONE -> ConfirmationLevel.NORMAL
             else -> decision.confirmation
         }
+        appendTimeline(
+            TimelineEvent(
+                turnId = turnId,
+                timestamp = System.currentTimeMillis(),
+                stage = Stage.ACTION_CONFIRM,
+                provider = "type-for-me",
+                policyDecision = decision.timelineLabel(),
+            ),
+        )
         val confirmedText = withTimeoutOrNull(TAP_CONFIRMATION_TIMEOUT_MS) {
             presenter.requestTypeForMeConfirmation(
                 targetLabel = displayLabel,
@@ -587,6 +695,16 @@ class BuddyFlightDriver @Inject constructor(
             )
         }
         if (confirmedText == null) {
+            appendTimeline(
+                TimelineEvent(
+                    turnId = turnId,
+                    timestamp = System.currentTimeMillis(),
+                    stage = Stage.ACTION_CONFIRM,
+                    provider = "type-for-me",
+                    policyDecision = decision.timelineLabel(),
+                    error = "confirmation-cancelled",
+                ),
+            )
             auditTypeForMe(
                 typeTarget = typeTarget,
                 typedText = text,
@@ -600,9 +718,31 @@ class BuddyFlightDriver @Inject constructor(
         }
 
         presenter.onActionStarted("typing in $displayLabel")
+        val actionStartedAt = SystemClock.uptimeMillis()
         val result = runCatching {
             actionPerformer.typeText(typeTarget, confirmedText, sourceTrust)
         }.onFailure { Timber.w(it, "BuddyFlightDriver type failed") }.getOrNull()
+        appendTimeline(
+            TimelineEvent(
+                turnId = turnId,
+                timestamp = System.currentTimeMillis(),
+                stage = Stage.ACTION_EXECUTE,
+                durationMs = (SystemClock.uptimeMillis() - actionStartedAt).takeIf { it >= 0L },
+                provider = "type-for-me",
+                policyDecision = decision.timelineLabel(),
+                error = result.timelineError(defaultFailure = "type-failed"),
+            ),
+        )
+        appendTimeline(
+            TimelineEvent(
+                turnId = turnId,
+                timestamp = System.currentTimeMillis(),
+                stage = Stage.ACTION_VERIFY,
+                provider = "type-for-me",
+                policyDecision = decision.timelineLabel(),
+                error = if (result is PerformResult.Ok) null else "text-not-changed",
+            ),
+        )
         auditTypeForMe(
             typeTarget = typeTarget,
             typedText = confirmedText,
@@ -622,9 +762,17 @@ class BuddyFlightDriver @Inject constructor(
         fallbackMarks: List<AccessibilityMark>,
         expectedPackage: String?,
         expectedWindowId: Int?,
+        turnId: String,
     ): FlightResolution? {
+        val startedAt = SystemClock.uptimeMillis()
         val service = serviceRef?.get() ?: run {
             Timber.d("BuddyFlightDriver.flyTo: no service attached")
+            appendPointerResolve(
+                turnId = turnId,
+                durationMs = SystemClock.uptimeMillis() - startedAt,
+                confidence = null,
+                error = "no-service",
+            )
             return null
         }
         val state = presenter.state.value
@@ -633,6 +781,12 @@ class BuddyFlightDriver @Inject constructor(
                 "BuddyFlightDriver.flyTo: flight already in progress buddy=%s isFlying=%s",
                 state.buddyState,
                 state.isFlying,
+            )
+            appendPointerResolve(
+                turnId = turnId,
+                durationMs = SystemClock.uptimeMillis() - startedAt,
+                confidence = null,
+                error = "flight-busy",
             )
             return null
         }
@@ -657,6 +811,12 @@ class BuddyFlightDriver @Inject constructor(
         }
         if (resolved == null) {
             Timber.d("BuddyFlightDriver.flyTo: resolver returned null")
+            appendPointerResolve(
+                turnId = turnId,
+                durationMs = SystemClock.uptimeMillis() - startedAt,
+                confidence = null,
+                error = "target-not-found",
+            )
             presenter.onManualTargetFallbackAvailable(label)
             scheduleStickySafetyTimeout()
             return null
@@ -682,6 +842,12 @@ class BuddyFlightDriver @Inject constructor(
                 options.options.size,
             )
             resolved.node?.let { node -> runCatching { node.recycle() } }
+            appendPointerResolve(
+                turnId = turnId,
+                durationMs = SystemClock.uptimeMillis() - startedAt,
+                confidence = resolved.confidence,
+                error = resolved.failureReason?.name?.lowercase() ?: "ambiguous",
+            )
             presenter.onCandidateOptionsAvailable(label, options)
             scheduleStickySafetyTimeout()
             return null
@@ -693,6 +859,12 @@ class BuddyFlightDriver @Inject constructor(
                 resolved.failureReason,
             )
             resolved.node?.let { node -> runCatching { node.recycle() } }
+            appendPointerResolve(
+                turnId = turnId,
+                durationMs = SystemClock.uptimeMillis() - startedAt,
+                confidence = resolved.confidence,
+                error = resolved.failureReason?.name?.lowercase() ?: "low-confidence",
+            )
             presenter.onManualTargetFallbackAvailable(label)
             scheduleStickySafetyTimeout()
             return null
@@ -704,10 +876,22 @@ class BuddyFlightDriver @Inject constructor(
                 resolved.failureReason,
             )
             resolved.node?.let { node -> runCatching { node.recycle() } }
+            appendPointerResolve(
+                turnId = turnId,
+                durationMs = SystemClock.uptimeMillis() - startedAt,
+                confidence = resolved.confidence,
+                error = "low-confidence",
+            )
             presenter.onManualTargetFallbackAvailable(label)
             scheduleStickySafetyTimeout()
             return null
         }
+        appendPointerResolve(
+            turnId = turnId,
+            durationMs = SystemClock.uptimeMillis() - startedAt,
+            confidence = resolved.confidence,
+            error = resolved.failureReason?.name?.lowercase(),
+        )
         presenter.setCandidateOptions(options?.copy(visible = false))
         return FlightResolution(
             service = service,
@@ -724,8 +908,18 @@ class BuddyFlightDriver @Inject constructor(
     )
 
     suspend fun flyToCandidateOption(candidateId: String): Boolean {
+        val turnId = "candidate-${System.currentTimeMillis()}"
         val service = serviceRef?.get() ?: run {
             Timber.d("BuddyFlightDriver.flyToCandidateOption: no service attached")
+            appendTimeline(
+                TimelineEvent(
+                    turnId = turnId,
+                    timestamp = System.currentTimeMillis(),
+                    stage = Stage.ERROR,
+                    provider = "buddy-flight",
+                    error = "no-service",
+                ),
+            )
             return false
         }
         val state = presenter.state.value
@@ -753,6 +947,7 @@ class BuddyFlightDriver @Inject constructor(
                 bounds = candidate.bounds,
                 label = candidate.label,
                 targetPackage = activeTarget?.packageName,
+                turnId = turnId,
             )
         }
     }
@@ -1257,6 +1452,30 @@ class BuddyFlightDriver @Inject constructor(
             .onFailure { Timber.w(it, "AuditStore type-for-me append failed") }
     }
 
+    private suspend fun appendPointerResolve(
+        turnId: String,
+        durationMs: Long,
+        confidence: Float?,
+        error: String?,
+    ) {
+        appendTimeline(
+            TimelineEvent(
+                turnId = turnId,
+                timestamp = System.currentTimeMillis(),
+                stage = Stage.POINTER_RESOLVE,
+                durationMs = durationMs.takeIf { it >= 0L },
+                provider = "buddy-flight",
+                resolverConfidence = confidence,
+                error = error,
+            ),
+        )
+    }
+
+    private suspend fun appendTimeline(event: TimelineEvent) {
+        runCatching { auditStore.append(event) }
+            .onFailure { Timber.w(it, "BuddyFlightDriver timeline append failed") }
+    }
+
     private companion object {
         const val POINT_TARGET_RADIUS: Int = 20
         const val MIN_CANDIDATE_CONFIDENCE: Float = 0.40f
@@ -1274,6 +1493,28 @@ class BuddyFlightDriver @Inject constructor(
         const val POINTER_ROTATION_BLEND_START: Float = 0.78f
         const val TWO_PI: Float = (Math.PI * 2.0).toFloat()
     }
+}
+
+private fun GroundingSnapshot?.timelineTurnId(): String =
+    this?.requestId?.takeIf { it.isNotBlank() } ?: "flight-${System.currentTimeMillis()}"
+
+private fun PolicyDecision.timelineLabel(): String =
+    buildString {
+        append(if (allowed) "allowed" else "blocked")
+        append(':')
+        append(risk.name.lowercase())
+        append(':')
+        append(confirmation.name.lowercase())
+        append(':')
+        append(reason ?: "none")
+    }
+
+private fun PerformResult?.timelineError(defaultFailure: String): String? = when (this) {
+    PerformResult.Ok -> null
+    PerformResult.NotFound -> "not-found"
+    is PerformResult.Unsupported -> "not-permitted"
+    is PerformResult.Failed -> reason
+    null -> defaultFailure
 }
 
 private data class ActiveFlightTarget(

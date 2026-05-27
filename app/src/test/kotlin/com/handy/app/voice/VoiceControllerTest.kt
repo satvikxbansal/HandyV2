@@ -58,7 +58,7 @@ class VoiceControllerTest {
         val sttClient = mockk<SttClient>()
         every { sttClient.isOnDeviceAvailable } returns true
         every { sttClient.finalResultTimeoutMs } returns SttClient.DEFAULT_FINAL_RESULT_TIMEOUT_MS
-        every { sttClient.listen() } answers {
+        every { sttClient.listen(any()) } answers {
             events += "listen"
             emptyFlow()
         }
@@ -98,7 +98,7 @@ class VoiceControllerTest {
         val sttClient = mockk<SttClient>()
         every { sttClient.isOnDeviceAvailable } returns true
         every { sttClient.finalResultTimeoutMs } returns SttClient.DEFAULT_FINAL_RESULT_TIMEOUT_MS
-        every { sttClient.listen() } returns flowOf(
+        every { sttClient.listen(any()) } returns flowOf(
             SttEvent.Final(
                 transcript = "set timer",
                 alternatives = listOf("set time", "set five minute timer"),
@@ -142,15 +142,19 @@ class VoiceControllerTest {
         } returns PackageManager.PERMISSION_GRANTED
 
         val sttClient = mockk<SttClient>()
+        val timelineTurnIds = mutableListOf<String>()
         every { sttClient.isOnDeviceAvailable } returns true
         every { sttClient.finalResultTimeoutMs } returns SttClient.DEFAULT_FINAL_RESULT_TIMEOUT_MS
-        every { sttClient.listen() } returns flowOf(
-            SttEvent.Final(
-                transcript = "set timer",
-                alternatives = listOf("set five minute timer"),
-                confidence = 0.91f,
-            ),
-        )
+        every { sttClient.listen(any()) } answers {
+            timelineTurnIds += invocation.args[0] as String
+            flowOf(
+                SttEvent.Final(
+                    transcript = "set timer",
+                    alternatives = listOf("set five minute timer"),
+                    confidence = 0.91f,
+                ),
+            )
+        }
         every { sttClient.stopListening() } just runs
         every { sttClient.release() } just runs
 
@@ -170,6 +174,7 @@ class VoiceControllerTest {
         runCurrent()
 
         assertThat(controller.stopAndAwaitFinal()).isEqualTo("set timer")
+        assertThat(controller.consumeLastTimelineTurnId()).isEqualTo(timelineTurnIds.single())
         assertThat(controller.consumeLastLowConfidenceTranscriptHandled()).isFalse()
         verify(exactly = 0) { presenter.onLowConfidenceTranscript(any(), any()) }
     }
@@ -184,7 +189,7 @@ class VoiceControllerTest {
         val sttClient = mockk<SttClient>()
         every { sttClient.isOnDeviceAvailable } returns true
         every { sttClient.finalResultTimeoutMs } returns SttClient.DEFAULT_FINAL_RESULT_TIMEOUT_MS
-        every { sttClient.listen() } returns flowOf(
+        every { sttClient.listen(any()) } returns flowOf(
             SttEvent.Final(
                 transcript = "set timer",
                 alternatives = listOf("set five minute timer"),
@@ -224,7 +229,7 @@ class VoiceControllerTest {
         val sttClient = mockk<SttClient>()
         every { sttClient.isOnDeviceAvailable } returns false
         every { sttClient.finalResultTimeoutMs } returns SttClient.DEFAULT_FINAL_RESULT_TIMEOUT_MS
-        every { sttClient.listen() } returns flowOf(
+        every { sttClient.listen(any()) } returns flowOf(
             SttEvent.Notice("Cut off at 30s"),
             SttEvent.Error("Sarvam needs internet — switch to Android STT or reconnect", true),
         )
@@ -262,7 +267,7 @@ class VoiceControllerTest {
         val sttClient = mockk<SttClient>()
         every { sttClient.isOnDeviceAvailable } returns false
         every { sttClient.finalResultTimeoutMs } returns 6_000L
-        every { sttClient.listen() } returns flow {
+        every { sttClient.listen(any()) } returns flow {
             emit(SttEvent.BeginningOfSpeech)
             delay(5_000L)
             emit(SttEvent.Final("delayed sarvam transcript", isOnDevice = false))

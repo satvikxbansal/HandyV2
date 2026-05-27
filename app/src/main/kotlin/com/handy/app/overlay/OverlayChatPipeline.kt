@@ -5,6 +5,7 @@ import com.handy.app.agent.AgentSessionController
 import com.handy.app.chat.ChatConfirmationBroker
 import com.handy.app.screen.ScreenContextBuilder
 import com.handy.app.voice.SpeechOutputController
+import com.handy.core.audit.AuditStore
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.LlmClient
 import com.handy.core.llm.ToolProvenance
@@ -74,6 +75,7 @@ class OverlayChatPipeline @Inject constructor(
     private val screenContextBuilder: ScreenContextBuilder,
     private val agentSessionController: AgentSessionController,
     private val speechOutputController: SpeechOutputController,
+    private val auditStore: AuditStore,
     @ApplicationScope private val appScope: CoroutineScope,
 ) {
 
@@ -81,6 +83,7 @@ class OverlayChatPipeline @Inject constructor(
         llmClient = llmClient,
         historyStore = historyStore,
         toolRunner = toolRunner,
+        auditStore = auditStore,
     )
 
     private var collectJob: Job? = null
@@ -95,6 +98,7 @@ class OverlayChatPipeline @Inject constructor(
                     runTurn(
                         userText = submission.text,
                         fromVoice = submission.fromVoice,
+                        voiceTurnId = submission.voiceTurnId,
                     )
                 }
         }
@@ -116,6 +120,7 @@ class OverlayChatPipeline @Inject constructor(
     internal suspend fun runTurn(
         userText: String,
         fromVoice: Boolean,
+        voiceTurnId: String? = null,
     ) {
         val snapshot = presenter.state.value
         val panelSnapshot = snapshot.panel.snapshot
@@ -150,6 +155,7 @@ class OverlayChatPipeline @Inject constructor(
             toolContext = toolContext,
             panelSnapshot = panelSnapshot,
             preferFocusedWindow = panelSnapshot != null,
+            requestIdOverride = voiceTurnId.takeIf { fromVoice },
         )
         val groundedSnapshot = turnContext.panelSnapshot
         Timber.d(

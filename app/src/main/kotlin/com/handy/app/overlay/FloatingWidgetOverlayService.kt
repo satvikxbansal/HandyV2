@@ -769,14 +769,17 @@ class FloatingWidgetOverlayService : LifecycleService() {
                         lifecycleScope.launch {
                             val transcript = voiceController.stopAndAwaitFinal()
                             if (voiceController.consumeLastPointingCorrectionHandled()) {
+                                voiceController.consumeLastTimelineTurnId()
                                 return@launch
                             }
                             if (voiceController.consumeLastLowConfidenceTranscriptHandled()) {
+                                voiceController.consumeLastTimelineTurnId()
                                 state.value = WidgetState.IDLE
                                 return@launch
                             }
                             state.value = WidgetState.IDLE
                             if (!transcript.isNullOrBlank()) {
+                                val voiceTurnId = voiceController.consumeLastTimelineTurnId()
                                 // V2 recipe #6: auto-submit through the
                                 // panel pipeline when the panel is the
                                 // configured quick surface. Legacy path
@@ -794,12 +797,13 @@ class FloatingWidgetOverlayService : LifecycleService() {
                                     // to let the panel attach / IME
                                     // settle before the stream starts.
                                     kotlinx.coroutines.delay(VOICE_AUTOSUBMIT_GRACE_MS)
-                                    panelBridge.submitFromVoice(transcript)
+                                    panelBridge.submitFromVoice(transcript, voiceTurnId)
                                 } else {
                                     presenter.onWidgetIdle()
-                                    openChat(voiceMessage = transcript)
+                                    openChat(voiceMessage = transcript, voiceTurnId = voiceTurnId)
                                 }
                             } else {
+                                voiceController.consumeLastTimelineTurnId()
                                 voiceController.consumeLastError()?.let { error ->
                                     presenter.onError(error)
                                 } ?: presenter.onWidgetIdle()
@@ -940,7 +944,10 @@ class FloatingWidgetOverlayService : LifecycleService() {
 
     internal fun flightControllerInstance(): BezierFlightController = flightController
 
-    private fun openChat(voiceMessage: String? = null) {
+    private fun openChat(
+        voiceMessage: String? = null,
+        voiceTurnId: String? = null,
+    ) {
         // Capture the app currently behind the widget BEFORE launching
         // ChatActivity. Once the chat window takes focus, the only
         // "application" window visible to the accessibility service is
@@ -961,6 +968,9 @@ class FloatingWidgetOverlayService : LifecycleService() {
         }
         if (!voiceMessage.isNullOrBlank()) {
             intent.putExtra(ChatActivity.EXTRA_VOICE_MESSAGE, voiceMessage)
+            voiceTurnId?.takeIf { it.isNotBlank() }?.let {
+                intent.putExtra(ChatActivity.EXTRA_VOICE_TURN_ID, it)
+            }
         }
         startActivity(intent)
     }
