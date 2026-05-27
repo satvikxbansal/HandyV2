@@ -277,7 +277,7 @@ private fun VoiceCardHeader(
                     fontSize = 17.sp,
                     lineHeight = 20.4.sp,
                     fontWeight = FontWeight.SemiBold,
-                    letterSpacing = (-0.012).em,
+                    letterSpacing = 0.em,
                 ),
                 color = HandyDesign.Colors.TextPrimary,
             )
@@ -354,7 +354,7 @@ fun SubsectionHeader(
                     fontSize = 14.sp,
                     lineHeight = 17.sp,
                     fontWeight = FontWeight.SemiBold,
-                    letterSpacing = (-0.008).em,
+                    letterSpacing = 0.em,
                 ),
                 color = HandyDesign.Colors.TextPrimary,
                 maxLines = 1,

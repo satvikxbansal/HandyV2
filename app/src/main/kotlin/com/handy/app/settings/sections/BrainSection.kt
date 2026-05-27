@@ -88,7 +88,7 @@ fun BrainSection(
                             fontSize = 17.sp,
                             lineHeight = 20.4.sp,
                             fontWeight = FontWeight.SemiBold,
-                            letterSpacing = (-0.012).em,
+                            letterSpacing = 0.em,
                         ),
                         color = HandyDesign.Colors.TextPrimary,
                     )

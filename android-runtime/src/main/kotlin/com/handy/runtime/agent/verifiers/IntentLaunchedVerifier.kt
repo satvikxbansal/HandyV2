@@ -17,13 +17,14 @@ object IntentLaunchedVerifier : ResultVerifier {
     ): VerificationResult {
         val action = (step.command as? RecipeCommand.NativeAction)?.action
             ?: return VerificationResult.Inconclusive
-        val beforePackage = snapshotBefore.foregroundPackageName()
         val afterPackage = snapshotAfter.foregroundPackageName()
         val expectedPackage = action.expectedPackage()
         if (expectedPackage != null) {
             return if (afterPackage.equals(expectedPackage, ignoreCase = true)) {
                 VerificationResult.Verified
             } else if (expectedPackage == DESKCLOCK_PACKAGE && snapshotAfter.looksLikeClockApp()) {
+                VerificationResult.Verified
+            } else if (action.allowsCompatibleHandler() && snapshotAfter.launchObservedFrom(snapshotBefore)) {
                 VerificationResult.Verified
             } else {
                 VerificationResult.Failed(
@@ -32,13 +33,22 @@ object IntentLaunchedVerifier : ResultVerifier {
             }
         }
 
-        return when {
-            !beforePackage.equals(afterPackage, ignoreCase = true) -> VerificationResult.Verified
-            snapshotAfter.screenChangedFrom(snapshotBefore) -> VerificationResult.Verified
-            else -> VerificationResult.Failed("intent-did-not-launch")
+        return if (snapshotAfter.launchObservedFrom(snapshotBefore)) {
+            VerificationResult.Verified
+        } else {
+            VerificationResult.Failed("intent-did-not-launch")
         }
     }
 }
+
+private fun AssistantAction.allowsCompatibleHandler(): Boolean =
+    this is AssistantAction.InstallApp ||
+        this is AssistantAction.MapsSearch ||
+        this is AssistantAction.StartNavigation
+
+private fun GroundingSnapshot.launchObservedFrom(before: GroundingSnapshot): Boolean =
+    !before.foregroundPackageName().equals(foregroundPackageName(), ignoreCase = true) ||
+        screenChangedFrom(before)
 
 private fun GroundingSnapshot.looksLikeClockApp(): Boolean =
     sequenceOf(

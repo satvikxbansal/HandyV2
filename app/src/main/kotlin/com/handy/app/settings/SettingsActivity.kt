@@ -119,7 +119,7 @@ class SettingsActivity : ComponentActivity() {
                     },
                     onVoiceAction = viewModel::onVoiceAction,
                     onOpenSystemVoiceSettings = {
-                        startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))
+                        openSystemVoiceSettingsSafely()
                     },
                     onTapForMeToggle = viewModel::setTapForMeEnabled,
                     onNoActionsInIncognitoToggle = { enabled ->
@@ -423,3 +423,10 @@ private fun isRecordAudioGranted(context: Context): Boolean =
         context,
         Manifest.permission.RECORD_AUDIO,
     ) == PackageManager.PERMISSION_GRANTED
+
+private fun Context.openSystemVoiceSettingsSafely() {
+    val voiceSettings = Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)
+    val fallbackSettings = Intent(Settings.ACTION_SETTINGS)
+    runCatching { startActivity(voiceSettings) }
+        .recoverCatching { startActivity(fallbackSettings) }
+}

@@ -1,6 +1,6 @@
 # Recipe Sweep Matrix
 
-Audit note, 2026-05-26: automated recipe contract coverage, verifier tests, app unit tests, lint, debug assemble, and emulator launch smoke passed after the deep audit. The per-device pass/fail cells remain `TBD` until the manual recipe sweep below is executed on each listed device/app-account combination.
+Audit note, 2026-05-27: automated recipe contract coverage, verifier tests, app unit tests, lint, debug assemble, and emulator launch smoke passed after the deep audit. Install and Maps compatible-handler fallbacks are covered by verifier tests. The per-device pass/fail cells remain `TBD` until the manual recipe sweep below is executed on each listed device/app-account combination.
 
 | recipe | device | Android version | app version | signed-in (Y/N) | locale | expected behavior | pass/fail | screenshot path |
 |---|---|---|---|---|---|---|---|---|

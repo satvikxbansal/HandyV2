@@ -113,6 +113,38 @@ class ResultVerifierTest {
         assertThat(result).isEqualTo(VerificationResult.Verified)
     }
 
+    @Test fun `intent launched verifier accepts install compatible handler fallback`() = runTest {
+        val step = RecipeStep(
+            id = "open-play-store",
+            title = "Show Spotify on Play Store",
+            command = RecipeCommand.NativeAction(AssistantAction.InstallApp(searchQuery = "spotify")),
+        )
+
+        val result = IntentLaunchedVerifier.verify(
+            step = step,
+            snapshotBefore = snapshot("com.handy.android", treeHash = "before"),
+            snapshotAfter = snapshot("com.android.chrome", treeHash = "after", appLabel = "Chrome"),
+        )
+
+        assertThat(result).isEqualTo(VerificationResult.Verified)
+    }
+
+    @Test fun `intent launched verifier accepts maps compatible handler fallback`() = runTest {
+        val step = RecipeStep(
+            id = "maps-search",
+            title = "Search Maps for coffee",
+            command = RecipeCommand.NativeAction(AssistantAction.MapsSearch("coffee")),
+        )
+
+        val result = IntentLaunchedVerifier.verify(
+            step = step,
+            snapshotBefore = snapshot("com.handy.android", treeHash = "before"),
+            snapshotAfter = snapshot("com.android.intentresolver", treeHash = "after", appLabel = "Android System"),
+        )
+
+        assertThat(result).isEqualTo(VerificationResult.Verified)
+    }
+
     @Test fun `screen changed verifier checks root or tree hash`() = runTest {
         val result = ScreenChangedVerifier.verify(
             step = RecipeStep(
