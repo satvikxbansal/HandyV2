@@ -40,6 +40,22 @@ class ResultVerifierTest {
         assertThat(result).isEqualTo(VerificationResult.Verified)
     }
 
+    @Test fun `tap package changed verifier accepts observed app label`() = runTest {
+        val step = RecipeStep(
+            id = "open-whatsapp",
+            title = "Open WhatsApp",
+            command = RecipeCommand.NativeAction(AssistantAction.OpenApp("WhatsApp")),
+        )
+
+        val result = TapPackageChangedVerifier.verify(
+            step = step,
+            snapshotBefore = snapshot("com.handy.android"),
+            snapshotAfter = snapshot(packageName = "com.whatsapp", appLabel = "WhatsApp"),
+        )
+
+        assertThat(result).isEqualTo(VerificationResult.Verified)
+    }
+
     @Test fun `text field filled verifier detects typed text growth`() = runTest {
         val step = RecipeStep(
             id = "type-query",
@@ -76,6 +92,22 @@ class ResultVerifierTest {
             step = step,
             snapshotBefore = snapshot("com.handy.android"),
             snapshotAfter = snapshot("com.google.android.deskclock"),
+        )
+
+        assertThat(result).isEqualTo(VerificationResult.Verified)
+    }
+
+    @Test fun `intent launched verifier accepts observed clock app launch`() = runTest {
+        val step = RecipeStep(
+            id = "set-alarm-intent",
+            title = "Set alarm",
+            command = RecipeCommand.NativeAction(AssistantAction.SetAlarm(hour = 7, minute = 0)),
+        )
+
+        val result = IntentLaunchedVerifier.verify(
+            step = step,
+            snapshotBefore = snapshot("com.handy.android"),
+            snapshotAfter = snapshot(packageName = "com.android.deskclock", appLabel = "Clock"),
         )
 
         assertThat(result).isEqualTo(VerificationResult.Verified)
@@ -120,8 +152,10 @@ class ResultVerifierTest {
         marks: List<AccessibilityMark> = emptyList(),
         treeHash: String = "tree",
         rootHash: String = "root",
+        appLabel: String = packageName,
+        windowTitle: String? = null,
     ): GroundingSnapshot {
-        val toolContext = ToolContext(packageName = packageName, appLabel = packageName)
+        val toolContext = ToolContext(packageName = packageName, appLabel = appLabel)
         val root = UiNode(
             role = "root",
             children = marks.map { mark ->
@@ -149,6 +183,7 @@ class ResultVerifierTest {
             ),
             screenText = ScreenTextSnapshot(
                 packageName = packageName,
+                windowTitle = windowTitle,
                 timestampEpochMs = 1L,
                 root = root,
             ),
@@ -175,4 +210,3 @@ class ResultVerifierTest {
             editable = editable,
         )
 }
-

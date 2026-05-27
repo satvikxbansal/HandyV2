@@ -67,9 +67,7 @@ class RecipeNativeActionExecutionTest {
                 ),
             )
 
-            assertThat(result).isEqualTo(
-                RecipeRunResult.Verified(completedSteps = 1, verifiedBy = "NoopResultVerifier"),
-            )
+            assertThat(result).isEqualTo(RecipeRunResult.Completed(completedSteps = 1))
             assertThat(dispatched).containsExactly(AssistantAction.SetAlarm(hour = 7, minute = 0))
         }
     }

@@ -32,7 +32,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -50,14 +49,8 @@ import com.handy.app.design.HandyDesign
 import com.handy.app.design.HandyDesignTheme
 import com.handy.app.design.HandyDesignType
 import com.handy.app.settings.design.SectionCard
-import com.handy.app.settings.design.PillOption
-import com.handy.app.settings.design.PillSelectRow
-import com.handy.app.settings.design.SectionRowDivider
 import com.handy.app.settings.design.SectionTile
 import com.handy.app.settings.design.SectionTone
-import com.handy.core.model.SttLanguage
-import com.handy.core.model.SttMode
-import com.handy.core.model.SttProvider
 
 @Composable
 fun BrainSection(
@@ -67,17 +60,7 @@ fun BrainSection(
     onApiKeyChange: (String) -> Unit,
     requestsTodayLabel: String,
     connected: Boolean,
-    sttProvider: SttProvider,
-    sttMode: SttMode,
-    sttLanguage: SttLanguage,
-    sarvamKeyMasked: String?,
-    sarvamSttConsentGranted: Boolean,
     onOpenPicker: () -> Unit,
-    onSttProviderChange: (SttProvider) -> Unit,
-    onSttModeChange: (SttMode) -> Unit,
-    onSttLanguageChange: (SttLanguage) -> Unit,
-    onSarvamKeyChange: (String) -> Unit,
-    onSarvamSttConsentRevoked: () -> Unit,
 ) {
     val detailLine = when {
         providerLine.isBlank() -> selectedModelLabel
@@ -160,19 +143,6 @@ fun BrainSection(
             )
         }
 
-        SttSettingsRows(
-            sttProvider = sttProvider,
-            sttMode = sttMode,
-            sttLanguage = sttLanguage,
-            sarvamKeyMasked = sarvamKeyMasked,
-            sarvamSttConsentGranted = sarvamSttConsentGranted,
-            onSttProviderChange = onSttProviderChange,
-            onSttModeChange = onSttModeChange,
-            onSttLanguageChange = onSttLanguageChange,
-            onSarvamKeyChange = onSarvamKeyChange,
-            onSarvamSttConsentRevoked = onSarvamSttConsentRevoked,
-        )
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -203,213 +173,6 @@ fun BrainSection(
             )
         }
     }
-}
-
-@Composable
-private fun SttSettingsRows(
-    sttProvider: SttProvider,
-    sttMode: SttMode,
-    sttLanguage: SttLanguage,
-    sarvamKeyMasked: String?,
-    sarvamSttConsentGranted: Boolean,
-    onSttProviderChange: (SttProvider) -> Unit,
-    onSttModeChange: (SttMode) -> Unit,
-    onSttLanguageChange: (SttLanguage) -> Unit,
-    onSarvamKeyChange: (String) -> Unit,
-    onSarvamSttConsentRevoked: () -> Unit,
-) {
-    val effectiveProvider = if (sttProvider == SttProvider.SARVAM_SAARIKA) {
-        SttProvider.SARVAM_SAARIKA
-    } else {
-        SttProvider.ANDROID
-    }
-    PillSelectRow(
-        title = "Speech provider",
-        options = listOf(
-            PillOption(
-                label = "Android",
-                on = effectiveProvider == SttProvider.ANDROID,
-                onToggle = { onSttProviderChange(SttProvider.ANDROID) },
-            ),
-            PillOption(
-                label = "Sarvam Saarika",
-                on = effectiveProvider == SttProvider.SARVAM_SAARIKA,
-                tag = if (sarvamKeyMasked == null) "Add key" else null,
-                onToggle = { onSttProviderChange(SttProvider.SARVAM_SAARIKA) },
-            ),
-        ),
-        tone = HandyDesign.Colors.Accent,
-        toneSoft = HandyDesign.Colors.AccentSoft,
-        toneHair = HandyDesign.Colors.AccentHairline,
-    )
-    if (effectiveProvider == SttProvider.ANDROID) {
-        AndroidSttRows(
-            sttMode = sttMode,
-            sttLanguage = sttLanguage,
-            onSttModeChange = onSttModeChange,
-            onSttLanguageChange = onSttLanguageChange,
-        )
-    } else {
-        SarvamSttRows(
-            sttLanguage = sttLanguage,
-            apiKeyMasked = sarvamKeyMasked,
-            consentGranted = sarvamSttConsentGranted,
-            onSttLanguageChange = onSttLanguageChange,
-            onSarvamKeyChange = onSarvamKeyChange,
-            onSarvamSttConsentRevoked = onSarvamSttConsentRevoked,
-        )
-    }
-}
-
-@Composable
-private fun AndroidSttRows(
-    sttMode: SttMode,
-    sttLanguage: SttLanguage,
-    onSttModeChange: (SttMode) -> Unit,
-    onSttLanguageChange: (SttLanguage) -> Unit,
-) {
-    PillSelectRow(
-        title = stringResource(R.string.settings_stt_mode_title),
-        options = SttMode.entries.map { mode ->
-            PillOption(
-                label = sttModeLabel(mode),
-                on = mode == sttMode,
-                onToggle = { onSttModeChange(mode) },
-            )
-        },
-        tone = HandyDesign.Colors.Accent,
-        toneSoft = HandyDesign.Colors.AccentSoft,
-        toneHair = HandyDesign.Colors.AccentHairline,
-    )
-    PillSelectRow(
-        title = stringResource(R.string.settings_stt_language_title),
-        options = SttLanguage.entries.map { language ->
-            PillOption(
-                label = sttLanguageLabel(language),
-                on = language == sttLanguage,
-                onToggle = { onSttLanguageChange(language) },
-            )
-        },
-        tone = HandyDesign.Colors.Accent,
-        toneSoft = HandyDesign.Colors.AccentSoft,
-        toneHair = HandyDesign.Colors.AccentHairline,
-    )
-    Text(
-        text = stringResource(R.string.settings_stt_hinglish_subtitle),
-        style = HandyDesignType.Caption.copy(
-            fontSize = 12.sp,
-            lineHeight = 17.sp,
-        ),
-        color = HandyDesign.Colors.TextSecondary,
-        modifier = Modifier.padding(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 4.dp),
-    )
-}
-
-@Composable
-private fun SarvamSttRows(
-    sttLanguage: SttLanguage,
-    apiKeyMasked: String?,
-    consentGranted: Boolean,
-    onSttLanguageChange: (SttLanguage) -> Unit,
-    onSarvamKeyChange: (String) -> Unit,
-    onSarvamSttConsentRevoked: () -> Unit,
-) {
-    PillSelectRow(
-        title = stringResource(R.string.settings_stt_language_title),
-        options = listOf(SttLanguage.SYSTEM, SttLanguage.ENGLISH, SttLanguage.HINDI, SttLanguage.HINGLISH)
-            .map { language ->
-                PillOption(
-                    label = sttLanguageLabel(language),
-                    on = language == sttLanguage,
-                    onToggle = { onSttLanguageChange(language) },
-                )
-            },
-        tone = HandyDesign.Colors.Accent,
-        toneSoft = HandyDesign.Colors.AccentSoft,
-        toneHair = HandyDesign.Colors.AccentHairline,
-    )
-    Text(
-        text = "Cloud transcription. Better Hindi and Hinglish; no live preview. Audio is sent to Sarvam.",
-        style = HandyDesignType.Caption.copy(
-            fontSize = 12.sp,
-            lineHeight = 17.sp,
-        ),
-        color = HandyDesign.Colors.TextSecondary,
-        modifier = Modifier.padding(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 4.dp),
-    )
-    Text(
-        text = "Sarvam transcribes after you release the press. No live preview.",
-        style = HandyDesignType.Caption.copy(
-            fontSize = 12.sp,
-            lineHeight = 17.sp,
-        ),
-        color = HandyDesign.Colors.TextSecondary,
-        modifier = Modifier.padding(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 8.dp),
-    )
-    SectionRowDivider()
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 10.dp),
-    ) {
-        Text(
-            text = "SARVAM API KEY",
-            style = HandyDesignType.Overline.copy(
-                fontSize = 10.sp,
-                lineHeight = 10.sp,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = 0.12.em,
-            ),
-            color = HandyDesign.Colors.TextMuted,
-        )
-        Spacer(Modifier.height(8.dp))
-        BrainApiKeyField(
-            apiKeyMasked = apiKeyMasked,
-            placeholder = "Paste your Sarvam key",
-            onCommit = onSarvamKeyChange,
-        )
-        if (!consentGranted) {
-            Text(
-                text = "Consent is required before Sarvam STT can send audio.",
-                style = HandyDesignType.Caption.copy(
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
-                ),
-                color = HandyDesign.Colors.Danger,
-                modifier = Modifier.padding(top = 10.dp),
-            )
-        } else {
-            Text(
-                text = "Revoke Sarvam STT consent",
-                style = HandyDesignType.BodyStrong.copy(
-                    fontSize = 12.sp,
-                    lineHeight = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                ),
-                color = HandyDesign.Colors.Accent,
-                modifier = Modifier
-                    .padding(top = 10.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .clickable(role = Role.Button, onClick = onSarvamSttConsentRevoked)
-                    .padding(vertical = 3.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun sttModeLabel(mode: SttMode): String = when (mode) {
-    SttMode.AUTO -> stringResource(R.string.settings_stt_mode_auto)
-    SttMode.ON_DEVICE_ONLY -> stringResource(R.string.settings_stt_mode_on_device_only)
-    SttMode.NETWORK_ALLOWED -> stringResource(R.string.settings_stt_mode_network_allowed)
-}
-
-@Composable
-private fun sttLanguageLabel(language: SttLanguage): String = when (language) {
-    SttLanguage.SYSTEM -> stringResource(R.string.settings_stt_language_system)
-    SttLanguage.ENGLISH -> stringResource(R.string.settings_stt_language_english)
-    SttLanguage.HINDI -> stringResource(R.string.settings_stt_language_hindi)
-    SttLanguage.HINGLISH -> stringResource(R.string.settings_stt_language_hinglish)
 }
 
 @Composable
@@ -583,17 +346,7 @@ private fun BrainSectionPreview() {
                 onApiKeyChange = {},
                 requestsTodayLabel = "2 req · today",
                 connected = true,
-                sttProvider = SttProvider.ANDROID,
-                sttMode = SttMode.AUTO,
-                sttLanguage = SttLanguage.SYSTEM,
-                sarvamKeyMasked = "sar••••1234",
-                sarvamSttConsentGranted = false,
                 onOpenPicker = {},
-                onSttProviderChange = {},
-                onSttModeChange = {},
-                onSttLanguageChange = {},
-                onSarvamKeyChange = {},
-                onSarvamSttConsentRevoked = {},
             )
         }
     }

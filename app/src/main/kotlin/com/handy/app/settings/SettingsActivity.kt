@@ -16,19 +16,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -70,9 +67,6 @@ import com.handy.app.settings.sections.colorForPackage
 import com.handy.app.settings.sections.friendlyAppLabelOrPackage
 import com.handy.core.action.ActionExecutionGate
 import com.handy.core.model.HandySettings
-import com.handy.core.model.SttLanguage
-import com.handy.core.model.SttMode
-import com.handy.core.model.SttProvider
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.launch
@@ -120,28 +114,6 @@ class SettingsActivity : ComponentActivity() {
                         viewModel.updateSettings { it.copy(webSearchEnabled = enabled) }
                     },
                     onClaudeModelVariant = viewModel::setClaudeModelVariant,
-                    onSttModeChange = { mode ->
-                        viewModel.updateSettings { it.copy(sttMode = mode) }
-                    },
-                    onSttLanguageChange = { language ->
-                        viewModel.updateSettings { it.copy(sttLanguage = language) }
-                    },
-                    onSttProviderChange = { provider ->
-                        viewModel.updateSettings { it.copy(sttProvider = provider) }
-                    },
-                    onSarvamSttConsentChange = { granted ->
-                        viewModel.updateSettings {
-                            it.copy(
-                                sarvamSttConsentGranted = granted,
-                                sttProvider = if (granted) {
-                                    SttProvider.SARVAM_SAARIKA
-                                } else {
-                                    SttProvider.ANDROID
-                                },
-                            )
-                        }
-                    },
-                    onSarvamKeyChange = viewModel::setSarvamKey,
                     onTutorModeToggle = { enabled ->
                         viewModel.updateSettings { it.copy(tutorModeEnabled = enabled) }
                     },
@@ -206,11 +178,6 @@ internal fun SettingsScreen(
     onGithubKeyChange: (String) -> Unit,
     onWebSearchToggle: (Boolean) -> Unit,
     onClaudeModelVariant: (Boolean) -> Unit,
-    onSttModeChange: (SttMode) -> Unit,
-    onSttLanguageChange: (SttLanguage) -> Unit,
-    onSttProviderChange: (SttProvider) -> Unit,
-    onSarvamSttConsentChange: (Boolean) -> Unit,
-    onSarvamKeyChange: (String) -> Unit,
     onTutorModeToggle: (Boolean) -> Unit,
     onVoiceAction: (VoiceAction) -> Unit,
     onOpenSystemVoiceSettings: () -> Unit,
@@ -233,7 +200,6 @@ internal fun SettingsScreen(
     var automationsOpen by rememberSaveable { mutableStateOf(false) }
     var privacyOpen by rememberSaveable { mutableStateOf(false) }
     var brainSheetOpen by rememberSaveable { mutableStateOf(false) }
-    var sarvamSttConsentSheetOpen by rememberSaveable { mutableStateOf(false) }
 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -305,18 +271,14 @@ internal fun SettingsScreen(
         ) {
             SettingsHeader(onBack = onBack)
 
-            Column(
+            LazyColumn(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 18.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
+                item {
                     BrainSection(
                         selectedModelLabel = selectedModelLabel,
                         providerLine = if (useHaiku) {
@@ -328,31 +290,24 @@ internal fun SettingsScreen(
                         onApiKeyChange = onClaudeKeyChange,
                         requestsTodayLabel = "—",
                         connected = state.claudeKeyMasked != null,
-                        sttProvider = state.settings?.sttProvider ?: SttProvider.ANDROID,
-                        sttMode = state.settings?.sttMode ?: SttMode.AUTO,
-                        sttLanguage = state.settings?.sttLanguage ?: SttLanguage.SYSTEM,
-                        sarvamKeyMasked = state.sarvamKeyMasked,
-                        sarvamSttConsentGranted = state.settings?.sarvamSttConsentGranted == true,
                         onOpenPicker = { brainSheetOpen = true },
-                        onSttProviderChange = { provider ->
-                            if (provider == SttProvider.SARVAM_SAARIKA &&
-                                state.settings?.sarvamSttConsentGranted != true
-                            ) {
-                                sarvamSttConsentSheetOpen = true
-                            } else {
-                                onSttProviderChange(provider)
-                            }
-                        },
-                        onSttModeChange = onSttModeChange,
-                        onSttLanguageChange = onSttLanguageChange,
-                        onSarvamKeyChange = onSarvamKeyChange,
-                        onSarvamSttConsentRevoked = { onSarvamSttConsentChange(false) },
                     )
+                }
+                item {
                     VoiceSection(
                         state = state.voice,
-                        onAction = onVoiceAction,
+                        onAction = { action ->
+                            if (action == VoiceAction.RequestMicPermission) {
+                                onRequestMic()
+                            } else {
+                                onVoiceAction(action)
+                            }
+                        },
                         onOpenSystemVoiceSettings = onOpenSystemVoiceSettings,
+                        micPermissionGranted = micGranted,
                     )
+                }
+                item {
                     CapabilitiesSection(
                         expanded = capabilitiesOpen,
                         onToggleExpanded = { capabilitiesOpen = !capabilitiesOpen },
@@ -377,6 +332,8 @@ internal fun SettingsScreen(
                         tutorOn = state.settings?.tutorModeEnabled == true,
                         onTutorToggle = onTutorModeToggle,
                     )
+                }
+                item {
                     AutomationsSection(
                         expanded = automationsOpen,
                         onToggleExpanded = { automationsOpen = !automationsOpen },
@@ -392,6 +349,8 @@ internal fun SettingsScreen(
                         disabledApps = disabledApps,
                         onRestorePackage = onTapForMeRestorePackage,
                     )
+                }
+                item {
                     PrivacySection(
                         expanded = privacyOpen,
                         onToggleExpanded = { privacyOpen = !privacyOpen },
@@ -404,11 +363,12 @@ internal fun SettingsScreen(
                         onClearHistory = onClearHistory,
                     )
                 }
-
-                SettingsFooter(
-                    versionName = BuildConfig.VERSION_NAME,
-                    onResetOnboarding = onResetOnboarding,
-                )
+                item {
+                    SettingsFooter(
+                        versionName = BuildConfig.VERSION_NAME,
+                        onResetOnboarding = onResetOnboarding,
+                    )
+                }
             }
         }
 
@@ -446,33 +406,6 @@ internal fun SettingsScreen(
                     }
                 },
                 onDismiss = { brainSheetOpen = false },
-            )
-        }
-        if (sarvamSttConsentSheetOpen) {
-            AlertDialog(
-                onDismissRequest = { sarvamSttConsentSheetOpen = false },
-                title = { Text("Send audio to Sarvam?") },
-                text = {
-                    Text("Each session uploads up to ~30s of audio after you release the press.")
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            onSarvamSttConsentChange(true)
-                            sarvamSttConsentSheetOpen = false
-                        },
-                    ) {
-                        Text("Allow")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { sarvamSttConsentSheetOpen = false }) {
-                        Text("Not now")
-                    }
-                },
-                containerColor = HandyDesign.Colors.SurfaceElevated,
-                titleContentColor = HandyDesign.Colors.TextPrimary,
-                textContentColor = HandyDesign.Colors.TextSecondary,
             )
         }
     }

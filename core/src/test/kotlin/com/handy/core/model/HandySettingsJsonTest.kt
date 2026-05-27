@@ -29,8 +29,12 @@ class HandySettingsJsonTest {
         assertThat(decoded.sarvamSpokenLanguage).isEqualTo(SarvamLanguage.AUTO)
         assertThat(decoded.sttMode).isEqualTo(SttMode.AUTO)
         assertThat(decoded.sttLanguage).isEqualTo(SttLanguage.SYSTEM)
+        assertThat(decoded.saarikaLanguage).isEqualTo(SttLanguage.SYSTEM)
         assertThat(decoded.sttProvider).isEqualTo(SttProvider.ANDROID)
         assertThat(decoded.sarvamSttConsentGranted).isFalse()
+        assertThat(decoded.voiceExpanded).isFalse()
+        assertThat(decoded.voiceTtsOpen).isFalse()
+        assertThat(decoded.voiceSttOpen).isFalse()
     }
 
     @Test fun `automation flags round trip through settings json`() {
@@ -41,9 +45,14 @@ class HandySettingsJsonTest {
             sttProvider = SttProvider.SARVAM_SAARIKA,
             sttMode = SttMode.ON_DEVICE_ONLY,
             sttLanguage = SttLanguage.HINGLISH,
+            saarikaLanguage = SttLanguage.HINDI,
             sarvamSttConsentGranted = true,
             ttsProvider = TtsProvider.SARVAM,
+            ttsSystemLastSelectedEpochMs = 1234L,
             sarvamSpokenLanguage = SarvamLanguage.HINGLISH,
+            voiceExpanded = true,
+            voiceTtsOpen = true,
+            voiceSttOpen = true,
         )
 
         val decoded = json.decodeFromString(
@@ -57,8 +66,13 @@ class HandySettingsJsonTest {
         assertThat(decoded.sttProvider).isEqualTo(SttProvider.SARVAM_SAARIKA)
         assertThat(decoded.sttMode).isEqualTo(SttMode.ON_DEVICE_ONLY)
         assertThat(decoded.sttLanguage).isEqualTo(SttLanguage.HINGLISH)
+        assertThat(decoded.saarikaLanguage).isEqualTo(SttLanguage.HINDI)
         assertThat(decoded.sarvamSttConsentGranted).isTrue()
         assertThat(decoded.ttsProvider).isEqualTo(TtsProvider.SARVAM)
+        assertThat(decoded.ttsSystemLastSelectedEpochMs).isEqualTo(1234L)
         assertThat(decoded.sarvamSpokenLanguage).isEqualTo(SarvamLanguage.HINGLISH)
+        assertThat(decoded.voiceExpanded).isTrue()
+        assertThat(decoded.voiceTtsOpen).isTrue()
+        assertThat(decoded.voiceSttOpen).isTrue()
     }
 }

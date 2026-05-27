@@ -444,7 +444,7 @@ class SarvamSttClient internal constructor(
         }
     }
 
-    private fun HandySettings.sarvamSttLanguageCode(): String? = when (sttLanguage) {
+    private fun HandySettings.sarvamSttLanguageCode(): String? = when (saarikaLanguage) {
         SttLanguage.SYSTEM -> null
         SttLanguage.ENGLISH -> "en-IN"
         SttLanguage.HINDI -> "hi-IN"

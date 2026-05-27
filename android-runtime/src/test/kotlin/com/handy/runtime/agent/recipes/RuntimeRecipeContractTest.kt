@@ -95,6 +95,19 @@ abstract class RuntimeRecipeContractTest {
         }
     }
 
+    @Test fun `blocked fixtures are refused or denied by policy`() {
+        fixtures().forEach { fixture ->
+            if (fixture.sideEffect != SideEffectClassification.BLOCKED) return@forEach
+            val proposal = propose(fixture)
+            if (proposal is RecipeProposal.Refused) return@forEach
+
+            val checks = preflight((proposal as RecipeProposal.Proposed).plan, fixture.toGrounding(), policy)
+            assertWithMessage("${recipeId}:${fixture.name}")
+                .that(checks.any { !it.decision.allowed })
+                .isTrue()
+        }
+    }
+
     fun fixtures(): List<RuntimeRecipeFixture> = RuntimeRecipeFixture.load(recipeId)
 
     private fun propose(fixture: RuntimeRecipeFixture): RecipeProposal =

@@ -82,6 +82,7 @@ class RecipeRunner(
         }
 
         var completed = 0
+        var allStepsVerified = true
         for ((index, step) in plan.steps.withIndex()) {
             observer.onEvent(RecipeRunEvent.StepStarted(plan, step, index, plan.steps.size))
             val before = snapshotProvider.capture()
@@ -163,15 +164,22 @@ class RecipeRunner(
                     reason = verification.reason,
                 ).also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
             }
+            if (verification is VerificationResult.Inconclusive) {
+                allStepsVerified = false
+            }
             completed += 1
             observer.onEvent(RecipeRunEvent.StepCompleted(plan, step, completed, plan.steps.size))
         }
 
-        return RecipeRunResult.Verified(
-            completedSteps = completed,
-            verifiedBy = verifier.name,
-        )
-            .also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
+        val result = if (allStepsVerified) {
+            RecipeRunResult.Verified(
+                completedSteps = completed,
+                verifiedBy = verifier.name,
+            )
+        } else {
+            RecipeRunResult.Completed(completed)
+        }
+        return result.also { observer.onEvent(RecipeRunEvent.Finished(plan, it)) }
     }
 
     private suspend fun RecipeStep.perform(

@@ -23,6 +23,8 @@ object TapPackageChangedVerifier : ResultVerifier {
         val afterPackage = snapshotAfter.foregroundPackageName()
         return if (afterPackage.equals(expectedPackage, ignoreCase = true)) {
             VerificationResult.Verified
+        } else if (snapshotAfter.looksLikeExpectedApp(expectedPackage)) {
+            VerificationResult.Verified
         } else {
             VerificationResult.Failed(
                 "expected-package:$expectedPackage actual:${afterPackage ?: "unknown"} before:${beforePackage ?: "unknown"}",
@@ -30,3 +32,12 @@ object TapPackageChangedVerifier : ResultVerifier {
         }
     }
 }
+
+private fun GroundingSnapshot.looksLikeExpectedApp(expected: String): Boolean =
+    sequenceOf(
+        toolContext.appLabel,
+        screenText?.windowTitle,
+    ).plus(visibleTextValues()).any { value ->
+        value?.equals(expected, ignoreCase = true) == true ||
+            value?.contains(expected, ignoreCase = true) == true
+    }

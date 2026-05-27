@@ -1,5 +1,7 @@
 # Recipe Sweep Matrix
 
+Audit note, 2026-05-26: automated recipe contract coverage, verifier tests, app unit tests, lint, debug assemble, and emulator launch smoke passed after the deep audit. The per-device pass/fail cells remain `TBD` until the manual recipe sweep below is executed on each listed device/app-account combination.
+
 | recipe | device | Android version | app version | signed-in (Y/N) | locale | expected behavior | pass/fail | screenshot path |
 |---|---|---|---|---|---|---|---|---|
 | open_app | Pixel 9 | Android 15 | 0.1.0 debug | N | en-US | Opens the requested installed app; no account required. | TBD | docs/qa/screenshots/pixel9/open_app.png |

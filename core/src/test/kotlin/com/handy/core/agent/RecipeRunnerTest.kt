@@ -140,9 +140,7 @@ class RecipeRunnerTest {
             ),
         )
 
-        assertThat(result).isEqualTo(
-            RecipeRunResult.Verified(completedSteps = 1, verifiedBy = "NoopResultVerifier"),
-        )
+        assertThat(result).isEqualTo(RecipeRunResult.Completed(completedSteps = 1))
         assertThat(dispatched).containsExactly(AssistantAction.SetAlarm(hour = 7, minute = 0))
     }
 
@@ -293,9 +291,7 @@ class RecipeRunnerTest {
             ),
         )
 
-        assertThat(result).isEqualTo(
-            RecipeRunResult.Verified(completedSteps = 2, verifiedBy = "NoopResultVerifier"),
-        )
+        assertThat(result).isEqualTo(RecipeRunResult.Completed(completedSteps = 2))
         assertThat(performer.calls).containsExactly("tap:Search")
     }
 
@@ -351,9 +347,7 @@ class RecipeRunnerTest {
             ),
         )
 
-        assertThat(result).isEqualTo(
-            RecipeRunResult.Verified(completedSteps = 1, verifiedBy = "NoopResultVerifier"),
-        )
+        assertThat(result).isEqualTo(RecipeRunResult.Completed(completedSteps = 1))
         assertThat((performer.targets.single() as TapTarget.AtNode).allowGestureFallback).isTrue()
     }
 

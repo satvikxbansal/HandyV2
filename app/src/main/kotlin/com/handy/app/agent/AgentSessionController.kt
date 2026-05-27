@@ -317,7 +317,7 @@ class AgentSessionController @Inject constructor(
                     is RecipeRunResult.Completed -> AgentProgressBubbleState(
                         visible = true,
                         title = "Recipe complete",
-                        detail = "${result.completedSteps} steps verified",
+                        detail = "${result.completedSteps} steps completed",
                         stepIndex = event.plan.stepCount,
                         stepCount = event.plan.stepCount,
                     )

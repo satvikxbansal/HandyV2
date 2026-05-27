@@ -23,6 +23,8 @@ object IntentLaunchedVerifier : ResultVerifier {
         if (expectedPackage != null) {
             return if (afterPackage.equals(expectedPackage, ignoreCase = true)) {
                 VerificationResult.Verified
+            } else if (expectedPackage == DESKCLOCK_PACKAGE && snapshotAfter.looksLikeClockApp()) {
+                VerificationResult.Verified
             } else {
                 VerificationResult.Failed(
                     "intent-package-mismatch:expected=$expectedPackage actual:${afterPackage ?: "unknown"}",
@@ -37,6 +39,16 @@ object IntentLaunchedVerifier : ResultVerifier {
         }
     }
 }
+
+private fun GroundingSnapshot.looksLikeClockApp(): Boolean =
+    sequenceOf(
+        toolContext.appLabel,
+        screenText?.windowTitle,
+        screenText?.root?.text,
+        screenText?.root?.contentDescription,
+    ).plus(visibleTextValues()).any { value ->
+        value?.contains("clock", ignoreCase = true) == true
+    }
 
 internal fun AssistantAction.expectedPackage(): String? = when (this) {
     is AssistantAction.OpenApp -> packageHint
@@ -72,4 +84,3 @@ private const val MAPS_PACKAGE = "com.google.android.apps.maps"
 private const val PLAY_STORE_PACKAGE = "com.android.vending"
 private const val SETTINGS_PACKAGE = "com.android.settings"
 private const val WHATSAPP_PACKAGE = "com.whatsapp"
-

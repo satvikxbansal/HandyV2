@@ -54,6 +54,20 @@ abstract class RecipeContractTest {
             .isEqualTo(fixture.mustConfirm)
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("fixturesForRecipe")
+    fun `blocked fixture is refused or denied by policy`(fixture: RecipeFixture) {
+        if (fixture.sideEffect != SideEffectClassification.BLOCKED) return
+
+        val proposal = propose(fixture)
+        if (proposal is RecipeProposal.Refused) return
+
+        val checks = preflight((proposal as RecipeProposal.Proposed).plan, fixture.toGrounding(), policy)
+        assertWithMessage(fixture.name)
+            .that(checks.any { !it.decision.allowed })
+            .isTrue()
+    }
+
     private fun propose(fixture: RecipeFixture): RecipeProposal {
         val goal = fixture.userGoal.asUserGoal()
         return RecipeRegistry(listOf(recipe)).propose(goal, fixture.toGrounding())
@@ -115,4 +129,3 @@ private object PermissiveContractPolicy : ActionPolicyEngine {
         )
     }
 }
-

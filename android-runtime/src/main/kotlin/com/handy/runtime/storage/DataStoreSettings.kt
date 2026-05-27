@@ -53,11 +53,16 @@ class DataStoreSettings(private val context: Context) {
             p[STT_PROVIDER] = next.sttProvider.name
             p[STT_MODE] = next.sttMode.name
             p[STT_LANGUAGE] = next.sttLanguage.name
+            p[SAARIKA_LANGUAGE] = next.saarikaLanguage.name
             p[SARVAM_STT_CONSENT_GRANTED] = next.sarvamSttConsentGranted
             p[TTS_PROVIDER] = next.ttsProvider.name
+            p[TTS_SYSTEM_LAST_SELECTED_EPOCH_MS] = next.ttsSystemLastSelectedEpochMs
             p[SPEAK_VOICE_REPLIES_ALOUD] = next.speakVoiceRepliesAloud
             p[SARVAM_VOICE] = next.sarvamVoice.name
             p[SARVAM_SPOKEN_LANGUAGE] = next.sarvamSpokenLanguage.name
+            p[VOICE_EXPANDED] = next.voiceExpanded
+            p[VOICE_TTS_OPEN] = next.voiceTtsOpen
+            p[VOICE_STT_OPEN] = next.voiceSttOpen
             p[SHOW_FLOATING_WIDGET] = next.showFloatingWidget
             p[WEB_SEARCH_ENABLED] = next.webSearchEnabled
             p[APP_THEME] = next.appTheme.name
@@ -142,10 +147,16 @@ class DataStoreSettings(private val context: Context) {
             sttLanguage = this[STT_LANGUAGE]
                 ?.let { runCatching { SttLanguage.valueOf(it) }.getOrNull() }
                 ?: SttLanguage.SYSTEM,
+            saarikaLanguage = this[SAARIKA_LANGUAGE]
+                ?.let { runCatching { SttLanguage.valueOf(it) }.getOrNull() }
+                ?: this[STT_LANGUAGE]
+                    ?.let { runCatching { SttLanguage.valueOf(it) }.getOrNull() }
+                ?: SttLanguage.SYSTEM,
             sarvamSttConsentGranted = this[SARVAM_STT_CONSENT_GRANTED] ?: false,
             ttsProvider = this[TTS_PROVIDER]
                 ?.let { runCatching { TtsProvider.valueOf(it) }.getOrNull() }
                 ?: TtsProvider.SYSTEM,
+            ttsSystemLastSelectedEpochMs = this[TTS_SYSTEM_LAST_SELECTED_EPOCH_MS] ?: 0L,
             speakVoiceRepliesAloud = this[SPEAK_VOICE_REPLIES_ALOUD] ?: true,
             sarvamVoice = this[SARVAM_VOICE]
                 ?.let { runCatching { SarvamVoice.valueOf(it) }.getOrNull() }
@@ -153,6 +164,9 @@ class DataStoreSettings(private val context: Context) {
             sarvamSpokenLanguage = this[SARVAM_SPOKEN_LANGUAGE]
                 ?.let { runCatching { SarvamLanguage.valueOf(it) }.getOrNull() }
                 ?: SarvamLanguage.AUTO,
+            voiceExpanded = this[VOICE_EXPANDED] ?: false,
+            voiceTtsOpen = this[VOICE_TTS_OPEN] ?: false,
+            voiceSttOpen = this[VOICE_STT_OPEN] ?: false,
             showFloatingWidget = this[SHOW_FLOATING_WIDGET] ?: true,
             webSearchEnabled = this[WEB_SEARCH_ENABLED] ?: false,
             appTheme = this[APP_THEME]
@@ -202,11 +216,16 @@ class DataStoreSettings(private val context: Context) {
         val STT_PROVIDER = stringPreferencesKey("stt_provider")
         val STT_MODE = stringPreferencesKey("stt_mode")
         val STT_LANGUAGE = stringPreferencesKey("stt_language")
+        val SAARIKA_LANGUAGE = stringPreferencesKey("stt_saarika_language")
         val SARVAM_STT_CONSENT_GRANTED = booleanPreferencesKey("sarvam_stt_consent_granted")
         val TTS_PROVIDER = stringPreferencesKey("tts_provider")
+        val TTS_SYSTEM_LAST_SELECTED_EPOCH_MS = longPreferencesKey("tts_system_last_selected_epoch_ms")
         val SPEAK_VOICE_REPLIES_ALOUD = booleanPreferencesKey("speak_voice_replies_aloud")
         val SARVAM_VOICE = stringPreferencesKey("sarvam_voice")
         val SARVAM_SPOKEN_LANGUAGE = stringPreferencesKey("sarvam_spoken_language")
+        val VOICE_EXPANDED = booleanPreferencesKey("voice_expanded")
+        val VOICE_TTS_OPEN = booleanPreferencesKey("voice_tts_open")
+        val VOICE_STT_OPEN = booleanPreferencesKey("voice_stt_open")
         val SHOW_FLOATING_WIDGET = booleanPreferencesKey("show_floating_widget")
         val WEB_SEARCH_ENABLED = booleanPreferencesKey("web_search_enabled")
         val APP_THEME = stringPreferencesKey("app_theme")

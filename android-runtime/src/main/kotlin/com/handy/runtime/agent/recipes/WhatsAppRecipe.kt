@@ -88,7 +88,7 @@ object WhatsAppRecipe : AppRecipe {
             id = "open-whatsapp",
             title = "Open WhatsApp",
             command = RecipeCommand.NativeAction(
-                action = AssistantAction.OpenApp("WhatsApp"),
+                action = AssistantAction.OpenApp(WHATSAPP_PACKAGE),
                 allowPackageChangeAfter = true,
             ),
         ),

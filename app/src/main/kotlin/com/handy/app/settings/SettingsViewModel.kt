@@ -6,14 +6,22 @@ import com.handy.core.action.ActionExecutionGate
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.model.AssistantMode
 import com.handy.core.model.HandySettings
-import com.handy.core.model.SarvamLanguage
-import com.handy.core.model.SarvamVoice
-import com.handy.core.model.TtsProvider
 import com.handy.core.speech.TtsClient
+import com.handy.app.settings.sections.RecognitionLanguage
+import com.handy.app.settings.sections.SarvamVoice
+import com.handy.app.settings.sections.SpokenLanguage
+import com.handy.app.settings.sections.SttMode
+import com.handy.app.settings.sections.SttProvider
+import com.handy.app.settings.sections.TtsProvider
 import com.handy.app.settings.sections.VoiceAction
 import com.handy.app.settings.sections.VoiceConnectionStatus
-import com.handy.app.settings.sections.VoiceProvider
 import com.handy.app.settings.sections.VoiceSectionState
+import com.handy.core.model.SarvamLanguage as CoreSarvamLanguage
+import com.handy.core.model.SarvamVoice as CoreSarvamVoice
+import com.handy.core.model.SttLanguage as CoreSttLanguage
+import com.handy.core.model.SttMode as CoreSttMode
+import com.handy.core.model.SttProvider as CoreSttProvider
+import com.handy.core.model.TtsProvider as CoreTtsProvider
 import com.handy.runtime.storage.DataStoreSettings
 import com.handy.runtime.storage.EncryptedKeyStore
 import com.handy.runtime.storage.KeyStore
@@ -44,6 +52,7 @@ class SettingsViewModel @Inject constructor(
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
     private var voiceTestMonitorJob: Job? = null
+    private var voiceStateHydrated = false
 
     /**
      * One-shot confirmation / error strings for the Settings screen to
@@ -61,6 +70,8 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             settings.flow.collectLatest { s ->
                 val sarvamKeyMasked = maskSecret(keyStore.get(EncryptedKeyStore.KEY_SARVAM))
+                val resetSubsections = !voiceStateHydrated
+                voiceStateHydrated = true
                 _state.value = _state.value.copy(
                     settings = s,
                     claudeKeyMasked = mask(keyStore.get(KeyStore.KEY_ANTHROPIC)),
@@ -70,7 +81,7 @@ class SettingsViewModel @Inject constructor(
                     sarvamKeyMasked = sarvamKeyMasked,
                     voice = s.toVoiceSectionState(
                         sarvamKeyMasked = sarvamKeyMasked,
-                        expanded = _state.value.voice.expanded,
+                        resetSubsections = resetSubsections,
                         testingVoice = _state.value.voice.testingVoice,
                     ),
                 )
@@ -210,7 +221,7 @@ class SettingsViewModel @Inject constructor(
                 sarvamKeyMasked = masked,
                 voice = settingsSnapshot?.toVoiceSectionState(
                     sarvamKeyMasked = masked,
-                    expanded = state.voice.expanded,
+                    resetSubsections = false,
                     testingVoice = state.voice.testingVoice,
                 ) ?: state.voice,
             )
@@ -219,9 +230,8 @@ class SettingsViewModel @Inject constructor(
     fun onVoiceAction(action: VoiceAction) {
         when (action) {
             VoiceAction.ToggleExpanded -> {
-                _state.value = _state.value.copy(
-                    voice = _state.value.voice.copy(expanded = !_state.value.voice.expanded),
-                )
+                val next = !_state.value.voice.expanded
+                updateSettings { it.copy(voiceExpanded = next) }
             }
             VoiceAction.ToggleSpeakReplies -> {
                 val currentlyOn = _state.value.settings?.speakVoiceRepliesAloud ?: true
@@ -231,23 +241,65 @@ class SettingsViewModel @Inject constructor(
                 }
                 updateSettings { it.copy(speakVoiceRepliesAloud = !currentlyOn) }
             }
-            is VoiceAction.SelectProvider -> {
-                updateSettings {
-                    it.copy(
-                        speakVoiceRepliesAloud = true,
-                        ttsProvider = action.provider,
-                    )
+            VoiceAction.ToggleTtsOpen -> {
+                val next = !_state.value.voice.ttsOpen
+                updateSettings { it.copy(voiceTtsOpen = next) }
+            }
+            VoiceAction.ToggleSttOpen -> {
+                val next = !_state.value.voice.sttOpen
+                updateSettings { it.copy(voiceSttOpen = next) }
+            }
+            is VoiceAction.SelectTtsProvider -> {
+                updateSettings { s ->
+                    when (action.provider) {
+                        TtsProvider.System -> s.copy(
+                            speakVoiceRepliesAloud = true,
+                            ttsProvider = CoreTtsProvider.SYSTEM,
+                            ttsSystemLastSelectedEpochMs = System.currentTimeMillis(),
+                        )
+                        is TtsProvider.Sarvam -> s.copy(
+                            speakVoiceRepliesAloud = true,
+                            ttsProvider = CoreTtsProvider.SARVAM,
+                        )
+                    }
                 }
             }
-            is VoiceAction.SelectVoice -> {
-                updateSettings { it.copy(sarvamVoice = action.voice) }
+            is VoiceAction.SelectTtsVoice -> {
+                updateSettings { it.copy(sarvamVoice = action.voice.toCore()) }
             }
-            is VoiceAction.SelectLanguage -> {
-                updateSettings { it.copy(sarvamSpokenLanguage = action.language) }
+            is VoiceAction.SelectSpokenLanguage -> {
+                updateSettings { it.copy(sarvamSpokenLanguage = action.lang.toCore()) }
             }
-            is VoiceAction.SetSarvamKey -> setSarvamKey(action.key)
-            VoiceAction.ClearSarvamKey -> setSarvamKey("")
-            VoiceAction.TestVoice -> testVoice()
+            is VoiceAction.SetTtsKey -> setSarvamKey(action.key)
+            VoiceAction.ClearTtsKey -> setSarvamKey("")
+            VoiceAction.TestTtsVoice -> testVoice()
+            is VoiceAction.SelectSttProvider -> {
+                updateSettings { s ->
+                    when (action.provider) {
+                        is SttProvider.Android -> s.copy(sttProvider = CoreSttProvider.ANDROID)
+                        is SttProvider.SarvamSaarika -> s.copy(
+                            sttProvider = CoreSttProvider.SARVAM_SAARIKA,
+                            sarvamSttConsentGranted = true,
+                        )
+                    }
+                }
+            }
+            is VoiceAction.SelectSttMode -> {
+                updateSettings { it.copy(sttMode = action.mode.toCore()) }
+            }
+            is VoiceAction.SelectRecognitionLanguage -> {
+                val provider = _state.value.settings?.sttProvider ?: CoreSttProvider.ANDROID
+                updateSettings {
+                    if (provider == CoreSttProvider.SARVAM_SAARIKA) {
+                        it.copy(saarikaLanguage = action.lang.toCoreForSaarika())
+                    } else {
+                        it.copy(sttLanguage = action.lang.toCoreForAndroid())
+                    }
+                }
+            }
+            is VoiceAction.SetSttKey -> setSarvamKey(action.key)
+            VoiceAction.ClearSttKey -> setSarvamKey("")
+            VoiceAction.RequestMicPermission -> Unit
         }
     }
 
@@ -259,22 +311,22 @@ class SettingsViewModel @Inject constructor(
             refreshVoiceStateFromSecrets()
             return
         }
-        if ((_state.value.voice.provider as? VoiceProvider.Sarvam)?.apiKeyMasked == null &&
-            _state.value.settings?.ttsProvider == TtsProvider.SARVAM
+        if ((_state.value.voice.tts as? TtsProvider.Sarvam)?.apiKey == null &&
+            _state.value.settings?.ttsProvider == CoreTtsProvider.SARVAM
         ) {
             _messages.tryEmit("Add a Sarvam key first")
             return
         }
-        val language = _state.value.settings?.sarvamSpokenLanguage ?: SarvamLanguage.AUTO
+        val language = _state.value.settings?.sarvamSpokenLanguage ?: CoreSarvamLanguage.AUTO
         val sample = when (language) {
-            SarvamLanguage.AUTO -> if (java.util.Locale.getDefault().language == "hi") {
+            CoreSarvamLanguage.AUTO -> if (java.util.Locale.getDefault().language == "hi") {
                 "नमस्ते, मैं हैंडी हूँ। मैं कैसे मदद कर सकता हूँ?"
             } else {
                 "Hello, I'm Handy. How can I help?"
             }
-            SarvamLanguage.ENGLISH -> "Hello, I'm Handy. How can I help?"
-            SarvamLanguage.HINDI -> "नमस्ते, मैं हैंडी हूँ। मैं कैसे मदद कर सकता हूँ?"
-            SarvamLanguage.HINGLISH -> "Namaste, main Handy hoon. Main kaise madad kar sakta hoon?"
+            CoreSarvamLanguage.ENGLISH -> "Hello, I'm Handy. How can I help?"
+            CoreSarvamLanguage.HINDI -> "नमस्ते, मैं हैंडी हूँ। मैं कैसे मदद कर सकता हूँ?"
+            CoreSarvamLanguage.HINGLISH -> "Namaste, main Handy hoon. Main kaise madad kar sakta hoon?"
         }
         runCatching {
             ttsClient.speak(sample, "settings-voice-test-${System.nanoTime()}")
@@ -312,7 +364,7 @@ class SettingsViewModel @Inject constructor(
             sarvamKeyMasked = sarvamKeyMasked,
             voice = settingsSnapshot.toVoiceSectionState(
                 sarvamKeyMasked = sarvamKeyMasked,
-                expanded = _state.value.voice.expanded,
+                resetSubsections = false,
                 testingVoice = _state.value.voice.testingVoice,
             ),
         )
@@ -364,38 +416,125 @@ class SettingsViewModel @Inject constructor(
     private fun maskSecret(value: String?): String? = value?.trim()?.takeIf { it.isNotBlank() }?.let {
         val prefix = it.take(3)
         val suffix = if (it.length > 7) it.takeLast(4) else ""
-        val middle = if (it.length > 80) "••••…••••" else "••••"
-        "$prefix$middle$suffix"
+        "$prefix····$suffix"
     }
 
     private fun HandySettings.toVoiceSectionState(
         sarvamKeyMasked: String?,
-        expanded: Boolean,
+        resetSubsections: Boolean,
         testingVoice: Boolean,
     ): VoiceSectionState {
-        val provider = when {
-            !speakVoiceRepliesAloud -> VoiceProvider.Off
-            ttsProvider == TtsProvider.SARVAM -> VoiceProvider.Sarvam(
-                apiKeyMasked = sarvamKeyMasked,
-                voice = sarvamVoice,
-                language = sarvamSpokenLanguage,
+        val tts = when (ttsProvider) {
+            CoreTtsProvider.SARVAM -> TtsProvider.Sarvam(
+                apiKey = sarvamKeyMasked,
+                voice = sarvamVoice.toUi(),
+                language = sarvamSpokenLanguage.toUi(),
             )
-            else -> VoiceProvider.System
+            CoreTtsProvider.SYSTEM -> TtsProvider.System
+        }
+        val stt = when (sttProvider) {
+            CoreSttProvider.SARVAM_SAARIKA -> SttProvider.SarvamSaarika(
+                apiKey = sarvamKeyMasked,
+                language = saarikaLanguage.toUiForSaarika(),
+            )
+            else -> SttProvider.Android(
+                mode = sttMode.toUi(),
+                language = sttLanguage.toUiForAndroid(),
+            )
         }
         return VoiceSectionState(
-            provider = provider,
-            expanded = expanded,
-            status = when (provider) {
-                VoiceProvider.Off -> VoiceConnectionStatus.SystemVoice
-                VoiceProvider.System -> VoiceConnectionStatus.SystemVoice
-                is VoiceProvider.Sarvam -> if (provider.apiKeyMasked == null) {
+            expanded = if (resetSubsections) false else voiceExpanded,
+            speakRepliesAloud = speakVoiceRepliesAloud,
+            tts = tts,
+            stt = stt,
+            ttsOpen = if (resetSubsections) false else voiceTtsOpen,
+            sttOpen = if (resetSubsections) false else voiceSttOpen,
+            ttsStatus = when (tts) {
+                TtsProvider.System -> VoiceConnectionStatus.Ready
+                is TtsProvider.Sarvam -> if (tts.apiKey == null) {
                     VoiceConnectionStatus.MissingKey
                 } else {
-                    VoiceConnectionStatus.Connected
+                    VoiceConnectionStatus.Ready
+                }
+            },
+            sttStatus = when (stt) {
+                is SttProvider.Android -> VoiceConnectionStatus.Ready
+                is SttProvider.SarvamSaarika -> if (stt.apiKey == null) {
+                    VoiceConnectionStatus.MissingKey
+                } else {
+                    VoiceConnectionStatus.Ready
                 }
             },
             testingVoice = testingVoice,
         )
+    }
+
+    private fun CoreSarvamVoice.toUi(): SarvamVoice = when (this) {
+        CoreSarvamVoice.RITU -> SarvamVoice.Ritu
+        CoreSarvamVoice.RAHUL -> SarvamVoice.Rahul
+        CoreSarvamVoice.SIMRAN -> SarvamVoice.Simran
+    }
+
+    private fun SarvamVoice.toCore(): CoreSarvamVoice = when (this) {
+        SarvamVoice.Ritu -> CoreSarvamVoice.RITU
+        SarvamVoice.Rahul -> CoreSarvamVoice.RAHUL
+        SarvamVoice.Simran -> CoreSarvamVoice.SIMRAN
+    }
+
+    private fun CoreSarvamLanguage.toUi(): SpokenLanguage = when (this) {
+        CoreSarvamLanguage.AUTO -> SpokenLanguage.Auto
+        CoreSarvamLanguage.ENGLISH -> SpokenLanguage.English
+        CoreSarvamLanguage.HINDI -> SpokenLanguage.Hindi
+        CoreSarvamLanguage.HINGLISH -> SpokenLanguage.Hinglish
+    }
+
+    private fun SpokenLanguage.toCore(): CoreSarvamLanguage = when (this) {
+        SpokenLanguage.Auto -> CoreSarvamLanguage.AUTO
+        SpokenLanguage.English -> CoreSarvamLanguage.ENGLISH
+        SpokenLanguage.Hindi -> CoreSarvamLanguage.HINDI
+        SpokenLanguage.Hinglish -> CoreSarvamLanguage.HINGLISH
+    }
+
+    private fun CoreSttMode.toUi(): SttMode = when (this) {
+        CoreSttMode.AUTO -> SttMode.Auto
+        CoreSttMode.ON_DEVICE_ONLY -> SttMode.OnDevice
+        CoreSttMode.NETWORK_ALLOWED -> SttMode.NetworkAllowed
+    }
+
+    private fun SttMode.toCore(): CoreSttMode = when (this) {
+        SttMode.Auto -> CoreSttMode.AUTO
+        SttMode.OnDevice -> CoreSttMode.ON_DEVICE_ONLY
+        SttMode.NetworkAllowed -> CoreSttMode.NETWORK_ALLOWED
+    }
+
+    private fun CoreSttLanguage.toUiForAndroid(): RecognitionLanguage = when (this) {
+        CoreSttLanguage.SYSTEM -> RecognitionLanguage.System
+        CoreSttLanguage.ENGLISH -> RecognitionLanguage.English
+        CoreSttLanguage.HINDI -> RecognitionLanguage.Hindi
+        CoreSttLanguage.HINGLISH -> RecognitionLanguage.Hinglish
+    }
+
+    private fun CoreSttLanguage.toUiForSaarika(): RecognitionLanguage = when (this) {
+        CoreSttLanguage.SYSTEM -> RecognitionLanguage.Auto
+        CoreSttLanguage.ENGLISH -> RecognitionLanguage.English
+        CoreSttLanguage.HINDI -> RecognitionLanguage.Hindi
+        CoreSttLanguage.HINGLISH -> RecognitionLanguage.Hinglish
+    }
+
+    private fun RecognitionLanguage.toCoreForAndroid(): CoreSttLanguage = when (this) {
+        RecognitionLanguage.System,
+        RecognitionLanguage.Auto -> CoreSttLanguage.SYSTEM
+        RecognitionLanguage.English -> CoreSttLanguage.ENGLISH
+        RecognitionLanguage.Hindi -> CoreSttLanguage.HINDI
+        RecognitionLanguage.Hinglish -> CoreSttLanguage.HINGLISH
+    }
+
+    private fun RecognitionLanguage.toCoreForSaarika(): CoreSttLanguage = when (this) {
+        RecognitionLanguage.System,
+        RecognitionLanguage.Auto -> CoreSttLanguage.SYSTEM
+        RecognitionLanguage.English -> CoreSttLanguage.ENGLISH
+        RecognitionLanguage.Hindi -> CoreSttLanguage.HINDI
+        RecognitionLanguage.Hinglish -> CoreSttLanguage.HINGLISH
     }
 
     private companion object {

@@ -51,6 +51,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -83,7 +84,7 @@ enum class SectionTone(
         HandyDesign.Colors.Honey,
         HandyDesign.Colors.HoneySoft,
         HandyDesign.Colors.HoneyHair,
-        tileBorderAlpha = 0.33f,
+        tileBorderAlpha = 0.20f,
     ),
     CobaltCapabilities(
         HandyDesign.Colors.Point,
@@ -276,7 +277,10 @@ fun SwitchRow(
 ) {
     val rowToggleModifier = if (trailing == null) {
         Modifier
-            .semantics { contentDescription = title }
+            .semantics {
+                contentDescription = title
+                stateDescription = if (checked) "on" else "off"
+            }
             .toggleable(
                 value = checked,
                 enabled = enabled,
