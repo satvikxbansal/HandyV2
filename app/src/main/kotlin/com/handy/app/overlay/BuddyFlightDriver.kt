@@ -782,13 +782,16 @@ class BuddyFlightDriver @Inject constructor(
      */
     fun cancelIfStaleTarget(reason: String, sourcePackage: String? = null): Boolean {
         val state = presenter.state.value
-        if (!state.isFlying && state.buddyState != BuddyState.POINTING) return false
         val active = activeTarget
-        if (!sourcePackage.isNullOrBlank()) {
-            val targetPackage = active?.packageName
-            if (targetPackage != null && sourcePackage == targetPackage) return false
-            if (sourcePackage == serviceRef?.get()?.packageName) return false
-        }
+        val service = serviceRef?.get()
+        if (!BuddyFlightCancellationPolicy.shouldCancelStaleTarget(
+                isFlying = state.isFlying,
+                buddyState = state.buddyState,
+                activeTargetPackage = active?.packageName,
+                overlayServicePackage = service?.packageName,
+                sourcePackage = sourcePackage,
+            )
+        ) return false
         Timber.d(
             "BuddyFlightDriver: cancelling stale target reason=%s sourcePackage=%s targetPackage=%s",
             reason,

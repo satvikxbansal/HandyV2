@@ -9,7 +9,6 @@ import com.handy.core.overlay.FlightFsm
 import com.handy.core.speech.SpeechAudioState
 import io.mockk.every
 import io.mockk.mockk
-import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class OverlayPresenterFsmTest {
@@ -18,12 +17,14 @@ class OverlayPresenterFsmTest {
         OverlayPresenter(mockk<HandyForegroundAppMonitor>(relaxed = true))
 
     @Test
-    fun `illegal direct fly from dock throws`() {
+    fun `illegal direct fly from dock is logged and dropped`() {
         val presenter = presenter()
 
-        assertThrows(IllegalArgumentException::class.java) {
-            presenter.onFlyingStart("settings")
-        }
+        presenter.onFlyingStart("settings")
+
+        assertThat(presenter.state.value.flightFsm).isEqualTo(FlightFsm.Docked)
+        assertThat(presenter.state.value.buddyState).isEqualTo(BuddyState.DOCKED)
+        assertThat(presenter.state.value.isFlying).isFalse()
     }
 
     @Test
@@ -208,11 +209,42 @@ class OverlayPresenterFsmTest {
     }
 
     @Test
-    fun `illegal return from dock throws`() {
+    fun `illegal return from dock is suppressed`() {
         val presenter = presenter()
 
-        assertThrows(IllegalArgumentException::class.java) {
-            presenter.onPointingReturned()
+        presenter.onPointingReturned()
+
+        assertThat(presenter.state.value.flightFsm).isEqualTo(FlightFsm.Docked)
+        assertThat(presenter.state.value.buddyState).isEqualTo(BuddyState.DOCKED)
+    }
+
+    @Test
+    fun `buddy state transition table allows cancellation from every state`() {
+        BuddyState.entries.forEach { state ->
+            assertThat(OverlayPresenterFsm.canTransition(state, BuddyState.CANCELLING))
+                .isTrue()
         }
+        assertThat(OverlayPresenterFsm.canTransition(BuddyState.CANCELLING, BuddyState.DOCKED))
+            .isTrue()
+        assertThat(OverlayPresenterFsm.canTransition(BuddyState.CANCELLING, BuddyState.POINTING))
+            .isFalse()
+    }
+
+    @Test
+    fun `buddy state transition table rejects direct docked to flying`() {
+        assertThat(OverlayPresenterFsm.canTransition(BuddyState.DOCKED, BuddyState.FLYING))
+            .isFalse()
+        assertThat(OverlayPresenterFsm.canTransition(BuddyState.DOCKED, BuddyState.LISTENING))
+            .isTrue()
+        assertThat(OverlayPresenterFsm.canTransition(BuddyState.DOCKED, BuddyState.THINKING))
+            .isTrue()
+    }
+
+    @Test
+    fun `response visible can prepare point before returning docked`() {
+        assertThat(OverlayPresenterFsm.canTransition(BuddyState.SPEAKING, BuddyState.PREPARING_POINT))
+            .isTrue()
+        assertThat(OverlayPresenterFsm.canTransition(BuddyState.SPEAKING, BuddyState.DOCKED))
+            .isTrue()
     }
 }

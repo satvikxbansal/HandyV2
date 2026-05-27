@@ -75,6 +75,7 @@ class DataStoreSettings(private val context: Context) {
             p[REDUCED_MODE_ACK] = next.reducedModeAcknowledged
             // V2 keys
             p[USE_OVERLAY_CHAT_PANEL] = next.useOverlayChatPanel
+            p[REDUCE_BUDDY_MOTION] = next.reduceBuddyMotion
             p[TAP_FOR_ME_ENABLED] = next.tapForMeEnabled
             p[TYPE_FOR_ME_ENABLED] = next.typeForMeEnabled
             p[RECIPES_ENABLED] = next.recipesEnabled
@@ -180,6 +181,7 @@ class DataStoreSettings(private val context: Context) {
             accessibilityDisclosureAcknowledged = this[ACCESSIBILITY_DISCLOSURE_ACK] ?: false,
             reducedModeAcknowledged = this[REDUCED_MODE_ACK] ?: false,
             useOverlayChatPanel = this[USE_OVERLAY_CHAT_PANEL] ?: true,
+            reduceBuddyMotion = this[REDUCE_BUDDY_MOTION] ?: false,
             tapForMeEnabled = this[TAP_FOR_ME_ENABLED] ?: false,
             typeForMeEnabled = this[TYPE_FOR_ME_ENABLED] ?: true,
             recipesEnabled = this[RECIPES_ENABLED] ?: true,
@@ -236,6 +238,7 @@ class DataStoreSettings(private val context: Context) {
         val REDUCED_MODE_ACK = booleanPreferencesKey("reduced_mode_ack")
         // V2 keys (appended; schema is additive)
         val USE_OVERLAY_CHAT_PANEL = booleanPreferencesKey("use_overlay_chat_panel")
+        val REDUCE_BUDDY_MOTION = booleanPreferencesKey("reduce_buddy_motion")
         val TAP_FOR_ME_ENABLED = booleanPreferencesKey("tap_for_me_enabled")
         val TYPE_FOR_ME_ENABLED = booleanPreferencesKey("type_for_me_enabled")
         val RECIPES_ENABLED = booleanPreferencesKey("recipes_enabled")

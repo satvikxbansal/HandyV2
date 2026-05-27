@@ -37,3 +37,4 @@ rootProject.name = "Handy"
 include(":core")
 include(":android-runtime")
 include(":app")
+include(":macrobenchmark")

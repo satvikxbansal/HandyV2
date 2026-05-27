@@ -151,6 +151,7 @@ class HandyAccessibilityService : AccessibilityService() {
         active.compareAndSet(this, null)
         serviceInfoJob?.cancel()
         serviceInfoJob = null
+        flightDriver.cancelIfStaleTarget("accessibility_service_disconnected")
         runCatching { stateMonitor.refreshBlocking() }
         Timber.d("HandyAccessibilityService unbound")
         return super.onUnbind(intent)
@@ -160,6 +161,7 @@ class HandyAccessibilityService : AccessibilityService() {
         active.compareAndSet(this, null)
         serviceInfoJob?.cancel()
         serviceInfoJob = null
+        flightDriver.cancelIfStaleTarget("accessibility_service_disconnected")
         runCatching { stateMonitor.refreshBlocking() }
         super.onDestroy()
     }

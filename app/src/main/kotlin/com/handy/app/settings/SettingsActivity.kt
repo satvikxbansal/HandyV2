@@ -117,6 +117,9 @@ class SettingsActivity : ComponentActivity() {
                     onTutorModeToggle = { enabled ->
                         viewModel.updateSettings { it.copy(tutorModeEnabled = enabled) }
                     },
+                    onReduceBuddyMotionToggle = { enabled ->
+                        viewModel.updateSettings { it.copy(reduceBuddyMotion = enabled) }
+                    },
                     onVoiceAction = viewModel::onVoiceAction,
                     onOpenSystemVoiceSettings = {
                         openSystemVoiceSettingsSafely()
@@ -179,6 +182,7 @@ internal fun SettingsScreen(
     onWebSearchToggle: (Boolean) -> Unit,
     onClaudeModelVariant: (Boolean) -> Unit,
     onTutorModeToggle: (Boolean) -> Unit,
+    onReduceBuddyMotionToggle: (Boolean) -> Unit,
     onVoiceAction: (VoiceAction) -> Unit,
     onOpenSystemVoiceSettings: () -> Unit,
     onTapForMeToggle: (Boolean) -> Unit,
@@ -343,6 +347,8 @@ internal fun SettingsScreen(
                         onTypeForMeToggle = onTypeForMeToggle,
                         recipesOn = state.settings?.recipesEnabled != false,
                         onRecipesToggle = onRecipesToggle,
+                        reduceBuddyMotionOn = state.settings?.reduceBuddyMotion == true,
+                        onReduceBuddyMotionToggle = onReduceBuddyMotionToggle,
                         tapForMeAvailable = tapForMeAvailable,
                         onPanic1Hr = onTapForMePanicMute,
                         onStopUntilBackOn = onTapForMeStopUntilTurnedBackOn,

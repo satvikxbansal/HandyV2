@@ -80,22 +80,41 @@ class OverlayPresenter @Inject constructor(
         val snapshot = _state.value
         val nextFsm = target ?: snapshot.flightFsm
         if (nextFsm != snapshot.flightFsm) {
-            require(isLegalTransition(snapshot.flightFsm, nextFsm)) {
-                "Illegal flight FSM transition ${snapshot.flightFsm} -> $nextFsm via $event"
+            if (!isLegalTransition(snapshot.flightFsm, nextFsm)) {
+                Timber.w(
+                    "OverlayPresenter: illegal flight FSM transition %s -> %s via %s; dropped",
+                    snapshot.flightFsm,
+                    nextFsm,
+                    event,
+                )
+                return
             }
         }
-        _state.value = reducer(snapshot).copy(flightFsm = nextFsm)
+        val next = reducer(snapshot).copy(flightFsm = nextFsm)
+        if (!attemptTransition(event, snapshot.buddyState, next.buddyState)) return
+        _state.value = next
     }
 
     private fun forceDocked(
         event: String,
         reducer: (OverlayPanelState) -> OverlayPanelState,
     ) {
-        val snapshot = _state.value
-        require(snapshot.flightFsm.canResetToDocked()) {
-            "Illegal flight FSM transition ${snapshot.flightFsm} -> ${FlightFsm.Docked} via $event"
-        }
-        _state.value = reducer(snapshot).copy(flightFsm = FlightFsm.Docked)
+        setState(
+            event = event,
+            target = FlightFsm.Docked,
+            reducer = reducer,
+        )
+    }
+
+    private fun attemptTransition(event: String, from: BuddyState, to: BuddyState): Boolean {
+        if (OverlayPresenterFsm.canTransition(from, to)) return true
+        Timber.w(
+            "OverlayPresenter: illegal BuddyState transition %s -> %s via %s; dropped",
+            from,
+            to,
+            event,
+        )
+        return false
     }
 
     // ---- widget-side entry points ------------------------------------------
@@ -113,7 +132,11 @@ class OverlayPresenter @Inject constructor(
         val greeting = panelGreetingFor(snapshot)
         setState(event = "onWidgetTap") { it.copy(
             mode = OverlayMode.ChatPanel,
-            buddyState = BuddyState.DOCKED,
+            buddyState = when (it.buddyState) {
+                BuddyState.THINKING,
+                BuddyState.STREAMING -> it.buddyState
+                else -> BuddyState.DOCKED
+            },
             isFlying = false,
             panel = PanelContent(
                 snapshot = snapshot,
@@ -517,24 +540,17 @@ class OverlayPresenter @Inject constructor(
     }
 
     fun onPointingReturned() {
-        val snapshot = _state.value
-        require(
-            snapshot.flightFsm == FlightFsm.Returning ||
-                snapshot.flightFsm == FlightFsm.Pointing ||
-                snapshot.flightFsm == FlightFsm.Flying ||
-                snapshot.flightFsm == FlightFsm.PreparingPoint,
-        ) {
-            "Illegal flight FSM transition ${snapshot.flightFsm} -> ${FlightFsm.Docked} via onPointingReturned"
-        }
-        _state.value = snapshot.copy(
+        setState(
+            event = "onPointingReturned",
+            target = FlightFsm.Docked,
+        ) { snapshot -> snapshot.copy(
             mode = OverlayMode.IdleWidget,
-            flightFsm = FlightFsm.Docked,
             buddyState = BuddyState.DOCKED,
             isFlying = false,
             bubble = null,
             tapForMeConfirmation = null,
             candidateOptions = null,
-        )
+        ) }
     }
 
     // ---- action bubble (Phase 3) --------------------------------------------
@@ -771,6 +787,7 @@ class OverlayPresenter @Inject constructor(
             FlightFsm.ActionConfirm,
             FlightFsm.Acting,
             FlightFsm.ActionResult,
+            FlightFsm.Pointing,
             FlightFsm.Returning,
             FlightFsm.Error,
         )

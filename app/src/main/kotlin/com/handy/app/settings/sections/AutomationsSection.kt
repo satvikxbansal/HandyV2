@@ -24,6 +24,8 @@ fun AutomationsSection(
     onTypeForMeToggle: (Boolean) -> Unit,
     recipesOn: Boolean,
     onRecipesToggle: (Boolean) -> Unit,
+    reduceBuddyMotionOn: Boolean,
+    onReduceBuddyMotionToggle: (Boolean) -> Unit,
     tapForMeAvailable: Boolean,
     onPanic1Hr: () -> Unit,
     onStopUntilBackOn: () -> Unit,
@@ -57,6 +59,12 @@ fun AutomationsSection(
                 checked = recipesOn,
                 enabled = tapForMeAvailable,
                 onCheckedChange = onRecipesToggle,
+            )
+            SwitchRow(
+                title = "Reduce Buddy motion",
+                checked = reduceBuddyMotionOn,
+                enabled = true,
+                onCheckedChange = onReduceBuddyMotionToggle,
             )
             PillSelectRow(
                 title = "Triggers",

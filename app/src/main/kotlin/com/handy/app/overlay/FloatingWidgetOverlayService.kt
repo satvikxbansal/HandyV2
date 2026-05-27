@@ -118,6 +118,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private var isHandyActivityForeground: Boolean = false
     private var lastConfigurationSignature: String? = null
     private var lastInsetsSignature: String? = null
+    @Volatile private var reduceBuddyMotionSetting: Boolean = false
 
     // Gesture tracking state.
     private var downX = 0f
@@ -196,6 +197,12 @@ class FloatingWidgetOverlayService : LifecycleService() {
 
         // Mirror live voice partials into the presenter so the yellow
         // transcript bubble updates alongside the widget / panel.
+        lifecycleScope.launch {
+            settings.flow
+                .map { it.reduceBuddyMotion }
+                .distinctUntilChanged()
+                .collectLatest { reduceBuddyMotionSetting = it }
+        }
         lifecycleScope.launch {
             voiceController.latestPartial.collectLatest { partial ->
                 presenter.updatePartialTranscript(partial)
@@ -1137,6 +1144,7 @@ class FloatingWidgetOverlayService : LifecycleService() {
         "${config.orientation}|${config.screenWidthDp}|${config.screenHeightDp}|${config.smallestScreenWidthDp}"
 
     private fun reduceMotionEnabled(): Boolean {
+        if (reduceBuddyMotionSetting) return true
         if (!ValueAnimator.areAnimatorsEnabled()) return true
         return listOf(
             Settings.Global.ANIMATOR_DURATION_SCALE,

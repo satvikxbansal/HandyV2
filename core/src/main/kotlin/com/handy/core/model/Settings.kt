@@ -205,6 +205,9 @@ data class HandySettings(
      */
     val useOverlayChatPanel: Boolean = true,
 
+    /** Prefer the reduced-motion cross-fade for Buddy pointing flights. */
+    val reduceBuddyMotion: Boolean = false,
+
     /**
      * V2 §4: enables the real `AccessibilityGestureActionPerformer`
      * binding. When `false`, `NoopActionPerformer` remains bound — V1

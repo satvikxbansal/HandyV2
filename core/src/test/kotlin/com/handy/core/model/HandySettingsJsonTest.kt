@@ -35,12 +35,14 @@ class HandySettingsJsonTest {
         assertThat(decoded.voiceExpanded).isFalse()
         assertThat(decoded.voiceTtsOpen).isFalse()
         assertThat(decoded.voiceSttOpen).isFalse()
+        assertThat(decoded.reduceBuddyMotion).isFalse()
     }
 
     @Test fun `automation flags round trip through settings json`() {
         val original = HandySettings(
             typeForMeEnabled = false,
             recipesEnabled = false,
+            reduceBuddyMotion = true,
             speakVoiceRepliesAloud = false,
             sttProvider = SttProvider.SARVAM_SAARIKA,
             sttMode = SttMode.ON_DEVICE_ONLY,
@@ -62,6 +64,7 @@ class HandySettingsJsonTest {
 
         assertThat(decoded.typeForMeEnabled).isFalse()
         assertThat(decoded.recipesEnabled).isFalse()
+        assertThat(decoded.reduceBuddyMotion).isTrue()
         assertThat(decoded.speakVoiceRepliesAloud).isFalse()
         assertThat(decoded.sttProvider).isEqualTo(SttProvider.SARVAM_SAARIKA)
         assertThat(decoded.sttMode).isEqualTo(SttMode.ON_DEVICE_ONLY)
