@@ -5,6 +5,7 @@
     "title": "Hi, can we go through the in-depth code of Handy on Android, which is basically the project I've opened here. It is an Android as…",
     "created_local": "2026-05-14 10:42:03 IST",
     "updated_local": "2026-05-14 12:26:10 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Hi, can we go through the in-depth code of Handy on Android, which is basically the project I've opened here. It is an Android as… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-14_104203_hi-can-we-go-through-the-in-depth-code-of-handy-on-android-which-is-basi_019e24e6.md",
     "messages_json": "threads_json/2026-05-14_104203_hi-can-we-go-through-the-in-depth-code-of-handy-on-android-which-is-basi_019e24e6.json",
@@ -18,6 +19,7 @@
     "title": "Debug Android Studio error",
     "created_local": "2026-05-14 12:59:21 IST",
     "updated_local": "2026-05-14 13:09:13 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Debug Android Studio error Likely related git changes: 3bf5325 Harden accessibility, capture, and LLM diagnostics.",
     "transcript_md": "threads_md/2026-05-14_125921_debug-android-studio-error_019e2563.md",
     "messages_json": "threads_json/2026-05-14_125921_debug-android-studio-error_019e2563.json",
@@ -57,6 +59,7 @@
     "title": "D1: Truth + CI + device matrix",
     "created_local": "2026-05-20 12:24:01 IST",
     "updated_local": "2026-05-20 12:32:27 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: 1) Sync docs with the current code so all later prompts can rely on accurate baselines. 2) Land CI + device matrix scaffolding. Likely related git changes: 24e6b61 Update DEBUG_LOG.md; 3054e86 Create DEVICE_MATRIX.md; a8da5bd Update README.md.",
     "transcript_md": "threads_md/2026-05-20_122401_d1-truth-ci-device-matrix_019e4429.md",
     "messages_json": "threads_json/2026-05-20_122401_d1-truth-ci-device-matrix_019e4429.json",
@@ -116,6 +119,7 @@
     "title": "Phase0A: Policy fork + 4 docs",
     "created_local": "2026-05-20 12:32:33 IST",
     "updated_local": "2026-05-20 12:39:27 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: commit Handy to Lane A and write the policy/security/privacy Likely related git changes: 811f070 Add HANDY_NEXT_LEVEL_PLAN.md roadmap; 12f28a5 commit; 24e6b61 Update DEBUG_LOG.md; 50a8067 Create ACTION_POLICY.md; 60ac3a0 Create PLAY_POLICY_MATRIX.md; plus 4 more.",
     "transcript_md": "threads_md/2026-05-20_123233_phase0a-policy-fork-4-docs_019e4431.md",
     "messages_json": "threads_json/2026-05-20_123233_phase0a-policy-fork-4-docs_019e4431.json",
@@ -268,7 +272,8 @@
     "title": "G1: Add grounding snapshot fields",
     "created_local": "2026-05-20 12:39:53 IST",
     "updated_local": "2026-05-20 12:56:14 IST",
-    "summary": "This conversation focused on: 1) Extend TurnScreenContext into GroundingSnapshot (added fields: windowId, displayId, orientation, windowBounds, safeInsets, imeVisible, imeBounds, densityDpi, locale, uiMode, rootBoundsHash, treeHash, capturedAtMs, privacyFlags). Keep Tu… Likely related git changes: 796f32d Add MediaProjection capture source and grounding.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: 1) Extend TurnScreenContext into GroundingSnapshot (added fields: windowId, displayId, orientation, windowBounds, safeInsets, imeVisible, imeBounds, densityDpi, locale, uiMode, rootBoundsHash, treeHash, capturedAtMs, privacyFlags). Keep TurnScreenContext as a… Likely related git changes: 796f32d Add MediaProjection capture source and grounding.",
     "transcript_md": "threads_md/2026-05-20_123953_g1-add-grounding-snapshot-fields_019e4438.md",
     "messages_json": "threads_json/2026-05-20_123953_g1-add-grounding-snapshot-fields_019e4438.json",
     "recorded_git_sha_at_start": "811f07048dbf510e2e550fef603125c3dad54695",
@@ -306,6 +311,7 @@
     "title": "M1: Preserve markId for tap targets",
     "created_local": "2026-05-20 13:18:15 IST",
     "updated_local": "2026-05-20 13:29:39 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: end-to-end markId preservation so the buddy lands AND taps on Likely related git changes: 796f32d Add MediaProjection capture source and grounding.",
     "transcript_md": "threads_md/2026-05-20_131815_m1-preserve-markid-for-tap-targets_019e445b.md",
     "messages_json": "threads_json/2026-05-20_131815_m1-preserve-markid-for-tap-targets_019e445b.json",
@@ -344,6 +350,7 @@
     "title": "M2: Fix target label redaction",
     "created_local": "2026-05-20 15:35:09 IST",
     "updated_local": "2026-05-20 15:47:21 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: close the privacy hole where TargetCandidate.label can carry Likely related git changes: 7145d1e M1 + M2 + M3: Add live screen guard and target redaction.",
     "transcript_md": "threads_md/2026-05-20_153509_m2-fix-target-label-redaction_019e44d8.md",
     "messages_json": "threads_json/2026-05-20_153509_m2-fix-target-label-redaction_019e44d8.json",
@@ -385,6 +392,7 @@
     "title": "M3: Add manual target selector",
     "created_local": "2026-05-20 15:45:51 IST",
     "updated_local": "2026-05-20 16:08:59 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: when semantic resolution fails or the buddy points wrong, the Likely related git changes: 7145d1e M1 + M2 + M3: Add live screen guard and target redaction; 9549a86 F1: Viewport-aware buddy flight, stale cancel & FSM.",
     "transcript_md": "threads_md/2026-05-20_154551_m3-add-manual-target-selector_019e44e2.md",
     "messages_json": "threads_json/2026-05-20_154551_m3-add-manual-target-selector_019e44e2.json",
@@ -452,6 +460,7 @@
     "title": "Audit recent changes",
     "created_local": "2026-05-20 16:08:17 IST",
     "updated_local": "2026-05-20 16:27:17 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Audit recent changes Likely related git changes: 7145d1e M1 + M2 + M3: Add live screen guard and target redaction.",
     "transcript_md": "threads_md/2026-05-20_160817_audit-recent-changes_019e44f6.md",
     "messages_json": "threads_json/2026-05-20_160817_audit-recent-changes_019e44f6.json",
@@ -492,6 +501,7 @@
     "title": "Goal: Buddy lands correctly on every viewport class; flight is a",
     "created_local": "2026-05-20 16:31:45 IST",
     "updated_local": "2026-05-20 17:56:40 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Buddy lands correctly on every viewport class; flight is a Likely related git changes: 9549a86 F1: Viewport-aware buddy flight, stale cancel & FSM.",
     "transcript_md": "threads_md/2026-05-20_163145_goal-buddy-lands-correctly-on-every-viewport-class-flight-is-a_019e450c.md",
     "messages_json": "threads_json/2026-05-20_163145_goal-buddy-lands-correctly-on-every-viewport-class-flight-is-a_019e450c.json",
@@ -531,6 +541,7 @@
     "title": "Sync README active gaps",
     "created_local": "2026-05-20 18:31:46 IST",
     "updated_local": "2026-05-20 18:33:25 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: README.md → \"Known active gaps (important)\" is stale. Three of Likely related git changes: e07fa9b Some fixes.",
     "transcript_md": "threads_md/2026-05-20_183146_sync-readme-active-gaps_019e457a.md",
     "messages_json": "threads_json/2026-05-20_183146_sync-readme-active-gaps_019e457a.json",
@@ -563,6 +574,7 @@
     "title": "Goal: After a successful tap-for-me, OverlayPresenter leaves",
     "created_local": "2026-05-20 18:32:33 IST",
     "updated_local": "2026-05-20 18:37:48 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: After a successful tap-for-me, OverlayPresenter leaves Likely related git changes: 9549a86 F1: Viewport-aware buddy flight, stale cancel & FSM; e07fa9b Some fixes.",
     "transcript_md": "threads_md/2026-05-20_183233_goal-after-a-successful-tap-for-me-overlaypresenter-leaves_019e457b.md",
     "messages_json": "threads_json/2026-05-20_183233_goal-after-a-successful-tap-for-me-overlaypresenter-leaves_019e457b.json",
@@ -620,6 +632,7 @@
     "title": "Remove inferSemanticPoint fallback",
     "created_local": "2026-05-20 18:38:36 IST",
     "updated_local": "2026-05-20 18:41:14 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: OverlayChatPipeline.inferSemanticPoint still constructs ad-hoc Likely related git changes: 7145d1e M1 + M2 + M3: Add live screen guard and target redaction; e07fa9b Some fixes.",
     "transcript_md": "threads_md/2026-05-20_183836_remove-infersemanticpoint-fallback_019e4580.md",
     "messages_json": "threads_json/2026-05-20_183836_remove-infersemanticpoint-fallback_019e4580.json",
@@ -679,6 +692,7 @@
     "title": "P0: Centralize action policy engine",
     "created_local": "2026-05-20 18:42:27 IST",
     "updated_local": "2026-05-20 19:10:42 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: centralise policy in one typed engine; every action runs Likely related git changes: e07fa9b Some fixes.",
     "transcript_md": "threads_md/2026-05-20_184227_p0-centralize-action-policy-engine_019e4584.md",
     "messages_json": "threads_json/2026-05-20_184227_p0-centralize-action-policy-engine_019e4584.json",
@@ -711,6 +725,7 @@
     "title": "Goal: open the action gate behind a proper consent + per-action",
     "created_local": "2026-05-21 10:51:40 IST",
     "updated_local": "2026-05-21 15:22:37 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: open the action gate behind a proper consent + per-action Likely related git changes: d5b72b5 P1: Action disclosure activity + confirmation sheet + canPerformGestures + Play strings; 1df199c Fixed app crash; 9bf3b0c Fixed widget clip on prod.",
     "transcript_md": "threads_md/2026-05-21_105140_goal-open-the-action-gate-behind-a-proper-consent-per-action_019e48fb.md",
     "messages_json": "threads_json/2026-05-21_105140_goal-open-the-action-gate-behind-a-proper-consent-per-action_019e48fb.json",
@@ -786,6 +801,7 @@
     "title": "P2: Add gesture audit controls",
     "created_local": "2026-05-21 15:23:20 IST",
     "updated_local": "2026-05-21 15:34:36 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: every gesture Handy ever fired is reviewable, revocable, and Likely related git changes: 9bf3b0c Fixed widget clip on prod; bddd08e P2+P3: Support candidate options and audit review.",
     "transcript_md": "threads_md/2026-05-21_152320_p2-add-gesture-audit-controls_019e49f4.md",
     "messages_json": "threads_json/2026-05-21_152320_p2-add-gesture-audit-controls_019e49f4.json",
@@ -846,6 +862,7 @@
     "title": "P3: Add pointer confidence ladder",
     "created_local": "2026-05-21 15:37:45 IST",
     "updated_local": "2026-05-21 15:52:40 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: ladder pointer behaviour by confidence; offer alternatives Likely related git changes: bddd08e P2+P3: Support candidate options and audit review.",
     "transcript_md": "threads_md/2026-05-21_153745_p3-add-pointer-confidence-ladder_019e4a01.md",
     "messages_json": "threads_json/2026-05-21_153745_p3-add-pointer-confidence-ladder_019e4a01.json",
@@ -886,6 +903,7 @@
     "title": "Goal: add controlled typing with full policy + verification.",
     "created_local": "2026-05-21 15:54:40 IST",
     "updated_local": "2026-05-21 16:36:42 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: add controlled typing with full policy + verification. Likely related git changes: bddd08e P2+P3: Support candidate options and audit review; b2b44d7 T1: Add controlled typing and action confirmation.",
     "transcript_md": "threads_md/2026-05-21_155440_goal-add-controlled-typing-with-full-policy-verification_019e4a10.md",
     "messages_json": "threads_json/2026-05-21_155440_goal-add-controlled-typing-with-full-policy-verification_019e4a10.json",
@@ -952,6 +970,7 @@
     "title": "R1: Add policy-gated recipe runner",
     "created_local": "2026-05-21 16:40:28 IST",
     "updated_local": "2026-05-21 16:56:03 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: deterministic, policy-gated, per-step verified multi-step. Likely related git changes: b8f91bd R1: Add agent recipe system and progress UI.",
     "transcript_md": "threads_md/2026-05-21_164028_r1-add-policy-gated-recipe-runner_019e4a3a.md",
     "messages_json": "threads_json/2026-05-21_164028_r1-add-policy-gated-recipe-runner_019e4a3a.json",
@@ -993,6 +1012,7 @@
     "title": "Fix CTA pointer regression",
     "created_local": "2026-05-21 17:05:46 IST",
     "updated_local": "2026-05-21 17:19:25 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Fix CTA pointer regression No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-21_170546_fix-cta-pointer-regression_019e4a51.md",
     "messages_json": "threads_json/2026-05-21_170546_fix-cta-pointer-regression_019e4a51.json",
@@ -1006,6 +1026,7 @@
     "title": "In the minimize pop-up of Handy that opens when we click the floating widget, screenshot is attached. We have basically played ar…",
     "created_local": "2026-05-21 17:09:28 IST",
     "updated_local": "2026-05-21 20:51:01 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: In the minimize pop-up of Handy that opens when we click the floating widget, screenshot is attached. We have basically played ar… Likely related git changes: 892dd4d bug fixes.",
     "transcript_md": "threads_md/2026-05-21_170928_in-the-minimize-pop-up-of-handy-that-opens-when-we-click-the-floating-wi_019e4a55.md",
     "messages_json": "threads_json/2026-05-21_170928_in-the-minimize-pop-up-of-handy-that-opens-when-we-click-the-floating-wi_019e4a55.json",
@@ -1044,6 +1065,7 @@
     "title": "R2: First recipe pack: Clock + Settings + Maps",
     "created_local": "2026-05-21 20:53:09 IST",
     "updated_local": "2026-05-21 21:09:38 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: ship the three lowest-risk recipes. No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-21_205309_r2-first-recipe-pack-clock-settings-maps_019e4b22.md",
     "messages_json": "threads_json/2026-05-21_205309_r2-first-recipe-pack-clock-settings-maps_019e4b22.json",
@@ -1057,6 +1079,7 @@
     "title": "R3: Gmail + WhatsApp + Chrome",
     "created_local": "2026-05-21 21:15:23 IST",
     "updated_local": "2026-05-21 21:39:11 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: three higher-value recipes; never send/post without explicit No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-21_211523_r3-gmail-whatsapp-chrome_019e4b36.md",
     "messages_json": "threads_json/2026-05-21_211523_r3-gmail-whatsapp-chrome_019e4b36.json",
@@ -1070,6 +1093,7 @@
     "title": "Audit recent Android changes",
     "created_local": "2026-05-21 21:43:50 IST",
     "updated_local": "2026-05-21 22:08:13 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Audit recent Android changes Likely related git changes: 2ee317e R2+R3: Add Android recipes and overlay blur guardrail.",
     "transcript_md": "threads_md/2026-05-21_214350_audit-recent-android-changes_019e4b50.md",
     "messages_json": "threads_json/2026-05-21_214350_audit-recent-android-changes_019e4b50.json",
@@ -1111,6 +1135,7 @@
     "title": "V2: Add shopping voice prompts",
     "created_local": "2026-05-22 10:11:37 IST",
     "updated_local": "2026-05-22 10:23:37 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: domain-scoped Hindi voice shopping on Meesho/Amazon/Flipkart. No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-22_101137_v2-add-shopping-voice-prompts_019e4dfd.md",
     "messages_json": "threads_json/2026-05-22_101137_v2-add-shopping-voice-prompts_019e4dfd.json",
@@ -1124,6 +1149,7 @@
     "title": "E1: Add replay regression evals",
     "created_local": "2026-05-22 12:45:25 IST",
     "updated_local": "2026-05-22 13:09:07 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: turn pointer + LLM behaviour into measured, regression-tested Likely related git changes: 68c7005 R3 + V2: Add treeHash, shopping recipes, and gesture guards; 7ab0827 E1: Add eval/replay framework, checks, and tests.",
     "transcript_md": "threads_md/2026-05-22_124525_e1-add-replay-regression-evals_019e4e89.md",
     "messages_json": "threads_json/2026-05-22_124525_e1-add-replay-regression-evals_019e4e89.json",
@@ -1190,6 +1216,7 @@
     "title": "OPS1: Harden budgets and crash safety",
     "created_local": "2026-05-22 13:11:23 IST",
     "updated_local": "2026-05-22 14:04:11 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: production basics. No silent cost runaway, no key leakage, no Likely related git changes: 1cdfb15 OPS1: Production hardening: retries, budgets, redaction.",
     "transcript_md": "threads_md/2026-05-22_131123_ops1-harden-budgets-and-crash-safety_019e4ea1.md",
     "messages_json": "threads_json/2026-05-22_131123_ops1-harden-budgets-and-crash-safety_019e4ea1.json",
@@ -1231,6 +1258,7 @@
     "title": "CO1 : Add coexistence test pack",
     "created_local": "2026-05-22 14:06:17 IST",
     "updated_local": "2026-05-22 14:15:02 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: a documented test pack the team runs before every beta. No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-22_140617_co1-add-coexistence-test-pack_019e4ed4.md",
     "messages_json": "threads_json/2026-05-22_140617_co1-add-coexistence-test-pack_019e4ed4.json",
@@ -1244,6 +1272,7 @@
     "title": "PLAY1: Update play store disclosures",
     "created_local": "2026-05-22 14:21:04 IST",
     "updated_local": "2026-05-22 14:39:32 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Play-ready story for everything that shipped in Phases 4–7. Likely related git changes: 0498e61 PLAY1: Add coexistence smoke tests and update docs.",
     "transcript_md": "threads_md/2026-05-22_142104_play1-update-play-store-disclosures_019e4ee1.md",
     "messages_json": "threads_json/2026-05-22_142104_play1-update-play-store-disclosures_019e4ee1.json",
@@ -1281,6 +1310,7 @@
     "title": "FIX-A: Refine beta-blocked phrases",
     "created_local": "2026-05-22 17:17:27 IST",
     "updated_local": "2026-05-22 17:28:53 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: DefaultActionPolicyEngine.BETA_BLOCKED_TERMS currently contains Likely related git changes: df10120 Fix-A: Tighten BETA_BLOCKED_TERMS so legitimate recipes don't get refused.",
     "transcript_md": "threads_md/2026-05-22_171727_fix-a-refine-beta-blocked-phrases_019e4f83.md",
     "messages_json": "threads_json/2026-05-22_171727_fix-a-refine-beta-blocked-phrases_019e4f83.json",
@@ -1313,6 +1343,7 @@
     "title": "Fix-B: Fix mute capability reporting",
     "created_local": "2026-05-22 17:29:47 IST",
     "updated_local": "2026-05-22 17:36:40 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: SwitchingActionPerformer.gesturesAllowed(snapshot) does not pass Likely related git changes: ac1a079 FIX-B — Make SwitchingActionPerformer consult the mute clock for capability reporting.",
     "transcript_md": "threads_md/2026-05-22_172947_fix-b-fix-mute-capability-reporting_019e4f8e.md",
     "messages_json": "threads_json/2026-05-22_172947_fix-b-fix-mute-capability-reporting_019e4f8e.json",
@@ -1345,6 +1376,7 @@
     "title": "Fix-C: Align MAX_STEPS docs",
     "created_local": "2026-05-22 17:37:15 IST",
     "updated_local": "2026-05-22 17:42:58 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: RecipeRunner.MAX_STEPS is 6; docs/ACTION_POLICY.md and Likely related git changes: 72b969e FIX-C: Align RecipeRunner MAX_STEPS with the docs.",
     "transcript_md": "threads_md/2026-05-22_173715_fix-c-align-max-steps-docs_019e4f95.md",
     "messages_json": "threads_json/2026-05-22_173715_fix-c-align-max-steps-docs_019e4f95.json",
@@ -1378,6 +1410,7 @@
     "title": "Fix-D: Fix notification KDoc mismatch",
     "created_local": "2026-05-22 17:52:02 IST",
     "updated_local": "2026-05-22 17:57:04 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: The class kdoc claims reply/dismiss exist; they don't. Either Likely related git changes: 5f45d5c FIX-D: Clean up HandyNotificationListenerService documentation.",
     "transcript_md": "threads_md/2026-05-22_175202_fix-d-fix-notification-kdoc-mismatch_019e4fa2.md",
     "messages_json": "threads_json/2026-05-22_175202_fix-d-fix-notification-kdoc-mismatch_019e4fa2.json",
@@ -1409,6 +1442,7 @@
     "title": "Fix-E: Skip system overlay taps",
     "created_local": "2026-05-22 17:53:44 IST",
     "updated_local": "2026-05-22 18:04:06 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Skip Android system overlays too (status bar, nav bar, system UI) Likely related git changes: 0a8f0a3 FIX-E: Tighten ManualTargetSelector package skip-list.",
     "transcript_md": "threads_md/2026-05-22_175344_fix-e-skip-system-overlay-taps_019e4fa4.md",
     "messages_json": "threads_json/2026-05-22_175344_fix-e-skip-system-overlay-taps_019e4fa4.json",
@@ -1442,6 +1476,7 @@
     "title": "You are working on Handy Android.",
     "created_local": "2026-05-22 18:05:17 IST",
     "updated_local": "2026-05-22 18:45:32 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Replace the current two-step onboarding (PreDisclosure + No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-22_180517_you-are-working-on-handy-android_019e4fae.md",
     "messages_json": "threads_json/2026-05-22_180517_you-are-working-on-handy-android_019e4fae.json",
@@ -1455,6 +1490,7 @@
     "title": "Hey, I attached all basically screenshots of literally every screen of the Handy Android app that we have right now, starting fro…",
     "created_local": "2026-05-22 18:55:05 IST",
     "updated_local": "2026-05-22 18:59:34 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Hey, I attached all basically screenshots of literally every screen of the Handy Android app that we have right now, starting fro… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-22_185505_hey-i-attached-all-basically-screenshots-of-literally-every-screen-of-th_019e4fdc.md",
     "messages_json": "threads_json/2026-05-22_185505_hey-i-attached-all-basically-screenshots-of-literally-every-screen-of-th_019e4fdc.json",
@@ -1468,7 +1504,8 @@
     "title": "You are working on Handy Android (multi-module: :core, :android-runtime, :app).",
     "created_local": "2026-05-23 13:51:34 IST",
     "updated_local": "2026-05-23 14:04:44 IST",
-    "summary": "This conversation focused on: Before adding S-1..S-10 recipes, introduce a tiny intent-routing layer so that \"open Spotify\", \"set a timer for 10 minutes\", \"search the web for X\", \"install X from Play Store\", \"remind me at 6 PM\" each map to exactly one recipe without LL… Likely related git changes: 9a3b522 Add deterministic open app recipe.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Before adding S-1..S-10 recipes, introduce a tiny intent-routing layer so that \"open Spotify\", \"set a timer for 10 minutes\", \"search the web for X\", \"install X from Play Store\", \"remind me at 6 PM\" each map to exactly one recipe without LLM-side ambiguity. To… Likely related git changes: 9a3b522 Add deterministic open app recipe.",
     "transcript_md": "threads_md/2026-05-23_135134_you-are-working-on-handy-android-multi-module-core-android-runtime-app_019e53ec.md",
     "messages_json": "threads_json/2026-05-23_135134_you-are-working-on-handy-android-multi-module-core-android-runtime-app_019e53ec.json",
     "recorded_git_sha_at_start": "93754259560473853c03421ed3f1e0ba7089d498",
@@ -1508,6 +1545,7 @@
     "title": "Add intent routing layer",
     "created_local": "2026-05-23 14:12:29 IST",
     "updated_local": "2026-05-23 14:13:03 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Introduce a small intent-routing layer so 6 new recipes (S-1..S-10) Likely related git changes: 9a3b522 Add deterministic open app recipe.",
     "transcript_md": "threads_md/2026-05-23_141229_add-intent-routing-layer_019e5400.md",
     "messages_json": "threads_json/2026-05-23_141229_add-intent-routing-layer_019e5400.json",
@@ -1548,7 +1586,8 @@
     "title": "Read the standing rules. Single-pass: read, implement, test, commit.",
     "created_local": "2026-05-23 14:12:42 IST",
     "updated_local": "2026-05-23 14:24:15 IST",
-    "summary": "This conversation focused on: Add a deterministic OpenAppRecipe. \"Open Spotify\" routes through LaunchableAppIndex.find(name) → launcher intent. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/intent/LaunchableAppIndex.kt - android-runtime/src/main/kot… Likely related git changes: 9a3b522 Add deterministic open app recipe.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Add a deterministic OpenAppRecipe. \"Open Spotify\" routes through LaunchableAppIndex.find(name) → launcher intent. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/intent/LaunchableAppIndex.kt - android-runtime/src/main/kotlin/com/handy/runtim… Likely related git changes: 9a3b522 Add deterministic open app recipe.",
     "transcript_md": "threads_md/2026-05-23_141242_read-the-standing-rules-single-pass-read-implement-test-commit_019e5400.md",
     "messages_json": "threads_json/2026-05-23_141242_read-the-standing-rules-single-pass-read-implement-test-commit_019e5400.json",
     "recorded_git_sha_at_start": "93754259560473853c03421ed3f1e0ba7089d498",
@@ -1588,7 +1627,8 @@
     "title": "S5: Add settings deep-link targets",
     "created_local": "2026-05-23 14:25:24 IST",
     "updated_local": "2026-05-23 14:33:09 IST",
-    "summary": "This conversation focused on: Add RINGTONE, DND, BRIGHTNESS, SCREEN_TIMEOUT to SettingsTarget so common Settings requests have a deterministic deep-link. None of these toggle anything — they only open the screen. FILES TO KNOW - core/src/main/kotlin/com/handy/core/acti… Likely related git changes: 9a3b522 Add deterministic open app recipe; 325d239 S5.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Add RINGTONE, DND, BRIGHTNESS, SCREEN_TIMEOUT to SettingsTarget so common Settings requests have a deterministic deep-link. None of these toggle anything — they only open the screen. FILES TO KNOW - core/src/main/kotlin/com/handy/core/action/AssistantAction.k… Likely related git changes: 9a3b522 Add deterministic open app recipe; 325d239 S5.",
     "transcript_md": "threads_md/2026-05-23_142524_s5-add-settings-deep-link-targets_019e540b.md",
     "messages_json": "threads_json/2026-05-23_142524_s5-add-settings-deep-link-targets_019e540b.json",
     "recorded_git_sha_at_start": "9a3b522b86a93b8d5ae3bc4b101b7ff5d4cc3ca0",
@@ -1651,7 +1691,8 @@
     "title": "S9: Add Play Store install action",
     "created_local": "2026-05-23 14:50:52 IST",
     "updated_local": "2026-05-23 15:04:28 IST",
-    "summary": "This conversation focused on: Add AssistantAction.InstallApp and InstallAppRecipe that opens the Play Store listing for a given package or search query. We never auto-install — the user taps Install. FILES TO KNOW - core/src/main/kotlin/com/handy/core/action/AssistantA… Likely related git changes: c7027a5 S9: Add playstore install action.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Add AssistantAction.InstallApp and InstallAppRecipe that opens the Play Store listing for a given package or search query. We never auto-install — the user taps Install. FILES TO KNOW - core/src/main/kotlin/com/handy/core/action/AssistantAction.kt - android-r… Likely related git changes: c7027a5 S9: Add playstore install action.",
     "transcript_md": "threads_md/2026-05-23_145052_s9-add-play-store-install-action_019e5423.md",
     "messages_json": "threads_json/2026-05-23_145052_s9-add-play-store-install-action_019e5423.json",
     "recorded_git_sha_at_start": "9a3b522b86a93b8d5ae3bc4b101b7ff5d4cc3ca0",
@@ -1692,7 +1733,8 @@
     "title": "S2: Add TimerRecipe for StartTimer",
     "created_local": "2026-05-23 16:48:55 IST",
     "updated_local": "2026-05-23 16:56:20 IST",
-    "summary": "This conversation focused on: Wrap AssistantAction.StartTimer in a TimerRecipe so \"set a 10-minute timer\" follows the plan-approval flow. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ClockRecipe.kt (mirror structure) - core/src/main/k… Likely related git changes: 1c44ee5 S2: Add TimerRecipe for StartTimer.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Wrap AssistantAction.StartTimer in a TimerRecipe so \"set a 10-minute timer\" follows the plan-approval flow. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ClockRecipe.kt (mirror structure) - core/src/main/kotlin/com/handy/core… Likely related git changes: 1c44ee5 S2: Add TimerRecipe for StartTimer.",
     "transcript_md": "threads_md/2026-05-23_164855_s2-add-timerrecipe-for-starttimer_019e548f.md",
     "messages_json": "threads_json/2026-05-23_164855_s2-add-timerrecipe-for-starttimer_019e548f.json",
     "recorded_git_sha_at_start": "c7027a5a4ab74d5db0c6ff072309d118406af69e",
@@ -1728,7 +1770,8 @@
     "title": "S3: Add web search recipe",
     "created_local": "2026-05-23 16:57:30 IST",
     "updated_local": "2026-05-23 17:10:21 IST",
-    "summary": "This conversation focused on: Add WebSearchRecipe that opens the user's default browser with a search URL via AssistantAction.WebSearchIntent. Does not use the web_search tool quota. FILES TO KNOW - core/src/main/kotlin/com/handy/core/action/AssistantAction.kt (WebSear… Likely related git changes: 5275e07 S3: Add web search recipe.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Add WebSearchRecipe that opens the user's default browser with a search URL via AssistantAction.WebSearchIntent. Does not use the web_search tool quota. FILES TO KNOW - core/src/main/kotlin/com/handy/core/action/AssistantAction.kt (WebSearchIntent) - android-… Likely related git changes: 5275e07 S3: Add web search recipe.",
     "transcript_md": "threads_md/2026-05-23_165730_s3-add-web-search-recipe_019e5497.md",
     "messages_json": "threads_json/2026-05-23_165730_s3-add-web-search-recipe_019e5497.json",
     "recorded_git_sha_at_start": "1c44ee5ea82dad1379525f829f7e30f129264f20",
@@ -1769,7 +1812,8 @@
     "title": "S4: Add Chrome omnibox flow",
     "created_local": "2026-05-23 17:16:38 IST",
     "updated_local": "2026-05-23 17:28:58 IST",
-    "summary": "This conversation focused on: Add an omnibox-typing subflow to the existing ChromeRecipe. Uses flyToAndType against the Chrome url_bar viewId. Keep all current ChromeRecipe paths intact. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/Ch… Likely related git changes: 5275e07 S3: Add web search recipe; 50d0992 S4: Strengthen ChromeRecipe with omnibox typing.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Add an omnibox-typing subflow to the existing ChromeRecipe. Uses flyToAndType against the Chrome url_bar viewId. Keep all current ChromeRecipe paths intact. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ChromeRecipe.kt (curre… Likely related git changes: 5275e07 S3: Add web search recipe; 50d0992 S4: Strengthen ChromeRecipe with omnibox typing.",
     "transcript_md": "threads_md/2026-05-23_171638_s4-add-chrome-omnibox-flow_019e54a8.md",
     "messages_json": "threads_json/2026-05-23_171638_s4-add-chrome-omnibox-flow_019e54a8.json",
     "recorded_git_sha_at_start": "5275e07ef66686b75bf2250d30ff664acdee4017",
@@ -1832,7 +1876,8 @@
     "title": "S6: Route summarize screen prompt",
     "created_local": "2026-05-23 17:35:45 IST",
     "updated_local": "2026-05-23 17:51:04 IST",
-    "summary": "This conversation focused on: Wire the existing \"Summarize this screen\" quick-prompt to a special non-tool, non-pointer turn that bypasses the recipe runner and tool layer. No new gesture, no new compose screen — just routes the existing chip differently. FILES TO KNOW… Likely related git changes: f31c22a S6: \"Help me read this\" mode.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Wire the existing \"Summarize this screen\" quick-prompt to a special non-tool, non-pointer turn that bypasses the recipe runner and tool layer. No new gesture, no new compose screen — just routes the existing chip differently. FILES TO KNOW - core/src/main/kot… Likely related git changes: f31c22a S6: \"Help me read this\" mode.",
     "transcript_md": "threads_md/2026-05-23_173545_s6-route-summarize-screen-prompt_019e54ba.md",
     "messages_json": "threads_json/2026-05-23_173545_s6-route-summarize-screen-prompt_019e54ba.json",
     "recorded_git_sha_at_start": "50d09928b1e714d3a6960e6154fdfc669066204a",
@@ -1873,7 +1918,8 @@
     "title": "S8: Add calendar event recipe",
     "created_local": "2026-05-23 18:09:05 IST",
     "updated_local": "2026-05-23 18:20:12 IST",
-    "summary": "This conversation focused on: Add CalendarEventRecipe + a bounded DateTimeParser. The recipe never auto-creates events; it always opens the OS Calendar compose UI with prefilled fields. User taps Save. FILES TO KNOW - core/src/main/kotlin/com/handy/core/action/Assistan… Likely related git changes: 6c2a51c S8: Calendar event recipe with bounded date/time parser.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Add CalendarEventRecipe + a bounded DateTimeParser. The recipe never auto-creates events; it always opens the OS Calendar compose UI with prefilled fields. User taps Save. FILES TO KNOW - core/src/main/kotlin/com/handy/core/action/AssistantAction.kt (CreateCa… Likely related git changes: 6c2a51c S8: Calendar event recipe with bounded date/time parser.",
     "transcript_md": "threads_md/2026-05-23_180905_s8-add-calendar-event-recipe_019e54d8.md",
     "messages_json": "threads_json/2026-05-23_180905_s8-add-calendar-event-recipe_019e54d8.json",
     "recorded_git_sha_at_start": "f31c22ac96689c5f396c07b3e8aa928ad88de054",
@@ -1912,7 +1958,8 @@
     "title": "S10: Add ride-hailing recipe pack",
     "created_local": "2026-05-23 18:33:41 IST",
     "updated_local": "2026-05-23 18:49:01 IST",
-    "summary": "This conversation focused on: A recipe pack that opens Uber / Ola / Rapido, searches for the destination, lets the user see the cheapest option, and STOPS BEFORE the final \"Confirm Ride\" tap. Same pattern as WhatsApp recipe stopping before Send. THIS RECIPE PACK NEVER… Likely related git changes: 762e93f S10: Ride-hailing recipe pack (Uber + Ola + Rapido).",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: A recipe pack that opens Uber / Ola / Rapido, searches for the destination, lets the user see the cheapest option, and STOPS BEFORE the final \"Confirm Ride\" tap. Same pattern as WhatsApp recipe stopping before Send. THIS RECIPE PACK NEVER TAPS A CONFIRM/REQUE… Likely related git changes: 762e93f S10: Ride-hailing recipe pack (Uber + Ola + Rapido).",
     "transcript_md": "threads_md/2026-05-23_183341_s10-add-ride-hailing-recipe-pack_019e54ef.md",
     "messages_json": "threads_json/2026-05-23_183341_s10-add-ride-hailing-recipe-pack_019e54ef.json",
     "recorded_git_sha_at_start": "6c2a51cf3b26bfb9f6e984a74e4d59c6b6910d4a",
@@ -1953,7 +2000,8 @@
     "title": "S12: Add recipe routing smoke tests",
     "created_local": "2026-05-23 20:28:11 IST",
     "updated_local": "2026-05-23 20:38:07 IST",
-    "summary": "This conversation focused on: Lock recipe routing for future contributors. Smoke-test every canonical user utterance against the registry. Add a conflict test that detects recipe overlap. Update README and DEVICE_MATRIX. FILES TO KNOW - android-runtime/src/main/kotlin/… Likely related git changes: 2b78200 S12: Add recipe routing smoke tests.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Lock recipe routing for future contributors. Smoke-test every canonical user utterance against the registry. Add a conflict test that detects recipe overlap. Update README and DEVICE_MATRIX. FILES TO KNOW - android-runtime/src/main/kotlin/com/handy/runtime/ag… Likely related git changes: 2b78200 S12: Add recipe routing smoke tests.",
     "transcript_md": "threads_md/2026-05-23_202811_s12-add-recipe-routing-smoke-tests_019e5558.md",
     "messages_json": "threads_json/2026-05-23_202811_s12-add-recipe-routing-smoke-tests_019e5558.json",
     "recorded_git_sha_at_start": "762e93f676f61a93b21d2c21abff123a60fb23e6",
@@ -1987,6 +2035,7 @@
     "title": "Audit recent commits",
     "created_local": "2026-05-23 21:01:12 IST",
     "updated_local": "2026-05-23 21:13:46 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Audit recent commits No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-23_210112_audit-recent-commits_019e5576.md",
     "messages_json": "threads_json/2026-05-23_210112_audit-recent-commits_019e5576.json",
@@ -2000,6 +2049,7 @@
     "title": "Document floating widget states",
     "created_local": "2026-05-23 21:03:52 IST",
     "updated_local": "2026-05-23 21:07:29 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Document floating widget states No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-23_210352_document-floating-widget-states_019e5578.md",
     "messages_json": "threads_json/2026-05-23_210352_document-floating-widget-states_019e5578.json",
@@ -2013,6 +2063,7 @@
     "title": "Update README with latest Handy",
     "created_local": "2026-05-23 21:39:10 IST",
     "updated_local": "2026-05-23 21:45:13 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Update README with latest Handy Likely related git changes: 60fd40e [audit] bug fixes.",
     "transcript_md": "threads_md/2026-05-23_213910_update-readme-with-latest-handy_019e5598.md",
     "messages_json": "threads_json/2026-05-23_213910_update-readme-with-latest-handy_019e5598.json",
@@ -2048,6 +2099,7 @@
     "title": "Hey, so we want to update the splash screen. I had a beautiful splash screen created by Claude Design. There's an animation, good…",
     "created_local": "2026-05-23 22:35:57 IST",
     "updated_local": "2026-05-24 11:24:18 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Hey, so we want to update the splash screen. I had a beautiful splash screen created by Claude Design. There's an animation, good… Likely related git changes: 64cd684 New design system; da10559 new design system read me; 4c9cb34 Testing new Splash Screen from Design V2; a5e1aff removed old design handoff; e6d67f9 Add missing handoff drawable assets.",
     "transcript_md": "threads_md/2026-05-23_223557_hey-so-we-want-to-update-the-splash-screen-i-had-a-beautiful-splash-scre_019e55cc.md",
     "messages_json": "threads_json/2026-05-23_223557_hey-so-we-want-to-update-the-splash-screen-i-had-a-beautiful-splash-scre_019e55cc.json",
@@ -2168,7 +2220,8 @@
     "title": "P0: Add onboarding design package",
     "created_local": "2026-05-24 10:05:43 IST",
     "updated_local": "2026-05-24 10:26:33 IST",
-    "summary": "This conversation focused on: Add a NEW parallel theme package `app/src/main/kotlin/com/handy/app/design/` that mirrors the tokens defined in `handy-new-design-handoff/project/src/tokens.jsx`. Add the vector drawables that the new onboarding screens (P-1..P-4) will nee… Likely related git changes: 2bcfcee Add parallel HandyDesign onboarding foundation; a5e1aff removed old design handoff; e6d67f9 Add missing handoff drawable assets; 297d0c7 Migrate splash to HandyDesign tokens.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Add a NEW parallel theme package `app/src/main/kotlin/com/handy/app/design/` that mirrors the tokens defined in `handy-new-design-handoff/project/src/tokens.jsx`. Add the vector drawables that the new onboarding screens (P-1..P-4) will need. Do NOT delete the… Likely related git changes: 2bcfcee Add parallel HandyDesign onboarding foundation; a5e1aff removed old design handoff; e6d67f9 Add missing handoff drawable assets; 297d0c7 Migrate splash to HandyDesign tokens.",
     "transcript_md": "threads_md/2026-05-24_100543_p0-add-onboarding-design-package_019e5844.md",
     "messages_json": "threads_json/2026-05-24_100543_p0-add-onboarding-design-package_019e5844.json",
     "recorded_git_sha_at_start": "4c9cb340a8cd23e457546fc520c35591b933ae35",
@@ -2269,7 +2322,8 @@
     "title": "P1: Migrate splash to design tokens",
     "created_local": "2026-05-24 10:28:05 IST",
     "updated_local": "2026-05-24 10:34:50 IST",
-    "summary": "This conversation focused on: The splash you already shipped (app/src/main/kotlin/com/handy/app/ onboarding/SplashScreen.kt) hard-codes its own colors and timings. Migrate it to read from the new HandyDesign tokens shipped in P-0 so the rest of the onboarding inherits… Likely related git changes: e6d67f9 Add missing handoff drawable assets; 297d0c7 Migrate splash to HandyDesign tokens.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: The splash you already shipped (app/src/main/kotlin/com/handy/app/ onboarding/SplashScreen.kt) hard-codes its own colors and timings. Migrate it to read from the new HandyDesign tokens shipped in P-0 so the rest of the onboarding inherits the same accent valu… Likely related git changes: e6d67f9 Add missing handoff drawable assets; 297d0c7 Migrate splash to HandyDesign tokens.",
     "transcript_md": "threads_md/2026-05-24_102805_p1-migrate-splash-to-design-tokens_019e5858.md",
     "messages_json": "threads_json/2026-05-24_102805_p1-migrate-splash-to-design-tokens_019e5858.json",
     "recorded_git_sha_at_start": "e6d67f942d054cbe608d7e13e9aa4223fedab092",
@@ -2318,7 +2372,8 @@
     "title": "Read the universal rules. Single-pass. Read → implement → test → commit.",
     "created_local": "2026-05-24 10:36:25 IST",
     "updated_local": "2026-05-24 11:37:21 IST",
-    "summary": "This conversation focused on: Replace the current ValueScreen.kt (a single static list with stock icons) with the new design's `02a · Value (cards)` — a HorizontalPager with three hero cards (See / Point / Do), each its own color family (amber / cobalt / emerald), cust… Likely related git changes: 297d0c7 Migrate splash to HandyDesign tokens; cce9eef Redesign ValueScreen as USP card pager; 8be3bfd Audit ValueScreen pager fidelity; 64fad2a Simplify Value card active states; 72df9d0 Added Value Prop cards in onboarding.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Replace the current ValueScreen.kt (a single static list with stock icons) with the new design's `02a · Value (cards)` — a HorizontalPager with three hero cards (See / Point / Do), each its own color family (amber / cobalt / emerald), custom hero scenes built… Likely related git changes: 297d0c7 Migrate splash to HandyDesign tokens; cce9eef Redesign ValueScreen as USP card pager; 8be3bfd Audit ValueScreen pager fidelity; 64fad2a Simplify Value card active states; 72df9d0 Added Value Prop cards in onboarding.",
     "transcript_md": "threads_md/2026-05-24_103625_read-the-universal-rules-single-pass-read-implement-test-commit_019e5860.md",
     "messages_json": "threads_json/2026-05-24_103625_read-the-universal-rules-single-pass-read-implement-test-commit_019e5860.json",
     "recorded_git_sha_at_start": "297d0c795c431916191c6456aac33c966d3da0ec",
@@ -2413,7 +2468,8 @@
     "title": "Read the universal rules. Single-pass.",
     "created_local": "2026-05-24 11:37:25 IST",
     "updated_local": "2026-05-24 12:01:49 IST",
-    "summary": "This conversation focused on: Replace the existing PostDisclosureStep inside OnboardingActivity with a new design-matching permissions screen that: - Renders a left-aligned Display title \"One more step.\" where \"step.\" is the accent word (color #D97757 + SemiBold weight… Likely related git changes: 64fad2a Simplify Value card active states; 72df9d0 Added Value Prop cards in onboarding.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Replace the existing PostDisclosureStep inside OnboardingActivity with a new design-matching permissions screen that: - Renders a left-aligned Display title \"One more step.\" where \"step.\" is the accent word (color #D97757 + SemiBold weight, not italic). - Sub… Likely related git changes: 64fad2a Simplify Value card active states; 72df9d0 Added Value Prop cards in onboarding.",
     "transcript_md": "threads_md/2026-05-24_113725_read-the-universal-rules-single-pass_019e5898.md",
     "messages_json": "threads_json/2026-05-24_113725_read-the-universal-rules-single-pass_019e5898.json",
     "recorded_git_sha_at_start": "72df9d098ca04c35a83a16316d103389ec819f6f",
@@ -2457,7 +2513,8 @@
     "title": "P4: Update privacy disclosure sheet",
     "created_local": "2026-05-24 12:03:00 IST",
     "updated_local": "2026-05-24 12:14:42 IST",
-    "summary": "This conversation focused on: Replace the body of PrivacyDetailsBottomSheet.kt with the new design's `08 · Privacy disclosure` — a full-height bottom sheet (starts 60dp below the top of the screen), with a drag handle, a header (shield tile + title + close button), 4 c… Likely related git changes: 26a219e Privacy bottom sheet.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Replace the body of PrivacyDetailsBottomSheet.kt with the new design's `08 · Privacy disclosure` — a full-height bottom sheet (starts 60dp below the top of the screen), with a drag handle, a header (shield tile + title + close button), 4 color-coded sections… Likely related git changes: 26a219e Privacy bottom sheet.",
     "transcript_md": "threads_md/2026-05-24_120300_p4-update-privacy-disclosure-sheet_019e58af.md",
     "messages_json": "threads_json/2026-05-24_120300_p4-update-privacy-disclosure-sheet_019e58af.json",
     "recorded_git_sha_at_start": "72df9d098ca04c35a83a16316d103389ec819f6f",
@@ -2489,6 +2546,7 @@
     "title": "You are working on Handy Android (multi-module: :core, :android-runtime, :app).",
     "created_local": "2026-05-24 12:23:07 IST",
     "updated_local": "2026-05-24 12:34:53 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: You are working on Handy Android (multi-module: :core, :android-runtime, :app). Likely related git changes: 1a34da3 Add redesigned settings primitives.",
     "transcript_md": "threads_md/2026-05-24_122307_you-are-working-on-handy-android-multi-module-core-android-runtime-app_019e58c2.md",
     "messages_json": "threads_json/2026-05-24_122307_you-are-working-on-handy-android-multi-module-core-android-runtime-app_019e58c2.json",
@@ -2521,7 +2579,8 @@
     "title": "Read the universal rules. Single-pass.",
     "created_local": "2026-05-24 12:34:56 IST",
     "updated_local": "2026-05-24 19:36:58 IST",
-    "summary": "This conversation focused on: Replace the existing Brain section (3 stacked BrainModelCard radios) with the new \"always-expanded\" hero card from scenes-settings.jsx lines 232–300. It shows ONLY the currently selected model + a \"Change\" link. Tapping \"Change\" opens a ne… Likely related git changes: 1a34da3 Add redesigned settings primitives; 2028fb9 S (C+D+E): settings page redesign - all done!; 1f95269 bug fixes.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Replace the existing Brain section (3 stacked BrainModelCard radios) with the new \"always-expanded\" hero card from scenes-settings.jsx lines 232–300. It shows ONLY the currently selected model + a \"Change\" link. Tapping \"Change\" opens a new ModelPickerSheet (… Likely related git changes: 1a34da3 Add redesigned settings primitives; 2028fb9 S (C+D+E): settings page redesign - all done!; 1f95269 bug fixes.",
     "transcript_md": "threads_md/2026-05-24_123456_read-the-universal-rules-single-pass_019e58cd.md",
     "messages_json": "threads_json/2026-05-24_123456_read-the-universal-rules-single-pass_019e58cd.json",
     "recorded_git_sha_at_start": "1a34da321d829679d0b132de07b132c936af52d3",
@@ -2603,7 +2662,8 @@
     "title": "Read the universal rules. Single-pass.",
     "created_local": "2026-05-24 13:00:59 IST",
     "updated_local": "2026-05-24 14:03:38 IST",
-    "summary": "This conversation focused on: Build the Capabilities accordion per scenes-settings.jsx lines 391–414 + WebSearchRow lines 339–388. Five toggle rows: 1. Screen reading (a11y permission proxy) 2. Voice input (mic permission proxy) 3. Notifications (notification listener… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Build the Capabilities accordion per scenes-settings.jsx lines 391–414 + WebSearchRow lines 339–388. Five toggle rows: 1. Screen reading (a11y permission proxy) 2. Voice input (mic permission proxy) 3. Notifications (notification listener proxy) 4. Web search… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-24_130059_read-the-universal-rules-single-pass_019e58e4.md",
     "messages_json": "threads_json/2026-05-24_130059_read-the-universal-rules-single-pass_019e58e4.json",
     "recorded_git_sha_at_start": "1a34da321d829679d0b132de07b132c936af52d3",
@@ -2616,7 +2676,8 @@
     "title": "Read the universal rules. Single-pass.",
     "created_local": "2026-05-24 13:20:02 IST",
     "updated_local": "2026-05-24 13:52:20 IST",
-    "summary": "This conversation focused on: Build the Automations accordion per scenes-settings.jsx lines 510–552. Rows: 1. Tap-for-me (settings.tapForMeEnabled) 2. Type-for-me (NEW flag — see ViewModel change below) 3. Recipes (NEW flag — see ViewModel change below) 4. Triggers pil… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Build the Automations accordion per scenes-settings.jsx lines 510–552. Rows: 1. Tap-for-me (settings.tapForMeEnabled) 2. Type-for-me (NEW flag — see ViewModel change below) 3. Recipes (NEW flag — see ViewModel change below) 4. Triggers pill-select with 3 opti… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-24_132002_read-the-universal-rules-single-pass_019e58f6.md",
     "messages_json": "threads_json/2026-05-24_132002_read-the-universal-rules-single-pass_019e58f6.json",
     "recorded_git_sha_at_start": "1a34da321d829679d0b132de07b132c936af52d3",
@@ -2629,7 +2690,8 @@
     "title": "SE: Rewrite settings activity body",
     "created_local": "2026-05-24 14:03:34 IST",
     "updated_local": "2026-05-24 14:56:19 IST",
-    "summary": "This conversation focused on: 1) Build the Privacy & data accordion (4 rows). 2) Build the new SettingsHeader (40 dp back tile + title) and SettingsFooter (Handy mark + version line). 3) Rewrite SettingsScreen / SettingsActivity body to use the 4 accordion sections + M… Likely related git changes: 2028fb9 S (C+D+E): settings page redesign - all done!; 1f95269 bug fixes.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: 1) Build the Privacy & data accordion (4 rows). 2) Build the new SettingsHeader (40 dp back tile + title) and SettingsFooter (Handy mark + version line). 3) Rewrite SettingsScreen / SettingsActivity body to use the 4 accordion sections + ModelPickerSheet. Del… Likely related git changes: 2028fb9 S (C+D+E): settings page redesign - all done!; 1f95269 bug fixes.",
     "transcript_md": "threads_md/2026-05-24_140334_se-rewrite-settings-activity-body_019e591e.md",
     "messages_json": "threads_json/2026-05-24_140334_se-rewrite-settings-activity-body_019e591e.json",
     "recorded_git_sha_at_start": "1a34da321d829679d0b132de07b132c936af52d3",
@@ -2693,7 +2755,8 @@
     "title": "C-A: Update chat header and empty state",
     "created_local": "2026-05-24 14:59:57 IST",
     "updated_local": "2026-05-24 15:09:44 IST",
-    "summary": "This conversation focused on: Replace the existing HandyHeaderBar + EmptyHero in ChatActivity with the redesign (scenes-chat.jsx lines 3–100). Top bar gets a \"LIVE\" chip next to the wordmark when the chat is connected; the empty hero becomes a centered hand mark on a s… Likely related git changes: 1f95269 bug fixes.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Replace the existing HandyHeaderBar + EmptyHero in ChatActivity with the redesign (scenes-chat.jsx lines 3–100). Top bar gets a \"LIVE\" chip next to the wordmark when the chat is connected; the empty hero becomes a centered hand mark on a subtle bare disc + la… Likely related git changes: 1f95269 bug fixes.",
     "transcript_md": "threads_md/2026-05-24_145957_c-a-update-chat-header-and-empty-state_019e5951.md",
     "messages_json": "threads_json/2026-05-24_145957_c-a-update-chat-header-and-empty-state_019e5951.json",
     "recorded_git_sha_at_start": "2028fb9062458ab332aaf712353597d374e0932f",
@@ -2731,7 +2794,8 @@
     "title": "C-B: Replace ChatComposer",
     "created_local": "2026-05-24 15:07:43 IST",
     "updated_local": "2026-05-24 15:32:14 IST",
-    "summary": "This conversation focused on: Replace the existing ChatComposer (a bottom Row inside the Column) with a FloatingComposer that sits ABSOLUTE-positioned at the bottom of the chat surface. It has a backdrop blur (API 31+), a thin gradient fade above it so messages dissolv… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Replace the existing ChatComposer (a bottom Row inside the Column) with a FloatingComposer that sits ABSOLUTE-positioned at the bottom of the chat surface. It has a backdrop blur (API 31+), a thin gradient fade above it so messages dissolve into it, a 28 dp p… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-24_150743_c-b-replace-chatcomposer_019e5958.md",
     "messages_json": "threads_json/2026-05-24_150743_c-b-replace-chatcomposer_019e5958.json",
     "recorded_git_sha_at_start": "1f95269e7e04e52d9afac2eeb52667f498f89f23",
@@ -2744,6 +2808,7 @@
     "title": "C-C: Migrate chat redesign",
     "created_local": "2026-05-24 19:29:01 IST",
     "updated_local": "2026-05-24 19:48:43 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: C-C: Migrate chat redesign Likely related git changes: e1837fe CA + CB: main chat window revamp + floating composer.",
     "transcript_md": "threads_md/2026-05-24_192901_c-c-migrate-chat-redesign_019e5a48.md",
     "messages_json": "threads_json/2026-05-24_192901_c-c-migrate-chat-redesign_019e5a48.json",
@@ -2777,7 +2842,8 @@
     "title": "CH1: Add inline-edit context pill",
     "created_local": "2026-05-25 09:04:53 IST",
     "updated_local": "2026-05-25 09:15:41 IST",
-    "summary": "This conversation focused on: Mount the existing ContextBarPillV2 above the FloatingComposerV2 as its `bottomChrome` slot, and add a sleek inline-edit mode so tapping \"Change\" flips the pill into a text-field + Done/Cancel inside the same pill shape. Remove the redunda… Likely related git changes: f8888ed C-C: chat bubbles and improvements; 7274bd4 Mount context pill above composer; 1d64447 CH1+2+3+SF: fixing missing new design elements.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Mount the existing ContextBarPillV2 above the FloatingComposerV2 as its `bottomChrome` slot, and add a sleek inline-edit mode so tapping \"Change\" flips the pill into a text-field + Done/Cancel inside the same pill shape. Remove the redundant top ContextBarFul… Likely related git changes: f8888ed C-C: chat bubbles and improvements; 7274bd4 Mount context pill above composer; 1d64447 CH1+2+3+SF: fixing missing new design elements.",
     "transcript_md": "threads_md/2026-05-25_090453_ch1-add-inline-edit-context-pill_019e5d33.md",
     "messages_json": "threads_json/2026-05-25_090453_ch1-add-inline-edit-context-pill_019e5d33.json",
     "recorded_git_sha_at_start": "f8888ed588a7500c87c18e31141ae375fdc3cd64",
@@ -2809,7 +2875,7 @@
         "score": 8,
         "reasons": [
           "inside/near active thread window",
-          "matched words above, composer, context, mount, pill"
+          "matched words composer, context, mount, pill"
         ],
         "files": [
           "DEBUG_LOG.md",
@@ -2848,7 +2914,8 @@
     "title": "You are working on Handy Android. Read the universal rules. Single-pass.",
     "created_local": "2026-05-25 09:18:24 IST",
     "updated_local": "2026-05-25 09:49:39 IST",
-    "summary": "This conversation focused on: Change the LIVE chip in ChatTopBarV2 (next to \"Handy\" wordmark) from \"any chat activity\" to \"AI brain has a valid API key configured.\" The chip's existing visual (small pulsing accent dot + accent \"LIVE\" label) stays exactly as is; only th… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Change the LIVE chip in ChatTopBarV2 (next to \"Handy\" wordmark) from \"any chat activity\" to \"AI brain has a valid API key configured.\" The chip's existing visual (small pulsing accent dot + accent \"LIVE\" label) stays exactly as is; only the truthy condition c… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-25_091824_you-are-working-on-handy-android-read-the-universal-rules-single-pass_019e5d3f.md",
     "messages_json": "threads_json/2026-05-25_091824_you-are-working-on-handy-android-read-the-universal-rules-single-pass_019e5d3f.json",
     "recorded_git_sha_at_start": "7274bd4c4c31377948f8ade8394155133a449c6d",
@@ -2861,7 +2928,8 @@
     "title": "CH3: Replace chat banners with V2",
     "created_local": "2026-05-25 09:48:19 IST",
     "updated_local": "2026-05-25 10:00:11 IST",
-    "summary": "This conversation focused on: - Stop rendering ChatActivity's legacy ErrorBanner and BudgetWarningBanner (they import HandyColors/HandyDimens and don't match the design system). - Introduce a small ChatBannersV2.kt that defines ErrorBannerV2 and BudgetBannerV2, modelle… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: - Stop rendering ChatActivity's legacy ErrorBanner and BudgetWarningBanner (they import HandyColors/HandyDimens and don't match the design system). - Introduce a small ChatBannersV2.kt that defines ErrorBannerV2 and BudgetBannerV2, modelled on the existing Re… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-25_094819_ch3-replace-chat-banners-with-v2_019e5d5a.md",
     "messages_json": "threads_json/2026-05-25_094819_ch3-replace-chat-banners-with-v2_019e5d5a.json",
     "recorded_git_sha_at_start": "7274bd4c4c31377948f8ade8394155133a449c6d",
@@ -2874,7 +2942,8 @@
     "title": "CH4",
     "created_local": "2026-05-25 09:56:58 IST",
     "updated_local": "2026-05-25 10:07:08 IST",
-    "summary": "This conversation focused on: - Stop using AlertDialog for dispatch_action confirmations. - New sheet follows the same family as PrivacyDisclosureSheet and ModelPickerSheet (ModalBottomSheet, SurfaceElevated bg, CornerSheetTop=24.dp, PrimaryButton/SecondaryTextButton s… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: - Stop using AlertDialog for dispatch_action confirmations. - New sheet follows the same family as PrivacyDisclosureSheet and ModelPickerSheet (ModalBottomSheet, SurfaceElevated bg, CornerSheetTop=24.dp, PrimaryButton/SecondaryTextButton stack at the bottom). No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-25_095658_ch4_019e5d62.md",
     "messages_json": "threads_json/2026-05-25_095658_ch4_019e5d62.json",
     "recorded_git_sha_at_start": "7274bd4c4c31377948f8ade8394155133a449c6d",
@@ -2887,6 +2956,7 @@
     "title": "CH5: Use HandyDesignTheme in ChatActivity",
     "created_local": "2026-05-25 10:31:53 IST",
     "updated_local": "2026-05-25 10:35:45 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: CH5: Use HandyDesignTheme in ChatActivity No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-25_103153_ch5-use-handydesigntheme-in-chatactivity_019e5d82.md",
     "messages_json": "threads_json/2026-05-25_103153_ch5-use-handydesigntheme-in-chatactivity_019e5d82.json",
@@ -2900,6 +2970,7 @@
     "title": "S-F: Update settings theme",
     "created_local": "2026-05-25 10:41:01 IST",
     "updated_local": "2026-05-25 10:43:09 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: S-F: Update settings theme No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-25_104101_s-f-update-settings-theme_019e5d8b.md",
     "messages_json": "threads_json/2026-05-25_104101_s-f-update-settings-theme_019e5d8b.json",
@@ -2913,6 +2984,7 @@
     "title": "O1: Update onboarding theme",
     "created_local": "2026-05-25 10:45:03 IST",
     "updated_local": "2026-05-25 10:48:45 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: O1: Update onboarding theme Likely related git changes: 3e1a6f2 O1+2: Clean design v2 onboarding.",
     "transcript_md": "threads_md/2026-05-25_104503_o1-update-onboarding-theme_019e5d8e.md",
     "messages_json": "threads_json/2026-05-25_104503_o1-update-onboarding-theme_019e5d8e.json",
@@ -2945,6 +3017,7 @@
     "title": "O2: Rewrite action disclosure UI",
     "created_local": "2026-05-25 10:46:30 IST",
     "updated_local": "2026-05-25 11:01:18 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: O2: Rewrite action disclosure UI No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-25_104630_o2-rewrite-action-disclosure-ui_019e5d90.md",
     "messages_json": "threads_json/2026-05-25_104630_o2-rewrite-action-disclosure-ui_019e5d90.json",
@@ -2958,6 +3031,7 @@
     "title": "Hey, in many of the manual testing, I see that the onboarding is already done or cached even when I install a new app. Not sure h…",
     "created_local": "2026-05-25 11:01:12 IST",
     "updated_local": "2026-05-25 11:14:11 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Hey, in many of the manual testing, I see that the onboarding is already done or cached even when I install a new app. Not sure h… Likely related git changes: 03dc450 Added Onboarding reset button for debugging.",
     "transcript_md": "threads_md/2026-05-25_110112_hey-in-many-of-the-manual-testing-i-see-that-the-onboarding-is-already-d_019e5d9d.md",
     "messages_json": "threads_json/2026-05-25_110112_hey-in-many-of-the-manual-testing-i-see-that-the-onboarding-is-already-d_019e5d9d.json",
@@ -2989,6 +3063,7 @@
     "title": "Restore in-tool name subtitle",
     "created_local": "2026-05-25 11:12:34 IST",
     "updated_local": "2026-05-25 11:21:39 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Restore in-tool name subtitle Likely related git changes: 03dc450 Added Onboarding reset button for debugging; 0f0c77a Re-added richer context-aware subtexts in Overlay window.",
     "transcript_md": "threads_md/2026-05-25_111234_restore-in-tool-name-subtitle_019e5da8.md",
     "messages_json": "threads_json/2026-05-25_111234_restore-in-tool-name-subtitle_019e5da8.json",
@@ -3036,6 +3111,7 @@
     "title": "Update minimise vector",
     "created_local": "2026-05-25 12:12:52 IST",
     "updated_local": "2026-05-25 12:26:40 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Update minimise vector No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-25_121252_update-minimise-vector_019e5ddf.md",
     "messages_json": "threads_json/2026-05-25_121252_update-minimise-vector_019e5ddf.json",
@@ -3049,6 +3125,7 @@
     "title": "Prompt for Codex — Polish Handy's chat context pill + paired minimise button",
     "created_local": "2026-05-25 12:29:41 IST",
     "updated_local": "2026-05-25 12:47:33 IST",
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Prompt for Codex — Polish Handy's chat context pill + paired minimise button Likely related git changes: dc9e840 Polish chat interface.",
     "transcript_md": "threads_md/2026-05-25_122941_prompt-for-codex-polish-handy-s-chat-context-pill-paired-minimise-button_019e5dee.md",
     "messages_json": "threads_json/2026-05-25_122941_prompt-for-codex-polish-handy-s-chat-context-pill-paired-minimise-button_019e5dee.json",
@@ -3081,12 +3158,1487 @@
     "thread_id": "019e5e04-2d65-7413-a9ec-a1dbfcedead9",
     "title": "hey i want to see all the chat conversations i have had abut the curent project with codex. currently i think only a fixed number…",
     "created_local": "2026-05-25 12:53:12 IST",
-    "updated_local": "2026-05-25 13:22:13 IST",
-    "summary": "This conversation focused on: hey i want to see all the chat conversations i have had abut the curent project with codex. currently i think only a fixed number… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
+    "updated_local": "2026-05-27 17:25:25 IST",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: hey i want to see all the chat conversations i have had abut the curent project with codex. currently i think only a fixed number… Likely related git changes: 4cf235b Codex conversation history; f2b901a README for Codex Conversation History; 96e5434 MASTER INDEX for Codex Conversation History; 6f977e0 bug fix; 49e09f4 updated maximise svg; plus 1 more.",
     "transcript_md": "threads_md/2026-05-25_125312_hey-i-want-to-see-all-the-chat-conversations-i-have-had-abut-the-curent_019e5e04.md",
     "messages_json": "threads_json/2026-05-25_125312_hey-i-want-to-see-all-the-chat-conversations-i-have-had-abut-the-curent_019e5e04.json",
     "recorded_git_sha_at_start": "dc9e8400f41b061508b3d48f334dcad70f88387e",
     "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "4cf235bca3d95db9bfd9d28d1db687e41211399e",
+        "short": "4cf235b",
+        "author_time": "2026-05-25 14:06:35 IST",
+        "subject": "Codex conversation history",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/threads_json/2026-05-14_104203_hi-can-we-go-through-the-in-depth-code-of-handy-on-android-which-is-basi_019e24e6.json",
+          "CodexConversationHistory/threads_json/2026-05-14_125921_debug-android-studio-error_019e2563.json",
+          "CodexConversationHistory/threads_json/2026-05-20_122401_d1-truth-ci-device-matrix_019e4429.json",
+          "CodexConversationHistory/threads_json/2026-05-20_123233_phase0a-policy-fork-4-docs_019e4431.json",
+          "CodexConversationHistory/threads_json/2026-05-20_123953_g1-add-grounding-snapshot-fields_019e4438.json",
+          "CodexConversationHistory/threads_json/2026-05-20_131815_m1-preserve-markid-for-tap-targets_019e445b.json",
+          "CodexConversationHistory/threads_json/2026-05-20_153509_m2-fix-target-label-redaction_019e44d8.json",
+          "CodexConversationHistory/threads_json/2026-05-20_154551_m3-add-manual-target-selector_019e44e2.json",
+          "CodexConversationHistory/threads_json/2026-05-20_160817_audit-recent-changes_019e44f6.json",
+          "CodexConversationHistory/threads_json/2026-05-20_163145_goal-buddy-lands-correctly-on-every-viewport-class-flight-is-a_019e450c.json",
+          "CodexConversationHistory/threads_json/2026-05-20_183146_sync-readme-active-gaps_019e457a.json",
+          "CodexConversationHistory/threads_json/2026-05-20_183233_goal-after-a-successful-tap-for-me-overlaypresenter-leaves_019e457b.json"
+        ]
+      },
+      {
+        "hash": "f2b901a48d95400f531a192866bf20f18e84fdc4",
+        "short": "f2b901a",
+        "author_time": "2026-05-25 14:06:58 IST",
+        "subject": "README for Codex Conversation History",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/README.md"
+        ]
+      },
+      {
+        "hash": "96e54348791300cd5ad049e65f9a9d26550118c5",
+        "short": "96e5434",
+        "author_time": "2026-05-25 14:07:18 IST",
+        "subject": "MASTER INDEX for Codex Conversation History",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/MASTER_INDEX.json",
+          "CodexConversationHistory/MASTER_INDEX.md"
+        ]
+      },
+      {
+        "hash": "6f977e00a1e033f131da9360e6a05159f8c92b37",
+        "short": "6f977e0",
+        "author_time": "2026-05-25 19:44:41 IST",
+        "subject": "bug fix",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/kotlin/com/handy/app/overlay/design/OverlayQuickChatPanelV2.kt"
+        ]
+      },
+      {
+        "hash": "49e09f496a9c5541d1f10246f5438e4c7232deaf",
+        "short": "49e09f4",
+        "author_time": "2026-05-26 08:24:33 IST",
+        "subject": "updated maximise svg",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/kotlin/com/handy/app/widget/design/WidgetGlyphV2.kt",
+          "app/src/main/res/drawable/ic_expand.xml"
+        ]
+      },
+      {
+        "hash": "9092d66efa308fa82fba500d986799f0a9fee2f0",
+        "short": "9092d66",
+        "author_time": "2026-05-27 15:30:24 IST",
+        "subject": "fixes audit",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SideBubblePreviewActivity.kt",
+          "app/src/main/kotlin/com/handy/app/widget/design/SideBubbleV2.kt",
+          "app/src/main/res/drawable/ic_keyboard.xml",
+          "app/src/main/res/drawable/ic_mouse_pointer_click.xml",
+          "app/src/main/res/drawable/ic_phosphor_hand_pointing_fill.xml",
+          "app/src/main/res/drawable/ic_recipe.xml",
+          "handy-design-audited-with-new-screens/.design-canvas.state.json",
+          "handy-design-audited-with-new-screens/Handy Android Redesign.html",
+          "handy-design-audited-with-new-screens/checks/01-04-value-cards.png",
+          "handy-design-audited-with-new-screens/checks/01-08-settings-hq.png"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 79,
+    "thread_id": "019e5e49-6e97-7fb0-9e90-98ae632db0ee",
+    "title": "PROMPT FW-1 — Rebuild the floating widget glyph on the new design system.",
+    "created_local": "2026-05-25 14:08:51 IST",
+    "updated_local": "2026-05-25 14:43:11 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Replace the legacy `WidgetContent` composable rendered by `FloatingWidgetOverlayService.attachOverlay()` with a `WidgetContentV2` implementation that: - Renders all six widget states from the new design system exactly (IDLE / LISTENING / THINKING / FLYING / P… Likely related git changes: 4cf235b Codex conversation history; f2b901a README for Codex Conversation History; 96e5434 MASTER INDEX for Codex Conversation History.",
+    "transcript_md": "threads_md/2026-05-25_140851_prompt-fw-1-rebuild-the-floating-widget-glyph-on-the-new-design-system_019e5e49.md",
+    "messages_json": "threads_json/2026-05-25_140851_prompt-fw-1-rebuild-the-floating-widget-glyph-on-the-new-design-system_019e5e49.json",
+    "recorded_git_sha_at_start": "96e54348791300cd5ad049e65f9a9d26550118c5",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "4cf235bca3d95db9bfd9d28d1db687e41211399e",
+        "short": "4cf235b",
+        "author_time": "2026-05-25 14:06:35 IST",
+        "subject": "Codex conversation history",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/threads_json/2026-05-14_104203_hi-can-we-go-through-the-in-depth-code-of-handy-on-android-which-is-basi_019e24e6.json",
+          "CodexConversationHistory/threads_json/2026-05-14_125921_debug-android-studio-error_019e2563.json",
+          "CodexConversationHistory/threads_json/2026-05-20_122401_d1-truth-ci-device-matrix_019e4429.json",
+          "CodexConversationHistory/threads_json/2026-05-20_123233_phase0a-policy-fork-4-docs_019e4431.json",
+          "CodexConversationHistory/threads_json/2026-05-20_123953_g1-add-grounding-snapshot-fields_019e4438.json",
+          "CodexConversationHistory/threads_json/2026-05-20_131815_m1-preserve-markid-for-tap-targets_019e445b.json",
+          "CodexConversationHistory/threads_json/2026-05-20_153509_m2-fix-target-label-redaction_019e44d8.json",
+          "CodexConversationHistory/threads_json/2026-05-20_154551_m3-add-manual-target-selector_019e44e2.json",
+          "CodexConversationHistory/threads_json/2026-05-20_160817_audit-recent-changes_019e44f6.json",
+          "CodexConversationHistory/threads_json/2026-05-20_163145_goal-buddy-lands-correctly-on-every-viewport-class-flight-is-a_019e450c.json",
+          "CodexConversationHistory/threads_json/2026-05-20_183146_sync-readme-active-gaps_019e457a.json",
+          "CodexConversationHistory/threads_json/2026-05-20_183233_goal-after-a-successful-tap-for-me-overlaypresenter-leaves_019e457b.json"
+        ]
+      },
+      {
+        "hash": "f2b901a48d95400f531a192866bf20f18e84fdc4",
+        "short": "f2b901a",
+        "author_time": "2026-05-25 14:06:58 IST",
+        "subject": "README for Codex Conversation History",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/README.md"
+        ]
+      },
+      {
+        "hash": "96e54348791300cd5ad049e65f9a9d26550118c5",
+        "short": "96e5434",
+        "author_time": "2026-05-25 14:07:18 IST",
+        "subject": "MASTER INDEX for Codex Conversation History",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/MASTER_INDEX.json",
+          "CodexConversationHistory/MASTER_INDEX.md"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 80,
+    "thread_id": "019e5e7c-87a6-7962-bae3-7403711fd68e",
+    "title": "PROMPT OV-1 — Rebuild the overlay quick-chat panel (\"minimised chat\") on",
+    "created_local": "2026-05-25 15:04:40 IST",
+    "updated_local": "2026-05-26 08:21:01 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: PROMPT OV-1 — Rebuild the overlay quick-chat panel (\"minimised chat\") on Likely related git changes: 814df70 Debug log updates; 31b4c5e Update DEBUG_LOG.md; 35c48fc OV1: Rebuild overlay chat panel; 6f977e0 bug fix; 72206df Expand panel greetings; plus 4 more.",
+    "transcript_md": "threads_md/2026-05-25_150440_prompt-ov-1-rebuild-the-overlay-quick-chat-panel-minimised-chat-on_019e5e7c.md",
+    "messages_json": "threads_json/2026-05-25_150440_prompt-ov-1-rebuild-the-overlay-quick-chat-panel-minimised-chat-on_019e5e7c.json",
+    "recorded_git_sha_at_start": "96e54348791300cd5ad049e65f9a9d26550118c5",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "814df709a5c8dc5d429f46dbc2abddf35f64a1bc",
+        "short": "814df70",
+        "author_time": "2026-05-25 18:52:58 IST",
+        "subject": "Debug log updates",
+        "confidence": "low",
+        "score": 5,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words debug"
+        ],
+        "files": [
+          "docs/DEBUG_LOG.md"
+        ]
+      },
+      {
+        "hash": "31b4c5e5dfef8207a752d5a36f8f2fbd159042e2",
+        "short": "31b4c5e",
+        "author_time": "2026-05-25 18:53:02 IST",
+        "subject": "Update DEBUG_LOG.md",
+        "confidence": "low",
+        "score": 5,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words debug"
+        ],
+        "files": [
+          "DEBUG_LOG.md"
+        ]
+      },
+      {
+        "hash": "35c48fc46d3bc61e73107473eaba7781873ca9b0",
+        "short": "35c48fc",
+        "author_time": "2026-05-25 19:21:24 IST",
+        "subject": "OV1: Rebuild overlay chat panel",
+        "confidence": "high",
+        "score": 14,
+        "reasons": [
+          "inside/near active thread window",
+          "matched phase/tag ov1",
+          "matched words overlay, panel, rebuild"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/kotlin/com/handy/app/design/HandyDesignTokens.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPanelContent.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPanelService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/PanelGreetingCategory.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/design/OverlayQuickChatPanelV2.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/design/PanelBackdrop.kt",
+          "app/src/main/kotlin/com/handy/app/theme/HandyPrimitives.kt",
+          "app/src/main/kotlin/com/handy/app/widget/WidgetContent.kt",
+          "app/src/main/kotlin/com/handy/app/widget/design/WidgetGlyphV2.kt"
+        ]
+      },
+      {
+        "hash": "6f977e00a1e033f131da9360e6a05159f8c92b37",
+        "short": "6f977e0",
+        "author_time": "2026-05-25 19:44:41 IST",
+        "subject": "bug fix",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/kotlin/com/handy/app/overlay/design/OverlayQuickChatPanelV2.kt"
+        ]
+      },
+      {
+        "hash": "72206df9fa1c76eb8cf306e08de1a106ba7a4136",
+        "short": "72206df",
+        "author_time": "2026-05-25 20:21:34 IST",
+        "subject": "Expand panel greetings",
+        "confidence": "medium",
+        "score": 7,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words expand, greetings, panel"
+        ],
+        "files": [
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/PanelGreetingCategory.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/OverlayPresenterFsmTest.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/PanelGreetingCatalogTest.kt"
+        ]
+      },
+      {
+        "hash": "e13d4d69b039580dd02f62273330ca9d5d80f7f2",
+        "short": "e13d4d6",
+        "author_time": "2026-05-25 20:21:41 IST",
+        "subject": "Update DEBUG_LOG.md",
+        "confidence": "low",
+        "score": 5,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words debug"
+        ],
+        "files": [
+          "DEBUG_LOG.md"
+        ]
+      },
+      {
+        "hash": "270278c4e0d17c6ad2a51928ebbe2c262f791118",
+        "short": "270278c",
+        "author_time": "2026-05-25 23:26:24 IST",
+        "subject": "More greetings!",
+        "confidence": "low",
+        "score": 5,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words greetings"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/PanelGreetingCategory.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/PanelGreetingCatalogTest.kt"
+        ]
+      },
+      {
+        "hash": "49e09f496a9c5541d1f10246f5438e4c7232deaf",
+        "short": "49e09f4",
+        "author_time": "2026-05-26 08:24:33 IST",
+        "subject": "updated maximise svg",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/kotlin/com/handy/app/widget/design/WidgetGlyphV2.kt",
+          "app/src/main/res/drawable/ic_expand.xml"
+        ]
+      },
+      {
+        "hash": "def611f4f392d143f30b46b90753c6894d86fccc",
+        "short": "def611f",
+        "author_time": "2026-05-26 08:30:43 IST",
+        "subject": "Bug fix: Contexual greetings not showing",
+        "confidence": "low",
+        "score": 5,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words greetings"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/androidTest/kotlin/com/handy/app/overlay/OverlayQuickChatPanelV2Test.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/design/OverlayQuickChatPanelV2.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/PanelGreetingCatalogTest.kt"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 81,
+    "thread_id": "019e5f88-e2a5-7f72-8c39-e5425fd1270e",
+    "title": "PROMPT OV-2 — Expand panelGreetingFor() in OverlayPresenter.kt with more",
+    "created_local": "2026-05-25 19:57:47 IST",
+    "updated_local": "2026-05-26 08:30:19 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: PROMPT OV-2 — Expand panelGreetingFor() in OverlayPresenter.kt with more Likely related git changes: e1eb3ff added border instead of gradient; 72206df Expand panel greetings; e13d4d6 Update DEBUG_LOG.md; 49e09f4 updated maximise svg.",
+    "transcript_md": "threads_md/2026-05-25_195747_prompt-ov-2-expand-panelgreetingfor-in-overlaypresenter-kt-with-more_019e5f88.md",
+    "messages_json": "threads_json/2026-05-25_195747_prompt-ov-2-expand-panelgreetingfor-in-overlaypresenter-kt-with-more_019e5f88.json",
+    "recorded_git_sha_at_start": "e1eb3ff8d565d55927ee5959673ec989e720d657",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "e1eb3ff8d565d55927ee5959673ec989e720d657",
+        "short": "e1eb3ff",
+        "author_time": "2026-05-25 19:57:25 IST",
+        "subject": "added border instead of gradient",
+        "confidence": "medium",
+        "score": 6,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words added, instead"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPanelService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/design/OverlayQuickChatPanelV2.kt"
+        ]
+      },
+      {
+        "hash": "72206df9fa1c76eb8cf306e08de1a106ba7a4136",
+        "short": "72206df",
+        "author_time": "2026-05-25 20:21:34 IST",
+        "subject": "Expand panel greetings",
+        "confidence": "medium",
+        "score": 6,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words expand, panel"
+        ],
+        "files": [
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/PanelGreetingCategory.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/OverlayPresenterFsmTest.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/PanelGreetingCatalogTest.kt"
+        ]
+      },
+      {
+        "hash": "e13d4d69b039580dd02f62273330ca9d5d80f7f2",
+        "short": "e13d4d6",
+        "author_time": "2026-05-25 20:21:41 IST",
+        "subject": "Update DEBUG_LOG.md",
+        "confidence": "low",
+        "score": 5,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words debug"
+        ],
+        "files": [
+          "DEBUG_LOG.md"
+        ]
+      },
+      {
+        "hash": "49e09f496a9c5541d1f10246f5438e4c7232deaf",
+        "short": "49e09f4",
+        "author_time": "2026-05-26 08:24:33 IST",
+        "subject": "updated maximise svg",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/kotlin/com/handy/app/widget/design/WidgetGlyphV2.kt",
+          "app/src/main/res/drawable/ic_expand.xml"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 82,
+    "thread_id": "019e6226-83e6-7310-9f42-842edbc47428",
+    "title": "Remove floating widget halo",
+    "created_local": "2026-05-26 08:09:11 IST",
+    "updated_local": "2026-05-26 08:14:37 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Remove floating widget halo Likely related git changes: 49e09f4 updated maximise svg.",
+    "transcript_md": "threads_md/2026-05-26_080911_remove-floating-widget-halo_019e6226.md",
+    "messages_json": "threads_json/2026-05-26_080911_remove-floating-widget-halo_019e6226.json",
+    "recorded_git_sha_at_start": "270278c4e0d17c6ad2a51928ebbe2c262f791118",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "49e09f496a9c5541d1f10246f5438e4c7232deaf",
+        "short": "49e09f4",
+        "author_time": "2026-05-26 08:24:33 IST",
+        "subject": "updated maximise svg",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/kotlin/com/handy/app/widget/design/WidgetGlyphV2.kt",
+          "app/src/main/res/drawable/ic_expand.xml"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 83,
+    "thread_id": "019e62ad-e9b1-75c0-84a9-6492775d778f",
+    "title": "hey the app icon is still the default android one. how do we update it to Handy's actual icon (same structure and colour as the f…",
+    "created_local": "2026-05-26 10:37:05 IST",
+    "updated_local": "2026-05-26 11:56:27 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: hey the app icon is still the default android one. how do we update it to Handy's actual icon (same structure and colour as the f… Likely related git changes: 37d25ee Added APP ICON ⭐️✋🏻; 34dd559 update size of app icon.",
+    "transcript_md": "threads_md/2026-05-26_103705_hey-the-app-icon-is-still-the-default-android-one-how-do-we-update-it-to_019e62ad.md",
+    "messages_json": "threads_json/2026-05-26_103705_hey-the-app-icon-is-still-the-default-android-one-how-do-we-update-it-to_019e62ad.json",
+    "recorded_git_sha_at_start": "def611f4f392d143f30b46b90753c6894d86fccc",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "37d25ee3dce696c2d4dc5f93f0145f1e48739a4c",
+        "short": "37d25ee",
+        "author_time": "2026-05-26 10:42:18 IST",
+        "subject": "Added APP ICON ⭐️✋🏻",
+        "confidence": "low",
+        "score": 5,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words icon"
+        ],
+        "files": [
+          "app/src/main/AndroidManifest.xml",
+          "app/src/main/res/drawable/ic_launcher_foreground.xml",
+          "app/src/main/res/drawable/ic_launcher_monochrome.xml",
+          "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+          "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+          "app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml",
+          "app/src/main/res/mipmap-anydpi-v33/ic_launcher_round.xml",
+          "app/src/main/res/values/colors.xml"
+        ]
+      },
+      {
+        "hash": "34dd5597a248ae2f98b64adbf15d483d0b1914f2",
+        "short": "34dd559",
+        "author_time": "2026-05-26 11:14:19 IST",
+        "subject": "update size of app icon",
+        "confidence": "low",
+        "score": 5,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words icon"
+        ],
+        "files": [
+          "app/src/main/res/drawable/ic_launcher_foreground.xml",
+          "app/src/main/res/drawable/ic_launcher_monochrome.xml"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 84,
+    "thread_id": "019e62ce-ea23-75f0-888d-a628f12a2a34",
+    "title": "GOAL",
+    "created_local": "2026-05-26 11:13:08 IST",
+    "updated_local": "2026-05-26 13:11:54 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Make Handy actually speak voice responses. ConversationOrchestrator already emits AssistantTurnFinalized(ttsText, overlaySpokenText, chatText). AndroidTtsClient is bound in DI and never called. Wire it cleanly without conflating audio with the visible respons… Likely related git changes: f5b206b P-VOICE2: Add Sarvam TTS provider.",
+    "transcript_md": "threads_md/2026-05-26_111308_goal_019e62ce.md",
+    "messages_json": "threads_json/2026-05-26_111308_goal_019e62ce.json",
+    "recorded_git_sha_at_start": "37d25ee3dce696c2d4dc5f93f0145f1e48739a4c",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "f5b206b4f26ca1c66ca906dde7a0059bfcc59731",
+        "short": "f5b206b",
+        "author_time": "2026-05-26 13:18:19 IST",
+        "subject": "P-VOICE2: Add Sarvam TTS provider",
+        "confidence": "high",
+        "score": 13,
+        "reasons": [
+          "inside/near active thread window",
+          "matched phase/tag voice2",
+          "matched words provider, sarvam"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "README.md",
+          "android-runtime/build.gradle.kts",
+          "android-runtime/src/main/kotlin/com/handy/runtime/di/RuntimeModule.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/AudioPlayback.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/MediaPlayerAudioPlayback.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/SarvamTtsClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/SwitchingTtsClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/storage/DataStoreSettings.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/storage/KeyStore.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/speech/SarvamTtsClientHttpTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/speech/SwitchingTtsClientTest.kt"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 85,
+    "thread_id": "019e62f9-4bf3-7672-93a4-6940c601698f",
+    "title": "GOAL",
+    "created_local": "2026-05-26 11:59:25 IST",
+    "updated_local": "2026-05-26 13:18:19 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Implement the Sarvam TTS provider that settings already expose. After P-VOICE-1 lands, Handy speaks via AndroidTtsClient. This prompt adds a second provider (Sarvam Bulbul v3) selectable in settings and a SwitchingTtsClient that routes by HandySettings.ttsPro… Likely related git changes: 4c4026d P-VOICE1: Wire voice responses to TTS.",
+    "transcript_md": "threads_md/2026-05-26_115925_goal_019e62f9.md",
+    "messages_json": "threads_json/2026-05-26_115925_goal_019e62f9.json",
+    "recorded_git_sha_at_start": "4c4026da01aab9ad4dc9f64077e6a795beb82eef",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "4c4026da01aab9ad4dc9f64077e6a795beb82eef",
+        "short": "4c4026d",
+        "author_time": "2026-05-26 11:59:22 IST",
+        "subject": "P-VOICE1: Wire voice responses to TTS",
+        "confidence": "high",
+        "score": 13,
+        "reasons": [
+          "inside/near active thread window",
+          "matched phase/tag voice1",
+          "matched words responses, voice"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "README.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/AndroidTtsClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/storage/DataStoreSettings.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/speech/TtsChunkerTest.kt",
+          "app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt",
+          "app/src/main/kotlin/com/handy/app/chat/ChatViewModel.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPanelService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 86,
+    "thread_id": "019e6341-9854-76c2-ac17-499b548895a3",
+    "title": "GOAL",
+    "created_local": "2026-05-26 13:18:23 IST",
+    "updated_local": "2026-05-26 14:19:27 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Make Handy's transcription explicit, testable, and Hindi/Hinglish-friendly. Likely related git changes: 0101729 P-STT1: STT mode, language, MAX_RESULTS=3, confidence, Andr….",
+    "transcript_md": "threads_md/2026-05-26_131823_goal_019e6341.md",
+    "messages_json": "threads_json/2026-05-26_131823_goal_019e6341.json",
+    "recorded_git_sha_at_start": "f5b206b4f26ca1c66ca906dde7a0059bfcc59731",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "0101729ae72f4c296ad34a9bdcb897bd56bc7895",
+        "short": "0101729",
+        "author_time": "2026-05-26 14:21:30 IST",
+        "subject": "P-STT1: STT mode, language, MAX_RESULTS=3, confidence, Andr…",
+        "confidence": "medium",
+        "score": 8,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words confidence, language, mode, results"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/build.gradle.kts",
+          "android-runtime/src/main/kotlin/com/handy/runtime/di/RuntimeModule.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/AndroidSttClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/AndroidTtsClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/storage/DataStoreSettings.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/speech/AndroidSttClientTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/speech/TtsChunkerTest.kt",
+          "app/src/main/AndroidManifest.xml",
+          "app/src/main/kotlin/com/handy/app/chat/ChatViewModel.kt",
+          "app/src/main/kotlin/com/handy/app/diagnostics/DiagnosticsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 87,
+    "thread_id": "019e637b-939a-7da3-a3df-d70688a0b2af",
+    "title": "P-STT2: Sarvam Saarika STT (opt-in cloud, Indic + Hinglish…",
+    "created_local": "2026-05-26 14:21:43 IST",
+    "updated_local": "2026-05-26 15:07:46 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Add an opt-in Sarvam Saarika v2 STT provider for high-quality Indic and code-mix Hinglish transcription. Cloud-only, gated by explicit user consent in settings. The original macOS Handy used Sarvam; this brings parity. Does NOT replace AndroidSttClient — adds… Likely related git changes: 0101729 P-STT1: STT mode, language, MAX_RESULTS=3, confidence, Andr…; 4744f20 P-STT2: Sarvam Saarika STT (opt-in cloud, Indic + Hinglish premium path).",
+    "transcript_md": "threads_md/2026-05-26_142143_p-stt2-sarvam-saarika-stt-opt-in-cloud-indic-hinglish_019e637b.md",
+    "messages_json": "threads_json/2026-05-26_142143_p-stt2-sarvam-saarika-stt-opt-in-cloud-indic-hinglish_019e637b.json",
+    "recorded_git_sha_at_start": "0101729ae72f4c296ad34a9bdcb897bd56bc7895",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "0101729ae72f4c296ad34a9bdcb897bd56bc7895",
+        "short": "0101729",
+        "author_time": "2026-05-26 14:21:30 IST",
+        "subject": "P-STT1: STT mode, language, MAX_RESULTS=3, confidence, Andr…",
+        "confidence": "medium",
+        "score": 6,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words language, mode"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/build.gradle.kts",
+          "android-runtime/src/main/kotlin/com/handy/runtime/di/RuntimeModule.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/AndroidSttClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/AndroidTtsClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/storage/DataStoreSettings.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/speech/AndroidSttClientTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/speech/TtsChunkerTest.kt",
+          "app/src/main/AndroidManifest.xml",
+          "app/src/main/kotlin/com/handy/app/chat/ChatViewModel.kt",
+          "app/src/main/kotlin/com/handy/app/diagnostics/DiagnosticsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt"
+        ]
+      },
+      {
+        "hash": "4744f20cead651482ecf33b1a984977cccb453fd",
+        "short": "4744f20",
+        "author_time": "2026-05-26 15:08:55 IST",
+        "subject": "P-STT2: Sarvam Saarika STT (opt-in cloud, Indic + Hinglish premium path)",
+        "confidence": "high",
+        "score": 15,
+        "reasons": [
+          "inside/near active thread window",
+          "matched phase/tag stt2",
+          "matched words cloud, hinglish, indic, saarika, sarvam"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "PRIVACY_POLICY.md",
+          "README.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/di/RuntimeModule.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/MicAudioRecorder.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/SarvamSttClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/SwitchingSttClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/storage/DataStoreSettings.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/speech/SarvamSttClientHttpTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/speech/SwitchingSttClientTest.kt",
+          "app/src/main/kotlin/com/handy/app/chat/ChatActivity.kt",
+          "app/src/main/kotlin/com/handy/app/chat/ChatViewModel.kt"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 88,
+    "thread_id": "019e63a7-13d8-7131-b5d2-352f21aa9d3e",
+    "title": "P-POLICY-1: UiActionIntent + turn-scoped ToolProvenance thr…",
+    "created_local": "2026-05-26 15:09:14 IST",
+    "updated_local": "2026-05-26 15:45:58 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Two related fixes that GPT's audit identified, treated as one because they share infrastructure: (a) Replace PolicyGuardedActionPerformer's synthesised OpenApp action with a UiActionIntent that carries semantic kind + user utterance + target label/role/markId… Likely related git changes: 33d0563 P-POLICY-1 — UiActionIntent + turn-scoped ToolProvenance threaded into recipes.",
+    "transcript_md": "threads_md/2026-05-26_150914_p-policy-1-uiactionintent-turn-scoped-toolprovenance-thr_019e63a7.md",
+    "messages_json": "threads_json/2026-05-26_150914_p-policy-1-uiactionintent-turn-scoped-toolprovenance-thr_019e63a7.json",
+    "recorded_git_sha_at_start": "4744f20cead651482ecf33b1a984977cccb453fd",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "33d0563d11974b146039837cfc876b00b0b32687",
+        "short": "33d0563",
+        "author_time": "2026-05-26 15:46:42 IST",
+        "subject": "P-POLICY-1 — UiActionIntent + turn-scoped ToolProvenance threaded into recipes",
+        "confidence": "medium",
+        "score": 8,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words policy, recipes, scoped, toolprovenance, turn"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "README.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/action/DefaultActionPolicyEngine.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/action/NoopActionPerformer.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/intent/AndroidIntentDispatcher.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/llm/ClaudeLlmClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/llm/GeminiCloudLlmClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/llm/HandyToolRunner.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/action/DefaultActionPolicyEngineTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/llm/HandyToolRunnerProvenanceTest.kt",
+          "app/src/androidTest/kotlin/com/handy/app/agent/RecipeNativeActionExecutionTest.kt",
+          "app/src/main/kotlin/com/handy/app/accessibility/AccessibilityGestureActionPerformer.kt"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 89,
+    "thread_id": "019e63c9-7f7f-70f1-9b18-b0ecb675da78",
+    "title": "GOAL",
+    "created_local": "2026-05-26 15:46:50 IST",
+    "updated_local": "2026-05-27 08:55:19 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: GOAL Likely related git changes: 33d0563 P-POLICY-1 — UiActionIntent + turn-scoped ToolProvenance threaded into recipes; cee4783 P-RECIPES1: Recipe contract test infrastructure + fixture matrix + result verifiers; 0229ca7 Settings + Recipe fixes; b4f0310 Audit.",
+    "transcript_md": "threads_md/2026-05-26_154650_goal_019e63c9.md",
+    "messages_json": "threads_json/2026-05-26_154650_goal_019e63c9.json",
+    "recorded_git_sha_at_start": "33d0563d11974b146039837cfc876b00b0b32687",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "33d0563d11974b146039837cfc876b00b0b32687",
+        "short": "33d0563",
+        "author_time": "2026-05-26 15:46:42 IST",
+        "subject": "P-POLICY-1 — UiActionIntent + turn-scoped ToolProvenance threaded into recipes",
+        "confidence": "medium",
+        "score": 7,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words policy, recipes, toolprovenance"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "README.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/action/DefaultActionPolicyEngine.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/action/NoopActionPerformer.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/intent/AndroidIntentDispatcher.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/llm/ClaudeLlmClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/llm/GeminiCloudLlmClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/llm/HandyToolRunner.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/action/DefaultActionPolicyEngineTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/llm/HandyToolRunnerProvenanceTest.kt",
+          "app/src/androidTest/kotlin/com/handy/app/agent/RecipeNativeActionExecutionTest.kt",
+          "app/src/main/kotlin/com/handy/app/accessibility/AccessibilityGestureActionPerformer.kt"
+        ]
+      },
+      {
+        "hash": "cee4783783911e902f4953308bca88018df91ee4",
+        "short": "cee4783",
+        "author_time": "2026-05-26 18:27:50 IST",
+        "subject": "P-RECIPES1: Recipe contract test infrastructure + fixture matrix + result verifiers",
+        "confidence": "medium",
+        "score": 8,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words contract, fixture, matrix, recipe, result"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/AndroidSettingsRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/CalendarEventRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ChromeRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ClockRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/GmailRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/InstallAppRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/MapsRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/OpenAppRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/RideHailingRecipePack.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ShoppingRecipePack.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/TimerRecipe.kt"
+        ]
+      },
+      {
+        "hash": "0229ca70aed1f56fbd4b768d63022ba5ffcf5625",
+        "short": "0229ca7",
+        "author_time": "2026-05-27 08:38:41 IST",
+        "subject": "Settings + Recipe fixes",
+        "confidence": "low",
+        "score": 5,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words recipe"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/WhatsAppRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/verifiers/IntentLaunchedVerifier.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/verifiers/TapPackageChangedVerifier.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/SarvamSttClient.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/storage/DataStoreSettings.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/agent/recipes/RuntimeRecipeContractTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/agent/verifiers/ResultVerifierTest.kt",
+          "app/src/androidTest/kotlin/com/handy/app/agent/RecipeNativeActionExecutionTest.kt",
+          "app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SettingsViewModel.kt"
+        ]
+      },
+      {
+        "hash": "b4f031018a58f5934227d45ce8000ce2226bafff",
+        "short": "b4f0310",
+        "author_time": "2026-05-27 08:56:29 IST",
+        "subject": "Audit",
+        "confidence": "low",
+        "score": 5,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words audit"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/verifiers/IntentLaunchedVerifier.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/agent/verifiers/ResultVerifierTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/audit/RecipeAuditObserverTest.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/settings/design/SettingsPrimitives.kt",
+          "app/src/main/kotlin/com/handy/app/settings/sections/BrainSection.kt",
+          "app/src/main/kotlin/com/handy/app/settings/sections/ModelPickerSheet.kt",
+          "app/src/main/kotlin/com/handy/app/settings/sections/SettingsChrome.kt",
+          "app/src/main/kotlin/com/handy/app/settings/sections/VoiceSection.kt",
+          "docs/qa/RECIPE_SWEEP_MATRIX.md"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 90,
+    "thread_id": "019e6458-d8a8-7b92-9e3e-0eba5d2352d9",
+    "title": "Prompt for Codex — Redesign the Voice section with collapsible TTS + STT subsections",
+    "created_local": "2026-05-26 18:23:24 IST",
+    "updated_local": "2026-05-26 19:42:25 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Prompt for Codex — Redesign the Voice section with collapsible TTS + STT subsections No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
+    "transcript_md": "threads_md/2026-05-26_182324_prompt-for-codex-redesign-the-voice-section-with-collapsible-tts-stt-sub_019e6458.md",
+    "messages_json": "threads_json/2026-05-26_182324_prompt-for-codex-redesign-the-voice-section-with-collapsible-tts-stt-sub_019e6458.json",
+    "recorded_git_sha_at_start": "33d0563d11974b146039837cfc876b00b0b32687",
+    "recorded_git_branch_at_start": "main",
     "likely_related_commits": []
+  },
+  {
+    "index": 91,
+    "thread_id": "019e6777-ca01-73a3-a591-500c59dab6ec",
+    "title": "P-RECIPES2: Add 8 recipe intents",
+    "created_local": "2026-05-27 08:56:04 IST",
+    "updated_local": "2026-05-27 10:21:07 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Add 8 new recipes that significantly broaden Handy's helpfulness without expanding the risk surface. Each is intent-first, draft-only, or guide-only. Every recipe ships with fixtures from P-RECIPES-1. DEPENDS ON - P-RECIPES-1 (contract tests + verifiers + sid… Likely related git changes: 1c88770 P-RECIPES2: Add 8 recipe intents.",
+    "transcript_md": "threads_md/2026-05-27_085604_p-recipes2-add-8-recipe-intents_019e6777.md",
+    "messages_json": "threads_json/2026-05-27_085604_p-recipes2-add-8-recipe-intents_019e6777.json",
+    "recorded_git_sha_at_start": "0229ca70aed1f56fbd4b768d63022ba5ffcf5625",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "1c887705f26c7827a64370f1bdb3761ee05e9b57",
+        "short": "1c88770",
+        "author_time": "2026-05-27 11:05:24 IST",
+        "subject": "P-RECIPES2: Add 8 recipe intents",
+        "confidence": "high",
+        "score": 12,
+        "reasons": [
+          "near thread time window",
+          "matched phase/tag add8",
+          "matched words intents, recipe, recipes2"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "README.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/CalculatorRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/CalendarEventRecipeV2.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ClockRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ContactsRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/FilesRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/FoodDeliveryRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/NotesRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/PhotosRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/YouTubeRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/intent/AndroidIntentDispatcher.kt"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 92,
+    "thread_id": "019e67ee-3f05-7551-8d9b-65b15df06768",
+    "title": "P-MOTION-1: Audio/bubble state assertions, reduce-motion, I…",
+    "created_local": "2026-05-27 11:05:27 IST",
+    "updated_local": "2026-05-27 11:30:37 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: With the flight controller and design system already mature, this is a small but important hardening pass: lock in legal FSM transitions, add a reduce-motion setting, and add the test sweeps that catch regressions. VERIFIED PRE-CONDITIONS - OverlayPresenterFs… Likely related git changes: b2a9b67 P-MOTION-1: Audio/bubble state assertions, reduce-motion, I….",
+    "transcript_md": "threads_md/2026-05-27_110527_p-motion-1-audio-bubble-state-assertions-reduce-motion-i_019e67ee.md",
+    "messages_json": "threads_json/2026-05-27_110527_p-motion-1-audio-bubble-state-assertions-reduce-motion-i_019e67ee.json",
+    "recorded_git_sha_at_start": "1c887705f26c7827a64370f1bdb3761ee05e9b57",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "b2a9b67036bc5e55be1e3c470dd0a226c288af96",
+        "short": "b2a9b67",
+        "author_time": "2026-05-27 11:30:59 IST",
+        "subject": "P-MOTION-1: Audio/bubble state assertions, reduce-motion, I…",
+        "confidence": "medium",
+        "score": 8,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words assertions, audio, bubble, motion, reduce"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/storage/DataStoreSettings.kt",
+          "app/build.gradle.kts",
+          "app/src/debug/AndroidManifest.xml",
+          "app/src/debug/kotlin/com/handy/app/benchmark/FlightBenchmarkReceiver.kt",
+          "app/src/main/kotlin/com/handy/app/accessibility/HandyAccessibilityService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/BuddyFlightCancellationPolicy.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenterFsm.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 93,
+    "thread_id": "019e6803-397f-71c0-8566-bbf081b64ce2",
+    "title": "GOAL",
+    "created_local": "2026-05-27 11:28:22 IST",
+    "updated_local": "2026-05-27 12:21:54 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Make release-blocking QA possible without leaking private screen content. Already-existing AuditStore + ScreenRedactor get a structured per-turn timeline view in DiagnosticsActivity. VERIFIED PRE-CONDITIONS - core/.../audit/AuditStore.kt exists with AuditEven… Likely related git changes: e68eed7 P-TELEMETRY-1: Redacted local timeline + diagnostics export.",
+    "transcript_md": "threads_md/2026-05-27_112822_goal_019e6803.md",
+    "messages_json": "threads_json/2026-05-27_112822_goal_019e6803.json",
+    "recorded_git_sha_at_start": "1c887705f26c7827a64370f1bdb3761ee05e9b57",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "e68eed72a46c5ff553065a69a48e8c20f7f52f04",
+        "short": "e68eed7",
+        "author_time": "2026-05-27 12:22:13 IST",
+        "subject": "P-TELEMETRY-1: Redacted local timeline + diagnostics export",
+        "confidence": "medium",
+        "score": 7,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words diagnostics, export, timeline"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/audit/FileAuditStore.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/llm/HandyToolRunner.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/speech/SwitchingSttClient.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/audit/FileAuditStoreTimelineTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/speech/SwitchingSttClientTest.kt",
+          "app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt",
+          "app/src/main/kotlin/com/handy/app/chat/ChatActivity.kt",
+          "app/src/main/kotlin/com/handy/app/chat/ChatViewModel.kt",
+          "app/src/main/kotlin/com/handy/app/diagnostics/DiagnosticsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 94,
+    "thread_id": "019e6834-9431-75a3-8e1c-922d72ec5867",
+    "title": "GOAL",
+    "created_local": "2026-05-27 12:22:16 IST",
+    "updated_local": "2026-05-27 13:02:18 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Replace GPT's grep-based copy gate with a single source-of-truth capability manifest. README, Play submission, privacy policy, and the in-app \"What Handy can do today\" page all read from it. IMPLEMENTATION 1. Manifest: File: docs/CAPABILITIES.yaml capabilitie… Likely related git changes: 23d5476 P-RELEASE-1: Capability-truth manifest, Play copy gate, privacy policy.",
+    "transcript_md": "threads_md/2026-05-27_122216_goal_019e6834.md",
+    "messages_json": "threads_json/2026-05-27_122216_goal_019e6834.json",
+    "recorded_git_sha_at_start": "e68eed72a46c5ff553065a69a48e8c20f7f52f04",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "23d5476136dc4bb92684bd66519a5bf3acbbd414",
+        "short": "23d5476",
+        "author_time": "2026-05-27 12:52:20 IST",
+        "subject": "P-RELEASE-1: Capability-truth manifest, Play copy gate, privacy policy",
+        "confidence": "medium",
+        "score": 8,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words capability, copy, gate, manifest, play"
+        ],
+        "files": [
+          ".github/workflows/ci.yml",
+          "DEBUG_LOG.md",
+          "PLAYSTORE_SUBMISSION.md",
+          "PRIVACY_POLICY.md",
+          "README.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/di/RuntimeModule.kt",
+          "app/src/main/kotlin/com/handy/app/settings/CapabilityTruthScreen.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/settings/sections/CapabilitiesSection.kt",
+          "app/src/main/res/values/capabilities.xml",
+          "app/src/test/kotlin/com/handy/app/settings/CapabilityManifestSyncTest.kt",
+          "build.gradle.kts"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 95,
+    "thread_id": "019e6864-2383-7d72-ab25-0cb9508c9078",
+    "title": "Hey, so I think we are nearly ready with Handy's Android app. It works fine to some extent and I think we can release it on Play…",
+    "created_local": "2026-05-27 13:14:13 IST",
+    "updated_local": "2026-05-27 13:26:19 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Hey, so I think we are nearly ready with Handy's Android app. It works fine to some extent and I think we can release it on Play… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
+    "transcript_md": "threads_md/2026-05-27_131413_hey-so-i-think-we-are-nearly-ready-with-handy-s-android-app-it-works-fin_019e6864.md",
+    "messages_json": "threads_json/2026-05-27_131413_hey-so-i-think-we-are-nearly-ready-with-handy-s-android-app-it-works-fin_019e6864.json",
+    "recorded_git_sha_at_start": "23d5476136dc4bb92684bd66519a5bf3acbbd414",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": []
+  },
+  {
+    "index": 96,
+    "thread_id": "019e6870-8383-74c2-a3f7-9576de0a2154",
+    "title": "PROMPT P-BUBBLE-1 — Build SideBubbleV2 (text bubbles next to the floating",
+    "created_local": "2026-05-27 13:27:44 IST",
+    "updated_local": "2026-05-27 15:08:19 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: PROMPT P-BUBBLE-1 — Build SideBubbleV2 (text bubbles next to the floating Likely related git changes: d7b4a79 P-BUBBLE-1: Build SideBubbleV2; 74762f5 Implemented the preview lab for text bubbles.",
+    "transcript_md": "threads_md/2026-05-27_132744_prompt-p-bubble-1-build-sidebubblev2-text-bubbles-next-to-the-floating_019e6870.md",
+    "messages_json": "threads_json/2026-05-27_132744_prompt-p-bubble-1-build-sidebubblev2-text-bubbles-next-to-the-floating_019e6870.json",
+    "recorded_git_sha_at_start": "23d5476136dc4bb92684bd66519a5bf3acbbd414",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "d7b4a794fe0763899d42825478fb15bed4bfd220",
+        "short": "d7b4a79",
+        "author_time": "2026-05-27 14:07:27 IST",
+        "subject": "P-BUBBLE-1: Build SideBubbleV2",
+        "confidence": "medium",
+        "score": 6,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words bubble, sidebubblev2"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/build.gradle.kts",
+          "app/src/main/kotlin/com/handy/app/accessibility/PolicyGuardedActionPerformer.kt",
+          "app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/design/OverlayQuickChatPanelV2.kt",
+          "app/src/main/kotlin/com/handy/app/voice/SpeechOutputController.kt",
+          "app/src/main/kotlin/com/handy/app/widget/WidgetContent.kt",
+          "app/src/main/kotlin/com/handy/app/widget/design/SideBubbleV2.kt"
+        ]
+      },
+      {
+        "hash": "74762f57e9e23a53b41df3c9e66e2aabb90bf12e",
+        "short": "74762f5",
+        "author_time": "2026-05-27 14:23:48 IST",
+        "subject": "Implemented the preview lab for text bubbles",
+        "confidence": "medium",
+        "score": 6,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words bubbles, text"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/AndroidManifest.xml",
+          "app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SideBubblePreviewActivity.kt",
+          "app/src/main/kotlin/com/handy/app/settings/sections/SettingsChrome.kt"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 97,
+    "thread_id": "019e68a3-e8e0-7830-b12f-cd22447693da",
+    "title": "P-TAPFORME-1 migrate TapForMe sheet",
+    "created_local": "2026-05-27 14:23:53 IST",
+    "updated_local": "2026-05-27 14:41:20 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: P-TAPFORME-1 migrate TapForMe sheet Likely related git changes: 74762f5 Implemented the preview lab for text bubbles; 3ce396d P-TAPFORME-1 migrate TapForMe sheet.",
+    "transcript_md": "threads_md/2026-05-27_142353_p-tapforme-1-migrate-tapforme-sheet_019e68a3.md",
+    "messages_json": "threads_json/2026-05-27_142353_p-tapforme-1-migrate-tapforme-sheet_019e68a3.json",
+    "recorded_git_sha_at_start": "74762f57e9e23a53b41df3c9e66e2aabb90bf12e",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "74762f57e9e23a53b41df3c9e66e2aabb90bf12e",
+        "short": "74762f5",
+        "author_time": "2026-05-27 14:23:48 IST",
+        "subject": "Implemented the preview lab for text bubbles",
+        "confidence": "medium",
+        "score": 7,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words bubbles, preview, text"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/AndroidManifest.xml",
+          "app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SideBubblePreviewActivity.kt",
+          "app/src/main/kotlin/com/handy/app/settings/sections/SettingsChrome.kt"
+        ]
+      },
+      {
+        "hash": "3ce396dd30c4c698df6e42d77fc9b8bf63b54aea",
+        "short": "3ce396d",
+        "author_time": "2026-05-27 14:41:46 IST",
+        "subject": "P-TAPFORME-1 migrate TapForMe sheet",
+        "confidence": "medium",
+        "score": 7,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words migrate, sheet, tapforme"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/AgentProgressBubble.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/CandidateChipsBar.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/TapForMeConfirmationSheet.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/design/TapForMeConfirmationSheetV2.kt",
+          "app/src/test/kotlin/com/handy/app/agent/AgentSessionControllerTest.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/design/TapForMeConfirmationSheetV2RenderTest.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/design/TapForMeConfirmationSheetV2Test.kt",
+          "core/src/main/kotlin/com/handy/core/overlay/OverlayPanelState.kt"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 98,
+    "thread_id": "019e68e0-19de-7631-984a-1b8a442d795b",
+    "title": "P-LEGACY-1: Rebuild ManualTargetSelector UI",
+    "created_local": "2026-05-27 15:29:37 IST",
+    "updated_local": "2026-05-27 15:54:14 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: P-LEGACY-1: Rebuild ManualTargetSelector UI Likely related git changes: 9092d66 fixes audit; 90fe097 P-LEGACY-1: Rebuild ManualTargetSelector UI.",
+    "transcript_md": "threads_md/2026-05-27_152937_p-legacy-1-rebuild-manualtargetselector-ui_019e68e0.md",
+    "messages_json": "threads_json/2026-05-27_152937_p-legacy-1-rebuild-manualtargetselector-ui_019e68e0.json",
+    "recorded_git_sha_at_start": "3ce396dd30c4c698df6e42d77fc9b8bf63b54aea",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "9092d66efa308fa82fba500d986799f0a9fee2f0",
+        "short": "9092d66",
+        "author_time": "2026-05-27 15:30:24 IST",
+        "subject": "fixes audit",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SideBubblePreviewActivity.kt",
+          "app/src/main/kotlin/com/handy/app/widget/design/SideBubbleV2.kt",
+          "app/src/main/res/drawable/ic_keyboard.xml",
+          "app/src/main/res/drawable/ic_mouse_pointer_click.xml",
+          "app/src/main/res/drawable/ic_phosphor_hand_pointing_fill.xml",
+          "app/src/main/res/drawable/ic_recipe.xml",
+          "handy-design-audited-with-new-screens/.design-canvas.state.json",
+          "handy-design-audited-with-new-screens/Handy Android Redesign.html",
+          "handy-design-audited-with-new-screens/checks/01-04-value-cards.png",
+          "handy-design-audited-with-new-screens/checks/01-08-settings-hq.png"
+        ]
+      },
+      {
+        "hash": "90fe097326e2a7ef441c09826087a2ce87d7cb39",
+        "short": "90fe097",
+        "author_time": "2026-05-27 16:05:56 IST",
+        "subject": "P-LEGACY-1: Rebuild ManualTargetSelector UI",
+        "confidence": "medium",
+        "score": 7,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words legacy, manualtargetselector, rebuild"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/androidTest/kotlin/com/handy/app/overlay/ManualTargetSelectorTest.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/ManualTargetSelector.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/ManualTargetSelectorSkipListTest.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/ManualTargetSelectorTest.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/OverlayPresenterFsmTest.kt",
+          "core/src/main/kotlin/com/handy/core/screen/ScreenSnapshot.kt"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 99,
+    "thread_id": "019e6901-ce4c-7c61-b6f9-166ac61dc265",
+    "title": "PROMPT P-LEGACY-2 — Reskin AuditReviewActivity onto HandyDesign per",
+    "created_local": "2026-05-27 16:06:26 IST",
+    "updated_local": "2026-05-27 16:30:05 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: PROMPT P-LEGACY-2 — Reskin AuditReviewActivity onto HandyDesign per Likely related git changes: f047006 P-LEGACY-2: Reskin AuditReviewActivity; 6c1a40b Update DEBUG_LOG.md; 058a4d8 Legacy 2 - audit fixes; 54ab651 P-LEGACY3: DiagnosticsActivity V2 + Settings CTA wire-up (artboards 12, 12b); 8b68875 Update DEBUG_LOG.md.",
+    "transcript_md": "threads_md/2026-05-27_160626_prompt-p-legacy-2-reskin-auditreviewactivity-onto-handydesign-per_019e6901.md",
+    "messages_json": "threads_json/2026-05-27_160626_prompt-p-legacy-2-reskin-auditreviewactivity-onto-handydesign-per_019e6901.json",
+    "recorded_git_sha_at_start": "90fe097326e2a7ef441c09826087a2ce87d7cb39",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "f04700657c15cb68fe794a862350bbd395473aec",
+        "short": "f047006",
+        "author_time": "2026-05-27 16:22:10 IST",
+        "subject": "P-LEGACY-2: Reskin AuditReviewActivity",
+        "confidence": "medium",
+        "score": 7,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words auditreviewactivity, legacy, reskin"
+        ],
+        "files": [
+          "app/src/androidTest/kotlin/com/handy/app/diagnostics/AuditReviewActivityTest.kt",
+          "app/src/main/kotlin/com/handy/app/design/HandyActionChip.kt",
+          "app/src/main/kotlin/com/handy/app/diagnostics/AuditReviewActivity.kt",
+          "app/src/main/res/drawable/ic_hand_tap.xml",
+          "app/src/test/kotlin/com/handy/app/diagnostics/AuditReviewActivityHelpersTest.kt"
+        ]
+      },
+      {
+        "hash": "6c1a40b01574d9f6f5199ce779e8ad4aeed8ea52",
+        "short": "6c1a40b",
+        "author_time": "2026-05-27 16:22:15 IST",
+        "subject": "Update DEBUG_LOG.md",
+        "confidence": "low",
+        "score": 5,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words debug"
+        ],
+        "files": [
+          "DEBUG_LOG.md"
+        ]
+      },
+      {
+        "hash": "058a4d830516ab76c68d0b6976319863c0776ae2",
+        "short": "058a4d8",
+        "author_time": "2026-05-27 16:30:38 IST",
+        "subject": "Legacy 2 - audit fixes",
+        "confidence": "medium",
+        "score": 6,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words audit, legacy"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/androidTest/kotlin/com/handy/app/diagnostics/AuditReviewActivityTest.kt",
+          "app/src/main/kotlin/com/handy/app/design/HandyActionChip.kt",
+          "app/src/main/kotlin/com/handy/app/diagnostics/AuditReviewActivity.kt",
+          "app/src/test/kotlin/com/handy/app/diagnostics/AuditReviewActivityHelpersTest.kt"
+        ]
+      },
+      {
+        "hash": "54ab65193aceb22b4373725de3e0fd88388cdf18",
+        "short": "54ab651",
+        "author_time": "2026-05-27 16:47:39 IST",
+        "subject": "P-LEGACY3: DiagnosticsActivity V2 + Settings CTA wire-up (artboards 12, 12b)",
+        "confidence": "medium",
+        "score": 7,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words artboards, diagnosticsactivity, settings"
+        ],
+        "files": [
+          "app/src/androidTest/kotlin/com/handy/app/diagnostics/DiagnosticsActivityRedactionScreenshotTest.kt",
+          "app/src/main/kotlin/com/handy/app/design/HandyDesignType.kt",
+          "app/src/main/kotlin/com/handy/app/diagnostics/DiagnosticsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/settings/sections/PrivacySection.kt",
+          "app/src/test/kotlin/com/handy/app/diagnostics/DiagnosticsActivityHelpersTest.kt"
+        ]
+      },
+      {
+        "hash": "8b6887589e05f9b880c224b5dc5405c815ee76de",
+        "short": "8b68875",
+        "author_time": "2026-05-27 16:47:42 IST",
+        "subject": "Update DEBUG_LOG.md",
+        "confidence": "low",
+        "score": 5,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words debug"
+        ],
+        "files": [
+          "DEBUG_LOG.md"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 100,
+    "thread_id": "019e6918-0e9c-7b71-8c7a-5e035b5b166e",
+    "title": "PROMPT P-LEGACY-3 — Reskin DiagnosticsActivity onto HandyDesign per",
+    "created_local": "2026-05-27 16:30:44 IST",
+    "updated_local": "2026-05-27 17:05:28 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: PROMPT P-LEGACY-3 — Reskin DiagnosticsActivity onto HandyDesign per Likely related git changes: 54ab651 P-LEGACY3: DiagnosticsActivity V2 + Settings CTA wire-up (artboards 12, 12b); 8b68875 Update DEBUG_LOG.md; 1d03558 Fixed issues in Activity & Diagnostics Screen; af6a053 Capabilties section improvement.",
+    "transcript_md": "threads_md/2026-05-27_163044_prompt-p-legacy-3-reskin-diagnosticsactivity-onto-handydesign-per_019e6918.md",
+    "messages_json": "threads_json/2026-05-27_163044_prompt-p-legacy-3-reskin-diagnosticsactivity-onto-handydesign-per_019e6918.json",
+    "recorded_git_sha_at_start": "058a4d830516ab76c68d0b6976319863c0776ae2",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "54ab65193aceb22b4373725de3e0fd88388cdf18",
+        "short": "54ab651",
+        "author_time": "2026-05-27 16:47:39 IST",
+        "subject": "P-LEGACY3: DiagnosticsActivity V2 + Settings CTA wire-up (artboards 12, 12b)",
+        "confidence": "medium",
+        "score": 8,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words artboards, diagnosticsactivity, settings, wire"
+        ],
+        "files": [
+          "app/src/androidTest/kotlin/com/handy/app/diagnostics/DiagnosticsActivityRedactionScreenshotTest.kt",
+          "app/src/main/kotlin/com/handy/app/design/HandyDesignType.kt",
+          "app/src/main/kotlin/com/handy/app/diagnostics/DiagnosticsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/settings/sections/PrivacySection.kt",
+          "app/src/test/kotlin/com/handy/app/diagnostics/DiagnosticsActivityHelpersTest.kt"
+        ]
+      },
+      {
+        "hash": "8b6887589e05f9b880c224b5dc5405c815ee76de",
+        "short": "8b68875",
+        "author_time": "2026-05-27 16:47:42 IST",
+        "subject": "Update DEBUG_LOG.md",
+        "confidence": "low",
+        "score": 5,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words debug"
+        ],
+        "files": [
+          "DEBUG_LOG.md"
+        ]
+      },
+      {
+        "hash": "1d03558b7be51369a0290b64db2637642f3d22ca",
+        "short": "1d03558",
+        "author_time": "2026-05-27 17:06:02 IST",
+        "subject": "Fixed issues in Activity & Diagnostics Screen",
+        "confidence": "medium",
+        "score": 6,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words activity, diagnostics"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/llm/HandyToolRunner.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/llm/HandyToolRunnerPolicyTest.kt",
+          "app/src/main/kotlin/com/handy/app/accessibility/AccessibilityGestureActionPerformer.kt",
+          "app/src/main/kotlin/com/handy/app/accessibility/ActionAuditSuppression.kt",
+          "app/src/main/kotlin/com/handy/app/diagnostics/AuditReviewActivity.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/BuddyFlightDriver.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SettingsViewModel.kt"
+        ]
+      },
+      {
+        "hash": "af6a0534e1dd63bfb4a97f664b52961a7602cf55",
+        "short": "af6a053",
+        "author_time": "2026-05-27 17:17:45 IST",
+        "subject": "Capabilties section improvement",
+        "confidence": "low",
+        "score": 5,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words section"
+        ],
+        "files": [
+          "app/src/main/kotlin/com/handy/app/settings/CapabilityTruthScreen.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/settings/sections/CapabilitiesSection.kt",
+          "app/src/main/res/drawable/ic_message_circle_question.xml"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 101,
+    "thread_id": "019e6936-cb4b-7a71-a145-83121c0cf83d",
+    "title": "Reorganise the Capabilities section: toggles in the card, manifest in a bottom sheet",
+    "created_local": "2026-05-27 17:04:19 IST",
+    "updated_local": "2026-05-27 17:17:44 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Reorganise the Capabilities section: toggles in the card, manifest in a bottom sheet Likely related git changes: af6a053 Capabilties section improvement.",
+    "transcript_md": "threads_md/2026-05-27_170419_reorganise-the-capabilities-section-toggles-in-the-card-manifest-in-a-bo_019e6936.md",
+    "messages_json": "threads_json/2026-05-27_170419_reorganise-the-capabilities-section-toggles-in-the-card-manifest-in-a-bo_019e6936.json",
+    "recorded_git_sha_at_start": "8b6887589e05f9b880c224b5dc5405c815ee76de",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "af6a0534e1dd63bfb4a97f664b52961a7602cf55",
+        "short": "af6a053",
+        "author_time": "2026-05-27 17:17:45 IST",
+        "subject": "Capabilties section improvement",
+        "confidence": "low",
+        "score": 5,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words section"
+        ],
+        "files": [
+          "app/src/main/kotlin/com/handy/app/settings/CapabilityTruthScreen.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt",
+          "app/src/main/kotlin/com/handy/app/settings/sections/CapabilitiesSection.kt",
+          "app/src/main/res/drawable/ic_message_circle_question.xml"
+        ]
+      }
+    ]
   }
 ]
