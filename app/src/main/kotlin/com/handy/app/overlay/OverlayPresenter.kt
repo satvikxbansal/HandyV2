@@ -75,6 +75,7 @@ class OverlayPresenter @Inject constructor(
         MutableSharedFlow<ActionDisclosureReviewRequest>(extraBufferCapacity = 1)
     val actionDisclosureReviewRequests: SharedFlow<ActionDisclosureReviewRequest> =
         _actionDisclosureReviewRequests.asSharedFlow()
+    private var manualTargetFallbackCandidates: List<ManualTargetSelector.Candidate> = emptyList()
 
     private fun setState(
         event: String,
@@ -121,6 +122,10 @@ class OverlayPresenter @Inject constructor(
         return false
     }
 
+    private fun clearManualTargetCandidates() {
+        manualTargetFallbackCandidates = emptyList()
+    }
+
     // ---- widget-side entry points ------------------------------------------
 
     /**
@@ -134,6 +139,7 @@ class OverlayPresenter @Inject constructor(
     ) {
         val snapshot = captureSnapshot(marksProvider, clock)
         val greeting = panelGreetingFor(snapshot)
+        clearManualTargetCandidates()
         setState(event = "onWidgetTap") { it.copy(
             mode = OverlayMode.ChatPanel,
             buddyState = when (it.buddyState) {
@@ -169,6 +175,7 @@ class OverlayPresenter @Inject constructor(
         clock: () -> Long = { System.currentTimeMillis() },
     ) {
         val snapshot = captureSnapshot(marksProvider, clock)
+        clearManualTargetCandidates()
         setState(
             event = "onWidgetLongPressArmed",
             target = FlightFsm.Listening,
@@ -195,6 +202,7 @@ class OverlayPresenter @Inject constructor(
     }
 
     fun onWidgetIdle() {
+        clearManualTargetCandidates()
         forceDocked(event = "onWidgetIdle") { it.copy(
             mode = OverlayMode.IdleWidget,
             buddyState = BuddyState.DOCKED,
@@ -553,7 +561,27 @@ class OverlayPresenter @Inject constructor(
         ) }
     }
 
+    fun onManualTargetCandidatesReady(
+        label: String?,
+        candidates: List<ManualTargetSelector.Candidate>,
+    ) {
+        val hasLabel = !label.isNullOrBlank()
+        manualTargetFallbackCandidates = candidates.toList()
+        Timber.d(
+            "OverlayPresenter: manual target candidates ready hasLabel=%s count=%d",
+            hasLabel,
+            candidates.size,
+        )
+    }
+
+    fun consumeManualTargetCandidates(): List<ManualTargetSelector.Candidate> {
+        val candidates = manualTargetFallbackCandidates
+        clearManualTargetCandidates()
+        return candidates
+    }
+
     fun onManualTargetSelectionStarted() {
+        clearManualTargetCandidates()
         setState(
             event = "onManualTargetSelectionStarted",
             target = FlightFsm.Pointing,
@@ -567,6 +595,7 @@ class OverlayPresenter @Inject constructor(
     }
 
     fun onReturningToDock(reason: String? = null) {
+        clearManualTargetCandidates()
         setState(
             event = "onReturningToDock",
             target = FlightFsm.Returning,
@@ -581,6 +610,7 @@ class OverlayPresenter @Inject constructor(
     }
 
     fun onPointingReturned() {
+        clearManualTargetCandidates()
         setState(
             event = "onPointingReturned",
             target = FlightFsm.Docked,
@@ -791,6 +821,7 @@ class OverlayPresenter @Inject constructor(
     }
 
     fun onActionFinished() {
+        clearManualTargetCandidates()
         forceDocked(
             event = "onActionFinished",
         ) { it.copy(

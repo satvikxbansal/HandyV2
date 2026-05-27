@@ -119,7 +119,10 @@ class ManualTargetSelectorTest {
         var showCount = 0
         var hideCount = 0
 
-        override fun show(state: kotlinx.coroutines.flow.StateFlow<ManualTargetSelector.UiState>) {
+        override fun show(
+            state: kotlinx.coroutines.flow.StateFlow<ManualTargetSelector.UiState>,
+            onCancel: (String) -> Unit,
+        ) {
             showCount += 1
         }
 

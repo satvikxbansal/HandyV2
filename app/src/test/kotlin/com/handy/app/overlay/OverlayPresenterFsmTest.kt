@@ -6,6 +6,8 @@ import com.handy.core.foreground.ForegroundAppSnapshot
 import com.handy.core.overlay.BuddyBubble
 import com.handy.core.overlay.BuddyState
 import com.handy.core.overlay.FlightFsm
+import com.handy.core.overlay.OverlayMode
+import com.handy.core.screen.IntRect
 import com.handy.core.speech.SpeechAudioState
 import io.mockk.every
 import io.mockk.mockk
@@ -144,6 +146,33 @@ class OverlayPresenterFsmTest {
         val panel = presenter.state.value.panel
         assertThat(panel.greeting).isEqualTo("In Photos. Describe a photo or find one?")
         assertThat(panel.snapshot?.toolContext?.displayLabel).isEqualTo("Photos")
+    }
+
+    @Test
+    fun `manual target candidates are consumed once and cleared on manual start`() {
+        val presenter = presenter()
+        val candidates = listOf(
+            ManualTargetSelector.Candidate(
+                bounds = IntRect(10, 20, 110, 70),
+                label = "Clear cache",
+                confidence = 0.88f,
+                markId = "m1",
+            ),
+        )
+
+        presenter.onManualTargetCandidatesReady("Clear cache", candidates)
+
+        assertThat(presenter.consumeManualTargetCandidates()).containsExactlyElementsIn(candidates)
+        assertThat(presenter.consumeManualTargetCandidates()).isEmpty()
+
+        presenter.onPreparingPoint("settings")
+        presenter.onFlyingStart("settings")
+        presenter.onPointingArrived("settings")
+        presenter.onManualTargetCandidatesReady("Clear storage", candidates)
+        presenter.onManualTargetSelectionStarted()
+
+        assertThat(presenter.consumeManualTargetCandidates()).isEmpty()
+        assertThat(presenter.state.value.mode).isEqualTo(OverlayMode.ManualTargetSelection)
     }
 
     @Test

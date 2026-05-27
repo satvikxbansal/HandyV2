@@ -54,3 +54,7 @@ data class IntRect(val left: Int, val top: Int, val right: Int, val bottom: Int)
         val ZERO = IntRect(0, 0, 0, 0)
     }
 }
+
+fun IntRect.intersects(other: IntRect): Boolean =
+    left < other.right && right > other.left &&
+        top < other.bottom && bottom > other.top

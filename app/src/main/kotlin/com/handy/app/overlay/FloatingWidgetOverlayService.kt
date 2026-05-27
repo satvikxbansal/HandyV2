@@ -177,7 +177,10 @@ class FloatingWidgetOverlayService : LifecycleService() {
     private val manualTargetLongPressRunnable = Runnable {
         manualTargetLongPressFired = true
         view?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-        manualTargetSelector.begin(ManualTargetSelector.Trigger.WidgetLongPress)
+        manualTargetSelector.begin(
+            trigger = ManualTargetSelector.Trigger.WidgetLongPress,
+            candidates = presenter.consumeManualTargetCandidates(),
+        )
     }
 
     override fun onCreate() {
@@ -577,7 +580,10 @@ class FloatingWidgetOverlayService : LifecycleService() {
             SideBubbleHaloShim(
                 bubble = BuddyBubble.wrongTarget(),
                 modifier = Modifier.clickable {
-                    manualTargetSelector.begin(ManualTargetSelector.Trigger.Chip)
+                    manualTargetSelector.begin(
+                        trigger = ManualTargetSelector.Trigger.Chip,
+                        candidates = presenter.consumeManualTargetCandidates(),
+                    )
                 },
             )
         }

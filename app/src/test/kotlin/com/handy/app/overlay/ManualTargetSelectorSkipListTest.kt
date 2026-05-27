@@ -62,6 +62,7 @@ class ManualTargetSelectorSkipListTest {
     private class FakeOverlayController : ManualTargetSelector.OverlayController {
         override fun show(
             state: kotlinx.coroutines.flow.StateFlow<ManualTargetSelector.UiState>,
+            onCancel: (String) -> Unit,
         ) = Unit
 
         override fun hide() = Unit

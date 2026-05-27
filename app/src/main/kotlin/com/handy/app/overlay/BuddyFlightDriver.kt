@@ -831,6 +831,7 @@ class BuddyFlightDriver @Inject constructor(
                 confidence = null,
                 error = "target-not-found",
             )
+            presenter.onManualTargetCandidatesReady(label, emptyList())
             presenter.onManualTargetFallbackAvailable(label)
             scheduleStickySafetyTimeout()
             return null
@@ -883,6 +884,7 @@ class BuddyFlightDriver @Inject constructor(
                 confidence = resolved.confidence,
                 error = resolved.failureReason?.name?.lowercase() ?: "low-confidence",
             )
+            presenter.onManualTargetCandidatesReady(label, resolved.toManualTargetCandidates())
             presenter.onManualTargetFallbackAvailable(label)
             scheduleStickySafetyTimeout()
             return null
@@ -900,6 +902,7 @@ class BuddyFlightDriver @Inject constructor(
                 confidence = resolved.confidence,
                 error = "low-confidence",
             )
+            presenter.onManualTargetCandidatesReady(label, resolved.toManualTargetCandidates())
             presenter.onManualTargetFallbackAvailable(label)
             scheduleStickySafetyTimeout()
             return null
@@ -1238,6 +1241,19 @@ class BuddyFlightDriver @Inject constructor(
             visible = visible && options.size > 1,
         )
     }
+
+    private fun ResolvedPointTarget.toManualTargetCandidates(): List<ManualTargetSelector.Candidate> =
+        debugCandidates
+            .filter { it.bounds.width > 0 && it.bounds.height > 0 && it.visible && it.enabled }
+            .take(5)
+            .map { candidate ->
+                ManualTargetSelector.Candidate(
+                    bounds = candidate.bounds,
+                    label = candidate.label ?: candidate.viewId?.substringAfterLast('/'),
+                    confidence = (candidate.score / 100f).coerceIn(0f, 1f),
+                    markId = candidate.markId,
+                )
+            }
 
     private fun SemanticPointerResolver.TargetCandidate.baseCandidateLabel(index: Int): String =
         label?.takeIf { it.isNotBlank() }
