@@ -1,8 +1,10 @@
 package com.handy.app.overlay
 
 import com.handy.app.foreground.HandyForegroundAppMonitor
+import com.handy.core.action.UiActionKind
 import com.handy.core.foreground.ForegroundAppSnapshot
 import com.handy.core.overlay.AccessibilityMark
+import com.handy.core.overlay.BubbleTone
 import com.handy.core.overlay.BuddyBubble
 import com.handy.core.overlay.BuddyState
 import com.handy.core.overlay.CandidateOptions
@@ -13,6 +15,7 @@ import com.handy.core.overlay.PanelContent
 import com.handy.core.overlay.PanelSnapshot
 import com.handy.core.overlay.TapForMeConfirmation
 import com.handy.core.overlay.TapForMeConfirmationDecision
+import com.handy.core.overlay.WebToolProvider
 import com.handy.core.speech.SpeechAudioState
 import com.handy.core.tool.ToolContext
 import javax.inject.Inject
@@ -171,7 +174,7 @@ class OverlayPresenter @Inject constructor(
         ) { current -> current.copy(
             buddyState = BuddyState.LISTENING,
             isFlying = false,
-            bubble = BuddyBubble.Transcript(""),
+            bubble = BuddyBubble.transcript(""),
             panel = current.panel.copy(
                 snapshot = snapshot ?: current.panel.snapshot,
                 isListening = true,
@@ -229,9 +232,14 @@ class OverlayPresenter @Inject constructor(
 
     fun onSpeechAudio(audioState: SpeechAudioState) {
         setState(event = "onSpeechAudio($audioState)") { snapshot ->
+            val shouldClearSpokenBubble =
+                audioState == SpeechAudioState.IDLE &&
+                    snapshot.buddyState in setOf(BuddyState.AUDIO_SPEAKING, BuddyState.SPEAKING) &&
+                    snapshot.bubble?.isPlainSpokenAnswer() == true
             snapshot.copy(
                 audioState = audioState,
                 buddyState = snapshot.buddyStateForAudio(audioState),
+                bubble = if (shouldClearSpokenBubble) null else snapshot.bubble,
             )
         }
     }
@@ -243,7 +251,7 @@ class OverlayPresenter @Inject constructor(
         if (!snapshot.panel.isListening && snapshot.buddyState != BuddyState.LISTENING) return
         setState(event = "updatePartialTranscript") { snapshot.copy(
             panel = snapshot.panel.copy(partialTranscript = partial),
-            bubble = if (partial.isNotBlank()) BuddyBubble.Transcript(partial) else snapshot.bubble,
+            bubble = if (partial.isNotBlank()) BuddyBubble.transcript(partial) else snapshot.bubble,
         ) }
     }
 
@@ -255,7 +263,7 @@ class OverlayPresenter @Inject constructor(
         val cleaned = message.trim()
         setState(event = "updateVoiceNotice") { snapshot.copy(
             panel = snapshot.panel.copy(voiceNotice = cleaned),
-            bubble = if (cleaned.isNotBlank()) BuddyBubble.Action(cleaned) else snapshot.bubble,
+            bubble = if (cleaned.isNotBlank()) actionNoticeBubble(cleaned) else snapshot.bubble,
         ) }
     }
 
@@ -271,7 +279,7 @@ class OverlayPresenter @Inject constructor(
                 voiceNotice = "",
                 lowConfidenceTranscript = null,
             ),
-            bubble = BuddyBubble.Transcript(""),
+            bubble = BuddyBubble.transcript(""),
         ) }
     }
 
@@ -367,10 +375,11 @@ class OverlayPresenter @Inject constructor(
      * must already be <= 110 chars (guardrails /
      * `AssistantMarkupParser.clampVoiceSpokenForOverlay`).
      */
-    fun onResponseFinalized(overlayClamped: String?, chatText: String) {
+    fun onResponseFinalized(overlayClamped: String?, chatText: String, fromVoice: Boolean = false) {
         val bubble = overlayClamped
             ?.takeIf { it.isNotBlank() }
-            ?.let(BuddyBubble::Response)
+            ?.takeIf { fromVoice }
+            ?.let(BuddyBubble::spokenAnswer)
         val target = if (bubble != null) FlightFsm.ActionResult else FlightFsm.Docked
         setState(
             event = "onResponseFinalized",
@@ -399,6 +408,18 @@ class OverlayPresenter @Inject constructor(
         if (!snapshot.panel.isStreaming && snapshot.buddyState != BuddyState.THINKING) return
         setState(event = "setLoadingVerb") { snapshot.copy(
             panel = snapshot.panel.copy(loadingVerb = verb),
+        ) }
+    }
+
+    fun onThinkingBubble() {
+        setState(event = "onThinkingBubble") { it.copy(
+            bubble = BuddyBubble.thinking(),
+        ) }
+    }
+
+    fun onWebToolBubble(provider: WebToolProvider, providerLabel: String) {
+        setState(event = "onWebToolBubble") { it.copy(
+            bubble = BuddyBubble.webTool(provider, providerLabel),
         ) }
     }
 
@@ -442,7 +463,7 @@ class OverlayPresenter @Inject constructor(
             mode = OverlayMode.Flying,
             buddyState = BuddyState.PREPARING_POINT,
             isFlying = true,
-            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Navigation),
+            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::navigation),
         ) }
     }
 
@@ -455,7 +476,14 @@ class OverlayPresenter @Inject constructor(
             buddyState = BuddyState.POINTING,
             isFlying = true,
             candidateOptions = options.copy(visible = options.hasAlternatives),
-            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Navigation)
+            bubble = if (options.hasAlternatives) {
+                BuddyBubble.ambiguous(
+                    prefix = "Which one?",
+                    label = "${options.options.size} matches for \"${label.orEmpty().ifBlank { "target" }}\"",
+                )
+            } else {
+                label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::navigation)
+            }
                 ?: current.bubble,
         ) }
     }
@@ -481,7 +509,13 @@ class OverlayPresenter @Inject constructor(
             mode = OverlayMode.Flying,
             buddyState = BuddyState.FLYING,
             isFlying = true,
-            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Navigation),
+            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::navigation),
+        ) }
+    }
+
+    fun onFlightStartBubble(targetLabel: String) {
+        setState(event = "onFlightStartBubble") { it.copy(
+            bubble = BuddyBubble.navigation("Going to \"$targetLabel\" →"),
         ) }
     }
 
@@ -493,8 +527,14 @@ class OverlayPresenter @Inject constructor(
             mode = OverlayMode.Pointing,
             buddyState = BuddyState.POINTING,
             isFlying = true,
-            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Navigation)
+            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::navigation)
                 ?: current.bubble,
+        ) }
+    }
+
+    fun onPointingArrivedBubble(targetLabel: String) {
+        setState(event = "onPointingArrivedBubble") { it.copy(
+            bubble = BuddyBubble.navigation("Tap \"$targetLabel\""),
         ) }
     }
 
@@ -507,7 +547,7 @@ class OverlayPresenter @Inject constructor(
             buddyState = BuddyState.POINTING,
             isFlying = true,
             candidateOptions = null,
-            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::Navigation)
+            bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::navigation)
                 ?: current.bubble,
         ) }
     }
@@ -679,7 +719,68 @@ class OverlayPresenter @Inject constructor(
             mode = OverlayMode.Acting,
             buddyState = BuddyState.ACTING,
             tapForMeConfirmation = null,
-            bubble = BuddyBubble.Action(label),
+            bubble = actionNoticeBubble(label),
+        ) }
+    }
+
+    fun onActionInProgressBubble(
+        kind: UiActionKind,
+        targetLabel: String,
+        progress: Float?,
+    ) {
+        val label = when (kind) {
+            UiActionKind.TAP,
+            UiActionKind.LONG_PRESS -> "Tapping \"$targetLabel\"…"
+            UiActionKind.TYPE -> "Typing in \"$targetLabel\"…"
+            UiActionKind.SCROLL_UP,
+            UiActionKind.SCROLL_DOWN,
+            UiActionKind.SCROLL_LEFT,
+            UiActionKind.SCROLL_RIGHT -> "Scrolling…"
+        }
+        val bubble = if (kind == UiActionKind.TYPE) {
+            BuddyBubble.actingType(label, progress)
+        } else {
+            BuddyBubble.actingTap(label, progress)
+        }
+        setState(event = "onActionInProgressBubble") { it.copy(bubble = bubble) }
+    }
+
+    fun onRecipeStepBubble(stepIndex: Int, stepCount: Int, label: String) {
+        setState(event = "onRecipeStepBubble") { it.copy(
+            bubble = BuddyBubble.recipeStep(stepIndex, stepCount, label),
+        ) }
+    }
+
+    fun onBlockedBubble(reason: String) {
+        val label = when (reason) {
+            "incognito" -> "Blocked · Incognito mode"
+            "secure-window" -> "Blocked · Secure window"
+            "tool-suggestion-only" -> "Blocked · Tool-suggested action"
+            else -> "Blocked · $reason"
+        }
+        setState(event = "onBlockedBubble") { it.copy(
+            bubble = BuddyBubble.blocked(label),
+        ) }
+    }
+
+    fun onActionFailedBubble(prefix: String, label: String) {
+        setState(event = "onActionFailedBubble") { it.copy(
+            bubble = BuddyBubble.failed(prefix, label),
+        ) }
+    }
+
+    fun onWrongTargetBubble() {
+        setState(event = "onWrongTargetBubble") { it.copy(
+            bubble = BuddyBubble.wrongTarget(),
+        ) }
+    }
+
+    fun onAmbiguousTargetBubble(matchCount: Int, targetLabel: String) {
+        setState(event = "onAmbiguousTargetBubble") { it.copy(
+            bubble = BuddyBubble.ambiguous(
+                prefix = "Which one?",
+                label = "$matchCount matches for \"$targetLabel\"",
+            ),
         ) }
     }
 
@@ -839,6 +940,23 @@ class OverlayPresenter @Inject constructor(
         val trimmed = trim()
         return if (trimmed.length <= n) trimmed else trimmed.take(n).trimEnd() + "…"
     }
+
+    private fun actionNoticeBubble(label: String, progress: Float? = null): BuddyBubble {
+        val lower = label.lowercase()
+        return if ("type" in lower || "typing" in lower) {
+            BuddyBubble.actingType(label, progress)
+        } else {
+            BuddyBubble.actingTap(label, progress)
+        }
+    }
+
+    private fun BuddyBubble.isPlainSpokenAnswer(): Boolean =
+        tone == BubbleTone.ACCENT &&
+            prefix == null &&
+            leading == null &&
+            progress == null &&
+            !italic &&
+            !small
 
     private companion object {
         val audioProtectedBuddyStates = setOf(

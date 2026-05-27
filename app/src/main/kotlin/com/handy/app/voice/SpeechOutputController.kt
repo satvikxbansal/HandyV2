@@ -76,7 +76,6 @@ class SpeechOutputController @Inject constructor(
                     if (hasConsumed(requestId) || pendingRequestId != requestId) {
                         false
                     } else {
-                        rememberConsumed(requestId)
                         pendingRequestId = null
                         activeRequestId = requestId
                         activeStartedAtMs = System.currentTimeMillis()
@@ -111,6 +110,7 @@ class SpeechOutputController @Inject constructor(
                             )
                             false
                         } else {
+                            rememberConsumed(requestId)
                             true
                         }
                     }

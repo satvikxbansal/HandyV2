@@ -310,6 +310,7 @@ class BuddyFlightDriver @Inject constructor(
         service.updateBubblePlacementHint(landing.kind)
         service.announceBuddyFlightStart(label)
         presenter.onFlyingStart(label = label)
+        label?.takeIf { it.isNotBlank() }?.let(presenter::onFlightStartBubble)
 
         service.flightControllerInstance().flyThere(
             fromX = fromX.toFloat(),
@@ -354,6 +355,7 @@ class BuddyFlightDriver @Inject constructor(
                     )
                     service.announceBuddyFlightArrived(label)
                     presenter.onPointingArrived(label)
+                    label?.takeIf { it.isNotBlank() }?.let(presenter::onPointingArrivedBubble)
                     scheduleStickySafetyTimeout()
                     if (cont.isActive) cont.resume(true)
                 }
@@ -512,6 +514,9 @@ class BuddyFlightDriver @Inject constructor(
             )
             if (reason !in POINTER_SAFE_DENIAL_REASONS) {
                 dismissPointingAfterUserInteraction("policy:$reason")
+                mainHandler.post { presenter.onBlockedBubble(reason) }
+            } else {
+                presenter.onBlockedBubble(reason)
             }
             return false
         }
@@ -562,6 +567,7 @@ class BuddyFlightDriver @Inject constructor(
         }
 
         presenter.onActionStarted("tapping $displayLabel")
+        presenter.onActionInProgressBubble(UiActionKind.TAP, displayLabel, progress = null)
         val performTarget = tapTarget.copy(allowGestureFallback = decision.allowGestureFallback)
         val actionStartedAt = SystemClock.uptimeMillis()
         val result = runCatching {
@@ -586,6 +592,9 @@ class BuddyFlightDriver @Inject constructor(
             userConfirmed = true,
         )
         presenter.onActionFinished()
+        if (result !is PerformResult.Ok) {
+            presenter.onActionFailedBubble("Couldn't tap", result.userFacingFailure())
+        }
         return result is PerformResult.Ok
     }
 
@@ -667,6 +676,7 @@ class BuddyFlightDriver @Inject constructor(
                 userConfirmed = false,
             )
             dismissPointingAfterUserInteraction("policy:$reason")
+            mainHandler.post { presenter.onBlockedBubble(reason) }
             return false
         }
 
@@ -718,6 +728,7 @@ class BuddyFlightDriver @Inject constructor(
         }
 
         presenter.onActionStarted("typing in $displayLabel")
+        presenter.onActionInProgressBubble(UiActionKind.TYPE, displayLabel, progress = null)
         val actionStartedAt = SystemClock.uptimeMillis()
         val result = runCatching {
             actionPerformer.typeText(typeTarget, confirmedText, sourceTrust)
@@ -753,6 +764,9 @@ class BuddyFlightDriver @Inject constructor(
             verifiedBy = if (result is PerformResult.Ok) "text-changed" else null,
         )
         presenter.onActionFinished()
+        if (result !is PerformResult.Ok) {
+            presenter.onActionFailedBubble("Couldn't type", result.userFacingFailure())
+        }
         return result is PerformResult.Ok
     }
 
@@ -849,6 +863,10 @@ class BuddyFlightDriver @Inject constructor(
                 error = resolved.failureReason?.name?.lowercase() ?: "ambiguous",
             )
             presenter.onCandidateOptionsAvailable(label, options)
+            presenter.onAmbiguousTargetBubble(
+                matchCount = options.options.size,
+                targetLabel = label?.takeIf { it.isNotBlank() } ?: "target",
+            )
             scheduleStickySafetyTimeout()
             return null
         }
@@ -1515,6 +1533,14 @@ private fun PerformResult?.timelineError(defaultFailure: String): String? = when
     is PerformResult.Unsupported -> "not-permitted"
     is PerformResult.Failed -> reason
     null -> defaultFailure
+}
+
+private fun PerformResult?.userFacingFailure(): String = when (this) {
+    PerformResult.NotFound -> "View is no longer visible. Try again?"
+    is PerformResult.Unsupported -> "This action is not available here. Try again?"
+    is PerformResult.Failed -> reason.takeIf { it.isNotBlank() } ?: "Action failed. Try again?"
+    null -> "Action failed. Try again?"
+    PerformResult.Ok -> "Action finished."
 }
 
 private data class ActiveFlightTarget(

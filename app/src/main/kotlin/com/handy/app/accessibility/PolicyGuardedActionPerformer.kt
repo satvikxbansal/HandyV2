@@ -1,5 +1,6 @@
 package com.handy.app.accessibility
 
+import com.handy.app.overlay.OverlayPresenter
 import com.handy.core.action.ActionCapability
 import com.handy.core.action.ActionPerformer
 import com.handy.core.action.ActionPolicyEngine
@@ -25,6 +26,7 @@ class PolicyGuardedActionPerformer @Inject constructor(
     private val policyEngine: ActionPolicyEngine,
     private val liveScreenGuard: LiveScreenGuard,
     private val learnedAllowlistStore: LearnedAllowlistStore,
+    private val presenter: OverlayPresenter,
 ) : ActionPerformer {
 
     override val capabilities: Set<ActionCapability>
@@ -67,8 +69,9 @@ class PolicyGuardedActionPerformer @Inject constructor(
     ): PerformResult {
         val grounding = liveGroundingFor(target)
         val node = target as? TapTarget.AtNode
+        val uiKind = kind.toUiActionKind()
         val action = AssistantAction.UiAction(
-            kind = kind.toUiActionKind(),
+            kind = uiKind,
             userUtterance = null,
             targetLabel = node?.text,
             targetRole = node?.role,
@@ -84,6 +87,7 @@ class PolicyGuardedActionPerformer @Inject constructor(
             sourceTrust = sourceTrust,
         )
         if (!decision.allowed) {
+            presenter.onBlockedBubble(decision.reason ?: "denied")
             return PerformResult.Failed("policy:${decision.reason ?: "denied"}")
         }
         if (decision.requireNodeActionOnly &&
@@ -94,7 +98,15 @@ class PolicyGuardedActionPerformer @Inject constructor(
         }
 
         val guardedTarget = target.withGestureFallback(decision.allowGestureFallback)
+        presenter.onActionInProgressBubble(
+            kind = uiKind,
+            targetLabel = target.userFacingLabel(grounding),
+            progress = null,
+        )
         val result = perform(guardedTarget)
+        if (result !is PerformResult.Ok) {
+            presenter.onActionFailedBubble(uiKind.failurePrefix(), result.userFacingFailure())
+        }
         if (result is PerformResult.Ok && kind != "type_text") {
             runCatching {
                 learnedAllowlistStore.recordSuccess(target.packageNameOrNull() ?: grounding.toolContext.packageName)
@@ -124,6 +136,15 @@ class PolicyGuardedActionPerformer @Inject constructor(
     private fun TapTarget?.packageNameOrNull(): String? =
         (this as? TapTarget.AtNode)?.expectedPackage?.takeIf { it.isNotBlank() }
 
+    private fun TapTarget?.userFacingLabel(grounding: GroundingSnapshot): String =
+        when (this) {
+            is TapTarget.AtNode -> listOf(text, desc, viewId, role)
+                .firstOrNull { !it.isNullOrBlank() }
+                ?: grounding.toolContext.displayLabel
+            is TapTarget.AtScreenPoint -> "screen"
+            null -> grounding.toolContext.displayLabel
+        }
+
     private fun TapTarget?.withGestureFallback(allowed: Boolean): TapTarget? =
         when (this) {
             is TapTarget.AtNode -> copy(allowGestureFallback = allowed)
@@ -139,6 +160,23 @@ class PolicyGuardedActionPerformer @Inject constructor(
         "scroll_left" -> UiActionKind.SCROLL_LEFT
         "scroll_right" -> UiActionKind.SCROLL_RIGHT
         else -> error("unknown kind: $this")
+    }
+
+    private fun UiActionKind.failurePrefix(): String = when (this) {
+        UiActionKind.TYPE -> "Couldn't type"
+        UiActionKind.SCROLL_UP,
+        UiActionKind.SCROLL_DOWN,
+        UiActionKind.SCROLL_LEFT,
+        UiActionKind.SCROLL_RIGHT -> "Couldn't scroll"
+        UiActionKind.LONG_PRESS -> "Couldn't press"
+        UiActionKind.TAP -> "Couldn't tap"
+    }
+
+    private fun PerformResult.userFacingFailure(): String = when (this) {
+        PerformResult.NotFound -> "View is no longer visible. Try again?"
+        is PerformResult.Unsupported -> "This action is not available here. Try again?"
+        is PerformResult.Failed -> reason.takeIf { it.isNotBlank() } ?: "Action failed. Try again?"
+        PerformResult.Ok -> "Action finished."
     }
 
     private companion object {

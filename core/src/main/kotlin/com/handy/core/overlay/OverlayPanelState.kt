@@ -12,10 +12,9 @@ import com.handy.core.tool.ToolContext
  * Single-source-of-truth state for the Handy overlay (Unified Buddy
  * widget + overlay chat panel). Observed by the Compose overlay UI.
  *
- * Mutual-exclusion rules for the four bubble colors (scope §3) are
- * enforced in the presenter, not here — this data class is intentionally
- * dumb. The presenter picks exactly one non-null bubble; the renderer
- * trusts it.
+ * Mutual-exclusion rules for side bubbles (scope §3) are enforced in the
+ * presenter, not here. The presenter picks exactly one non-null bubble; the
+ * renderer trusts it.
  */
 data class OverlayPanelState(
     val mode: OverlayMode = OverlayMode.IdleWidget,
@@ -133,16 +132,135 @@ enum class BuddyState {
     AUDIO_SPEAKING,
 }
 
-/** Current bubble (exactly one at a time). Scope §3 taxonomy. */
-sealed class BuddyBubble {
-    /** Yellow — live user transcript (voice). */
-    data class Transcript(val text: String) : BuddyBubble()
-    /** Teal — bounded action-in-progress. */
-    data class Action(val text: String) : BuddyBubble()
-    /** Green — clamped assistant response. */
-    data class Response(val text: String) : BuddyBubble()
-    /** Blue — pointer navigation label. */
-    data class Navigation(val text: String) : BuddyBubble()
+data class BuddyBubble(
+    val tone: BubbleTone,
+    val label: String,
+    val prefix: String? = null,
+    val leading: BubbleIcon? = null,
+    val progress: Float? = null,
+    val italic: Boolean = false,
+    val small: Boolean = false,
+    /** Mirroring side for right-docked widgets. */
+    val anchor: BubbleAnchor = BubbleAnchor.LEFT,
+) {
+    companion object {
+        /** Live voice transcript (italic, accent tone). */
+        fun transcript(text: String): BuddyBubble =
+            BuddyBubble(tone = BubbleTone.ACCENT, label = text, italic = true)
+
+        /** Short spoken assistant response (accent, normal weight). */
+        fun spokenAnswer(text: String): BuddyBubble =
+            BuddyBubble(tone = BubbleTone.ACCENT, label = text)
+
+        /** Muted "Thinking..." pill. */
+        fun thinking(label: String = "Thinking…"): BuddyBubble =
+            BuddyBubble(tone = BubbleTone.MUTED, label = label, small = true)
+
+        /** Web search status — violet for Brave / GitHub, honey for Jina. */
+        fun webTool(provider: WebToolProvider, label: String): BuddyBubble = when (provider) {
+            WebToolProvider.BRAVE -> BuddyBubble(tone = BubbleTone.VIOLET, label = label)
+            WebToolProvider.GITHUB -> BuddyBubble(tone = BubbleTone.VIOLET, label = label)
+            WebToolProvider.JINA -> BuddyBubble(
+                tone = BubbleTone.HONEY,
+                label = label,
+                prefix = "Page · Jina",
+            )
+        }
+
+        /** Pointer flying or pointing — blue tone, no leading icon. */
+        fun navigation(label: String): BuddyBubble =
+            BuddyBubble(tone = BubbleTone.POINT, label = label)
+
+        /** Acting (tap or type) — emerald tone + leading icon + progress. */
+        fun actingTap(label: String, progress: Float? = null): BuddyBubble =
+            BuddyBubble(
+                tone = BubbleTone.ACT,
+                label = label,
+                leading = BubbleIcon.HAND_TAP,
+                progress = progress,
+            )
+
+        fun actingType(label: String, progress: Float? = null): BuddyBubble =
+            BuddyBubble(
+                tone = BubbleTone.ACT,
+                label = label,
+                leading = BubbleIcon.KEYBOARD,
+                progress = progress,
+            )
+
+        /** Recipe step — accent + prefix "Step X of Y" + leading recipe icon. */
+        fun recipeStep(stepIndex: Int, stepCount: Int, label: String): BuddyBubble =
+            BuddyBubble(
+                tone = BubbleTone.ACCENT,
+                label = label,
+                prefix = "Step $stepIndex of $stepCount",
+                leading = BubbleIcon.RECIPE,
+                progress = if (stepCount > 0) stepIndex.toFloat() / stepCount else null,
+            )
+
+        /** Blocked — danger + warning icon. */
+        fun blocked(label: String): BuddyBubble =
+            BuddyBubble(
+                tone = BubbleTone.DANGER,
+                label = blockedLabel(label),
+                leading = BubbleIcon.WARNING,
+            )
+
+        /** Failed — danger + warning + prefix. */
+        fun failed(prefix: String, label: String): BuddyBubble =
+            BuddyBubble(
+                tone = BubbleTone.DANGER,
+                label = label,
+                prefix = prefix,
+                leading = BubbleIcon.WARNING,
+            )
+
+        /** Wrong target / undo — accent + back icon + small. */
+        fun wrongTarget(label: String = "Wrong one? Tap to undo."): BuddyBubble =
+            BuddyBubble(
+                tone = BubbleTone.ACCENT,
+                label = label,
+                leading = BubbleIcon.BACK,
+                small = true,
+            )
+
+        /** Ambiguous — point tone + prefix. Candidate chips render separately. */
+        fun ambiguous(prefix: String, label: String): BuddyBubble =
+            BuddyBubble(
+                tone = BubbleTone.POINT,
+                label = label,
+                prefix = prefix,
+                small = true,
+            )
+
+        private fun blockedLabel(label: String): String = when (label) {
+            "incognito" -> "Blocked · Incognito mode"
+            "secure-window" -> "Blocked · Secure window"
+            "tool-suggestion-only" -> "Blocked · Tool-suggested action"
+            else -> if (label.startsWith("Blocked ·")) label else "Blocked · $label"
+        }
+    }
+}
+
+enum class BubbleTone { ACCENT, MUTED, VIOLET, HONEY, POINT, ACT, DANGER }
+enum class BubbleIcon { HAND_TAP, KEYBOARD, RECIPE, BACK, WARNING, CURSOR, GLOBE }
+enum class BubbleAnchor { LEFT, RIGHT }
+enum class WebToolProvider {
+    BRAVE,
+    GITHUB,
+    JINA,
+    ;
+
+    companion object {
+        fun fromVerb(text: String): WebToolProvider {
+            val normalized = text.lowercase()
+            return when {
+                "github" in normalized -> GITHUB
+                "jina" in normalized || "page" in normalized || "reading" in normalized -> JINA
+                else -> BRAVE
+            }
+        }
+    }
 }
 
 /** Panel content when [OverlayPanelState.mode] is [OverlayMode.ChatPanel]. */

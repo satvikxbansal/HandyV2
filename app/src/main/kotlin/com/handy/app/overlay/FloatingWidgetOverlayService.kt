@@ -14,8 +14,26 @@ import android.view.MotionEvent
 import android.view.WindowInsets
 import android.view.ViewConfiguration
 import android.view.WindowManager
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
@@ -29,9 +47,10 @@ import com.handy.app.onboarding.ActionDisclosureActivity
 import com.handy.app.voice.SpeechOutputController
 import com.handy.app.voice.VoiceController
 import com.handy.app.widget.BezierFlightController
-import com.handy.app.widget.ManualTargetFallbackChip
-import com.handy.app.widget.WidgetBubbleChip
 import com.handy.app.widget.WidgetState
+import com.handy.app.widget.design.SideBubbleV2
+import com.handy.core.overlay.BubbleAnchor
+import com.handy.core.overlay.BuddyBubble
 import com.handy.app.widget.design.WidgetGlyphV2
 import com.handy.core.overlay.BuddyState
 import com.handy.core.overlay.OverlayMode
@@ -43,6 +62,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlin.math.hypot
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -254,7 +274,12 @@ class FloatingWidgetOverlayService : LifecycleService() {
                 .distinctUntilChanged()
                 .collectLatest { bubble ->
                     if (bubble == null) {
-                        detachBubbleOverlay()
+                        if (bubbleView != null) {
+                            delay(BUBBLE_FADE_OUT_DETACH_MS)
+                            if (presenter.state.value.bubble == null) {
+                                detachBubbleOverlay()
+                            }
+                        }
                     } else {
                         attachBubbleOverlayIfNeeded()
                     }
@@ -437,7 +462,27 @@ class FloatingWidgetOverlayService : LifecycleService() {
         val host = OverlayComposeHost(this).also { bubbleHost = it }
         val composeView = host.createView {
             val overlayState by presenter.state.collectAsState()
-            overlayState.bubble?.let { WidgetBubbleChip(it) }
+            val density = LocalDensity.current
+            val bubble = overlayState.bubble?.copy(anchor = bubbleAnchorForCurrentWidget())
+            AnimatedContent(
+                targetState = bubble,
+                transitionSpec = {
+                    fadeIn(tween(180, easing = FastOutSlowInEasing)) +
+                        slideInHorizontally(tween(180, easing = FastOutSlowInEasing)) {
+                            if (targetState?.anchor == BubbleAnchor.RIGHT) {
+                                with(density) { 4.dp.roundToPx() }
+                            } else {
+                                with(density) { (-4).dp.roundToPx() }
+                            }
+                        } togetherWith fadeOut(tween(140))
+                },
+                label = "buddy-bubble",
+                contentKey = { target ->
+                    target?.let { Triple(it.tone, it.prefix, it.label) }
+                },
+            ) { target ->
+                if (target != null) SideBubbleHaloShim(target)
+            }
         }
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -528,8 +573,9 @@ class FloatingWidgetOverlayService : LifecycleService() {
         }
         val host = OverlayComposeHost(this).also { manualChipHost = it }
         val composeView = host.createView {
-            ManualTargetFallbackChip(
-                onClick = {
+            SideBubbleHaloShim(
+                bubble = BuddyBubble.wrongTarget(),
+                modifier = Modifier.clickable {
                     manualTargetSelector.begin(ManualTargetSelector.Trigger.Chip)
                 },
             )
@@ -1047,6 +1093,14 @@ class FloatingWidgetOverlayService : LifecycleService() {
         runCatching { windowManager.updateViewLayout(bubble, lp) }
     }
 
+    private fun bubbleAnchorForCurrentWidget(): BubbleAnchor {
+        val widget = view
+        val screenW = resources.displayMetrics.widthPixels
+        val widgetW = widget?.width?.takeIf { it > 0 } ?: 1
+        val widgetCenterX = params.x + widgetW / 2
+        return if (widgetCenterX > screenW / 2) BubbleAnchor.RIGHT else BubbleAnchor.LEFT
+    }
+
     private fun updateAgentProgressPosition() {
         val widget = view ?: return
         val progress = agentProgressView ?: return
@@ -1201,11 +1255,31 @@ class FloatingWidgetOverlayService : LifecycleService() {
         const val LONG_PRESS_MS: Long = 400L
         /** Cursorbuddy recipe #6 — grace before auto-submitting a voice transcript. */
         const val VOICE_AUTOSUBMIT_GRACE_MS: Long = 300L
+        private const val BUBBLE_FADE_OUT_DETACH_MS: Long = 180L
     }
 
     private enum class BubblePlacementHint {
         Side,
         Above,
         Below,
+    }
+}
+
+@Composable
+private fun SideBubbleHaloShim(
+    bubble: BuddyBubble,
+    modifier: Modifier = Modifier,
+) {
+    val haloPadding = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) 8.dp else 12.dp
+    Box(
+        modifier = modifier
+            .padding(haloPadding)
+            .semantics {
+                contentDescription = listOfNotNull(bubble.prefix, bubble.label)
+                    .joinToString(" — ")
+                liveRegion = LiveRegionMode.Polite
+            },
+    ) {
+        SideBubbleV2(bubble)
     }
 }

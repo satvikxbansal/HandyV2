@@ -156,9 +156,11 @@ class OverlayChatPipelineTest {
         every { presenter.state } returns MutableStateFlow(OverlayPanelState())
         every { presenter.setPendingConfirmation(any()) } just runs
         every { presenter.setLoadingVerb(any()) } just runs
+        every { presenter.onThinkingBubble() } just runs
+        every { presenter.onWebToolBubble(any(), any()) } just runs
         every { presenter.onStreamingStart() } just runs
         every { presenter.onStreamingDelta(any()) } just runs
-        every { presenter.onResponseFinalized(any(), any()) } just runs
+        every { presenter.onResponseFinalized(any(), any(), any()) } just runs
         every { presenter.onError(any()) } just runs
         every { presenter.dismissPanel() } just runs
 

@@ -18,10 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -35,10 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.handy.app.theme.HandMarkIcon
 import com.handy.app.theme.HandyColors
@@ -47,7 +41,7 @@ import com.handy.app.theme.HandyMotion
 import com.handy.app.theme.HandyTheme
 import com.handy.app.theme.ListeningWaveformBars
 import com.handy.app.theme.PointerHandIcon
-import com.handy.app.theme.noRippleClickable
+import com.handy.app.widget.design.SideBubbleV2
 import com.handy.core.overlay.BuddyBubble
 import com.handy.core.overlay.BuddyState
 import kotlin.math.PI
@@ -243,61 +237,9 @@ fun UnifiedBuddyContent(
             }
             if (bubble != null) {
                 Spacer(Modifier.width(8.dp))
-                WidgetBubbleChip(bubble)
+                SideBubbleV2(bubble)
             }
         }
-    }
-}
-
-@Composable
-fun WidgetBubbleChip(bubble: BuddyBubble) {
-    val (backgroundColor, textColor, text) = when (bubble) {
-        is BuddyBubble.Transcript ->
-            Triple(HandyColors.BubbleTranscript, HandyColors.AccentInk, bubble.text)
-        is BuddyBubble.Action ->
-            Triple(HandyColors.BubbleAction, HandyColors.PageBg, bubble.text)
-        is BuddyBubble.Response ->
-            Triple(HandyColors.BubbleResponse, HandyColors.PageBg, bubble.text)
-        is BuddyBubble.Navigation ->
-            Triple(HandyColors.BubbleNavigation, HandyColors.PageBg, bubble.text)
-    }
-    if (text.isBlank()) return
-    Box(
-        modifier = Modifier
-            .background(backgroundColor.copy(alpha = 1f), RoundedCornerShape(8.dp))
-            .padding(horizontal = 10.dp, vertical = 5.dp),
-    ) {
-        Text(
-            text = text,
-            color = textColor,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.widthIn(max = 240.dp),
-        )
-    }
-}
-
-@Composable
-fun ManualTargetFallbackChip(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .background(HandyColors.GlassTint.copy(alpha = 1f), RoundedCornerShape(8.dp))
-            .border(0.5.dp, HandyColors.BubbleNavigation.copy(alpha = 0.72f), RoundedCornerShape(8.dp))
-            .noRippleClickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-    ) {
-        Text(
-            text = "Wrong one?",
-            color = HandyColors.TextPrimary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-        )
     }
 }
 

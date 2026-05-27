@@ -72,6 +72,7 @@ class AgentSessionControllerTest {
 
     @Test fun `recipe step with untrusted provenance is refused before execution`() = runTest {
         val presenter = mockk<OverlayPresenter>()
+        every { presenter.onBlockedBubble(any()) } just runs
         every { presenter.onError(any()) } just runs
         val policy = RecordingPolicy()
         val controller = AgentSessionController(

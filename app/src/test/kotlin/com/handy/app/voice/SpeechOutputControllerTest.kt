@@ -71,6 +71,25 @@ class SpeechOutputControllerTest {
     }
 
     @Test
+    fun `synchronous speak failure does not consume request id`() = runTest {
+        val fakeTts = FakeTtsClient()
+        val controller = controller(fakeTts = fakeTts, scope = this)
+
+        fakeTts.throwOnNextSpeak = true
+        controller.speakForVoiceTurn("req-a", "First")
+        runCurrent()
+
+        controller.speakForVoiceTurn("req-a", "Retry")
+        runCurrent()
+
+        assertThat(fakeTts.calls).containsExactly(
+            "speak-failed:First:handy-voice-req-a",
+            "speak:Retry:handy-voice-req-a",
+        ).inOrder()
+    }
+
+
+    @Test
     fun `speaking state waits for TTS playback and clears when playback ends`() = runTest {
         val fakeTts = FakeTtsClient()
         val controller = controller(fakeTts = fakeTts, scope = this)
@@ -167,11 +186,17 @@ class SpeechOutputControllerTest {
     private class FakeTtsClient : TtsClient {
         val calls = mutableListOf<String>()
         var speaking: Boolean = false
+        var throwOnNextSpeak: Boolean = false
 
         override val isSpeaking: Boolean
             get() = speaking
 
         override fun speak(text: String, utteranceId: String) {
+            if (throwOnNextSpeak) {
+                throwOnNextSpeak = false
+                calls += "speak-failed:$text:$utteranceId"
+                error("speak failed")
+            }
             calls += "speak:$text:$utteranceId"
         }
 

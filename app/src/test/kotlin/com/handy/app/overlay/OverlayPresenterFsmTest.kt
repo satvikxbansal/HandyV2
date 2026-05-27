@@ -76,6 +76,21 @@ class OverlayPresenterFsmTest {
     }
 
     @Test
+    fun `voice spoken answer bubble clears when audio returns idle`() {
+        val presenter = presenter()
+
+        presenter.onStreamingStart()
+        presenter.onResponseFinalized("All set.", "All set.", fromVoice = true)
+
+        assertThat(presenter.state.value.bubble).isEqualTo(BuddyBubble.spokenAnswer("All set."))
+        assertThat(presenter.state.value.buddyState).isEqualTo(BuddyState.SPEAKING)
+
+        presenter.onSpeechAudio(SpeechAudioState.IDLE)
+
+        assertThat(presenter.state.value.bubble).isNull()
+    }
+
+    @Test
     fun `low confidence transcript opens editable confirmation state`() {
         val presenter = presenter()
 
@@ -112,7 +127,7 @@ class OverlayPresenterFsmTest {
         val state = presenter.state.value
         assertThat(state.buddyState).isEqualTo(BuddyState.THINKING)
         assertThat(state.panel.voiceNotice).isEqualTo("Cut off at 30s")
-        assertThat(state.bubble).isEqualTo(BuddyBubble.Action("Cut off at 30s"))
+        assertThat(state.bubble).isEqualTo(BuddyBubble.actingTap("Cut off at 30s"))
     }
 
     @Test

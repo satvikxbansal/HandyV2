@@ -74,6 +74,7 @@ import com.handy.app.overlay.OverlayPanelCallbacks
 import com.handy.app.overlay.PanelGreetingCategory
 import com.handy.app.overlay.panelGreetingCategoryFor
 import com.handy.core.overlay.BuddyBubble
+import com.handy.core.overlay.BubbleTone
 import com.handy.core.overlay.OverlayPanelState
 
 @Suppress("UNUSED_PARAMETER")
@@ -860,12 +861,16 @@ private fun ResponsePreviewV2(text: String) {
 
 @Composable
 private fun BubbleFooterV2(bubble: BuddyBubble) {
-    val (color, text) = when (bubble) {
-        is BuddyBubble.Transcript -> HandyDesign.Colors.Honey to bubble.text
-        is BuddyBubble.Action -> HandyDesign.Colors.Act to bubble.text
-        is BuddyBubble.Response -> HandyDesign.Colors.Accent to bubble.text
-        is BuddyBubble.Navigation -> HandyDesign.Colors.Point to bubble.text
+    val color = when (bubble.tone) {
+        BubbleTone.ACCENT -> HandyDesign.Colors.Accent
+        BubbleTone.MUTED -> HandyDesign.Colors.TextMuted
+        BubbleTone.VIOLET -> HandyDesign.Colors.Violet
+        BubbleTone.HONEY -> HandyDesign.Colors.Honey
+        BubbleTone.POINT -> HandyDesign.Colors.Point
+        BubbleTone.ACT -> HandyDesign.Colors.Act
+        BubbleTone.DANGER -> HandyDesign.Colors.Danger
     }
+    val text = listOfNotNull(bubble.prefix, bubble.label).joinToString(" — ")
     if (text.isBlank()) return
     Box(
         modifier = Modifier

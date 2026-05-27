@@ -1,6 +1,7 @@
 package com.handy.app.accessibility
 
 import com.google.common.truth.Truth.assertThat
+import com.handy.app.overlay.OverlayPresenter
 import com.handy.core.action.ActionPolicyEngine
 import com.handy.core.action.ActionRisk
 import com.handy.core.action.AssistantAction
@@ -34,6 +35,7 @@ class PolicyGuardedActionPerformerSemanticTest {
             policyEngine = policy,
             liveScreenGuard = liveScreenGuard,
             learnedAllowlistStore = mockk<LearnedAllowlistStore>(relaxed = true),
+            presenter = mockk<OverlayPresenter>(relaxed = true),
         )
 
         val result = performer.tap(

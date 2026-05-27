@@ -123,6 +123,7 @@ class AgentSessionController @Inject constructor(
                 val preflight = preflight(plan, initialGrounding, provenance)
                 val denied = preflight.firstOrNull { !it.decision.allowed }
                 if (denied != null) {
+                    presenter.onBlockedBubble(denied.decision.reason ?: "blocked")
                     showError("policy refused ${denied.step.title}: ${denied.decision.reason ?: "denied"}")
                     return true
                 }
@@ -311,6 +312,11 @@ class AgentSessionController @Inject constructor(
                 )
             }
             is RecipeRunEvent.StepStarted -> {
+                presenter.onRecipeStepBubble(
+                    stepIndex = event.stepIndex + 1,
+                    stepCount = event.stepCount,
+                    label = event.step.title,
+                )
                 _progress.value = AgentProgressBubbleState(
                     visible = true,
                     title = "Running recipe",

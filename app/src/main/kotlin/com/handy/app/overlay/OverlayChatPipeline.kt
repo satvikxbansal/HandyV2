@@ -18,6 +18,7 @@ import com.handy.core.orchestrator.OrchestrationRequest
 import com.handy.core.overlay.FallbackPointInferer
 import com.handy.core.overlay.PanelContent
 import com.handy.core.overlay.PanelSnapshot
+import com.handy.core.overlay.WebToolProvider
 import com.handy.core.overlay.withStableMarkIds
 import com.handy.core.agent.UserGoal
 import com.handy.core.parsing.AssistantMarkupParser
@@ -192,8 +193,12 @@ class OverlayChatPipeline @Inject constructor(
             runCatching {
                 orchestrator.converse(request).collect { event ->
                     when (event) {
-                        is OrchestrationEvent.LoadingVerb ->
+                        is OrchestrationEvent.LoadingVerb -> {
                             presenter.setLoadingVerb(event.verb)
+                            if (!presenter.state.value.isPanelVisible) {
+                                presenter.onThinkingBubble()
+                            }
+                        }
                         is OrchestrationEvent.StreamingDelta ->
                             presenter.onStreamingDelta(
                                 AssistantMarkupParser.stripDisplayMarkup(event.accumulated),
@@ -222,8 +227,12 @@ class OverlayChatPipeline @Inject constructor(
                             presenter.onError(event.message)
                         }
                         is OrchestrationEvent.ToolCall,
-                        is OrchestrationEvent.WebSearchStatus,
                         is OrchestrationEvent.UserTurnPersisted -> Unit
+                        is OrchestrationEvent.WebSearchStatus ->
+                            presenter.onWebToolBubble(
+                                provider = WebToolProvider.fromVerb(event.text),
+                                providerLabel = event.text,
+                            )
                         is OrchestrationEvent.SystemMessageInjected -> {
                             finalChatText = event.message.content
                             finalOverlaySpoken = fallbackOverlayClamp(event.message.content)
@@ -244,7 +253,11 @@ class OverlayChatPipeline @Inject constructor(
                 ?.takeIf { it.isNotBlank() }
                 ?: fallbackOverlayClamp(displayChatText)
             if (displayChatText.isNotBlank()) {
-                presenter.onResponseFinalized(displayOverlaySpoken, displayChatText)
+                presenter.onResponseFinalized(
+                    displayOverlaySpoken,
+                    displayChatText,
+                    fromVoice = fromVoice,
+                )
             }
             val fallbackMarks = groundedSnapshot?.marks.orEmpty().withStableMarkIds()
             if (recipesEnabled) {

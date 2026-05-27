@@ -1,5 +1,6 @@
 package com.handy.app.widget
 
+import android.app.Application
 import android.os.Looper
 import com.google.common.truth.Truth.assertThat
 import java.util.concurrent.TimeUnit
@@ -10,7 +11,7 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
+@Config(sdk = [35], application = Application::class)
 class BezierFlightControllerReduceMotionTest {
 
     @Test
