@@ -257,6 +257,7 @@ private fun BubbleIcon.drawableRes(): Int = when (this) {
     BubbleIcon.WARNING -> R.drawable.ic_phosphor_warning
     BubbleIcon.CURSOR -> R.drawable.ic_lucide_cursor
     BubbleIcon.GLOBE -> R.drawable.ic_globe
+    BubbleIcon.FLAG -> R.drawable.ic_lucide_flag
 }
 
 private const val SurfaceSlot = "surface"

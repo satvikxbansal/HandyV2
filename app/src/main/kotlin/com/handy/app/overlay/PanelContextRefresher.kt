@@ -39,8 +39,8 @@ class PanelContextRefresher @Inject constructor(
 ) {
     private val mutex = Mutex()
     private var job: Job? = null
-    private var pendingForeground: ForegroundAppSnapshot? = null
-    private var refreshingForeground: ForegroundAppSnapshot? = null
+    private var pendingTarget: PanelContextTarget? = null
+    private var refreshingTarget: PanelContextTarget? = null
 
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     fun start(scope: CoroutineScope) {
@@ -52,21 +52,18 @@ class PanelContextRefresher @Inject constructor(
                         .map { it.mode == OverlayMode.ChatPanel }
                         .distinctUntilChanged()
                         .flatMapLatest { visible ->
-                            println("PCR visible=$visible")
                             if (visible) {
-                                foregroundAppMonitor.flow.debounce(FOREGROUND_SETTLE_MS)
+                                foregroundAppMonitor.panelContextFlow.debounce(FOREGROUND_SETTLE_MS)
                             } else {
                                 emptyFlow()
                             }
                         }
                         .collectLatest { foreground ->
-                            println("PCR collect ${foreground.appLabel}")
-                            enqueue(foreground)
+                            enqueue(PanelContextTarget.from(foreground))
                         }
                 }
                 launch {
                     presenter.state.collect {
-                        println("PCR state buddy=${it.buddyState} streaming=${it.panel.isStreaming}")
                         applyPendingIfPossible()
                     }
                 }
@@ -77,83 +74,90 @@ class PanelContextRefresher @Inject constructor(
     fun stop() {
         job?.cancel()
         job = null
-        pendingForeground = null
-        refreshingForeground = null
+        pendingTarget = null
+        refreshingTarget = null
         presenter.clearPanelContextRefresh()
     }
 
-    private suspend fun enqueue(foreground: ForegroundAppSnapshot) {
-        println("PCR enqueue ${foreground.appLabel}")
+    private suspend fun enqueue(target: PanelContextTarget) {
         mutex.withLock {
-            pendingForeground = foreground
+            pendingTarget = target
         }
         applyPendingIfPossible()
     }
 
     private suspend fun applyPendingIfPossible() {
-        val foreground = mutex.withLock {
-            val candidate = pendingForeground
-            if (candidate == null || refreshingForeground != null) {
+        val target = mutex.withLock {
+            val candidate = pendingTarget
+            if (candidate == null || refreshingTarget != null) {
                 null
             } else {
-                refreshingForeground = candidate
+                refreshingTarget = candidate
                 candidate
             }
         } ?: return
 
-        when (presenter.beginPanelContextRefresh(foreground)) {
-            PanelContextRefreshStartResult.Ready -> {
-                println("PCR ready ${foreground.appLabel}")
-                Unit
-            }
+        when (beginRefresh(target)) {
+            PanelContextRefreshStartResult.Ready -> Unit
             PanelContextRefreshStartResult.Deferred -> {
-                println("PCR deferred ${foreground.appLabel}")
                 mutex.withLock {
-                    if (refreshingForeground.matchesContext(foreground)) {
-                        refreshingForeground = null
+                    if (refreshingTarget.matchesContext(target)) {
+                        refreshingTarget = null
                     }
                 }
                 return
             }
             PanelContextRefreshStartResult.Ignored -> {
                 mutex.withLock {
-                    if (pendingForeground.matchesContext(foreground)) {
-                        pendingForeground = null
+                    if (pendingTarget.matchesContext(target)) {
+                        pendingTarget = null
                     }
-                    if (refreshingForeground.matchesContext(foreground)) {
-                        refreshingForeground = null
+                    if (refreshingTarget.matchesContext(target)) {
+                        refreshingTarget = null
                     }
                 }
                 return
             }
         }
 
-        val marks = readMarksFor(foreground)
-        val latest = mutex.withLock { pendingForeground }
-        if (!latest.matchesContext(foreground)) {
+        val marks = when (target) {
+            is PanelContextTarget.App -> readMarksFor(target.foreground)
+            PanelContextTarget.NoForegroundApp -> emptyList()
+        }
+        val latest = mutex.withLock { pendingTarget }
+        if (!latest.matchesContext(target)) {
             presenter.clearPanelContextRefresh()
             mutex.withLock {
-                if (refreshingForeground.matchesContext(foreground)) {
-                    refreshingForeground = null
+                if (refreshingTarget.matchesContext(target)) {
+                    refreshingTarget = null
                 }
             }
             applyPendingIfPossible()
             return
         }
 
-        val applied = presenter.applyPanelContextRefresh(
-            foreground = foreground,
-            marks = marks,
-        )
+        val applied = when (target) {
+            is PanelContextTarget.App -> presenter.applyPanelContextRefresh(
+                foreground = target.foreground,
+                marks = marks,
+            )
+            PanelContextTarget.NoForegroundApp -> presenter.applyPanelContextClear()
+        }
         mutex.withLock {
-            if (refreshingForeground.matchesContext(foreground)) {
-                refreshingForeground = null
+            if (refreshingTarget.matchesContext(target)) {
+                refreshingTarget = null
             }
-            if (applied && pendingForeground.matchesContext(foreground)) {
-                pendingForeground = null
+            if (applied && pendingTarget.matchesContext(target)) {
+                pendingTarget = null
             }
         }
     }
+
+    private fun beginRefresh(target: PanelContextTarget): PanelContextRefreshStartResult =
+        when (target) {
+            is PanelContextTarget.App -> presenter.beginPanelContextRefresh(target.foreground)
+            PanelContextTarget.NoForegroundApp -> presenter.beginPanelContextClear()
+        }
 
     private suspend fun readMarksFor(
         foreground: ForegroundAppSnapshot,
@@ -170,12 +174,28 @@ class PanelContextRefresher @Inject constructor(
                 .getOrElse { emptyList() }
         }
 
-    private fun ForegroundAppSnapshot.sameContextAs(other: ForegroundAppSnapshot): Boolean =
-        packageName == other.packageName &&
-            umbrellaSiteLabel == other.umbrellaSiteLabel
+    private fun PanelContextTarget.sameContextAs(other: PanelContextTarget): Boolean =
+        when {
+            this is PanelContextTarget.NoForegroundApp &&
+                other is PanelContextTarget.NoForegroundApp -> true
+            this is PanelContextTarget.App && other is PanelContextTarget.App ->
+                foreground.packageName == other.foreground.packageName &&
+                    foreground.umbrellaSiteLabel == other.foreground.umbrellaSiteLabel
+            else -> false
+        }
 
-    private fun ForegroundAppSnapshot?.matchesContext(other: ForegroundAppSnapshot): Boolean =
+    private fun PanelContextTarget?.matchesContext(other: PanelContextTarget): Boolean =
         this != null && sameContextAs(other)
+
+    private sealed class PanelContextTarget {
+        data class App(val foreground: ForegroundAppSnapshot) : PanelContextTarget()
+        object NoForegroundApp : PanelContextTarget()
+
+        companion object {
+            fun from(foreground: ForegroundAppSnapshot?): PanelContextTarget =
+                foreground?.let(::App) ?: NoForegroundApp
+        }
+    }
 
     private companion object {
         const val FOREGROUND_SETTLE_MS: Long = 280L

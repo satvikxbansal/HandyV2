@@ -643,6 +643,12 @@ private fun sideBubblePreviewCases(): List<BubblePreviewCase> = listOf(
         widgetState = WidgetState.IDLE,
     ),
     BubblePreviewCase(
+        title = "Privacy foreground stop",
+        detail = "Danger state when the original app is no longer foregrounded.",
+        bubble = BuddyBubble.foregroundPrivacyStop(),
+        widgetState = WidgetState.IDLE,
+    ),
+    BubblePreviewCase(
         title = "Wrong target",
         detail = "Small amber undo bubble with back icon.",
         bubble = BuddyBubble.wrongTarget(),
@@ -709,5 +715,11 @@ private fun iconSamples(): List<IconSample> = listOf(
         fileName = "ic_globe.xml",
         drawableRes = R.drawable.ic_globe,
         tone = HandyDesign.Colors.Violet,
+    ),
+    IconSample(
+        label = "Flag",
+        fileName = "ic_lucide_flag.xml",
+        drawableRes = R.drawable.ic_lucide_flag,
+        tone = HandyDesign.Colors.Danger,
     ),
 )

@@ -77,6 +77,44 @@ class OverlayPresenterPanelContextRefreshTest {
     }
 
     @Test
+    fun `idle panel clear removes stale snapshot and keeps prior response preview`() {
+        val presenter = presenter(initialForeground = photos())
+
+        presenter.onWidgetTap()
+        presenter.onStreamingStart()
+        presenter.onResponseFinalized(overlayClamped = null, chatText = "Last answer")
+
+        val begin = presenter.beginPanelContextClear()
+        val applied = presenter.applyPanelContextClear()
+
+        val panel = presenter.state.value.panel
+        assertThat(begin).isEqualTo(PanelContextRefreshStartResult.Ready)
+        assertThat(applied).isTrue()
+        assertThat(panel.snapshot).isNull()
+        assertThat(panel.greeting).isEqualTo("What can I help you with?")
+        assertThat(panel.recentResponsePreview).isEqualTo("Last answer")
+        assertThat(panel.contextRefreshInProgress).isFalse()
+        assertThat(panel.contextRefreshPreviewGreeting).isNull()
+        assertThat(panel.contextRefreshPreviewLabel).isNull()
+    }
+
+    @Test
+    fun `busy panel defers clear without changing snapshot`() {
+        val presenter = presenter(initialForeground = photos())
+
+        presenter.onWidgetTap()
+        presenter.onStreamingStart()
+
+        val begin = presenter.beginPanelContextClear()
+        val applied = presenter.applyPanelContextClear()
+
+        assertThat(begin).isEqualTo(PanelContextRefreshStartResult.Deferred)
+        assertThat(applied).isFalse()
+        assertThat(presenter.state.value.panel.snapshot?.toolContext?.displayLabel)
+            .isEqualTo("Photos")
+    }
+
+    @Test
     fun `dismissed panel ignores refresh`() {
         val presenter = presenter(initialForeground = photos())
 

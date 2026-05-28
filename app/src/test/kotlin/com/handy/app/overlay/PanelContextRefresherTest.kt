@@ -31,12 +31,12 @@ class PanelContextRefresherTest {
     @Test
     fun `debounce applies only the latest foreground snapshot`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val foregroundEvents = MutableSharedFlow<ForegroundAppSnapshot>(
+        val foregroundEvents = MutableSharedFlow<ForegroundAppSnapshot?>(
             replay = 1,
             extraBufferCapacity = 4,
         )
         val monitor = mockk<HandyForegroundAppMonitor>(relaxed = true)
-        every { monitor.flow } returns foregroundEvents
+        every { monitor.panelContextFlow } returns foregroundEvents
         every { monitor.refreshNow() } returns photos()
         val presenter = OverlayPresenter(monitor)
         presenter.onWidgetTap()
@@ -50,8 +50,8 @@ class PanelContextRefresherTest {
             foregroundAppMonitor = monitor,
             marksProvider = marksProvider,
         )
-        refresher.start(backgroundScope)
-        refresher.start(backgroundScope)
+        refresher.start(this)
+        refresher.start(this)
         advanceUntilIdle()
 
         foregroundEvents.emit(gmail())
@@ -72,12 +72,12 @@ class PanelContextRefresherTest {
     @Test
     fun `busy panel queues foreground until presenter is quiet`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val foregroundEvents = MutableSharedFlow<ForegroundAppSnapshot>(
+        val foregroundEvents = MutableSharedFlow<ForegroundAppSnapshot?>(
             replay = 1,
             extraBufferCapacity = 4,
         )
         val monitor = mockk<HandyForegroundAppMonitor>(relaxed = true)
-        every { monitor.flow } returns foregroundEvents
+        every { monitor.panelContextFlow } returns foregroundEvents
         every { monitor.refreshNow() } returns photos()
         val presenter = OverlayPresenter(monitor)
         presenter.onWidgetTap()
@@ -91,7 +91,7 @@ class PanelContextRefresherTest {
             foregroundAppMonitor = monitor,
             marksProvider = marksProvider,
         )
-        refresher.start(backgroundScope)
+        refresher.start(this)
         advanceUntilIdle()
 
         foregroundEvents.emit(youtube())
@@ -103,7 +103,6 @@ class PanelContextRefresherTest {
         verify(exactly = 0) { marksProvider.collectForPackage("com.google.android.youtube") }
 
         presenter.onResponseFinalized(overlayClamped = null, chatText = "done")
-        println("TEST after finalized buddy=${presenter.state.value.buddyState} streaming=${presenter.state.value.panel.isStreaming}")
         advanceUntilIdle()
 
         assertThat(presenter.state.value.panel.snapshot?.toolContext?.displayLabel)
@@ -115,12 +114,12 @@ class PanelContextRefresherTest {
     @Test
     fun `busy panel keeps only the latest pending foreground`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val foregroundEvents = MutableSharedFlow<ForegroundAppSnapshot>(
+        val foregroundEvents = MutableSharedFlow<ForegroundAppSnapshot?>(
             replay = 1,
             extraBufferCapacity = 4,
         )
         val monitor = mockk<HandyForegroundAppMonitor>(relaxed = true)
-        every { monitor.flow } returns foregroundEvents
+        every { monitor.panelContextFlow } returns foregroundEvents
         every { monitor.refreshNow() } returns photos()
         val presenter = OverlayPresenter(monitor)
         presenter.onWidgetTap()
@@ -135,7 +134,7 @@ class PanelContextRefresherTest {
             foregroundAppMonitor = monitor,
             marksProvider = marksProvider,
         )
-        refresher.start(backgroundScope)
+        refresher.start(this)
         advanceUntilIdle()
 
         foregroundEvents.emit(gmail())
@@ -155,6 +154,115 @@ class PanelContextRefresherTest {
             .isEqualTo("YouTube")
         verify(exactly = 0) { marksProvider.collectForPackage("com.google.android.gm") }
         verify(exactly = 1) { marksProvider.collectForPackage("com.google.android.youtube") }
+        refresher.stop()
+    }
+
+    @Test
+    fun `home foreground clears stale panel context when idle`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val foregroundEvents = MutableSharedFlow<ForegroundAppSnapshot?>(
+            replay = 1,
+            extraBufferCapacity = 4,
+        )
+        val monitor = mockk<HandyForegroundAppMonitor>(relaxed = true)
+        every { monitor.panelContextFlow } returns foregroundEvents
+        every { monitor.refreshNow() } returns photos()
+        val presenter = OverlayPresenter(monitor)
+        presenter.onWidgetTap()
+
+        val marksProvider = mockk<AccessibilityMarksProvider>(relaxed = true)
+        val refresher = PanelContextRefresher(
+            presenter = presenter,
+            foregroundAppMonitor = monitor,
+            marksProvider = marksProvider,
+        )
+        refresher.start(this)
+        advanceUntilIdle()
+
+        foregroundEvents.emit(null)
+        advanceTimeBy(281)
+        advanceUntilIdle()
+
+        assertThat(presenter.state.value.panel.snapshot).isNull()
+        assertThat(presenter.state.value.panel.greeting).isEqualTo("What can I help you with?")
+        assertThat(presenter.state.value.panel.contextRefreshInProgress).isFalse()
+        refresher.stop()
+    }
+
+    @Test
+    fun `home foreground waits for busy panel to become quiet`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val foregroundEvents = MutableSharedFlow<ForegroundAppSnapshot?>(
+            replay = 1,
+            extraBufferCapacity = 4,
+        )
+        val monitor = mockk<HandyForegroundAppMonitor>(relaxed = true)
+        every { monitor.panelContextFlow } returns foregroundEvents
+        every { monitor.refreshNow() } returns photos()
+        val presenter = OverlayPresenter(monitor)
+        presenter.onWidgetTap()
+        presenter.onStreamingStart()
+
+        val marksProvider = mockk<AccessibilityMarksProvider>(relaxed = true)
+        val refresher = PanelContextRefresher(
+            presenter = presenter,
+            foregroundAppMonitor = monitor,
+            marksProvider = marksProvider,
+        )
+        refresher.start(this)
+        advanceUntilIdle()
+
+        foregroundEvents.emit(null)
+        advanceTimeBy(281)
+        advanceUntilIdle()
+
+        assertThat(presenter.state.value.panel.snapshot?.toolContext?.displayLabel)
+            .isEqualTo("Photos")
+
+        presenter.onResponseFinalized(overlayClamped = null, chatText = "done")
+        advanceUntilIdle()
+
+        assertThat(presenter.state.value.panel.snapshot).isNull()
+        assertThat(presenter.state.value.panel.greeting).isEqualTo("What can I help you with?")
+        refresher.stop()
+    }
+
+    @Test
+    fun `latest pending home foreground wins over earlier app switch`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val foregroundEvents = MutableSharedFlow<ForegroundAppSnapshot?>(
+            replay = 1,
+            extraBufferCapacity = 4,
+        )
+        val monitor = mockk<HandyForegroundAppMonitor>(relaxed = true)
+        every { monitor.panelContextFlow } returns foregroundEvents
+        every { monitor.refreshNow() } returns photos()
+        val presenter = OverlayPresenter(monitor)
+        presenter.onWidgetTap()
+        presenter.onStreamingStart()
+
+        val marksProvider = mockk<AccessibilityMarksProvider>(relaxed = true)
+        val refresher = PanelContextRefresher(
+            presenter = presenter,
+            foregroundAppMonitor = monitor,
+            marksProvider = marksProvider,
+        )
+        refresher.start(this)
+        advanceUntilIdle()
+
+        foregroundEvents.emit(youtube())
+        advanceTimeBy(281)
+        advanceUntilIdle()
+        foregroundEvents.emit(null)
+        advanceTimeBy(281)
+        advanceUntilIdle()
+
+        presenter.onResponseFinalized(overlayClamped = null, chatText = "done")
+        advanceUntilIdle()
+
+        assertThat(presenter.state.value.panel.snapshot).isNull()
+        assertThat(presenter.state.value.panel.greeting).isEqualTo("What can I help you with?")
+        verify(exactly = 0) { marksProvider.collectForPackage("com.google.android.youtube") }
         refresher.stop()
     }
 

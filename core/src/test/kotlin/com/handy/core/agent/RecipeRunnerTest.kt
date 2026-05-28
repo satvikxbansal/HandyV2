@@ -85,6 +85,26 @@ class RecipeRunnerTest {
         assertThat(result).isEqualTo(RecipeRunResult.Aborted("package-changed"))
     }
 
+    @Test fun `aborts when fresh snapshot has no visible package for expected app`() = runTest {
+        val snapshots = SnapshotQueue(
+            snapshot("com.example.app", mark("Search", "m1")),
+            noVisibleContext("com.example.app"),
+        )
+        val performer = FakePerformer()
+        val runner = RecipeRunner(
+            performer = performer,
+            policy = FakePolicy(),
+            snapshotProvider = snapshots,
+            planConfirmer = RecipePlanConfirmer { _, _, _ -> true },
+            sensitiveStepConfirmer = RecipeSensitiveStepConfirmer { _, _, _, _ -> true },
+        )
+
+        val result = runner.run(fakePlan(stepCount = 1))
+
+        assertThat(result).isEqualTo(RecipeRunResult.Aborted("package-changed"))
+        assertThat(performer.calls).isEmpty()
+    }
+
     @Test fun `refuses more than six steps`() = runTest {
         val steps = (1..7).map { index ->
             RecipeStep(
@@ -503,6 +523,14 @@ class RecipeRunnerTest {
             windowBounds = IntRect(0, 0, 400, 800),
         )
     }
+
+    private fun noVisibleContext(packageName: String): GroundingSnapshot =
+        GroundingSnapshot(
+            requestId = "test",
+            source = TurnSource.TEST,
+            toolContext = ToolContext(packageName = packageName, appLabel = "Example"),
+            windowBounds = IntRect(0, 0, 400, 800),
+        )
 
     private fun mark(text: String, markId: String): AccessibilityMark =
         AccessibilityMark(

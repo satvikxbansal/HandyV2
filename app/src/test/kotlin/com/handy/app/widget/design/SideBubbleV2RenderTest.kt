@@ -63,6 +63,7 @@ class SideBubbleV2RenderTest {
         BuddyBubble.recipeStep(2, 5, "Open Alarms tab"),
         BuddyBubble.blocked("Blocked · Incognito mode"),
         BuddyBubble.failed("Couldn't tap", "View is no longer visible. Try again?"),
+        BuddyBubble.foregroundPrivacyStop(),
         BuddyBubble.wrongTarget(),
         BuddyBubble.ambiguous("Which one?", "3 matches for \"Storage\""),
     )

@@ -30,6 +30,7 @@ import com.handy.core.screen.TurnSource
 import com.handy.core.tool.ToolContext
 import com.handy.runtime.intent.AndroidIntentDispatcher
 import com.handy.runtime.intent.LaunchableAppIndex
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -116,6 +117,43 @@ class AgentSessionControllerTest {
         )
     }
 
+    @Test fun `recipe package change shows foreground privacy stop bubble`() = runTest {
+        val presenter = mockk<OverlayPresenter>(relaxed = true)
+        coEvery {
+            presenter.requestTapForMeConfirmation(any(), any(), any(), any(), any(), any(), any())
+        } returns true
+        val screenContextBuilder = mockk<ScreenContextBuilder>()
+        coEvery {
+            screenContextBuilder.build(any(), any(), any(), any(), any(), any())
+        } returns grounding(packageName = "com.other.app", appLabel = "Other")
+        val controller = AgentSessionController(
+            context = mockk<Context>(relaxed = true),
+            presenter = presenter,
+            screenContextBuilder = screenContextBuilder,
+            actionPerformer = mockk<ActionPerformer>(relaxed = true),
+            policyEngine = RecordingPolicy(),
+            intentDispatcher = mockk<AndroidIntentDispatcher>(relaxed = true),
+            launchableAppIndex = mockk<LaunchableAppIndex>(relaxed = true),
+            flightDriver = mockk<BuddyFlightDriver>(relaxed = true),
+            speechOutputController = mockk<SpeechOutputController>(relaxed = true),
+            auditStore = InMemoryAuditStore(),
+            resultVerifier = ResultVerifier.Default,
+        )
+
+        val handled = controller.runIfRecipeRequested(
+            assistantText = """use recipe tap_visible with args {"label":"Continue","role":"button"}""",
+            userText = "tap continue",
+            initialGrounding = grounding(),
+            source = TurnSource.OVERLAY_PANEL,
+            toolContext = ToolContext(packageName = "com.example.app", appLabel = "Example"),
+        )
+
+        assertThat(handled).isTrue()
+        assertThat(controller.progress.value).isEqualTo(AgentProgressBubbleState.Hidden)
+        verify(exactly = 1) { presenter.onForegroundPrivacyStopBubble() }
+        verify(exactly = 0) { presenter.onError(any()) }
+    }
+
     @Test fun `plan preview contains recipe metadata and first three visible steps`() {
         val plan = RecipePlan(
             recipeId = "alarm",
@@ -177,8 +215,11 @@ class AgentSessionControllerTest {
         }
     }
 
-    private fun grounding(): GroundingSnapshot {
-        val toolContext = ToolContext(packageName = "com.example.app", appLabel = "Example")
+    private fun grounding(
+        packageName: String = "com.example.app",
+        appLabel: String = "Example",
+    ): GroundingSnapshot {
+        val toolContext = ToolContext(packageName = packageName, appLabel = appLabel)
         return GroundingSnapshot(
             requestId = "agent-test",
             source = TurnSource.TEST,

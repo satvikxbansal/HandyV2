@@ -3,6 +3,7 @@ package com.handy.app.foreground
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
@@ -52,14 +53,26 @@ class HandyForegroundAppMonitor @Inject constructor(
         extraBufferCapacity = 4,
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
+    private val _panelContextFlow = MutableSharedFlow<ForegroundAppSnapshot?>(
+        replay = 1,
+        extraBufferCapacity = 4,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
     override val flow: Flow<ForegroundAppSnapshot> =
         _flow.asSharedFlow().distinctUntilChanged { old, new ->
             old.packageName == new.packageName &&
                 old.umbrellaSiteLabel == new.umbrellaSiteLabel
         }
+    val panelContextFlow: Flow<ForegroundAppSnapshot?> =
+        _panelContextFlow.asSharedFlow().distinctUntilChanged { old, new ->
+            old?.packageName == new?.packageName &&
+                old?.umbrellaSiteLabel == new?.umbrellaSiteLabel
+        }
 
     @Volatile
     private var lastSnapshot: ForegroundAppSnapshot? = null
+    @Volatile
+    private var recentFallbackSwitch: RecentFallbackSwitch? = null
 
     fun lastKnownSnapshot(): ForegroundAppSnapshot? = lastSnapshot
 
@@ -81,25 +94,57 @@ class HandyForegroundAppMonitor @Inject constructor(
         rootInActiveWindow: AccessibilityNodeInfo?,
     ) {
         if (event.eventType !in FOREGROUND_EVENT_TYPES) return
+        val isWindowStateChanged = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+        val eventPackage = event.packageName?.toString()?.takeIf { it.isNotBlank() }
+        if (isWindowStateChanged && eventPackage != null && isHomeLauncherPackage(eventPackage)) {
+            clearSnapshot(source = "event-package-no-app")
+            return
+        }
+        val activeRootPackage = rootInActiveWindow
+            ?.packageName
+            ?.toString()
+            ?.takeIf { it.isNotBlank() }
+        if (activeRootPackage != null && isHomeLauncherPackage(activeRootPackage)) {
+            clearSnapshot(source = "event-root-no-app")
+            return
+        }
+
         val windowDetection = detectTopApplicationSnapshot()
         if (windowDetection.snapshot != null) {
             emitSnapshot(windowDetection.snapshot, source = "event-windows")
             return
         }
         if (windowDetection.sawLauncher) {
-            lastSnapshot = null
+            clearSnapshot(source = "event-windows-no-app")
             return
         }
 
-        val pkg = event.packageName?.toString()?.takeIf { it.isNotBlank() } ?: return
+        // TYPE_WINDOWS_CHANGED reports that a window was added, removed, or
+        // reordered. Its package can belong to the window that just went away,
+        // so use it only to trigger the top-window scan above; never accept the
+        // raw event package as the foreground app fallback.
+        if (!isWindowStateChanged) return
+
+        val pkg = eventPackage ?: return
         if (isSelfPackage(pkg) || isInputMethod(pkg)) return
-        if (isLauncher(pkg)) {
-            lastSnapshot = null
+        if (isHomeLauncherPackage(pkg)) {
+            clearSnapshot(source = "event-root-no-app")
+            return
+        }
+        if (isSystemUiPackage(pkg)) return
+        if (isLikelyStaleFallbackReversion(pkg, event.eventTime)) {
+            Timber.d(
+                "ForegroundAppMonitor.event-root: ignored stale fallback reversion to %s",
+                pkg,
+            )
             return
         }
 
         val snapshot = buildSnapshot(pkg, rootInActiveWindow)
-        if (snapshot != null) emitSnapshot(snapshot, source = "event-root")
+        if (snapshot != null) {
+            recordFallbackSwitch(snapshot.packageName, event.eventTime)
+            emitSnapshot(snapshot, source = "event-root")
+        }
     }
 
     /**
@@ -120,7 +165,7 @@ class HandyForegroundAppMonitor @Inject constructor(
             emitSnapshot(detection.snapshot, source = "refreshNow")
             return detection.snapshot
         }
-        if (detection.sawLauncher) lastSnapshot = null
+        if (detection.sawLauncher) clearSnapshot(source = "refreshNow-no-app")
         Timber.d("ForegroundAppMonitor.refreshNow: no non-launcher app window visible")
         return null
     }
@@ -129,9 +174,10 @@ class HandyForegroundAppMonitor @Inject constructor(
         val service = accessibilityServiceProvider() ?: return WindowDetection()
         val windows = runCatching { service.windows }.getOrNull()
             ?: return WindowDetection()
-        // Sort topmost-first. If the top application surface is Handy,
-        // launcher, Recents, or System UI, stop instead of scanning to a
-        // lower stale app window hidden behind that surface.
+        // Sort topmost-first. Handy's overlay can be the focused/top
+        // accessibility window while the host app remains visible below it,
+        // so self windows are skipped. Launcher/Recents/System UI still stop
+        // the scan so we do not fall through to stale hidden app windows.
         val candidates = windows
             .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
             .sortedByDescending { it.layer }
@@ -142,7 +188,7 @@ class HandyForegroundAppMonitor @Inject constructor(
                 val pkg = root.packageName?.toString()?.takeIf { it.isNotBlank() }
                     ?: continue
                 if (isInputMethod(pkg)) continue
-                if (isSelfPackage(pkg)) return WindowDetection()
+                if (isSelfPackage(pkg)) continue
                 if (isLauncher(pkg)) {
                     return WindowDetection(sawLauncher = true)
                 }
@@ -159,6 +205,7 @@ class HandyForegroundAppMonitor @Inject constructor(
     private fun emitSnapshot(snapshot: ForegroundAppSnapshot, source: String) {
         lastSnapshot = snapshot
         _flow.tryEmit(snapshot)
+        _panelContextFlow.tryEmit(snapshot)
         Timber.d(
             "ForegroundAppMonitor.%s: emitted %s (pkg=%s site=%s)",
             source,
@@ -168,10 +215,58 @@ class HandyForegroundAppMonitor @Inject constructor(
         )
     }
 
+    private fun clearSnapshot(source: String) {
+        if (lastSnapshot != null) {
+            Timber.d(
+                "ForegroundAppMonitor.%s: clearing foreground snapshot (last=%s)",
+                source,
+                lastSnapshot?.packageName,
+            )
+        }
+        lastSnapshot = null
+        _panelContextFlow.tryEmit(null)
+    }
+
     private data class WindowDetection(
         val snapshot: ForegroundAppSnapshot? = null,
         val sawLauncher: Boolean = false,
     )
+
+    private data class RecentFallbackSwitch(
+        val fromPackage: String,
+        val toPackage: String,
+        val acceptedEventTimeMs: Long,
+        val acceptedUptimeMs: Long,
+    )
+
+    private fun recordFallbackSwitch(
+        newPackage: String,
+        eventTimeMs: Long,
+    ) {
+        val previousPackage = lastSnapshot?.packageName ?: return
+        if (previousPackage == newPackage) return
+        recentFallbackSwitch = RecentFallbackSwitch(
+            fromPackage = previousPackage,
+            toPackage = newPackage,
+            acceptedEventTimeMs = eventTimeMs,
+            acceptedUptimeMs = SystemClock.uptimeMillis(),
+        )
+    }
+
+    private fun isLikelyStaleFallbackReversion(
+        packageName: String,
+        eventTimeMs: Long,
+    ): Boolean {
+        val recent = recentFallbackSwitch ?: return false
+        if (lastSnapshot?.packageName != recent.toPackage) return false
+        if (packageName != recent.fromPackage) return false
+        return if (eventTimeMs > 0 && recent.acceptedEventTimeMs > 0) {
+            val eventDeltaMs = eventTimeMs - recent.acceptedEventTimeMs
+            eventDeltaMs in -STALE_FALLBACK_REVERSION_MS..STALE_FALLBACK_REVERSION_MS
+        } else {
+            SystemClock.uptimeMillis() - recent.acceptedUptimeMs in 0..STALE_FALLBACK_REVERSION_MS
+        }
+    }
 
     private fun buildSnapshot(
         packageName: String,
@@ -215,7 +310,14 @@ class HandyForegroundAppMonitor @Inject constructor(
      * `PackageManager` on every event.
      */
     private fun isLauncher(packageName: String): Boolean {
-        if (packageName in SYSTEM_UI_DENYLIST) return true
+        if (isSystemUiPackage(packageName)) return true
+        return isHomeLauncherPackage(packageName)
+    }
+
+    private fun isSystemUiPackage(packageName: String): Boolean =
+        packageName in SYSTEM_UI_DENYLIST
+
+    private fun isHomeLauncherPackage(packageName: String): Boolean {
         val cached = launcherPackagesCache
         if (cached != null) return packageName in cached
         val resolved = resolveLauncherPackages()
@@ -282,6 +384,7 @@ class HandyForegroundAppMonitor @Inject constructor(
 
     private companion object {
         const val URL_SEARCH_NODE_BUDGET = 80
+        const val STALE_FALLBACK_REVERSION_MS = 900L
 
         val FOREGROUND_EVENT_TYPES: Set<Int> = setOf(
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,

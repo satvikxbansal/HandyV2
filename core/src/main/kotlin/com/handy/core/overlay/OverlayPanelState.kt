@@ -229,6 +229,15 @@ data class BuddyBubble(
                 leading = BubbleIcon.WARNING,
             )
 
+        /** Privacy foreground stop — danger + flag icon. */
+        fun foregroundPrivacyStop(): BuddyBubble =
+            BuddyBubble(
+                tone = BubbleTone.DANGER,
+                label = FOREGROUND_PRIVACY_STOP_LABEL,
+                prefix = "Privacy stop",
+                leading = BubbleIcon.FLAG,
+            )
+
         /** Wrong target / undo — accent + back icon + small. */
         fun wrongTarget(label: String = "Wrong one? Tap to undo."): BuddyBubble =
             BuddyBubble(
@@ -253,11 +262,14 @@ data class BuddyBubble(
             "tool-suggestion-only" -> "Blocked · Tool-suggested action"
             else -> if (label.startsWith("Blocked ·")) label else "Blocked · $label"
         }
+
+        const val FOREGROUND_PRIVACY_STOP_LABEL: String =
+            "Action stopped because app not detected in foreground for privacy reasons."
     }
 }
 
 enum class BubbleTone { ACCENT, MUTED, VIOLET, HONEY, POINT, ACT, DANGER }
-enum class BubbleIcon { HAND_TAP, KEYBOARD, RECIPE, BACK, WARNING, CURSOR, GLOBE }
+enum class BubbleIcon { HAND_TAP, KEYBOARD, RECIPE, BACK, WARNING, CURSOR, GLOBE, FLAG }
 enum class BubbleAnchor { LEFT, RIGHT }
 enum class WebToolProvider {
     BRAVE,

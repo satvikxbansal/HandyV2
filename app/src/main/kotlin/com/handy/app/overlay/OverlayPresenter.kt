@@ -794,6 +794,10 @@ class OverlayPresenter @Inject constructor(
     }
 
     fun onBlockedBubble(reason: String) {
+        if (reason.isForegroundPrivacyStopReason()) {
+            onForegroundPrivacyStopBubble()
+            return
+        }
         val label = when (reason) {
             "incognito" -> "Blocked · Incognito mode"
             "secure-window" -> "Blocked · Secure window"
@@ -806,8 +810,35 @@ class OverlayPresenter @Inject constructor(
     }
 
     fun onActionFailedBubble(prefix: String, label: String) {
+        if (prefix.isForegroundPrivacyStopReason() || label.isForegroundPrivacyStopReason()) {
+            onForegroundPrivacyStopBubble()
+            return
+        }
         setState(event = "onActionFailedBubble") { it.copy(
             bubble = BuddyBubble.failed(prefix, label),
+        ) }
+    }
+
+    fun onForegroundPrivacyStopBubble() {
+        clearManualTargetCandidates()
+        forceDocked(event = "onForegroundPrivacyStopBubble") { snapshot -> snapshot.copy(
+            mode = if (snapshot.mode == OverlayMode.ChatPanel) {
+                OverlayMode.ChatPanel
+            } else {
+                OverlayMode.IdleWidget
+            },
+            buddyState = BuddyState.DOCKED,
+            isFlying = false,
+            tapForMeConfirmation = null,
+            candidateOptions = null,
+            bubble = BuddyBubble.foregroundPrivacyStop(),
+            panel = snapshot.panel.copy(
+                isStreaming = false,
+                streamingDelta = "",
+                loadingVerb = "",
+                voiceNotice = "",
+                lowConfidenceTranscript = null,
+            ),
         ) }
     }
 
@@ -917,6 +948,45 @@ class OverlayPresenter @Inject constructor(
             newSnapshot.toolContext.umbrellaSiteLabel,
             marks.size,
         )
+        return true
+    }
+
+    fun beginPanelContextClear(): PanelContextRefreshStartResult {
+        val snapshot = _state.value
+        if (snapshot.mode != OverlayMode.ChatPanel) return PanelContextRefreshStartResult.Ignored
+        if (snapshot.panel.snapshot == null) {
+            clearPanelContextRefresh()
+            return PanelContextRefreshStartResult.Ignored
+        }
+        if (!snapshot.canRefreshPanelContextNow()) return PanelContextRefreshStartResult.Deferred
+        clearPanelContextRefresh()
+        return PanelContextRefreshStartResult.Ready
+    }
+
+    fun applyPanelContextClear(): Boolean {
+        val snapshot = _state.value
+        if (snapshot.mode != OverlayMode.ChatPanel) {
+            clearPanelContextRefresh()
+            return true
+        }
+        if (snapshot.panel.snapshot == null) {
+            clearPanelContextRefresh()
+            return true
+        }
+        if (!snapshot.canRefreshPanelContextNow()) {
+            clearPanelContextRefresh()
+            return false
+        }
+        setState(event = "applyPanelContextClear") { current -> current.copy(
+            panel = current.panel.copy(
+                snapshot = null,
+                greeting = panelGreetingFor(null),
+                contextRefreshInProgress = false,
+                contextRefreshPreviewGreeting = null,
+                contextRefreshPreviewLabel = null,
+            ),
+        ) }
+        Timber.d("OverlayPresenter.applyPanelContextClear: cleared panel tool context")
         return true
     }
 
@@ -1110,6 +1180,19 @@ class OverlayPresenter @Inject constructor(
             progress == null &&
             !italic &&
             !small
+
+    private fun String?.isForegroundPrivacyStopReason(): Boolean {
+        val normalized = this
+            ?.trim()
+            ?.lowercase()
+            ?: return false
+        return normalized == "screen-changed" ||
+            normalized == "package-changed" ||
+            normalized == "no-foreground-app" ||
+            normalized == "foreground-unavailable" ||
+            normalized.contains("screen-changed") ||
+            normalized.contains("package-changed")
+    }
 
     private companion object {
         val audioProtectedBuddyStates = setOf(

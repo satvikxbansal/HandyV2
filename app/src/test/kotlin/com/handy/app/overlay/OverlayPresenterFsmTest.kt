@@ -60,6 +60,23 @@ class OverlayPresenterFsmTest {
     }
 
     @Test
+    fun `screen changed action failure shows foreground privacy stop bubble`() {
+        val presenter = presenter()
+
+        presenter.onPreparingPoint("settings")
+        presenter.onFlyingStart("settings")
+        presenter.onPointingArrived("settings")
+        presenter.onActionStarted("Tap settings")
+        presenter.onActionFailedBubble("Couldn't tap", "screen-changed")
+
+        val state = presenter.state.value
+        assertThat(state.flightFsm).isEqualTo(FlightFsm.Docked)
+        assertThat(state.buddyState).isEqualTo(BuddyState.DOCKED)
+        assertThat(state.mode).isEqualTo(OverlayMode.IdleWidget)
+        assertThat(state.bubble).isEqualTo(BuddyBubble.foregroundPrivacyStop())
+    }
+
+    @Test
     fun `speech audio state drives audio glyph without changing flight fsm`() {
         val presenter = presenter()
 

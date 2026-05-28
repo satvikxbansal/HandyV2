@@ -267,7 +267,7 @@ class AgentSessionController @Inject constructor(
             .getOrElse { RecipeRunResult.Failed("runner", it.message ?: "runner-failed") }
         if (result is RecipeRunResult.Verified || result is RecipeRunResult.Completed) {
             plan.rideCompletionMessage()?.let(::postRecipeCompletionMessage)
-        } else {
+        } else if (!result.isForegroundPrivacyStop()) {
             presenter.onError(result.userMessage())
         }
         delay(PROGRESS_FINISH_DISPLAY_MS)
@@ -354,6 +354,11 @@ class AgentSessionController @Inject constructor(
                 )
             }
             is RecipeRunEvent.Finished -> {
+                if (event.result.isForegroundPrivacyStop()) {
+                    presenter.onForegroundPrivacyStopBubble()
+                    _progress.value = AgentProgressBubbleState.Hidden
+                    return
+                }
                 _progress.value = when (val result = event.result) {
                     is RecipeRunResult.Verified -> AgentProgressBubbleState(
                         visible = true,
@@ -434,6 +439,25 @@ class AgentSessionController @Inject constructor(
         is RecipeRunResult.Cancelled -> "recipe cancelled: $reason"
         is RecipeRunResult.Aborted -> "recipe aborted: $reason"
         is RecipeRunResult.Failed -> "recipe failed at $stepId: $reason"
+    }
+
+    private fun RecipeRunResult.isForegroundPrivacyStop(): Boolean = when (this) {
+        is RecipeRunResult.Aborted -> reason.isForegroundPrivacyStopReason()
+        is RecipeRunResult.Failed -> reason.isForegroundPrivacyStopReason()
+        is RecipeRunResult.Refused -> reason.isForegroundPrivacyStopReason()
+        is RecipeRunResult.Cancelled,
+        is RecipeRunResult.Completed,
+        is RecipeRunResult.Verified -> false
+    }
+
+    private fun String.isForegroundPrivacyStopReason(): Boolean {
+        val normalized = trim().lowercase()
+        return normalized == "screen-changed" ||
+            normalized == "package-changed" ||
+            normalized == "no-foreground-app" ||
+            normalized == "foreground-unavailable" ||
+            normalized.contains("screen-changed") ||
+            normalized.contains("package-changed")
     }
 
     private fun RecipeStep.sourceTrust(provenance: ToolProvenance?): SourceTrust =

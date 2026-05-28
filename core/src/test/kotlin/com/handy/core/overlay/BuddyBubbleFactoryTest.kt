@@ -51,4 +51,15 @@ class BuddyBubbleFactoryTest {
         assertThat(bubble.leading).isEqualTo(BubbleIcon.KEYBOARD)
         assertThat(bubble.progress).isWithin(0.0001f).of(0.3f)
     }
+
+    @Test
+    fun `foreground privacy stop factory uses danger flag bubble`() {
+        val bubble = BuddyBubble.foregroundPrivacyStop()
+
+        assertThat(bubble.tone).isEqualTo(BubbleTone.DANGER)
+        assertThat(bubble.leading).isEqualTo(BubbleIcon.FLAG)
+        assertThat(bubble.prefix).isEqualTo("Privacy stop")
+        assertThat(bubble.label)
+            .isEqualTo("Action stopped because app not detected in foreground for privacy reasons.")
+    }
 }

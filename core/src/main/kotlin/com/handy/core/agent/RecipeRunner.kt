@@ -275,8 +275,11 @@ class RecipeRunner(
             level == ConfirmationLevel.STRONG_HOLD ||
             level == ConfirmationLevel.TYPED_CONFIRMATION
 
-    private fun GroundingSnapshot.packageNameOrNull(): String? =
-        screenText?.packageName ?: toolContext.packageName.takeIf { it.isNotBlank() }
+    private fun GroundingSnapshot.packageNameOrNull(): String? {
+        screenText?.packageName?.takeIf { it.isNotBlank() }?.let { return it }
+        if (panelSnapshot == null) return null
+        return toolContext.packageName.takeIf { it.isNotBlank() }
+    }
 
     private fun GroundingSnapshot.packageNameChangedFrom(expected: String): Boolean {
         val current = packageNameOrNull() ?: return true
