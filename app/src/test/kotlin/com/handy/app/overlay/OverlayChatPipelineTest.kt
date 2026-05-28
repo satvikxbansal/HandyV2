@@ -17,7 +17,11 @@ import com.handy.core.model.ChatMessage
 import com.handy.core.model.ConversationTurn
 import com.handy.core.model.HandySettings
 import com.handy.core.model.MessageRole
+import com.handy.core.overlay.AccessibilityMark
+import com.handy.core.overlay.OverlayMode
+import com.handy.core.overlay.PanelContent
 import com.handy.core.overlay.OverlayPanelState
+import com.handy.core.overlay.PanelSnapshot
 import com.handy.core.screen.GroundingSnapshot
 import com.handy.core.screen.TurnSource
 import com.handy.core.tool.ToolContext
@@ -145,15 +149,61 @@ class OverlayChatPipelineTest {
         }
     }
 
+    @Test
+    fun `typed overlay turn uses refreshed panel snapshot tool context`() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val refreshedSnapshot = PanelSnapshot(
+            toolContext = ToolContext(
+                packageName = "com.google.android.youtube",
+                appLabel = "YouTube",
+            ),
+            capturedAtEpochMs = 42L,
+            marks = listOf(mark("Play")),
+        )
+        val presenterState = MutableStateFlow(
+            OverlayPanelState(
+                mode = OverlayMode.ChatPanel,
+                panel = PanelContent(snapshot = refreshedSnapshot),
+            ),
+        )
+        val fixture = fixture(
+            llmClient = FakeLlmClient(flowOf(
+                LlmChunk.Text("Done"),
+                LlmChunk.Done("end"),
+            )),
+            scope = this,
+            requestId = "overlay-youtube",
+            presenterState = presenterState,
+        )
+
+        fixture.pipeline.runTurn("summarise this", fromVoice = false)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) {
+            fixture.screenContextBuilder.build(
+                userMessage = "summarise this",
+                source = TurnSource.OVERLAY_PANEL,
+                toolContext = match {
+                    it.packageName == "com.google.android.youtube" &&
+                        it.appLabel == "YouTube"
+                },
+                panelSnapshot = refreshedSnapshot,
+                preferFocusedWindow = true,
+                requestIdOverride = null,
+            )
+        }
+    }
+
     private fun fixture(
         llmClient: LlmClient,
         scope: CoroutineScope,
         requestId: String,
         settingsValue: HandySettings = HandySettings(),
         accessibilityEnabled: Boolean = false,
+        presenterState: MutableStateFlow<OverlayPanelState> = MutableStateFlow(OverlayPanelState()),
     ): Fixture {
         val presenter = mockk<OverlayPresenter>()
-        every { presenter.state } returns MutableStateFlow(OverlayPanelState())
+        every { presenter.state } returns presenterState
         every { presenter.setPendingConfirmation(any()) } just runs
         every { presenter.setLoadingVerb(any()) } just runs
         every { presenter.onThinkingBubble() } just runs
@@ -185,11 +235,14 @@ class OverlayChatPipelineTest {
         val screenContextBuilder = mockk<ScreenContextBuilder>()
         coEvery {
             screenContextBuilder.build(any(), any(), any(), any(), any(), any())
-        } returns GroundingSnapshot(
-            requestId = requestId,
-            source = TurnSource.OVERLAY_VOICE,
-            toolContext = ToolContext(packageName = "com.handy.android", appLabel = "Handy"),
-        )
+        } answers {
+            GroundingSnapshot(
+                requestId = requestId,
+                source = secondArg<TurnSource>(),
+                toolContext = thirdArg<ToolContext>(),
+                panelSnapshot = arg<PanelSnapshot?>(3),
+            )
+        }
 
         val speechOutputController = mockk<SpeechOutputController>()
         every { speechOutputController.speakForVoiceTurn(any(), any()) } just runs
@@ -222,6 +275,7 @@ class OverlayChatPipelineTest {
             pipeline = pipeline,
             speechOutputController = speechOutputController,
             agentSessionController = agentSessionController,
+            screenContextBuilder = screenContextBuilder,
         )
     }
 
@@ -230,6 +284,14 @@ class OverlayChatPipelineTest {
         val pipeline: OverlayChatPipeline,
         val speechOutputController: SpeechOutputController,
         val agentSessionController: AgentSessionController,
+        val screenContextBuilder: ScreenContextBuilder,
+    )
+
+    private fun mark(label: String): AccessibilityMark = AccessibilityMark(
+        text = label,
+        role = "Button",
+        bounds = intArrayOf(1, 2, 30, 40),
+        clickable = true,
     )
 
     private class FakeLlmClient(

@@ -59,6 +59,7 @@ class OverlayChatPanelService : LifecycleService() {
     @Inject lateinit var panelBridge: OverlayPanelBridge
     @Inject lateinit var chatTargetHandoffStore: ChatTargetHandoffStore
     @Inject lateinit var accessibilityServiceProvider: AccessibilityServiceProvider
+    @Inject lateinit var panelContextRefresher: PanelContextRefresher
 
     private var host: OverlayComposeHost? = null
     private var view: android.view.View? = null
@@ -76,6 +77,7 @@ class OverlayChatPanelService : LifecycleService() {
             return
         }
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        panelContextRefresher.start(lifecycleScope)
 
         lifecycleScope.launch {
             presenter.state.collectLatest { state ->
@@ -89,6 +91,7 @@ class OverlayChatPanelService : LifecycleService() {
     }
 
     override fun onDestroy() {
+        panelContextRefresher.stop()
         detachPanel(hideIme = false)
         screenshotExecutor.shutdown()
         super.onDestroy()

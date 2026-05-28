@@ -25,7 +25,7 @@ import timber.log.Timber
  *
  * Two detection paths:
  *  1. **Event stream** — `HandyAccessibilityService.onAccessibilityEvent`
- *     forwards `TYPE_WINDOW_STATE_CHANGED` to [onAccessibilityEvent] as
+ *     forwards foreground window-change events to [onAccessibilityEvent] as
  *     the user moves between apps. This is the cheap, real-time path.
  *  2. **Proactive poll** — [refreshNow] walks
  *     `AccessibilityService.windows()` and picks the topmost
@@ -65,9 +65,10 @@ class HandyForegroundAppMonitor @Inject constructor(
 
     /**
      * Called from `HandyAccessibilityService.onAccessibilityEvent`. We
-     * only care about `TYPE_WINDOW_STATE_CHANGED` — the event fires when
-     * the topmost window changes app, and (for browsers) when the user
-     * navigates to a new URL.
+     * care about foreground window edges — these fire when the topmost
+     * window changes app, when Android's window set changes during gesture
+     * navigation, and (for browsers) when navigation swaps the title/URL
+     * surface.
      *
      * Self-package / IME / launcher filtering: skip events from
      * `com.handy.android` (our own chat / settings / onboarding), from
@@ -79,7 +80,17 @@ class HandyForegroundAppMonitor @Inject constructor(
         event: AccessibilityEvent,
         rootInActiveWindow: AccessibilityNodeInfo?,
     ) {
-        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        if (event.eventType !in FOREGROUND_EVENT_TYPES) return
+        val windowDetection = detectTopApplicationSnapshot()
+        if (windowDetection.snapshot != null) {
+            emitSnapshot(windowDetection.snapshot, source = "event-windows")
+            return
+        }
+        if (windowDetection.sawLauncher) {
+            lastSnapshot = null
+            return
+        }
+
         val pkg = event.packageName?.toString()?.takeIf { it.isNotBlank() } ?: return
         if (isSelfPackage(pkg) || isInputMethod(pkg)) return
         if (isLauncher(pkg)) {
@@ -88,10 +99,7 @@ class HandyForegroundAppMonitor @Inject constructor(
         }
 
         val snapshot = buildSnapshot(pkg, rootInActiveWindow)
-        if (snapshot != null) {
-            lastSnapshot = snapshot
-            _flow.tryEmit(snapshot)
-        }
+        if (snapshot != null) emitSnapshot(snapshot, source = "event-root")
     }
 
     /**
@@ -103,47 +111,67 @@ class HandyForegroundAppMonitor @Inject constructor(
      * as "we're on the home screen").
      */
     override fun refreshNow(): ForegroundAppSnapshot? {
-        val service = accessibilityServiceProvider()
-        if (service == null) {
+        if (accessibilityServiceProvider() == null) {
             Timber.d("ForegroundAppMonitor.refreshNow: service unbound")
             return null
         }
-        val windows = runCatching { service.windows }.getOrNull() ?: return null
-        // Sort topmost-first. `layer` is higher for overlay-like
-        // windows; we walk highest-layer application windows first and
-        // take the first non-Handy, non-launcher app we find.
+        val detection = detectTopApplicationSnapshot()
+        if (detection.snapshot != null) {
+            emitSnapshot(detection.snapshot, source = "refreshNow")
+            return detection.snapshot
+        }
+        if (detection.sawLauncher) lastSnapshot = null
+        Timber.d("ForegroundAppMonitor.refreshNow: no non-launcher app window visible")
+        return null
+    }
+
+    private fun detectTopApplicationSnapshot(): WindowDetection {
+        val service = accessibilityServiceProvider() ?: return WindowDetection()
+        val windows = runCatching { service.windows }.getOrNull()
+            ?: return WindowDetection()
+        // Sort topmost-first. If the top application surface is Handy,
+        // launcher, Recents, or System UI, stop instead of scanning to a
+        // lower stale app window hidden behind that surface.
         val candidates = windows
             .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
             .sortedByDescending { it.layer }
 
-        var sawLauncher = false
         for (w in candidates) {
             val root = runCatching { w.root }.getOrNull() ?: continue
             try {
                 val pkg = root.packageName?.toString()?.takeIf { it.isNotBlank() }
                     ?: continue
-                if (isSelfPackage(pkg) || isInputMethod(pkg)) continue
+                if (isInputMethod(pkg)) continue
+                if (isSelfPackage(pkg)) return WindowDetection()
                 if (isLauncher(pkg)) {
-                    sawLauncher = true
-                    continue
+                    return WindowDetection(sawLauncher = true)
                 }
                 val snapshot = buildSnapshot(pkg, root) ?: continue
-                lastSnapshot = snapshot
-                _flow.tryEmit(snapshot)
-                Timber.d(
-                    "ForegroundAppMonitor.refreshNow: emitted %s (pkg=%s site=%s)",
-                    snapshot.appLabel, snapshot.packageName, snapshot.umbrellaSiteLabel,
-                )
-                return snapshot
+                return WindowDetection(snapshot = snapshot)
             } finally {
                 @Suppress("DEPRECATION")
                 runCatching { root.recycle() }
             }
         }
-        if (sawLauncher) lastSnapshot = null
-        Timber.d("ForegroundAppMonitor.refreshNow: no non-launcher app window visible")
-        return null
+        return WindowDetection()
     }
+
+    private fun emitSnapshot(snapshot: ForegroundAppSnapshot, source: String) {
+        lastSnapshot = snapshot
+        _flow.tryEmit(snapshot)
+        Timber.d(
+            "ForegroundAppMonitor.%s: emitted %s (pkg=%s site=%s)",
+            source,
+            snapshot.appLabel,
+            snapshot.packageName,
+            snapshot.umbrellaSiteLabel,
+        )
+    }
+
+    private data class WindowDetection(
+        val snapshot: ForegroundAppSnapshot? = null,
+        val sawLauncher: Boolean = false,
+    )
 
     private fun buildSnapshot(
         packageName: String,
@@ -220,23 +248,45 @@ class HandyForegroundAppMonitor @Inject constructor(
         val stack = ArrayDeque<AccessibilityNodeInfo>()
         stack.addLast(root)
         var budget = URL_SEARCH_NODE_BUDGET
-        while (stack.isNotEmpty() && budget-- > 0) {
-            val node = stack.removeLast()
-            val id = node.viewIdResourceName?.substringAfterLast('/')?.lowercase()
-            if (id != null && id in URL_BAR_VIEW_ID_SUFFIXES) {
-                val text = node.text?.toString()?.trim().orEmpty()
-                if (text.isNotEmpty()) return text
+        return try {
+            while (stack.isNotEmpty() && budget-- > 0) {
+                val node = stack.removeLast()
+                try {
+                    val id = node.viewIdResourceName?.substringAfterLast('/')?.lowercase()
+                    if (id != null && id in URL_BAR_VIEW_ID_SUFFIXES) {
+                        val text = node.text?.toString()?.trim().orEmpty()
+                        if (text.isNotEmpty()) return text
+                    }
+                    for (i in 0 until node.childCount) {
+                        val child = runCatching { node.getChild(i) }.getOrNull() ?: continue
+                        stack.addLast(child)
+                    }
+                } finally {
+                    if (node !== root) {
+                        @Suppress("DEPRECATION")
+                        runCatching { node.recycle() }
+                    }
+                }
             }
-            for (i in 0 until node.childCount) {
-                val child = node.getChild(i) ?: continue
-                stack.addLast(child)
+            null
+        } finally {
+            while (stack.isNotEmpty()) {
+                val pending = stack.removeLast()
+                if (pending !== root) {
+                    @Suppress("DEPRECATION")
+                    runCatching { pending.recycle() }
+                }
             }
         }
-        return null
     }
 
     private companion object {
         const val URL_SEARCH_NODE_BUDGET = 80
+
+        val FOREGROUND_EVENT_TYPES: Set<Int> = setOf(
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+            AccessibilityEvent.TYPE_WINDOWS_CHANGED,
+        )
 
         val URL_BAR_VIEW_ID_SUFFIXES: Set<String> = setOf(
             "url_bar",

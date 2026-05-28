@@ -3,6 +3,7 @@ package com.handy.runtime.accessibility
 import android.accessibilityservice.AccessibilityService
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 import com.handy.core.overlay.AccessibilityMark
 import com.handy.core.overlay.withStableMarkIds
 import com.handy.core.privacy.ScreenRedactor
@@ -35,6 +36,37 @@ class AccessibilityMarksProvider(
     fun collect(): List<AccessibilityMark> {
         val root = runCatching { service()?.rootInActiveWindow }.getOrNull()
             ?: return emptyList()
+        return collectFromRoot(root)
+    }
+
+    /**
+     * Walk the topmost application window whose root belongs to [packageName].
+     *
+     * This is used by the overlay panel while Handy's own overlay window is
+     * focused; `rootInActiveWindow` may point at Handy, but the target app is
+     * still present in `AccessibilityService.windows`.
+     */
+    fun collectForPackage(packageName: String): List<AccessibilityMark> {
+        val targetPackage = packageName.trim().takeIf { it.isNotBlank() }
+            ?: return emptyList()
+        val windows = runCatching { service()?.windows }.getOrNull()
+            ?: return emptyList()
+        val candidates = windows
+            .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+            .sortedByDescending { it.layer }
+        for (window in candidates) {
+            val root = runCatching { window.root }.getOrNull() ?: continue
+            val rootPackage = root.packageName?.toString()
+            if (rootPackage != targetPackage) {
+                runCatching { root.recycle() }
+                continue
+            }
+            return collectFromRoot(root)
+        }
+        return emptyList()
+    }
+
+    private fun collectFromRoot(root: AccessibilityNodeInfo): List<AccessibilityMark> {
         val queue = ArrayDeque<AccessibilityNodeInfo>()
         return try {
             val out = ArrayList<AccessibilityMark>(maxNodes)

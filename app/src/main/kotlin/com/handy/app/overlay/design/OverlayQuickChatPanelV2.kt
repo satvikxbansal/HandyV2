@@ -4,9 +4,15 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,6 +33,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -47,6 +54,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalConfiguration
@@ -223,8 +232,14 @@ fun OverlayQuickChatPanelV2(
                             onDismiss = callbacks.onDismiss,
                         )
                         ContextLineV2(
-                            greeting = panel.greeting,
-                            accentLabel = toolContext?.displayLabel,
+                            greeting = panel.contextRefreshPreviewGreeting ?: panel.greeting,
+                            accentLabel = if (panel.contextRefreshInProgress) {
+                                panel.contextRefreshPreviewLabel
+                            } else {
+                                toolContext?.displayLabel
+                            },
+                            labelRefreshing = panel.contextRefreshInProgress &&
+                                !panel.contextRefreshPreviewLabel.isNullOrBlank(),
                             modifier = Modifier.padding(top = 14.dp),
                         )
                         Spacer(Modifier.height(18.dp))
@@ -424,8 +439,46 @@ private fun PanelHeaderV2(
 private fun ContextLineV2(
     greeting: String,
     accentLabel: String?,
+    labelRefreshing: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    val segments = remember(greeting, accentLabel) {
+        greetingSegments(greeting, accentLabel)
+    }
+    if (labelRefreshing && segments != null) {
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = greeting },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = segments.prefix,
+                style = HandyDesignType.Body.copy(
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                ),
+                color = HandyDesign.Colors.TextSecondary,
+                maxLines = 1,
+                softWrap = false,
+            )
+            ContextLabelShimmer(label = segments.label)
+            Text(
+                text = segments.suffix,
+                style = HandyDesignType.Body.copy(
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                ),
+                color = HandyDesign.Colors.TextSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                softWrap = false,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        return
+    }
+
     val text = remember(greeting, accentLabel) {
         greetingWithLabelAccent(greeting, accentLabel)
     }
@@ -441,6 +494,40 @@ private fun ContextLineV2(
         overflow = TextOverflow.Ellipsis,
         softWrap = false,
         modifier = modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun ContextLabelShimmer(label: String) {
+    val transition = rememberInfiniteTransition(label = "context-label-shimmer")
+    val phase by transition.animateFloat(
+        initialValue = -1f,
+        targetValue = 2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = 1100,
+                easing = LinearEasing,
+            ),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "context-label-shimmer-phase",
+    )
+    val shimmerBrush = Brush.linearGradient(
+        colors = listOf(
+            HandyDesign.Colors.TextMuted.copy(alpha = 0.30f),
+            HandyDesign.Colors.Accent.copy(alpha = 0.62f),
+            HandyDesign.Colors.TextMuted.copy(alpha = 0.30f),
+        ),
+        start = Offset(x = phase * 90f, y = 0f),
+        end = Offset(x = (phase + 1f) * 90f, y = 0f),
+    )
+    Box(
+        modifier = Modifier
+            .padding(horizontal = 1.dp)
+            .width((label.length.coerceIn(5, 18) * 7).dp)
+            .height(13.dp)
+            .clip(RoundedCornerShape(5.dp))
+            .background(shimmerBrush),
     )
 }
 
@@ -469,6 +556,31 @@ internal fun greetingWithLabelAccent(
         }
         append(text.substring(labelEnd))
     }
+}
+
+internal data class GreetingSegments(
+    val prefix: String,
+    val label: String,
+    val suffix: String,
+)
+
+internal fun greetingSegments(
+    greeting: String,
+    label: String?,
+): GreetingSegments? {
+    val text = greeting.ifBlank { "What can I help you with?" }
+    val trimmedLabel = label
+        ?.trim()
+        ?.takeIf { it.isNotBlank() && !it.equals("Handy", ignoreCase = true) }
+        ?: return null
+    val labelStart = text.indexOf(trimmedLabel, ignoreCase = true)
+    if (labelStart < 0) return null
+    val labelEnd = labelStart + trimmedLabel.length
+    return GreetingSegments(
+        prefix = text.substring(0, labelStart),
+        label = text.substring(labelStart, labelEnd),
+        suffix = text.substring(labelEnd),
+    )
 }
 
 private fun resolveCurrentAppDisplayName(

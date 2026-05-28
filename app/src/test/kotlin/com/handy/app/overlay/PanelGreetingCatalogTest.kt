@@ -1,6 +1,7 @@
 package com.handy.app.overlay
 
 import com.google.common.truth.Truth.assertThat
+import com.handy.app.overlay.design.greetingSegments
 import com.handy.app.overlay.design.greetingWithLabelAccent
 import com.handy.core.overlay.PanelSnapshot
 import com.handy.core.tool.ToolContext
@@ -116,6 +117,18 @@ class PanelGreetingCatalogTest {
         assertThat(annotated.text).isEqualTo(greeting)
         assertThat(annotated.spanStyles.map { it.start to it.end })
             .contains(3 to 10)
+    }
+
+    @Test
+    fun `greeting segment helper isolates app label for shimmer`() {
+        val segments = greetingSegments(
+            greeting = "In YouTube. Summarise or pick what's next?",
+            label = "YouTube",
+        )
+
+        assertThat(segments?.prefix).isEqualTo("In ")
+        assertThat(segments?.label).isEqualTo("YouTube")
+        assertThat(segments?.suffix).isEqualTo(". Summarise or pick what's next?")
     }
 
     private fun snapshot(

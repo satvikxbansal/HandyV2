@@ -35,6 +35,12 @@ import timber.log.Timber
 
 data class ActionDisclosureReviewRequest(val id: Long)
 
+enum class PanelContextRefreshStartResult {
+    Ready,
+    Deferred,
+    Ignored,
+}
+
 /**
  * Single state owner for the Unified Buddy overlay (widget + panel +
  * lens chrome + bubble taxonomy). Scope §2 / §3.
@@ -849,7 +855,117 @@ class OverlayPresenter @Inject constructor(
         ) }
     }
 
+    fun beginPanelContextRefresh(foreground: ForegroundAppSnapshot): PanelContextRefreshStartResult {
+        val snapshot = _state.value
+        if (snapshot.mode != OverlayMode.ChatPanel) return PanelContextRefreshStartResult.Ignored
+        if (snapshot.hasSamePanelToolContext(foreground)) {
+            clearPanelContextRefresh()
+            return PanelContextRefreshStartResult.Ignored
+        }
+        if (!snapshot.canRefreshPanelContextNow()) return PanelContextRefreshStartResult.Deferred
+
+        val previewSnapshot = PanelSnapshot(
+            toolContext = foreground.toToolContext(),
+            capturedAtEpochMs = System.currentTimeMillis(),
+        )
+        setState(event = "beginPanelContextRefresh") { current -> current.copy(
+            panel = current.panel.copy(
+                contextRefreshInProgress = true,
+                contextRefreshPreviewGreeting = panelGreetingFor(previewSnapshot),
+                contextRefreshPreviewLabel = previewSnapshot.toolContext.displayLabel,
+            ),
+        ) }
+        return PanelContextRefreshStartResult.Ready
+    }
+
+    fun applyPanelContextRefresh(
+        foreground: ForegroundAppSnapshot,
+        marks: List<AccessibilityMark>,
+        clock: () -> Long = { System.currentTimeMillis() },
+    ): Boolean {
+        val snapshot = _state.value
+        if (snapshot.mode != OverlayMode.ChatPanel) {
+            clearPanelContextRefresh()
+            return true
+        }
+        if (snapshot.hasSamePanelToolContext(foreground)) {
+            clearPanelContextRefresh()
+            return true
+        }
+        if (!snapshot.canRefreshPanelContextNow()) {
+            clearPanelContextRefresh()
+            return false
+        }
+        val newSnapshot = PanelSnapshot(
+            toolContext = foreground.toToolContext(),
+            capturedAtEpochMs = clock(),
+            marks = marks,
+        )
+        setState(event = "applyPanelContextRefresh") { current -> current.copy(
+            panel = current.panel.copy(
+                snapshot = newSnapshot,
+                greeting = panelGreetingFor(newSnapshot),
+                contextRefreshInProgress = false,
+                contextRefreshPreviewGreeting = null,
+                contextRefreshPreviewLabel = null,
+            ),
+        ) }
+        Timber.d(
+            "OverlayPresenter.applyPanelContextRefresh: label=%s pkg=%s site=%s marks=%d",
+            newSnapshot.toolContext.displayLabel,
+            newSnapshot.toolContext.packageName,
+            newSnapshot.toolContext.umbrellaSiteLabel,
+            marks.size,
+        )
+        return true
+    }
+
+    fun clearPanelContextRefresh() {
+        val snapshot = _state.value
+        if (!snapshot.panel.contextRefreshInProgress &&
+            snapshot.panel.contextRefreshPreviewGreeting == null &&
+            snapshot.panel.contextRefreshPreviewLabel == null
+        ) return
+        setState(event = "clearPanelContextRefresh") { current -> current.copy(
+            panel = current.panel.copy(
+                contextRefreshInProgress = false,
+                contextRefreshPreviewGreeting = null,
+                contextRefreshPreviewLabel = null,
+            ),
+        ) }
+    }
+
     // ---- helpers ------------------------------------------------------------
+
+    private fun OverlayPanelState.canRefreshPanelContextNow(): Boolean {
+        if (mode != OverlayMode.ChatPanel) return false
+        if (audioState != SpeechAudioState.IDLE) return false
+        if (buddyState != BuddyState.DOCKED) return false
+        if (flightFsm != FlightFsm.Docked) return false
+        if (isFlying) return false
+        if (tapForMeConfirmation != null) return false
+        if (candidateOptions != null) return false
+        if (manualTargetFallbackCandidates.isNotEmpty()) return false
+        return !panel.isListening &&
+            !panel.isStreaming &&
+            panel.pendingConfirmation == null &&
+            panel.lowConfidenceTranscript == null
+    }
+
+    private fun OverlayPanelState.hasSamePanelToolContext(
+        foreground: ForegroundAppSnapshot,
+    ): Boolean {
+        val context = panel.snapshot?.toolContext ?: return false
+        return context.packageName == foreground.packageName &&
+            context.umbrellaSiteLabel == foreground.umbrellaSiteLabel
+    }
+
+    private fun ForegroundAppSnapshot.toToolContext(): ToolContext =
+        ToolContext(
+            packageName = packageName,
+            appLabel = appLabel,
+            umbrellaSiteLabel = umbrellaSiteLabel,
+        )
 
     private fun isLegalTransition(from: FlightFsm, to: FlightFsm): Boolean =
         from == to || when (to) {

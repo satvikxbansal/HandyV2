@@ -30,8 +30,7 @@ import timber.log.Timber
  * [com.handy.runtime.accessibility.SemanticPointerResolver] via a
  * single atomic reference.
  *
- * Also drives Handy's tool-memory: every
- * `TYPE_WINDOW_STATE_CHANGED` is forwarded to
+ * Also drives Handy's tool-memory: foreground window-change events are forwarded to
  * [HandyForegroundAppMonitor] so the chat screen can swap its
  * `ToolContext` + history when the foreground app or browser URL
  * changes.
@@ -110,16 +109,17 @@ class HandyAccessibilityService : AccessibilityService() {
         if (!manualTargetSelector.isActive) {
             maybeDismissStickyPointer(event)
         }
-        // Only WINDOW_STATE_CHANGED matters for tool detection. The
-        // monitor itself re-checks but bailing here keeps the log quiet
-        // and avoids an unnecessary rootInActiveWindow call on every
-        // content-changed tick.
-        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-        val root = runCatching { rootInActiveWindow }.getOrNull()
-        try {
-            foregroundAppMonitor.onAccessibilityEvent(event, root)
-        } finally {
-            runCatching { root?.recycle() }
+        // Only foreground window edges matter for tool detection. The monitor
+        // prefers getWindows(), so rootInActiveWindow is only a fallback.
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+            event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED
+        ) {
+            val root = runCatching { rootInActiveWindow }.getOrNull()
+            try {
+                foregroundAppMonitor.onAccessibilityEvent(event, root)
+            } finally {
+                runCatching { root?.recycle() }
+            }
         }
     }
 
@@ -170,6 +170,7 @@ class HandyAccessibilityService : AccessibilityService() {
         private val active = AtomicReference<AccessibilityService?>(null)
         private val BASE_EVENT_TYPES: Int =
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+                AccessibilityEvent.TYPE_WINDOWS_CHANGED or
                 AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
                 AccessibilityEvent.TYPE_VIEW_FOCUSED or
                 AccessibilityEvent.TYPE_VIEW_CLICKED

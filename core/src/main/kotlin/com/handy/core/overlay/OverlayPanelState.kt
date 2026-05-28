@@ -293,6 +293,9 @@ data class PanelContent(
     val lowConfidenceTranscript: LowConfidenceTranscript? = null,
     val recentResponsePreview: String = "",
     val errorBanner: String? = null,
+    val contextRefreshInProgress: Boolean = false,
+    val contextRefreshPreviewGreeting: String? = null,
+    val contextRefreshPreviewLabel: String? = null,
 ) {
     data class PendingConfirmation(
         val id: Long,
