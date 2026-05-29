@@ -82,6 +82,10 @@ class TutorModeController @Inject constructor(
 
     private suspend fun observeForeground() {
         foregroundMonitor.flow.collectLatest { snapshot ->
+            if (snapshot == null) {
+                idleJob?.cancel()
+                return@collectLatest
+            }
             resetIdleTimer(snapshot)
         }
     }

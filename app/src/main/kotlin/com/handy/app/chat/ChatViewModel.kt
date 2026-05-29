@@ -165,6 +165,11 @@ class ChatViewModel @Inject constructor(
                     Timber.d("ChatViewModel: ignoring foreground swap while target handoff is bound")
                     return@collectLatest
                 }
+                if (snapshot == null) {
+                    Timber.d("ChatViewModel: foreground unavailable - clearing tool context")
+                    clearToolContext()
+                    return@collectLatest
+                }
                 val ctx = ToolContext(
                     packageName = snapshot.packageName,
                     appLabel = snapshot.appLabel,
@@ -215,8 +220,15 @@ class ChatViewModel @Inject constructor(
     fun bindTargetHandoff(id: String?) {
         val normalized = id?.takeIf { it.isNotBlank() }
         if (normalized == null) {
+            val wasBound = boundTargetHandoffId != null || targetSnapshot != null
             boundTargetHandoffId = null
             targetSnapshot = null
+            if (wasBound) {
+                clearToolContext()
+                viewModelScope.launch {
+                    foregroundAppMonitor.refreshNow()
+                }
+            }
             return
         }
         if (normalized == boundTargetHandoffId) return
@@ -375,6 +387,14 @@ class ChatViewModel @Inject constructor(
         _state.value = _state.value.copy(
             currentToolName = trimmed,
             toolDetectionState = ToolDetectionState.DETECTED,
+        )
+    }
+
+    private fun clearToolContext() {
+        toolContextFlow.value = DEFAULT_TOOL
+        _state.value = _state.value.copy(
+            currentToolName = DEFAULT_TOOL.displayLabel,
+            toolDetectionState = ToolDetectionState.IDLE,
         )
     }
 

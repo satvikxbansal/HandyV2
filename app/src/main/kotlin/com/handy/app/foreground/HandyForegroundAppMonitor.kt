@@ -38,8 +38,8 @@ import timber.log.Timber
  * Launcher packages are resolved via `PackageManager.resolveActivity(
  * Intent(ACTION_MAIN).addCategory(CATEGORY_HOME))` so we don't
  * surface "Pixel Launcher" / "One UI Home" as a tool context — when
- * the foreground is the home screen, we emit nothing and the chat
- * bar stays hidden (matches the user's UX spec: "when handy is
+ * the foreground is the home screen, we emit an explicit clear and the
+ * chat bar stays hidden (matches the user's UX spec: "when handy is
  * opened from the app icon, we don't show the detecting app row").
  */
 @Singleton
@@ -48,26 +48,17 @@ class HandyForegroundAppMonitor @Inject constructor(
     private val accessibilityServiceProvider: AccessibilityServiceProvider,
 ) : ForegroundAppMonitor {
 
-    private val _flow = MutableSharedFlow<ForegroundAppSnapshot>(
+    private val _flow = MutableSharedFlow<ForegroundAppSnapshot?>(
         replay = 1,
         extraBufferCapacity = 4,
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
-    private val _panelContextFlow = MutableSharedFlow<ForegroundAppSnapshot?>(
-        replay = 1,
-        extraBufferCapacity = 4,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST,
-    )
-    override val flow: Flow<ForegroundAppSnapshot> =
+    override val flow: Flow<ForegroundAppSnapshot?> =
         _flow.asSharedFlow().distinctUntilChanged { old, new ->
-            old.packageName == new.packageName &&
-                old.umbrellaSiteLabel == new.umbrellaSiteLabel
-        }
-    val panelContextFlow: Flow<ForegroundAppSnapshot?> =
-        _panelContextFlow.asSharedFlow().distinctUntilChanged { old, new ->
             old?.packageName == new?.packageName &&
                 old?.umbrellaSiteLabel == new?.umbrellaSiteLabel
         }
+    val panelContextFlow: Flow<ForegroundAppSnapshot?> = flow
 
     @Volatile
     private var lastSnapshot: ForegroundAppSnapshot? = null
@@ -205,7 +196,6 @@ class HandyForegroundAppMonitor @Inject constructor(
     private fun emitSnapshot(snapshot: ForegroundAppSnapshot, source: String) {
         lastSnapshot = snapshot
         _flow.tryEmit(snapshot)
-        _panelContextFlow.tryEmit(snapshot)
         Timber.d(
             "ForegroundAppMonitor.%s: emitted %s (pkg=%s site=%s)",
             source,
@@ -224,7 +214,7 @@ class HandyForegroundAppMonitor @Inject constructor(
             )
         }
         lastSnapshot = null
-        _panelContextFlow.tryEmit(null)
+        _flow.tryEmit(null)
     }
 
     private data class WindowDetection(

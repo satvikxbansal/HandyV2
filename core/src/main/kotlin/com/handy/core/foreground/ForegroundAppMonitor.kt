@@ -29,7 +29,9 @@ data class ForegroundAppSnapshot(
  * Source of [ForegroundAppSnapshot] updates. Implementations debounce
  * OS-level events (Android's `TYPE_WINDOW_STATE_CHANGED` fires many
  * times per second during app transitions) and filter out Handy's own
- * package + input-method packages.
+ * package + input-method packages. A `null` emission means the current
+ * foreground surface is not a usable app context (home screen, recents,
+ * system UI, no accessibility service, or only Handy itself).
  *
  * Consumers typically use `collectLatest` — each new snapshot supersedes
  * the previous one from the consumer's point of view.
@@ -38,12 +40,12 @@ interface ForegroundAppMonitor {
 
     /**
      * Distinct-by-key (packageName + umbrellaSiteLabel) stream of
-     * foreground-app snapshots. Starts with the last known snapshot (or
-     * replays nothing on a cold app start — the first real event may
-     * arrive within a few hundred ms depending on how quickly the
-     * accessibility service is connected).
+     * foreground-app snapshots and explicit clears. Starts with the last
+     * known snapshot, the last known clear, or replays nothing on a cold
+     * app start. Consumers that render a context bar must treat `null` as
+     * "hide the tool context" rather than retaining their previous label.
      */
-    val flow: Flow<ForegroundAppSnapshot>
+    val flow: Flow<ForegroundAppSnapshot?>
 
     /**
      * Blocking-style probe: synchronously inspects whatever signal the

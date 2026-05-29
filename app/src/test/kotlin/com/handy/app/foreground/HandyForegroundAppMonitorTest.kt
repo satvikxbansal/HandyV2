@@ -12,6 +12,8 @@ import com.google.common.truth.Truth.assertThat
 import com.handy.runtime.di.AccessibilityServiceProvider
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.junit.Test
@@ -148,6 +150,31 @@ class HandyForegroundAppMonitorTest {
         assertThat(monitor.lastKnownSnapshot()?.packageName).isEqualTo(YOUTUBE_PACKAGE)
     }
 
+    @Test
+    fun `launcher clear replaces replayed foreground snapshot with null`() = runTest {
+        val monitor = monitor(serviceWithWindows())
+        monitor.onAccessibilityEvent(
+            event(
+                type = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+                packageName = PHOTOS_PACKAGE,
+            ),
+            rootInActiveWindow = null,
+        )
+
+        assertThat(monitor.flow.first()?.packageName).isEqualTo(PHOTOS_PACKAGE)
+
+        monitor.onAccessibilityEvent(
+            event(
+                type = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+                packageName = LAUNCHER_PACKAGE,
+            ),
+            rootInActiveWindow = null,
+        )
+
+        assertThat(monitor.lastKnownSnapshot()).isNull()
+        assertThat(monitor.flow.first()).isNull()
+    }
+
     private fun monitor(service: AccessibilityService): HandyForegroundAppMonitor {
         val context = mockk<Context>()
         val packageManager = mockk<PackageManager>()
@@ -201,5 +228,6 @@ class HandyForegroundAppMonitorTest {
         const val PHOTOS_PACKAGE = "com.google.android.apps.photos"
         const val PLAY_STORE_PACKAGE = "com.android.vending"
         const val YOUTUBE_PACKAGE = "com.google.android.youtube"
+        const val LAUNCHER_PACKAGE = "com.google.android.apps.nexuslauncher"
     }
 }

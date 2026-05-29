@@ -1,11 +1,13 @@
 package com.handy.app.chat
 
 import androidx.lifecycle.viewModelScope
+import com.google.common.truth.Truth.assertThat
 import com.handy.app.accessibility.AccessibilityStateMonitor
 import com.handy.app.screen.ScreenContextBuilder
 import com.handy.app.voice.SpeechOutputController
 import com.handy.app.voice.VoiceController
 import com.handy.core.audit.AuditStore
+import com.handy.core.foreground.ForegroundAppSnapshot
 import com.handy.core.foreground.ForegroundAppMonitor
 import com.handy.core.history.ChatHistoryStore
 import com.handy.core.llm.InMemoryLlmSessionBudget
@@ -17,6 +19,7 @@ import com.handy.core.model.ChatMessage
 import com.handy.core.model.ConversationTurn
 import com.handy.core.model.HandySettings
 import com.handy.core.model.MessageRole
+import com.handy.core.overlay.PanelSnapshot
 import com.handy.core.screen.GroundingSnapshot
 import com.handy.core.screen.TurnSource
 import com.handy.core.tool.ToolContext
@@ -34,6 +37,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
@@ -129,10 +133,88 @@ class ChatViewModelVoiceTest {
         }
     }
 
+    @Test
+    fun `foreground clear hides stale full chat context`() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val foreground = MutableSharedFlow<ForegroundAppSnapshot?>(
+            replay = 1,
+            extraBufferCapacity = 1,
+        )
+        foreground.tryEmit(gmail())
+        val viewModel = viewModel(
+            llmClient = FakeLlmClient(emptyFlow()),
+            speechOutputController = mockSpeechOutput(),
+            requestId = "tool-clear",
+            foregroundFlow = foreground,
+            accessibilityEnabled = true,
+        )
+
+        try {
+            advanceUntilIdle()
+            assertThat(viewModel.state.value.currentToolName).isEqualTo("Gmail")
+            assertThat(viewModel.state.value.toolDetectionState)
+                .isEqualTo(ToolDetectionState.DETECTED)
+
+            foreground.emit(null)
+            advanceUntilIdle()
+
+            assertThat(viewModel.state.value.currentToolName).isEqualTo("Handy")
+            assertThat(viewModel.state.value.toolDetectionState)
+                .isEqualTo(ToolDetectionState.IDLE)
+        } finally {
+            viewModel.cancelAndDrain()
+            advanceUntilIdle()
+        }
+    }
+
+    @Test
+    fun `bound handoff context ignores foreground clears`() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val foreground = MutableSharedFlow<ForegroundAppSnapshot?>(
+            replay = 1,
+            extraBufferCapacity = 1,
+        )
+        val handoffStore = ChatTargetHandoffStore()
+        val handoffId = handoffStore.put(
+            PanelSnapshot(
+                toolContext = ToolContext(
+                    packageName = "com.google.android.gm",
+                    appLabel = "Gmail",
+                ),
+                capturedAtEpochMs = 1L,
+            ),
+        )
+        val viewModel = viewModel(
+            llmClient = FakeLlmClient(emptyFlow()),
+            speechOutputController = mockSpeechOutput(),
+            requestId = "handoff-clear",
+            foregroundFlow = foreground,
+            accessibilityEnabled = true,
+            chatTargetHandoffStore = handoffStore,
+        )
+
+        try {
+            viewModel.bindTargetHandoff(handoffId)
+            foreground.emit(null)
+            advanceUntilIdle()
+
+            assertThat(viewModel.state.value.currentToolName).isEqualTo("Gmail")
+            assertThat(viewModel.state.value.toolDetectionState)
+                .isEqualTo(ToolDetectionState.DETECTED)
+        } finally {
+            viewModel.cancelAndDrain()
+            advanceUntilIdle()
+        }
+    }
+
     private fun viewModel(
         llmClient: LlmClient,
         speechOutputController: SpeechOutputController,
         requestId: String,
+        foregroundFlow: Flow<ForegroundAppSnapshot?> = emptyFlow(),
+        refreshNowSnapshot: ForegroundAppSnapshot? = null,
+        accessibilityEnabled: Boolean = false,
+        chatTargetHandoffStore: ChatTargetHandoffStore = ChatTargetHandoffStore(),
     ): ChatViewModel {
         val settingsFlow = MutableStateFlow(HandySettings())
         val settings = mockk<DataStoreSettings>()
@@ -144,14 +226,14 @@ class ChatViewModelVoiceTest {
         every { voiceController.state } returns MutableStateFlow(VoiceController.State.IDLE)
 
         val foregroundAppMonitor = mockk<ForegroundAppMonitor>()
-        every { foregroundAppMonitor.flow } returns emptyFlow()
-        every { foregroundAppMonitor.refreshNow() } returns null
+        every { foregroundAppMonitor.flow } returns foregroundFlow
+        every { foregroundAppMonitor.refreshNow() } returns refreshNowSnapshot
 
         val keyStore = mockk<KeyStore>()
         every { keyStore.get(any()) } returns null
 
         val accessibilityStateMonitor = mockk<AccessibilityStateMonitor>()
-        every { accessibilityStateMonitor.isEnabled } returns MutableStateFlow(false)
+        every { accessibilityStateMonitor.isEnabled } returns MutableStateFlow(accessibilityEnabled)
 
         val screenContextBuilder = mockk<ScreenContextBuilder>()
         coEvery {
@@ -172,13 +254,18 @@ class ChatViewModelVoiceTest {
             keyStore = keyStore,
             confirmationBroker = ChatConfirmationBroker(),
             accessibilityStateMonitor = accessibilityStateMonitor,
-            chatTargetHandoffStore = ChatTargetHandoffStore(),
+            chatTargetHandoffStore = chatTargetHandoffStore,
             screenContextBuilder = screenContextBuilder,
             llmSessionBudget = InMemoryLlmSessionBudget(),
             speechOutputController = speechOutputController,
             auditStore = mockk<AuditStore>(relaxed = true),
         )
     }
+
+    private fun gmail(): ForegroundAppSnapshot = ForegroundAppSnapshot(
+        packageName = "com.google.android.gm",
+        appLabel = "Gmail",
+    )
 
     private fun mockSpeechOutput(): SpeechOutputController =
         mockk<SpeechOutputController>().also {
