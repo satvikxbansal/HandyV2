@@ -1,0 +1,67 @@
+# Update recipes README section
+
+## Metadata
+
+- Thread ID: `019e6e56-99f2-7571-acce-779a2d3eda21`
+- Created: 2026-05-28 16:57:09 IST
+- Updated: 2026-05-28 17:10:34 IST
+- CWD: `/Users/satvik.bansal/Desktop/Handy.android/HandyV2`
+- Source rollout: `/Users/satvik.bansal/.codex/sessions/2026/05/28/rollout-2026-05-28T16-57-09-019e6e56-99f2-7571-acce-779a2d3eda21.jsonl`
+- Recorded git branch at start: `main`
+- Recorded git SHA at start: `40510d7cd9a8dfb68030b3003991a87eafbcb722`
+- Messages exported: 8
+
+## Brief Summary
+
+This conversation focused on: Update recipes README section Likely related git changes: 585224d Fixed Foreground tool update bugs + Recipe stoppage when App not detected.
+
+## Git Commit Linkage
+
+Commit links are heuristic: Codex records the starting git SHA, while likely related commits are inferred from timing plus title/commit-subject matching. Review the commit list before treating it as authoritative.
+
+- Base SHA recorded by Codex: `40510d7cd9a8dfb68030b3003991a87eafbcb722`
+- Likely related commits:
+  - `585224d` 2026-05-28 16:59:53 IST [medium] Fixed Foreground tool update bugs + Recipe stoppage when App not detected. Files: DEBUG_LOG.md, app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt, app/src/main/kotlin/com/handy/app/foreground/HandyForegroundAppMonitor.kt, app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt, app/src/main/kotlin/com/handy/app/overlay/PanelContextRefresher.kt, app/src/main/kotlin/com/handy/app/settings/SideBubblePreviewActivity.kt, app/src/main/kotlin/com/handy/app/widget/design/SideBubbleV2.kt, app/src/main/res/drawable/ic_lucide_flag.xml, app/src/test/kotlin/com/handy/app/agent/AgentSessionControllerTest.kt, app/src/test/kotlin/com/handy/app/foreground/HandyForegroundAppMonitorTest.kt, app/src/test/kotlin/com/handy/app/overlay/OverlayPresenterFsmTest.kt, app/src/test/kotlin/com/handy/app/overlay/OverlayPresenterPanelContextRefreshTest.kt
+
+## Conversation
+
+### USER 2026-05-28T11:29:59.496Z
+
+When we were doing a deep analysis of the recipes, their implementation, and analyzing how Handy works if an app is put into background or exited and a recipe is still going on. We uncovered some very good subtle nuances, product nuances of how Handy has been built, some of them that are found in the thinking stage of codex below. Can you similarly again analyze the entire recipes in extreme depth and creator a new section within readme for the recipes, the different recipes we have, how are they implemented, important nuances, not be very technical, write it in a simple English, and make it an interesting read. Again, do not make it too detailed or too long, just something that conveys the product thinking behind the product nuances and shows how interesting the implementation of recipes is in this handy Android. Be very comprehensive, cover all aspects of recipes, edge cases too, and ensure that you have a complete understanding of the code and then go about writing the readme. Connect the dots, evaluate the code, understand the patterns, and then craft a very good, interesting paragraph or section inside readme for the recipes. Can also talk a little about app detection, real time app detection in foregorund, recipe stoppage when app is not detected, how we implemented app detection accurately, etc.
+
+Some example nuances discovered in an earlier code evaluation:
+A key thread is emerging: recipes don’t “remember a future UI action and blindly fire it.” The runner captures a fresh snapshot before every step and has package-change abort checks, but I’m checking whether those checks use the live foreground correctly for overlay-launched turns.
+
+One subtle point matters a lot: when the recipe starts, the code intentionally drops the frozen panel snapshot and builds a fresh live grounding. I’m checking whether that live grounding carries the current package through correctly or can accidentally blend “old Photos context” with “new current-screen marks.”
+
+### ASSISTANT 2026-05-28T11:30:07.085Z
+
+I’ll re-read the recipe flow from the code rather than leaning on the older notes, then I’ll add a polished README section that explains the product mechanics in plain English. I’ll first map the recipe types, runner, app detection, and lifecycle behavior so the prose is accurate instead of hand-wavy.
+
+### ASSISTANT 2026-05-28T11:30:21.263Z
+
+I found the recipe code is split cleanly between `:core` orchestration and `:android-runtime` concrete app recipes. Next I’m reading the runner, router, registry, and a representative spread of recipes/tests so the README section can explain the behavior and edge cases without turning into an implementation dump.
+
+### ASSISTANT 2026-05-28T11:31:23.943Z
+
+A useful nuance is confirmed: a recipe starts from the panel’s known context, but once execution begins the runner deliberately asks `ScreenContextBuilder` for live grounding with `panelSnapshot = null`. That means the plan can be explained from the cached app context, while every actual step is checked against the fresh foreground screen.
+
+### ASSISTANT 2026-05-28T11:32:59.622Z
+
+The recipes are broader than a “macro” system: some are one-step Android handoffs, some are bounded UI recipes, and one (calculator) intentionally answers locally without touching the device. The interesting product line is consistent across them: Handy prepares or drafts, then stops before a final consequential action like Send, Install, Confirm ride, checkout, delete, or payment.
+
+### ASSISTANT 2026-05-28T11:38:22.097Z
+
+I’ve got enough of the implementation shape now. I’m going to add a compact narrative section just before the recipe inventory, so the README keeps the existing table but gains the “why this is interesting” product story: recipes as bounded handoffs, live foreground checks, app-switch aborts, draft-only stopping points, and reduced-mode behavior.
+
+### ASSISTANT 2026-05-28T11:39:09.106Z
+
+The README section is in place. I’m doing a quick diff pass now for wording, line length, and to make sure the new section sits naturally with the existing safety model and inventory table.
+
+### ASSISTANT 2026-05-28T11:40:34.863Z
+
+Added a new **Product Notes: Recipes** section in [README.md](/Users/satvik.bansal/Desktop/Handy.android/HandyV2/README.md:245).
+
+It covers the recipe product model, the different recipe shapes, fresh live grounding before every step, foreground app detection, app-switch/background stoppage, draft-only boundaries, sensitive edge cases, reduced mode, and why the implementation is intentionally bounded rather than broad automation.
+
+Validation: `git diff --check` passed. No code tests run since this was README-only. Existing untracked `handy_macos_ref/` was left untouched.

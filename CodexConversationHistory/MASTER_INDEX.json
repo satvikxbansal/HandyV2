@@ -3158,9 +3158,9 @@
     "thread_id": "019e5e04-2d65-7413-a9ec-a1dbfcedead9",
     "title": "hey i want to see all the chat conversations i have had abut the curent project with codex. currently i think only a fixed number…",
     "created_local": "2026-05-25 12:53:12 IST",
-    "updated_local": "2026-05-27 17:25:25 IST",
+    "updated_local": "2026-05-29 17:20:14 IST",
     "is_new_in_latest_refresh": false,
-    "summary": "This conversation focused on: hey i want to see all the chat conversations i have had abut the curent project with codex. currently i think only a fixed number… Likely related git changes: 4cf235b Codex conversation history; f2b901a README for Codex Conversation History; 96e5434 MASTER INDEX for Codex Conversation History; 6f977e0 bug fix; 49e09f4 updated maximise svg; plus 1 more.",
+    "summary": "This conversation focused on: hey i want to see all the chat conversations i have had abut the curent project with codex. currently i think only a fixed number… Likely related git changes: 4cf235b Codex conversation history; f2b901a README for Codex Conversation History; 96e5434 MASTER INDEX for Codex Conversation History; 6f977e0 bug fix; 49e09f4 updated maximise svg; plus 7 more.",
     "transcript_md": "threads_md/2026-05-25_125312_hey-i-want-to-see-all-the-chat-conversations-i-have-had-abut-the-curent_019e5e04.md",
     "messages_json": "threads_json/2026-05-25_125312_hey-i-want-to-see-all-the-chat-conversations-i-have-had-abut-the-curent_019e5e04.json",
     "recorded_git_sha_at_start": "dc9e8400f41b061508b3d48f334dcad70f88387e",
@@ -3275,6 +3275,104 @@
           "handy-design-audited-with-new-screens/checks/01-04-value-cards.png",
           "handy-design-audited-with-new-screens/checks/01-08-settings-hq.png"
         ]
+      },
+      {
+        "hash": "7e7f3ecae1f215755d090b83e9843af0e730fb4e",
+        "short": "7e7f3ec",
+        "author_time": "2026-05-27 17:40:33 IST",
+        "subject": "Codex Conversation History Update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/MASTER_INDEX.json",
+          "CodexConversationHistory/MASTER_INDEX.md",
+          "CodexConversationHistory/README.md"
+        ]
+      },
+      {
+        "hash": "68cf0b4695328d9bd33dc94fc390ee2cc95863c4",
+        "short": "68cf0b4",
+        "author_time": "2026-05-27 17:40:37 IST",
+        "subject": "Codex Conversation History Update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/threads_json/2026-05-20_123953_g1-add-grounding-snapshot-fields_019e4438.json",
+          "CodexConversationHistory/threads_json/2026-05-23_135134_you-are-working-on-handy-android-multi-module-core-android-runtime-app_019e53ec.json"
+        ]
+      },
+      {
+        "hash": "ec4ef1269289357788ad409d0e3d56bf405521dc",
+        "short": "ec4ef12",
+        "author_time": "2026-05-27 17:40:42 IST",
+        "subject": "Codex Conversation History Update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/threads_json/2026-05-23_142524_s5-add-settings-deep-link-targets_019e540b.json",
+          "CodexConversationHistory/threads_json/2026-05-23_145052_s9-add-play-store-install-action_019e5423.json",
+          "CodexConversationHistory/threads_json/2026-05-23_164855_s2-add-timerrecipe-for-starttimer_019e548f.json",
+          "CodexConversationHistory/threads_json/2026-05-23_165730_s3-add-web-search-recipe_019e5497.json"
+        ]
+      },
+      {
+        "hash": "820de05db82a00fc5ebbdf068c528ae2da8cc379",
+        "short": "820de05",
+        "author_time": "2026-05-27 17:40:50 IST",
+        "subject": "Codex Conversation History Update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/threads_json/2026-05-23_141242_read-the-standing-rules-single-pass-read-implement-test-commit_019e5400.json",
+          "CodexConversationHistory/threads_json/2026-05-23_171638_s4-add-chrome-omnibox-flow_019e54a8.json",
+          "CodexConversationHistory/threads_json/2026-05-23_173545_s6-route-summarize-screen-prompt_019e54ba.json",
+          "CodexConversationHistory/threads_json/2026-05-23_180905_s8-add-calendar-event-recipe_019e54d8.json",
+          "CodexConversationHistory/threads_json/2026-05-23_183341_s10-add-ride-hailing-recipe-pack_019e54ef.json",
+          "CodexConversationHistory/threads_json/2026-05-23_202811_s12-add-recipe-routing-smoke-tests_019e5558.json",
+          "CodexConversationHistory/threads_json/2026-05-24_100543_p0-add-onboarding-design-package_019e5844.json"
+        ]
+      },
+      {
+        "hash": "2e22702676f480bab42c96e9131e475e31a18342",
+        "short": "2e22702",
+        "author_time": "2026-05-27 17:40:54 IST",
+        "subject": "Codex Conversation History Update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/threads_json/2026-05-24_102805_p1-migrate-splash-to-design-tokens_019e5858.json",
+          "CodexConversationHistory/threads_json/2026-05-24_103625_read-the-universal-rules-single-pass-read-implement-test-commit_019e5860.json"
+        ]
+      },
+      {
+        "hash": "5d54a52c36078c7a19e9feb1d0b7fff078030856",
+        "short": "5d54a52",
+        "author_time": "2026-05-27 17:40:57 IST",
+        "subject": "Codex Conversation History Update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/threads_json/2026-05-24_140334_se-rewrite-settings-activity-body_019e591e.json",
+          "CodexConversationHistory/threads_json/2026-05-24_145957_c-a-update-chat-header-and-empty-state_019e5951.json"
+        ]
       }
     ]
   },
@@ -3284,7 +3382,7 @@
     "title": "PROMPT FW-1 — Rebuild the floating widget glyph on the new design system.",
     "created_local": "2026-05-25 14:08:51 IST",
     "updated_local": "2026-05-25 14:43:11 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Replace the legacy `WidgetContent` composable rendered by `FloatingWidgetOverlayService.attachOverlay()` with a `WidgetContentV2` implementation that: - Renders all six widget states from the new design system exactly (IDLE / LISTENING / THINKING / FLYING / P… Likely related git changes: 4cf235b Codex conversation history; f2b901a README for Codex Conversation History; 96e5434 MASTER INDEX for Codex Conversation History.",
     "transcript_md": "threads_md/2026-05-25_140851_prompt-fw-1-rebuild-the-floating-widget-glyph-on-the-new-design-system_019e5e49.md",
     "messages_json": "threads_json/2026-05-25_140851_prompt-fw-1-rebuild-the-floating-widget-glyph-on-the-new-design-system_019e5e49.json",
@@ -3353,7 +3451,7 @@
     "title": "PROMPT OV-1 — Rebuild the overlay quick-chat panel (\"minimised chat\") on",
     "created_local": "2026-05-25 15:04:40 IST",
     "updated_local": "2026-05-26 08:21:01 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: PROMPT OV-1 — Rebuild the overlay quick-chat panel (\"minimised chat\") on Likely related git changes: 814df70 Debug log updates; 31b4c5e Update DEBUG_LOG.md; 35c48fc OV1: Rebuild overlay chat panel; 6f977e0 bug fix; 72206df Expand panel greetings; plus 4 more.",
     "transcript_md": "threads_md/2026-05-25_150440_prompt-ov-1-rebuild-the-overlay-quick-chat-panel-minimised-chat-on_019e5e7c.md",
     "messages_json": "threads_json/2026-05-25_150440_prompt-ov-1-rebuild-the-overlay-quick-chat-panel-minimised-chat-on_019e5e7c.json",
@@ -3525,7 +3623,7 @@
     "title": "PROMPT OV-2 — Expand panelGreetingFor() in OverlayPresenter.kt with more",
     "created_local": "2026-05-25 19:57:47 IST",
     "updated_local": "2026-05-26 08:30:19 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: PROMPT OV-2 — Expand panelGreetingFor() in OverlayPresenter.kt with more Likely related git changes: e1eb3ff added border instead of gradient; 72206df Expand panel greetings; e13d4d6 Update DEBUG_LOG.md; 49e09f4 updated maximise svg.",
     "transcript_md": "threads_md/2026-05-25_195747_prompt-ov-2-expand-panelgreetingfor-in-overlaypresenter-kt-with-more_019e5f88.md",
     "messages_json": "threads_json/2026-05-25_195747_prompt-ov-2-expand-panelgreetingfor-in-overlaypresenter-kt-with-more_019e5f88.json",
@@ -3607,7 +3705,7 @@
     "title": "Remove floating widget halo",
     "created_local": "2026-05-26 08:09:11 IST",
     "updated_local": "2026-05-26 08:14:37 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Remove floating widget halo Likely related git changes: 49e09f4 updated maximise svg.",
     "transcript_md": "threads_md/2026-05-26_080911_remove-floating-widget-halo_019e6226.md",
     "messages_json": "threads_json/2026-05-26_080911_remove-floating-widget-halo_019e6226.json",
@@ -3638,7 +3736,7 @@
     "title": "hey the app icon is still the default android one. how do we update it to Handy's actual icon (same structure and colour as the f…",
     "created_local": "2026-05-26 10:37:05 IST",
     "updated_local": "2026-05-26 11:56:27 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: hey the app icon is still the default android one. how do we update it to Handy's actual icon (same structure and colour as the f… Likely related git changes: 37d25ee Added APP ICON ⭐️✋🏻; 34dd559 update size of app icon.",
     "transcript_md": "threads_md/2026-05-26_103705_hey-the-app-icon-is-still-the-default-android-one-how-do-we-update-it-to_019e62ad.md",
     "messages_json": "threads_json/2026-05-26_103705_hey-the-app-icon-is-still-the-default-android-one-how-do-we-update-it-to_019e62ad.json",
@@ -3691,7 +3789,7 @@
     "title": "GOAL",
     "created_local": "2026-05-26 11:13:08 IST",
     "updated_local": "2026-05-26 13:11:54 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Make Handy actually speak voice responses. ConversationOrchestrator already emits AssistantTurnFinalized(ttsText, overlaySpokenText, chatText). AndroidTtsClient is bound in DI and never called. Wire it cleanly without conflating audio with the visible respons… Likely related git changes: f5b206b P-VOICE2: Add Sarvam TTS provider.",
     "transcript_md": "threads_md/2026-05-26_111308_goal_019e62ce.md",
     "messages_json": "threads_json/2026-05-26_111308_goal_019e62ce.json",
@@ -3733,7 +3831,7 @@
     "title": "GOAL",
     "created_local": "2026-05-26 11:59:25 IST",
     "updated_local": "2026-05-26 13:18:19 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Implement the Sarvam TTS provider that settings already expose. After P-VOICE-1 lands, Handy speaks via AndroidTtsClient. This prompt adds a second provider (Sarvam Bulbul v3) selectable in settings and a SwitchingTtsClient that routes by HandySettings.ttsPro… Likely related git changes: 4c4026d P-VOICE1: Wire voice responses to TTS.",
     "transcript_md": "threads_md/2026-05-26_115925_goal_019e62f9.md",
     "messages_json": "threads_json/2026-05-26_115925_goal_019e62f9.json",
@@ -3775,7 +3873,7 @@
     "title": "GOAL",
     "created_local": "2026-05-26 13:18:23 IST",
     "updated_local": "2026-05-26 14:19:27 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Make Handy's transcription explicit, testable, and Hindi/Hinglish-friendly. Likely related git changes: 0101729 P-STT1: STT mode, language, MAX_RESULTS=3, confidence, Andr….",
     "transcript_md": "threads_md/2026-05-26_131823_goal_019e6341.md",
     "messages_json": "threads_json/2026-05-26_131823_goal_019e6341.json",
@@ -3816,7 +3914,7 @@
     "title": "P-STT2: Sarvam Saarika STT (opt-in cloud, Indic + Hinglish…",
     "created_local": "2026-05-26 14:21:43 IST",
     "updated_local": "2026-05-26 15:07:46 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Add an opt-in Sarvam Saarika v2 STT provider for high-quality Indic and code-mix Hinglish transcription. Cloud-only, gated by explicit user consent in settings. The original macOS Handy used Sarvam; this brings parity. Does NOT replace AndroidSttClient — adds… Likely related git changes: 0101729 P-STT1: STT mode, language, MAX_RESULTS=3, confidence, Andr…; 4744f20 P-STT2: Sarvam Saarika STT (opt-in cloud, Indic + Hinglish premium path).",
     "transcript_md": "threads_md/2026-05-26_142143_p-stt2-sarvam-saarika-stt-opt-in-cloud-indic-hinglish_019e637b.md",
     "messages_json": "threads_json/2026-05-26_142143_p-stt2-sarvam-saarika-stt-opt-in-cloud-indic-hinglish_019e637b.json",
@@ -3884,7 +3982,7 @@
     "title": "P-POLICY-1: UiActionIntent + turn-scoped ToolProvenance thr…",
     "created_local": "2026-05-26 15:09:14 IST",
     "updated_local": "2026-05-26 15:45:58 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Two related fixes that GPT's audit identified, treated as one because they share infrastructure: (a) Replace PolicyGuardedActionPerformer's synthesised OpenApp action with a UiActionIntent that carries semantic kind + user utterance + target label/role/markId… Likely related git changes: 33d0563 P-POLICY-1 — UiActionIntent + turn-scoped ToolProvenance threaded into recipes.",
     "transcript_md": "threads_md/2026-05-26_150914_p-policy-1-uiactionintent-turn-scoped-toolprovenance-thr_019e63a7.md",
     "messages_json": "threads_json/2026-05-26_150914_p-policy-1-uiactionintent-turn-scoped-toolprovenance-thr_019e63a7.json",
@@ -3925,7 +4023,7 @@
     "title": "GOAL",
     "created_local": "2026-05-26 15:46:50 IST",
     "updated_local": "2026-05-27 08:55:19 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: GOAL Likely related git changes: 33d0563 P-POLICY-1 — UiActionIntent + turn-scoped ToolProvenance threaded into recipes; cee4783 P-RECIPES1: Recipe contract test infrastructure + fixture matrix + result verifiers; 0229ca7 Settings + Recipe fixes; b4f0310 Audit.",
     "transcript_md": "threads_md/2026-05-26_154650_goal_019e63c9.md",
     "messages_json": "threads_json/2026-05-26_154650_goal_019e63c9.json",
@@ -4043,7 +4141,7 @@
     "title": "Prompt for Codex — Redesign the Voice section with collapsible TTS + STT subsections",
     "created_local": "2026-05-26 18:23:24 IST",
     "updated_local": "2026-05-26 19:42:25 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Prompt for Codex — Redesign the Voice section with collapsible TTS + STT subsections No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
     "transcript_md": "threads_md/2026-05-26_182324_prompt-for-codex-redesign-the-voice-section-with-collapsible-tts-stt-sub_019e6458.md",
     "messages_json": "threads_json/2026-05-26_182324_prompt-for-codex-redesign-the-voice-section-with-collapsible-tts-stt-sub_019e6458.json",
@@ -4057,7 +4155,7 @@
     "title": "P-RECIPES2: Add 8 recipe intents",
     "created_local": "2026-05-27 08:56:04 IST",
     "updated_local": "2026-05-27 10:21:07 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Add 8 new recipes that significantly broaden Handy's helpfulness without expanding the risk surface. Each is intent-first, draft-only, or guide-only. Every recipe ships with fixtures from P-RECIPES-1. DEPENDS ON - P-RECIPES-1 (contract tests + verifiers + sid… Likely related git changes: 1c88770 P-RECIPES2: Add 8 recipe intents.",
     "transcript_md": "threads_md/2026-05-27_085604_p-recipes2-add-8-recipe-intents_019e6777.md",
     "messages_json": "threads_json/2026-05-27_085604_p-recipes2-add-8-recipe-intents_019e6777.json",
@@ -4099,7 +4197,7 @@
     "title": "P-MOTION-1: Audio/bubble state assertions, reduce-motion, I…",
     "created_local": "2026-05-27 11:05:27 IST",
     "updated_local": "2026-05-27 11:30:37 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: With the flight controller and design system already mature, this is a small but important hardening pass: lock in legal FSM transitions, add a reduce-motion setting, and add the test sweeps that catch regressions. VERIFIED PRE-CONDITIONS - OverlayPresenterFs… Likely related git changes: b2a9b67 P-MOTION-1: Audio/bubble state assertions, reduce-motion, I….",
     "transcript_md": "threads_md/2026-05-27_110527_p-motion-1-audio-bubble-state-assertions-reduce-motion-i_019e67ee.md",
     "messages_json": "threads_json/2026-05-27_110527_p-motion-1-audio-bubble-state-assertions-reduce-motion-i_019e67ee.json",
@@ -4140,7 +4238,7 @@
     "title": "GOAL",
     "created_local": "2026-05-27 11:28:22 IST",
     "updated_local": "2026-05-27 12:21:54 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Make release-blocking QA possible without leaking private screen content. Already-existing AuditStore + ScreenRedactor get a structured per-turn timeline view in DiagnosticsActivity. VERIFIED PRE-CONDITIONS - core/.../audit/AuditStore.kt exists with AuditEven… Likely related git changes: e68eed7 P-TELEMETRY-1: Redacted local timeline + diagnostics export.",
     "transcript_md": "threads_md/2026-05-27_112822_goal_019e6803.md",
     "messages_json": "threads_json/2026-05-27_112822_goal_019e6803.json",
@@ -4181,7 +4279,7 @@
     "title": "GOAL",
     "created_local": "2026-05-27 12:22:16 IST",
     "updated_local": "2026-05-27 13:02:18 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Replace GPT's grep-based copy gate with a single source-of-truth capability manifest. README, Play submission, privacy policy, and the in-app \"What Handy can do today\" page all read from it. IMPLEMENTATION 1. Manifest: File: docs/CAPABILITIES.yaml capabilitie… Likely related git changes: 23d5476 P-RELEASE-1: Capability-truth manifest, Play copy gate, privacy policy.",
     "transcript_md": "threads_md/2026-05-27_122216_goal_019e6834.md",
     "messages_json": "threads_json/2026-05-27_122216_goal_019e6834.json",
@@ -4221,14 +4319,221 @@
     "thread_id": "019e6864-2383-7d72-ab25-0cb9508c9078",
     "title": "Hey, so I think we are nearly ready with Handy's Android app. It works fine to some extent and I think we can release it on Play…",
     "created_local": "2026-05-27 13:14:13 IST",
-    "updated_local": "2026-05-27 13:26:19 IST",
-    "is_new_in_latest_refresh": true,
-    "summary": "This conversation focused on: Hey, so I think we are nearly ready with Handy's Android app. It works fine to some extent and I think we can release it on Play… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
+    "updated_local": "2026-05-28 18:44:15 IST",
+    "is_new_in_latest_refresh": false,
+    "summary": "This conversation focused on: Hey, so I think we are nearly ready with Handy's Android app. It works fine to some extent and I think we can release it on Play… Likely related git changes: 9092d66 fixes audit; 7e7f3ec Codex Conversation History Update; 68cf0b4 Codex Conversation History Update; ec4ef12 Codex Conversation History Update; 820de05 Codex Conversation History Update; plus 7 more.",
     "transcript_md": "threads_md/2026-05-27_131413_hey-so-i-think-we-are-nearly-ready-with-handy-s-android-app-it-works-fin_019e6864.md",
     "messages_json": "threads_json/2026-05-27_131413_hey-so-i-think-we-are-nearly-ready-with-handy-s-android-app-it-works-fin_019e6864.json",
     "recorded_git_sha_at_start": "23d5476136dc4bb92684bd66519a5bf3acbbd414",
     "recorded_git_branch_at_start": "main",
-    "likely_related_commits": []
+    "likely_related_commits": [
+      {
+        "hash": "9092d66efa308fa82fba500d986799f0a9fee2f0",
+        "short": "9092d66",
+        "author_time": "2026-05-27 15:30:24 IST",
+        "subject": "fixes audit",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/kotlin/com/handy/app/overlay/FloatingWidgetOverlayService.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SideBubblePreviewActivity.kt",
+          "app/src/main/kotlin/com/handy/app/widget/design/SideBubbleV2.kt",
+          "app/src/main/res/drawable/ic_keyboard.xml",
+          "app/src/main/res/drawable/ic_mouse_pointer_click.xml",
+          "app/src/main/res/drawable/ic_phosphor_hand_pointing_fill.xml",
+          "app/src/main/res/drawable/ic_recipe.xml",
+          "handy-design-audited-with-new-screens/.design-canvas.state.json",
+          "handy-design-audited-with-new-screens/Handy Android Redesign.html",
+          "handy-design-audited-with-new-screens/checks/01-04-value-cards.png",
+          "handy-design-audited-with-new-screens/checks/01-08-settings-hq.png"
+        ]
+      },
+      {
+        "hash": "7e7f3ecae1f215755d090b83e9843af0e730fb4e",
+        "short": "7e7f3ec",
+        "author_time": "2026-05-27 17:40:33 IST",
+        "subject": "Codex Conversation History Update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/MASTER_INDEX.json",
+          "CodexConversationHistory/MASTER_INDEX.md",
+          "CodexConversationHistory/README.md"
+        ]
+      },
+      {
+        "hash": "68cf0b4695328d9bd33dc94fc390ee2cc95863c4",
+        "short": "68cf0b4",
+        "author_time": "2026-05-27 17:40:37 IST",
+        "subject": "Codex Conversation History Update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/threads_json/2026-05-20_123953_g1-add-grounding-snapshot-fields_019e4438.json",
+          "CodexConversationHistory/threads_json/2026-05-23_135134_you-are-working-on-handy-android-multi-module-core-android-runtime-app_019e53ec.json"
+        ]
+      },
+      {
+        "hash": "ec4ef1269289357788ad409d0e3d56bf405521dc",
+        "short": "ec4ef12",
+        "author_time": "2026-05-27 17:40:42 IST",
+        "subject": "Codex Conversation History Update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/threads_json/2026-05-23_142524_s5-add-settings-deep-link-targets_019e540b.json",
+          "CodexConversationHistory/threads_json/2026-05-23_145052_s9-add-play-store-install-action_019e5423.json",
+          "CodexConversationHistory/threads_json/2026-05-23_164855_s2-add-timerrecipe-for-starttimer_019e548f.json",
+          "CodexConversationHistory/threads_json/2026-05-23_165730_s3-add-web-search-recipe_019e5497.json"
+        ]
+      },
+      {
+        "hash": "820de05db82a00fc5ebbdf068c528ae2da8cc379",
+        "short": "820de05",
+        "author_time": "2026-05-27 17:40:50 IST",
+        "subject": "Codex Conversation History Update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/threads_json/2026-05-23_141242_read-the-standing-rules-single-pass-read-implement-test-commit_019e5400.json",
+          "CodexConversationHistory/threads_json/2026-05-23_171638_s4-add-chrome-omnibox-flow_019e54a8.json",
+          "CodexConversationHistory/threads_json/2026-05-23_173545_s6-route-summarize-screen-prompt_019e54ba.json",
+          "CodexConversationHistory/threads_json/2026-05-23_180905_s8-add-calendar-event-recipe_019e54d8.json",
+          "CodexConversationHistory/threads_json/2026-05-23_183341_s10-add-ride-hailing-recipe-pack_019e54ef.json",
+          "CodexConversationHistory/threads_json/2026-05-23_202811_s12-add-recipe-routing-smoke-tests_019e5558.json",
+          "CodexConversationHistory/threads_json/2026-05-24_100543_p0-add-onboarding-design-package_019e5844.json"
+        ]
+      },
+      {
+        "hash": "2e22702676f480bab42c96e9131e475e31a18342",
+        "short": "2e22702",
+        "author_time": "2026-05-27 17:40:54 IST",
+        "subject": "Codex Conversation History Update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/threads_json/2026-05-24_102805_p1-migrate-splash-to-design-tokens_019e5858.json",
+          "CodexConversationHistory/threads_json/2026-05-24_103625_read-the-universal-rules-single-pass-read-implement-test-commit_019e5860.json"
+        ]
+      },
+      {
+        "hash": "5d54a52c36078c7a19e9feb1d0b7fff078030856",
+        "short": "5d54a52",
+        "author_time": "2026-05-27 17:40:57 IST",
+        "subject": "Codex Conversation History Update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/threads_json/2026-05-24_140334_se-rewrite-settings-activity-body_019e591e.json",
+          "CodexConversationHistory/threads_json/2026-05-24_145957_c-a-update-chat-header-and-empty-state_019e5951.json"
+        ]
+      },
+      {
+        "hash": "e4aef05b8882088d76f6ae6b191b6fcd1f0f0a49",
+        "short": "e4aef05",
+        "author_time": "2026-05-27 17:41:01 IST",
+        "subject": "Codex Conversation History Update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/threads_json/2026-05-25_091824_you-are-working-on-handy-android-read-the-universal-rules-single-pass_019e5d3f.json",
+          "CodexConversationHistory/threads_json/2026-05-25_094819_ch3-replace-chat-banners-with-v2_019e5d5a.json",
+          "CodexConversationHistory/threads_json/2026-05-25_095658_ch4_019e5d62.json"
+        ]
+      },
+      {
+        "hash": "e61de773e058e5cb666dc6bfa846924e73a84d94",
+        "short": "e61de77",
+        "author_time": "2026-05-27 17:41:05 IST",
+        "subject": "Codex Conversation History Update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/threads_json/2026-05-25_150440_prompt-ov-1-rebuild-the-overlay-quick-chat-panel-minimised-chat-on_019e5e7c.json",
+          "CodexConversationHistory/threads_json/2026-05-25_195747_prompt-ov-2-expand-panelgreetingfor-in-overlaypresenter-kt-with-more_019e5f88.json",
+          "CodexConversationHistory/threads_json/2026-05-26_080911_remove-floating-widget-halo_019e6226.json"
+        ]
+      },
+      {
+        "hash": "754d7664f666effaf6e9f8a2c3ee6b8f8f182e04",
+        "short": "754d766",
+        "author_time": "2026-05-27 17:41:09 IST",
+        "subject": "Codex Conversation History Update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/threads_json/2026-05-26_142143_p-stt2-sarvam-saarika-stt-opt-in-cloud-indic-hinglish_019e637b.json",
+          "CodexConversationHistory/threads_json/2026-05-26_150914_p-policy-1-uiactionintent-turn-scoped-toolprovenance-thr_019e63a7.json",
+          "CodexConversationHistory/threads_json/2026-05-26_154650_goal_019e63c9.json"
+        ]
+      },
+      {
+        "hash": "7acc30b323609c0749a1fed3d24c0d7859b28952",
+        "short": "7acc30b",
+        "author_time": "2026-05-27 17:41:13 IST",
+        "subject": "Codex Conversation History Update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/threads_json/2026-05-26_182324_prompt-for-codex-redesign-the-voice-section-with-collapsible-tts-stt-sub_019e6458.json",
+          "CodexConversationHistory/threads_json/2026-05-27_085604_p-recipes2-add-8-recipe-intents_019e6777.json",
+          "CodexConversationHistory/threads_json/2026-05-27_110527_p-motion-1-audio-bubble-state-assertions-reduce-motion-i_019e67ee.json",
+          "CodexConversationHistory/threads_json/2026-05-27_112822_goal_019e6803.json"
+        ]
+      },
+      {
+        "hash": "cb3f5590ba4c63ddadffa6489e091e58d46fbdd8",
+        "short": "cb3f559",
+        "author_time": "2026-05-27 17:41:20 IST",
+        "subject": "Codex Conversation History Update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "CodexConversationHistory/threads_md/2026-05-27_132744_prompt-p-bubble-1-build-sidebubblev2-text-bubbles-next-to-the-floating_019e6870.md",
+          "CodexConversationHistory/threads_md/2026-05-27_142353_p-tapforme-1-migrate-tapforme-sheet_019e68a3.md",
+          "CodexConversationHistory/threads_md/2026-05-27_152937_p-legacy-1-rebuild-manualtargetselector-ui_019e68e0.md",
+          "CodexConversationHistory/threads_md/2026-05-27_160626_prompt-p-legacy-2-reskin-auditreviewactivity-onto-handydesign-per_019e6901.md",
+          "CodexConversationHistory/threads_md/2026-05-27_163044_prompt-p-legacy-3-reskin-diagnosticsactivity-onto-handydesign-per_019e6918.md"
+        ]
+      }
+    ]
   },
   {
     "index": 96,
@@ -4236,7 +4541,7 @@
     "title": "PROMPT P-BUBBLE-1 — Build SideBubbleV2 (text bubbles next to the floating",
     "created_local": "2026-05-27 13:27:44 IST",
     "updated_local": "2026-05-27 15:08:19 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: PROMPT P-BUBBLE-1 — Build SideBubbleV2 (text bubbles next to the floating Likely related git changes: d7b4a79 P-BUBBLE-1: Build SideBubbleV2; 74762f5 Implemented the preview lab for text bubbles.",
     "transcript_md": "threads_md/2026-05-27_132744_prompt-p-bubble-1-build-sidebubblev2-text-bubbles-next-to-the-floating_019e6870.md",
     "messages_json": "threads_json/2026-05-27_132744_prompt-p-bubble-1-build-sidebubblev2-text-bubbles-next-to-the-floating_019e6870.json",
@@ -4296,7 +4601,7 @@
     "title": "P-TAPFORME-1 migrate TapForMe sheet",
     "created_local": "2026-05-27 14:23:53 IST",
     "updated_local": "2026-05-27 14:41:20 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: P-TAPFORME-1 migrate TapForMe sheet Likely related git changes: 74762f5 Implemented the preview lab for text bubbles; 3ce396d P-TAPFORME-1 migrate TapForMe sheet.",
     "transcript_md": "threads_md/2026-05-27_142353_p-tapforme-1-migrate-tapforme-sheet_019e68a3.md",
     "messages_json": "threads_json/2026-05-27_142353_p-tapforme-1-migrate-tapforme-sheet_019e68a3.json",
@@ -4356,7 +4661,7 @@
     "title": "P-LEGACY-1: Rebuild ManualTargetSelector UI",
     "created_local": "2026-05-27 15:29:37 IST",
     "updated_local": "2026-05-27 15:54:14 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: P-LEGACY-1: Rebuild ManualTargetSelector UI Likely related git changes: 9092d66 fixes audit; 90fe097 P-LEGACY-1: Rebuild ManualTargetSelector UI.",
     "transcript_md": "threads_md/2026-05-27_152937_p-legacy-1-rebuild-manualtargetselector-ui_019e68e0.md",
     "messages_json": "threads_json/2026-05-27_152937_p-legacy-1-rebuild-manualtargetselector-ui_019e68e0.json",
@@ -4420,7 +4725,7 @@
     "title": "PROMPT P-LEGACY-2 — Reskin AuditReviewActivity onto HandyDesign per",
     "created_local": "2026-05-27 16:06:26 IST",
     "updated_local": "2026-05-27 16:30:05 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: PROMPT P-LEGACY-2 — Reskin AuditReviewActivity onto HandyDesign per Likely related git changes: f047006 P-LEGACY-2: Reskin AuditReviewActivity; 6c1a40b Update DEBUG_LOG.md; 058a4d8 Legacy 2 - audit fixes; 54ab651 P-LEGACY3: DiagnosticsActivity V2 + Settings CTA wire-up (artboards 12, 12b); 8b68875 Update DEBUG_LOG.md.",
     "transcript_md": "threads_md/2026-05-27_160626_prompt-p-legacy-2-reskin-auditreviewactivity-onto-handydesign-per_019e6901.md",
     "messages_json": "threads_json/2026-05-27_160626_prompt-p-legacy-2-reskin-auditreviewactivity-onto-handydesign-per_019e6901.json",
@@ -4523,7 +4828,7 @@
     "title": "PROMPT P-LEGACY-3 — Reskin DiagnosticsActivity onto HandyDesign per",
     "created_local": "2026-05-27 16:30:44 IST",
     "updated_local": "2026-05-27 17:05:28 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: PROMPT P-LEGACY-3 — Reskin DiagnosticsActivity onto HandyDesign per Likely related git changes: 54ab651 P-LEGACY3: DiagnosticsActivity V2 + Settings CTA wire-up (artboards 12, 12b); 8b68875 Update DEBUG_LOG.md; 1d03558 Fixed issues in Activity & Diagnostics Screen; af6a053 Capabilties section improvement.",
     "transcript_md": "threads_md/2026-05-27_163044_prompt-p-legacy-3-reskin-diagnosticsactivity-onto-handydesign-per_019e6918.md",
     "messages_json": "threads_json/2026-05-27_163044_prompt-p-legacy-3-reskin-diagnosticsactivity-onto-handydesign-per_019e6918.json",
@@ -4614,7 +4919,7 @@
     "title": "Reorganise the Capabilities section: toggles in the card, manifest in a bottom sheet",
     "created_local": "2026-05-27 17:04:19 IST",
     "updated_local": "2026-05-27 17:17:44 IST",
-    "is_new_in_latest_refresh": true,
+    "is_new_in_latest_refresh": false,
     "summary": "This conversation focused on: Reorganise the Capabilities section: toggles in the card, manifest in a bottom sheet Likely related git changes: af6a053 Capabilties section improvement.",
     "transcript_md": "threads_md/2026-05-27_170419_reorganise-the-capabilities-section-toggles-in-the-card-manifest-in-a-bo_019e6936.md",
     "messages_json": "threads_json/2026-05-27_170419_reorganise-the-capabilities-section-toggles-in-the-card-manifest-in-a-bo_019e6936.json",
@@ -4637,6 +4942,337 @@
           "app/src/main/kotlin/com/handy/app/settings/SettingsActivity.kt",
           "app/src/main/kotlin/com/handy/app/settings/sections/CapabilitiesSection.kt",
           "app/src/main/res/drawable/ic_message_circle_question.xml"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 102,
+    "thread_id": "019e6a34-ac86-73e0-b14a-2afd95a96aaa",
+    "title": "Hey, as you can see in the attached screenshots, I opened the photos app and then I clicked on Handy's floating widget. So it ope…",
+    "created_local": "2026-05-27 21:41:37 IST",
+    "updated_local": "2026-05-28 16:59:44 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Hey, as you can see in the attached screenshots, I opened the photos app and then I clicked on Handy's floating widget. So it ope… Likely related git changes: 40510d7 Automatic Foreground Tool Refresh in Chat Overlay; 585224d Fixed Foreground tool update bugs + Recipe stoppage when App not detected.",
+    "transcript_md": "threads_md/2026-05-27_214137_hey-as-you-can-see-in-the-attached-screenshots-i-opened-the-photos-app-a_019e6a34.md",
+    "messages_json": "threads_json/2026-05-27_214137_hey-as-you-can-see-in-the-attached-screenshots-i-opened-the-photos-app-a_019e6a34.json",
+    "recorded_git_sha_at_start": "80d7f6fdffe5c8d9c5821dd9165162b21df9b79c",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "40510d7cd9a8dfb68030b3003991a87eafbcb722",
+        "short": "40510d7",
+        "author_time": "2026-05-28 09:58:23 IST",
+        "subject": "Automatic Foreground Tool Refresh in Chat Overlay",
+        "confidence": "medium",
+        "score": 7,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words foreground, overlay, tool"
+        ],
+        "files": [
+          "android-runtime/src/main/kotlin/com/handy/runtime/accessibility/AccessibilityMarksProvider.kt",
+          "app/src/androidTest/kotlin/com/handy/app/overlay/OverlayQuickChatPanelV2Test.kt",
+          "app/src/main/kotlin/com/handy/app/accessibility/HandyAccessibilityService.kt",
+          "app/src/main/kotlin/com/handy/app/foreground/HandyForegroundAppMonitor.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPanelService.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/PanelContextRefresher.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/design/OverlayQuickChatPanelV2.kt",
+          "app/src/main/res/xml/accessibility_service_config.xml",
+          "app/src/test/kotlin/com/handy/app/overlay/OverlayChatPipelineTest.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/OverlayPresenterPanelContextRefreshTest.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/PanelContextRefresherTest.kt"
+        ]
+      },
+      {
+        "hash": "585224d5b17fbd085ea91c318b2abbbbcb05f0df",
+        "short": "585224d",
+        "author_time": "2026-05-28 16:59:53 IST",
+        "subject": "Fixed Foreground tool update bugs + Recipe stoppage when App not detected",
+        "confidence": "medium",
+        "score": 7,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words bugs, foreground, tool"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt",
+          "app/src/main/kotlin/com/handy/app/foreground/HandyForegroundAppMonitor.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/PanelContextRefresher.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SideBubblePreviewActivity.kt",
+          "app/src/main/kotlin/com/handy/app/widget/design/SideBubbleV2.kt",
+          "app/src/main/res/drawable/ic_lucide_flag.xml",
+          "app/src/test/kotlin/com/handy/app/agent/AgentSessionControllerTest.kt",
+          "app/src/test/kotlin/com/handy/app/foreground/HandyForegroundAppMonitorTest.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/OverlayPresenterFsmTest.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/OverlayPresenterPanelContextRefreshTest.kt"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 103,
+    "thread_id": "019e6cbd-2e7e-72c3-adef-7ff39306d531",
+    "title": "Hey can you help me with what the current version of Handy does in the below scenario -",
+    "created_local": "2026-05-28 09:29:58 IST",
+    "updated_local": "2026-05-28 10:21:11 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Hey can you help me with what the current version of Handy does in the below scenario - No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
+    "transcript_md": "threads_md/2026-05-28_092958_hey-can-you-help-me-with-what-the-current-version-of-handy-does-in-the-b_019e6cbd.md",
+    "messages_json": "threads_json/2026-05-28_092958_hey-can-you-help-me-with-what-the-current-version-of-handy-does-in-the-b_019e6cbd.json",
+    "recorded_git_sha_at_start": "80d7f6fdffe5c8d9c5821dd9165162b21df9b79c",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": []
+  },
+  {
+    "index": 104,
+    "thread_id": "019e6e56-99f2-7571-acce-779a2d3eda21",
+    "title": "Update recipes README section",
+    "created_local": "2026-05-28 16:57:09 IST",
+    "updated_local": "2026-05-28 17:10:34 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Update recipes README section Likely related git changes: 585224d Fixed Foreground tool update bugs + Recipe stoppage when App not detected.",
+    "transcript_md": "threads_md/2026-05-28_165709_update-recipes-readme-section_019e6e56.md",
+    "messages_json": "threads_json/2026-05-28_165709_update-recipes-readme-section_019e6e56.json",
+    "recorded_git_sha_at_start": "40510d7cd9a8dfb68030b3003991a87eafbcb722",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "585224d5b17fbd085ea91c318b2abbbbcb05f0df",
+        "short": "585224d",
+        "author_time": "2026-05-28 16:59:53 IST",
+        "subject": "Fixed Foreground tool update bugs + Recipe stoppage when App not detected",
+        "confidence": "medium",
+        "score": 8,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words detected, foreground, recipe, stoppage"
+        ],
+        "files": [
+          "DEBUG_LOG.md",
+          "app/src/main/kotlin/com/handy/app/agent/AgentSessionController.kt",
+          "app/src/main/kotlin/com/handy/app/foreground/HandyForegroundAppMonitor.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayPresenter.kt",
+          "app/src/main/kotlin/com/handy/app/overlay/PanelContextRefresher.kt",
+          "app/src/main/kotlin/com/handy/app/settings/SideBubblePreviewActivity.kt",
+          "app/src/main/kotlin/com/handy/app/widget/design/SideBubbleV2.kt",
+          "app/src/main/res/drawable/ic_lucide_flag.xml",
+          "app/src/test/kotlin/com/handy/app/agent/AgentSessionControllerTest.kt",
+          "app/src/test/kotlin/com/handy/app/foreground/HandyForegroundAppMonitorTest.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/OverlayPresenterFsmTest.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/OverlayPresenterPanelContextRefreshTest.kt"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 105,
+    "thread_id": "019e6e8f-ec6f-7613-981d-b770501a9a88",
+    "title": "what are the .gitignore files we currently have in this project?",
+    "created_local": "2026-05-28 17:59:46 IST",
+    "updated_local": "2026-05-29 10:53:33 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: what are the .gitignore files we currently have in this project? Likely related git changes: 18a6bfe README update.",
+    "transcript_md": "threads_md/2026-05-28_175946_what-are-the-gitignore-files-we-currently-have-in-this-project_019e6e8f.md",
+    "messages_json": "threads_json/2026-05-28_175946_what-are-the-gitignore-files-we-currently-have-in-this-project_019e6e8f.json",
+    "recorded_git_sha_at_start": "585224d5b17fbd085ea91c318b2abbbbcb05f0df",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "18a6bfe1da7e9e5369a74189b12cc976427e6d00",
+        "short": "18a6bfe",
+        "author_time": "2026-05-29 10:41:37 IST",
+        "subject": "README update",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "README.md",
+          "handy-new-design-handoff/Handy Android Redesign.html",
+          "handy-new-design-handoff/README.md",
+          "handy-new-design-handoff/project/.design-canvas.state.json",
+          "handy-new-design-handoff/project/Handy Android Redesign.html",
+          "handy-new-design-handoff/project/checks/01-04-value-cards.png",
+          "handy-new-design-handoff/project/checks/01-08-settings-hq.png",
+          "handy-new-design-handoff/project/checks/01-09-illu-sheet.png",
+          "handy-new-design-handoff/project/checks/01-10-handoff.png",
+          "handy-new-design-handoff/project/checks/01-13-value-cards.png",
+          "handy-new-design-handoff/project/checks/01-14-permissions.png",
+          "handy-new-design-handoff/project/checks/01-overview.png"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 106,
+    "thread_id": "019e729b-a2ac-7910-9f79-e186740c6856",
+    "title": "Fix stale tool context",
+    "created_local": "2026-05-29 12:51:02 IST",
+    "updated_local": "2026-05-29 13:04:57 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Fix stale tool context Likely related git changes: d6e556f Fixed tool context in Main Chat window.",
+    "transcript_md": "threads_md/2026-05-29_125102_fix-stale-tool-context_019e729b.md",
+    "messages_json": "threads_json/2026-05-29_125102_fix-stale-tool-context_019e729b.json",
+    "recorded_git_sha_at_start": "18a6bfe1da7e9e5369a74189b12cc976427e6d00",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "d6e556f3e22a27a009383cf8083b02536694b99e",
+        "short": "d6e556f",
+        "author_time": "2026-05-29 13:09:17 IST",
+        "subject": "Fixed tool context in Main Chat window",
+        "confidence": "medium",
+        "score": 8,
+        "reasons": [
+          "inside/near active thread window",
+          "matched words context, main, tool, window"
+        ],
+        "files": [
+          "app/src/main/kotlin/com/handy/app/chat/ChatViewModel.kt",
+          "app/src/main/kotlin/com/handy/app/foreground/HandyForegroundAppMonitor.kt",
+          "app/src/main/kotlin/com/handy/app/tutor/TutorModeController.kt",
+          "app/src/test/kotlin/com/handy/app/chat/ChatViewModelVoiceTest.kt",
+          "app/src/test/kotlin/com/handy/app/foreground/HandyForegroundAppMonitorTest.kt",
+          "core/src/main/kotlin/com/handy/core/foreground/ForegroundAppMonitor.kt"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 107,
+    "thread_id": "019e72b0-9ed1-7561-be54-6787210315b7",
+    "title": "put a working claude api key in the brain and triggered a recipe workflow but got the attached errors. screenshot from the overla…",
+    "created_local": "2026-05-29 13:13:58 IST",
+    "updated_local": "2026-05-29 13:32:38 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: put a working claude api key in the brain and triggered a recipe workflow but got the attached errors. screenshot from the overla… No likely related git commits were found for this thread. It may have been planning/review-only, debugging without a commit, or committed as part of a neighboring bundled thread.",
+    "transcript_md": "threads_md/2026-05-29_131358_put-a-working-claude-api-key-in-the-brain-and-triggered-a-recipe-workflo_019e72b0.md",
+    "messages_json": "threads_json/2026-05-29_131358_put-a-working-claude-api-key-in-the-brain-and-triggered-a-recipe-workflo_019e72b0.json",
+    "recorded_git_sha_at_start": "d6e556f3e22a27a009383cf8083b02536694b99e",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": []
+  },
+  {
+    "index": 108,
+    "thread_id": "019e72c5-5c7c-7c01-9e4f-4e5738354d02",
+    "title": "Fix alarm permission flow",
+    "created_local": "2026-05-29 13:36:37 IST",
+    "updated_local": "2026-05-29 14:07:26 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: Fix alarm permission flow Likely related git changes: 9743d1a Fixed Recipe issues.",
+    "transcript_md": "threads_md/2026-05-29_133637_fix-alarm-permission-flow_019e72c5.md",
+    "messages_json": "threads_json/2026-05-29_133637_fix-alarm-permission-flow_019e72c5.json",
+    "recorded_git_sha_at_start": "d6e556f3e22a27a009383cf8083b02536694b99e",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "9743d1aeb8673fd150fbe1bf0d7408814b571c40",
+        "short": "9743d1a",
+        "author_time": "2026-05-29 14:08:17 IST",
+        "subject": "Fixed Recipe issues",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "android-runtime/build.gradle.kts",
+          "android-runtime/src/main/kotlin/com/handy/runtime/di/RuntimeModule.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/intent/AndroidIntentDispatcher.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/llm/ClaudeDns.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/llm/ClaudeLlmClient.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/intent/AndroidIntentDispatcherSafetyTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/llm/ClaudeTransportFailureTest.kt",
+          "app/src/main/AndroidManifest.xml",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt",
+          "app/src/test/kotlin/com/handy/app/ManifestPermissionTest.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/OverlayChatPipelineTest.kt",
+          "core/src/main/kotlin/com/handy/core/overlay/FallbackPointInferer.kt"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 109,
+    "thread_id": "019e72e2-7f4b-7910-94b4-641ca97e4691",
+    "title": "okay first of all, the text bubbles as well as floating widget states in pointer, navigation, etc are all opaque, not transluscen…",
+    "created_local": "2026-05-29 14:08:26 IST",
+    "updated_local": "2026-05-29 14:19:10 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: okay first of all, the text bubbles as well as floating widget states in pointer, navigation, etc are all opaque, not transluscen… Likely related git changes: 9743d1a Fixed Recipe issues.",
+    "transcript_md": "threads_md/2026-05-29_140826_okay-first-of-all-the-text-bubbles-as-well-as-floating-widget-states-in_019e72e2.md",
+    "messages_json": "threads_json/2026-05-29_140826_okay-first-of-all-the-text-bubbles-as-well-as-floating-widget-states-in_019e72e2.json",
+    "recorded_git_sha_at_start": "9743d1aeb8673fd150fbe1bf0d7408814b571c40",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "9743d1aeb8673fd150fbe1bf0d7408814b571c40",
+        "short": "9743d1a",
+        "author_time": "2026-05-29 14:08:17 IST",
+        "subject": "Fixed Recipe issues",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "android-runtime/build.gradle.kts",
+          "android-runtime/src/main/kotlin/com/handy/runtime/di/RuntimeModule.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/intent/AndroidIntentDispatcher.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/llm/ClaudeDns.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/llm/ClaudeLlmClient.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/intent/AndroidIntentDispatcherSafetyTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/llm/ClaudeTransportFailureTest.kt",
+          "app/src/main/AndroidManifest.xml",
+          "app/src/main/kotlin/com/handy/app/overlay/OverlayChatPipeline.kt",
+          "app/src/test/kotlin/com/handy/app/ManifestPermissionTest.kt",
+          "app/src/test/kotlin/com/handy/app/overlay/OverlayChatPipelineTest.kt",
+          "core/src/main/kotlin/com/handy/core/overlay/FallbackPointInferer.kt"
+        ]
+      }
+    ]
+  },
+  {
+    "index": 110,
+    "thread_id": "019e72f4-bee4-7231-a1f4-4171adc7d0c7",
+    "title": "So I asked Handy to open a podcast on YouTube, and what did it was it just searched on Google and opened up the latest search res…",
+    "created_local": "2026-05-29 14:28:22 IST",
+    "updated_local": "2026-05-29 15:51:23 IST",
+    "is_new_in_latest_refresh": true,
+    "summary": "This conversation focused on: So I asked Handy to open a podcast on YouTube, and what did it was it just searched on Google and opened up the latest search res… Likely related git changes: ea932d2 fixes.",
+    "transcript_md": "threads_md/2026-05-29_142822_so-i-asked-handy-to-open-a-podcast-on-youtube-and-what-did-it-was-it-jus_019e72f4.md",
+    "messages_json": "threads_json/2026-05-29_142822_so-i-asked-handy-to-open-a-podcast-on-youtube-and-what-did-it-was-it-jus_019e72f4.json",
+    "recorded_git_sha_at_start": "9743d1aeb8673fd150fbe1bf0d7408814b571c40",
+    "recorded_git_branch_at_start": "main",
+    "likely_related_commits": [
+      {
+        "hash": "ea932d28c6d89286c5d354b15f4e4f612a78a670",
+        "short": "ea932d2",
+        "author_time": "2026-05-29 15:54:42 IST",
+        "subject": "fixes",
+        "confidence": "low",
+        "score": 4,
+        "reasons": [
+          "inside/near active thread window"
+        ],
+        "files": [
+          "PLAYSTORE_SUBMISSION.md",
+          "PRIVACY_POLICY.md",
+          "android-runtime/src/main/kotlin/com/handy/runtime/action/DefaultActionPolicyEngine.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/AppSearchRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/ClockRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/recipes/YouTubeRecipe.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/agent/verifiers/IntentLaunchedVerifier.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/intent/AndroidIntentDispatcher.kt",
+          "android-runtime/src/main/kotlin/com/handy/runtime/llm/HandyToolRunner.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/agent/recipes/RuntimeRecipeContractTest.kt",
+          "android-runtime/src/test/kotlin/com/handy/runtime/agent/recipes/RuntimeRecipePackTest.kt",
+          "app/src/main/AndroidManifest.xml"
         ]
       }
     ]

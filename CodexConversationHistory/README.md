@@ -7,9 +7,9 @@ This visible folder exports the Codex conversation history for the HandyV2 repo.
 - `threads_md/`: one Markdown transcript per thread.
 - `threads_json/`: one JSON message export per thread.
 
-Generated: 2026-05-27 17:25:30 IST
-Threads exported: 101
-New threads added in this refresh: 23
+Generated: 2026-05-29 17:20:19 IST
+Threads exported: 110
+New threads added in this refresh: 9
 
 Notes:
 - Transcripts include user/assistant messages only.
