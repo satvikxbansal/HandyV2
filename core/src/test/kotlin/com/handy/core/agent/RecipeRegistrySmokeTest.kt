@@ -74,6 +74,14 @@ internal val canonicalRecipeCases: List<CanonicalRecipeCase> = listOf(
         args = mapOf("name" to "spotify"),
     ),
     CanonicalRecipeCase(
+        utterance = "play jazz on spotify",
+        foregroundPackage = "com.google.android.apps.nexuslauncher",
+        foregroundLabel = "Launcher",
+        intent = RecipeIntent.APP_SEARCH,
+        expectedRecipeId = "app_search",
+        args = mapOf("app" to "spotify", "query" to "jazz"),
+    ),
+    CanonicalRecipeCase(
         utterance = "install spotify",
         foregroundPackage = "com.google.android.apps.nexuslauncher",
         foregroundLabel = "Launcher",
@@ -192,6 +200,14 @@ internal val canonicalRecipeCases: List<CanonicalRecipeCase> = listOf(
         intent = RecipeIntent.SHOPPING_SEARCH,
         expectedRecipeId = "shopping_search",
         args = mapOf("query" to "cheap saree"),
+    ),
+    CanonicalRecipeCase(
+        utterance = "open the latest podcast of raj shamani on youtube",
+        foregroundPackage = "com.google.android.apps.nexuslauncher",
+        foregroundLabel = "Launcher",
+        intent = RecipeIntent.YOUTUBE_SEARCH,
+        expectedRecipeId = "youtube",
+        args = mapOf("query" to "raj shamani latest podcast"),
     ),
 )
 

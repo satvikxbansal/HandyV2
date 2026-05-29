@@ -331,6 +331,7 @@ class HandyToolRunner @Inject constructor(
             is AssistantAction.OpenApp -> packageHint
             is AssistantAction.OpenAppInfo -> packageHint
             is AssistantAction.InstallApp -> packageHint ?: "android.intent"
+            is AssistantAction.SearchInApp -> packageHint
             is AssistantAction.OpenSettings -> "android.settings"
             else -> "android.intent"
         }).safeAuditToken()
@@ -347,6 +348,7 @@ class HandyToolRunner @Inject constructor(
         is AssistantAction.ComposeEmail -> "compose_email;toChars=${to?.length ?: 0};subjectChars=${subject?.length ?: 0};bodyChars=${body?.length ?: 0}"
         is AssistantAction.ShareText -> "share_text;chars=${text.length};mimeType=${mimeType.safeAuditToken()}"
         is AssistantAction.WebSearchIntent -> "web_search;queryChars=${query.length}"
+        is AssistantAction.SearchInApp -> "search_in_app;packageHint=${packageHint.safeAuditToken()};queryChars=${query.length}"
         is AssistantAction.ComposeSms -> "compose_sms;toChars=${to?.length ?: 0};bodyChars=${body?.length ?: 0}"
         is AssistantAction.CreateCalendarEvent -> "create_event;titleChars=${title.length};locationChars=${location?.length ?: 0};notesChars=${notes?.length ?: 0};attendees=${attendees.size}"
         is AssistantAction.OpenSettings -> "open_settings;target=${target.name.safeAuditToken()}"
@@ -378,6 +380,7 @@ class HandyToolRunner @Inject constructor(
         is AssistantAction.InstallApp -> "opening Play Store"
         is AssistantAction.ShareText -> "sharing text"
         is AssistantAction.ShareUrl -> "sharing a URL"
+        is AssistantAction.SearchInApp -> "searching in ${packageHint.safeAuditToken()}"
         is AssistantAction.StartNavigation -> "starting navigation"
         else -> this::class.simpleName.orEmpty()
     }
@@ -387,6 +390,7 @@ class HandyToolRunner @Inject constructor(
             is AssistantAction.OpenApp -> action.packageHint
             is AssistantAction.OpenAppInfo -> action.packageHint
             is AssistantAction.InstallApp -> action.packageHint
+            is AssistantAction.SearchInApp -> action.packageHint
             else -> "android.intent"
         }?.takeIf { it.isNotBlank() } ?: "android.intent"
         return GroundingSnapshot(

@@ -138,7 +138,7 @@ private fun BubbleSurface(
         modifier = Modifier
             .widthIn(max = if (bubble.small) 240.dp else 280.dp)
             .clip(shape)
-            .background(Color(0xD1121418))
+            .background(Color(0xFF121418))
             .drawWithContent {
                 drawContent()
                 drawLine(

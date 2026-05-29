@@ -246,6 +246,7 @@ class DefaultActionPolicyEngine(
     private fun AssistantAction.packageHintOrNull(): String? = when (this) {
         is AssistantAction.OpenApp -> packageHint
         is AssistantAction.InstallApp -> packageHint
+        is AssistantAction.SearchInApp -> packageHint
         is AssistantAction.OpenAppInfo -> packageHint
         is AssistantAction.UiAction -> proposedPackage
         else -> null
@@ -277,6 +278,7 @@ class DefaultActionPolicyEngine(
         is AssistantAction.InstallApp -> listOfNotNull(packageHint, searchQuery).joinToString(" ").containsSensitiveData()
         is AssistantAction.ShareText -> text.containsSensitiveData()
         is AssistantAction.ShareUrl -> listOfNotNull(url, title).joinToString(" ").containsSensitiveData()
+        is AssistantAction.SearchInApp -> listOf(packageHint, query).joinToString(" ").containsSensitiveData()
         is AssistantAction.TypeText -> text.containsSensitiveData()
         is AssistantAction.UiAction -> listOfNotNull(
             userUtterance,

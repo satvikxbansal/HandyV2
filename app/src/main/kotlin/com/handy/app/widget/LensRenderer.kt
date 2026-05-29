@@ -69,6 +69,10 @@ class LensRenderer(
         style = Paint.Style.FILL
         setShadowLayer(14f, 0f, 6f, 0x66000000.toInt())
     }
+    private val opaqueBodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFF111317.toInt()
+        style = Paint.Style.FILL
+    }
     private val lensBodyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val saturationPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val innerShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -97,7 +101,8 @@ class LensRenderer(
         // Layer 1: drop shadow (offset down a touch for depth).
         canvas.drawCircle(cx, cy + 3f, radius, dropShadowPaint)
 
-        // Layer 2: lens body — warm mist (handoff glass), lets background read through.
+        // Layer 2: opaque body plus warm mist; the widget must not reveal app content underneath.
+        canvas.drawCircle(cx, cy, radius, opaqueBodyPaint)
         lensBodyPaint.shader = RadialGradient(
             cx - radius * 0.25f,
             cy - radius * 0.25f,

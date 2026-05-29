@@ -1,5 +1,6 @@
 package com.handy.runtime.intent
 
+import android.app.SearchManager
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
@@ -44,6 +45,7 @@ class AndroidIntentDispatcher(
             reason = "Dial ${action.number}?",
         )
         is AssistantAction.MapsSearch -> fireMaps(action.query)
+        is AssistantAction.SearchInApp -> fireAppSearch(action)
         is AssistantAction.ComposeEmail -> IntentResult.NeedsConfirmation(
             reason = "Open email draft${action.to?.let { " to $it" }.orEmpty()}?",
         )
@@ -291,6 +293,22 @@ class AndroidIntentDispatcher(
         val uri = Uri.parse("geo:0,0?q=${Uri.encode(query)}")
         val intent = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return start(intent) { "geo queryChars=${query.length}" }
+    }
+
+    private fun fireAppSearch(action: AssistantAction.SearchInApp): IntentResult {
+        val query = action.query.trim()
+        if (query.isBlank()) return IntentResult.Failed("empty app search query")
+        val resolved = launchableApps.resolve(action.packageHint)
+            ?: return IntentResult.NoHandler
+        val intent = Intent(Intent.ACTION_SEARCH).apply {
+            setPackage(resolved.packageName)
+            putExtra(SearchManager.QUERY, query)
+            putExtra("query", query)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return start(intent) {
+            "ACTION_SEARCH package=${resolved.packageName} queryChars=${query.length}"
+        }
     }
 
     private fun fireWebSearch(query: String): IntentResult {

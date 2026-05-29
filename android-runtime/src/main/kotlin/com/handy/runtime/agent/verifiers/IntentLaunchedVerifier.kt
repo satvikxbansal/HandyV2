@@ -62,6 +62,7 @@ private fun GroundingSnapshot.looksLikeClockApp(): Boolean =
 
 internal fun AssistantAction.expectedPackage(): String? = when (this) {
     is AssistantAction.OpenApp -> packageHint
+    is AssistantAction.SearchInApp -> packageHint
     is AssistantAction.InstallApp -> PLAY_STORE_PACKAGE
     is AssistantAction.OpenSettings,
     is AssistantAction.OpenAppInfo -> SETTINGS_PACKAGE

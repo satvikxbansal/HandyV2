@@ -125,7 +125,7 @@
         <item></item>
         <item></item>
         <item></item>
-        <item>open_app, install_app, clock_alarm, set_timer, web_search, chrome_open_url, chrome_search, chrome_visible_tap, android_settings, gmail_draft, whatsapp_draft, calendar_event, maps_search, maps_navigation, youtube_search, notes_draft, contacts_handoff, files_picker, photos_handoff, calculator, food_delivery, ride_hailing_prep, shopping_search, visible_tap, visible_text_entry, visible_search, visible_scroll</item>
+        <item>open_app, app_search, install_app, clock_alarm, set_timer, web_search, chrome_open_url, chrome_search, chrome_visible_tap, android_settings, gmail_draft, whatsapp_draft, calendar_event, maps_search, maps_navigation, youtube_search, notes_draft, contacts_handoff, files_picker, photos_handoff, calculator, food_delivery, ride_hailing_prep, shopping_search, visible_tap, visible_text_entry, visible_search, visible_scroll</item>
         <item></item>
         <item></item>
         <item></item>

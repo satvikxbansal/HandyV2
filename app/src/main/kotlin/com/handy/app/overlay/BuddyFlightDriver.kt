@@ -309,9 +309,11 @@ class BuddyFlightDriver @Inject constructor(
         )
 
         service.updateBubblePlacementHint(landing.kind)
-        service.announceBuddyFlightStart(label)
+        val resolvedLabel = resolved?.displayLabel()
+        val pointerLabel = resolvedLabel?.takeIf { it.isNotBlank() } ?: label
+        service.announceBuddyFlightStart(pointerLabel)
         presenter.onFlyingStart(label = label)
-        label?.takeIf { it.isNotBlank() }?.let(presenter::onFlightStartBubble)
+        pointerLabel?.takeIf { it.isNotBlank() }?.let(presenter::onFlightStartBubble)
 
         service.flightControllerInstance().flyThere(
             fromX = fromX.toFloat(),
@@ -354,9 +356,9 @@ class BuddyFlightDriver @Inject constructor(
                         tangentRadians = arrivalAngle,
                         scale = landing.fitScale,
                     )
-                    service.announceBuddyFlightArrived(label)
+                    service.announceBuddyFlightArrived(pointerLabel)
                     presenter.onPointingArrived(label)
-                    label?.takeIf { it.isNotBlank() }?.let(presenter::onPointingArrivedBubble)
+                    pointerLabel?.takeIf { it.isNotBlank() }?.let(presenter::onPointingArrivedBubble)
                     scheduleStickySafetyTimeout()
                     if (cont.isActive) cont.resume(true)
                 }
@@ -1204,6 +1206,11 @@ class BuddyFlightDriver @Inject constructor(
     private fun ResolvedPointTarget.shouldOfferCandidateOptions(): Boolean =
         failureReason == ResolutionFailureReason.AMBIGUOUS ||
             (confidence >= MIN_CANDIDATE_CONFIDENCE && confidence < MIN_FLY_CONFIDENCE)
+
+    private fun ResolvedPointTarget.displayLabel(): String? =
+        text?.takeIf { it.isNotBlank() }
+            ?: desc?.takeIf { it.isNotBlank() }
+            ?: viewId?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
 
     private fun ResolvedPointTarget.toCandidateOptions(visible: Boolean): CandidateOptions? {
         val candidates = debugCandidates

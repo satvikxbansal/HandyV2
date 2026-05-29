@@ -23,6 +23,7 @@ class RecipeIntentRouter(
     companion object {
         val INTENT_TO_RECIPE_ID: Map<RecipeIntent, String> = mapOf(
             RecipeIntent.OPEN_APP to "open_app",
+            RecipeIntent.APP_SEARCH to "app_search",
             RecipeIntent.SET_ALARM to "clock_alarm",
             RecipeIntent.SET_TIMER to "set_timer",
             RecipeIntent.WEB_SEARCH to WEB_SEARCH_RECIPE_ID,

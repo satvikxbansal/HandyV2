@@ -129,6 +129,11 @@ class OpenAppRecipeContractTest : RuntimeRecipeContractTest() {
     override val recipe: AppRecipe = OpenAppRecipe(::fakeLaunchableApps)
 }
 
+class AppSearchRecipeContractTest : RuntimeRecipeContractTest() {
+    override val recipeId: String = "app_search"
+    override val recipe: AppRecipe = AppSearchRecipe(::fakeLaunchableApps)
+}
+
 class InstallAppRecipeContractTest : RuntimeRecipeContractTest() {
     override val recipeId: String = "install_app"
     override val recipe: AppRecipe = InstallAppRecipe
@@ -260,6 +265,7 @@ class RuntimeRecipeContractCoverageTest {
 
 internal val contractRecipeIds: Set<String> = setOf(
     "open_app",
+    "app_search",
     "install_app",
     "clock_alarm",
     "set_timer",
@@ -323,6 +329,13 @@ private fun preflight(
 
 private fun fakeLaunchableApps(query: String): List<LaunchableAppIndex.Entry> =
     when (query.trim().lowercase()) {
+        "com.google.android.youtube" -> listOf(entry("com.google.android.youtube", "YouTube"))
+        "com.google.android.apps.youtube.music" -> listOf(
+            entry("com.google.android.apps.youtube.music", "YouTube Music"),
+        )
+        "com.spotify.music" -> listOf(entry("com.spotify.music", "Spotify"))
+        "youtube" -> listOf(entry("com.google.android.youtube", "YouTube"))
+        "youtube music" -> listOf(entry("com.google.android.apps.youtube.music", "YouTube Music"))
         "spotify" -> listOf(entry("com.spotify.music", "Spotify"))
         "swiggy" -> listOf(entry("in.swiggy.android", "Swiggy"))
         "zomato" -> listOf(entry("com.application.zomato", "Zomato"))

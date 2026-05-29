@@ -82,11 +82,7 @@ fun WidgetContent(
         } else {
             1f
         }
-        val lensFill = if (isPointer) {
-            HandyColors.GlassTint.copy(alpha = 1f)
-        } else {
-            HandyColors.GlassTint
-        }
+        val lensFill = HandyColors.GlassTint.copy(alpha = 1f)
         Box(
             modifier = Modifier
                 .size(WidgetPulseCanvasSize),

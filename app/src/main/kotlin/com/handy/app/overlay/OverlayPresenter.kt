@@ -41,6 +41,11 @@ enum class PanelContextRefreshStartResult {
     Ignored,
 }
 
+private val POINTER_INSTRUCTION_PREFIX = Regex(
+    pattern = """^(tap|press|click|select|choose|open|use|swipe|scroll|look\s+for)\b""",
+    option = RegexOption.IGNORE_CASE,
+)
+
 /**
  * Single state owner for the Unified Buddy overlay (widget + panel +
  * lens chrome + bubble taxonomy). Scope §2 / §3.
@@ -160,6 +165,7 @@ class OverlayPresenter @Inject constructor(
             ),
             tapForMeConfirmation = null,
             candidateOptions = null,
+            manualTargetFallbackAvailable = false,
             bubble = null,
         ) }
         Timber.d(
@@ -189,6 +195,7 @@ class OverlayPresenter @Inject constructor(
             buddyState = BuddyState.LISTENING,
             isFlying = false,
             bubble = BuddyBubble.transcript(""),
+            manualTargetFallbackAvailable = false,
             panel = current.panel.copy(
                 snapshot = snapshot ?: current.panel.snapshot,
                 isListening = true,
@@ -204,6 +211,7 @@ class OverlayPresenter @Inject constructor(
             buddyState = BuddyState.DRAGGING,
             isFlying = false,
             bubble = null,
+            manualTargetFallbackAvailable = false,
         ) }
     }
 
@@ -217,6 +225,7 @@ class OverlayPresenter @Inject constructor(
             panel = PanelContent(),
             tapForMeConfirmation = null,
             candidateOptions = null,
+            manualTargetFallbackAvailable = false,
         ) }
     }
 
@@ -228,6 +237,7 @@ class OverlayPresenter @Inject constructor(
             buddyState = BuddyState.THINKING,
             isFlying = false,
             bubble = null,
+            manualTargetFallbackAvailable = false,
         ) }
     }
 
@@ -241,6 +251,7 @@ class OverlayPresenter @Inject constructor(
             panel = PanelContent(),
             tapForMeConfirmation = snapshot.tapForMeConfirmation,
             candidateOptions = null,
+            manualTargetFallbackAvailable = false,
             bubble = snapshot.bubble,
         ) }
     }
@@ -409,6 +420,7 @@ class OverlayPresenter @Inject constructor(
             },
             isFlying = false,
             bubble = bubble,
+            manualTargetFallbackAvailable = false,
             panel = snapshot.panel.copy(
                 isStreaming = false,
                 streamingDelta = "",
@@ -446,6 +458,7 @@ class OverlayPresenter @Inject constructor(
             buddyState = BuddyState.DOCKED,
             isFlying = false,
             bubble = null,
+            manualTargetFallbackAvailable = false,
             panel = snapshot.panel.copy(
                 isStreaming = false,
                 streamingDelta = "",
@@ -478,6 +491,7 @@ class OverlayPresenter @Inject constructor(
             mode = OverlayMode.Flying,
             buddyState = BuddyState.PREPARING_POINT,
             isFlying = true,
+            manualTargetFallbackAvailable = false,
             bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::navigation),
         ) }
     }
@@ -491,6 +505,7 @@ class OverlayPresenter @Inject constructor(
             buddyState = BuddyState.POINTING,
             isFlying = true,
             candidateOptions = options.copy(visible = options.hasAlternatives),
+            manualTargetFallbackAvailable = false,
             bubble = if (options.hasAlternatives) {
                 BuddyBubble.ambiguous(
                     prefix = "Which one?",
@@ -505,7 +520,10 @@ class OverlayPresenter @Inject constructor(
 
     fun setCandidateOptions(options: CandidateOptions?) {
         setState(event = "setCandidateOptions") { current ->
-            current.copy(candidateOptions = options)
+            current.copy(
+                candidateOptions = options,
+                manualTargetFallbackAvailable = false,
+            )
         }
     }
 
@@ -524,13 +542,14 @@ class OverlayPresenter @Inject constructor(
             mode = OverlayMode.Flying,
             buddyState = BuddyState.FLYING,
             isFlying = true,
+            manualTargetFallbackAvailable = false,
             bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::navigation),
         ) }
     }
 
     fun onFlightStartBubble(targetLabel: String) {
         setState(event = "onFlightStartBubble") { it.copy(
-            bubble = BuddyBubble.navigation("Going to \"$targetLabel\" →"),
+            bubble = BuddyBubble.navigation(pointerFlightLabel(targetLabel)),
         ) }
     }
 
@@ -542,6 +561,7 @@ class OverlayPresenter @Inject constructor(
             mode = OverlayMode.Pointing,
             buddyState = BuddyState.POINTING,
             isFlying = true,
+            manualTargetFallbackAvailable = false,
             bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::navigation)
                 ?: current.bubble,
         ) }
@@ -549,7 +569,7 @@ class OverlayPresenter @Inject constructor(
 
     fun onPointingArrivedBubble(targetLabel: String) {
         setState(event = "onPointingArrivedBubble") { it.copy(
-            bubble = BuddyBubble.navigation("Tap \"$targetLabel\""),
+            bubble = BuddyBubble.navigation(pointerArrivalLabel(targetLabel)),
         ) }
     }
 
@@ -562,6 +582,7 @@ class OverlayPresenter @Inject constructor(
             buddyState = BuddyState.POINTING,
             isFlying = true,
             candidateOptions = null,
+            manualTargetFallbackAvailable = true,
             bubble = label?.takeIf { it.isNotBlank() }?.let(BuddyBubble::navigation)
                 ?: current.bubble,
         ) }
@@ -597,6 +618,7 @@ class OverlayPresenter @Inject constructor(
             isFlying = true,
             candidateOptions = null,
             bubble = null,
+            manualTargetFallbackAvailable = false,
         ) }
     }
 
@@ -611,6 +633,7 @@ class OverlayPresenter @Inject constructor(
             isFlying = true,
             bubble = null,
             candidateOptions = null,
+            manualTargetFallbackAvailable = false,
             lastFlightCancellationReason = reason ?: it.lastFlightCancellationReason,
         ) }
     }
@@ -627,6 +650,7 @@ class OverlayPresenter @Inject constructor(
             bubble = null,
             tapForMeConfirmation = null,
             candidateOptions = null,
+            manualTargetFallbackAvailable = false,
         ) }
     }
 
@@ -761,6 +785,7 @@ class OverlayPresenter @Inject constructor(
             mode = OverlayMode.Acting,
             buddyState = BuddyState.ACTING,
             tapForMeConfirmation = null,
+            manualTargetFallbackAvailable = false,
             bubble = actionNoticeBubble(label),
         ) }
     }
@@ -831,6 +856,7 @@ class OverlayPresenter @Inject constructor(
             isFlying = false,
             tapForMeConfirmation = null,
             candidateOptions = null,
+            manualTargetFallbackAvailable = false,
             bubble = BuddyBubble.foregroundPrivacyStop(),
             panel = snapshot.panel.copy(
                 isStreaming = false,
@@ -868,6 +894,7 @@ class OverlayPresenter @Inject constructor(
             bubble = null,
             tapForMeConfirmation = null,
             candidateOptions = null,
+            manualTargetFallbackAvailable = false,
         ) }
     }
 
@@ -1172,6 +1199,36 @@ class OverlayPresenter @Inject constructor(
             BuddyBubble.actingTap(label, progress)
         }
     }
+
+    private fun pointerFlightLabel(targetLabel: String): String {
+        val cleaned = targetLabel.cleanPointerLabel()
+        if (cleaned.isBlank()) return "Pointing there →"
+        return if (cleaned.isInstructionLikePointerLabel()) {
+            "Pointing there →"
+        } else {
+            "Going to \"$cleaned\" →"
+        }
+    }
+
+    private fun pointerArrivalLabel(targetLabel: String): String {
+        val cleaned = targetLabel.cleanPointerLabel()
+        if (cleaned.isBlank()) return "Tap here"
+        return if (cleaned.isInstructionLikePointerLabel()) {
+            cleaned
+        } else {
+            "Tap \"$cleaned\""
+        }
+    }
+
+    private fun String.cleanPointerLabel(): String =
+        trim()
+            .trim('"', '\'', '“', '”')
+            .trim()
+            .removeSuffix(".")
+            .trim()
+
+    private fun String.isInstructionLikePointerLabel(): Boolean =
+        POINTER_INSTRUCTION_PREFIX.containsMatchIn(trim())
 
     private fun BuddyBubble.isPlainSpokenAnswer(): Boolean =
         tone == BubbleTone.ACCENT &&

@@ -60,7 +60,7 @@ fun WidgetGlyphV2(
     modifier: Modifier = Modifier,
 ) {
     val isBlue = state == WidgetState.FLYING || state == WidgetState.POINTING
-    val discFill = if (isBlue) HandyDesign.Colors.PointSoft else HandyDesign.Colors.Accent
+    val discFill = if (isBlue) PointerDiscFill else HandyDesign.Colors.Accent
     val discBorder = when {
         isBlue -> HandyDesign.Colors.PointHairline
         state == WidgetState.TOUCHED -> HandyDesign.Colors.Accent
@@ -326,6 +326,7 @@ private fun flyingWobble(state: WidgetState): Float {
 private fun Float.toDegrees(): Float =
     this * 180f / PI.toFloat()
 
+private val PointerDiscFill = Color(0xFFEAF2FF)
 private val WidgetCanvasSize = 64.dp
 private val WidgetDiscSize = 48.dp
 private val GlyphSize = 29.dp

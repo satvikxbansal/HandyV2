@@ -10,8 +10,6 @@ import com.handy.core.agent.RecipeStep
 import com.handy.core.agent.SideEffectClassification
 import com.handy.core.agent.UserGoal
 import com.handy.core.screen.GroundingSnapshot
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
 object YouTubeRecipe : AppRecipe {
     override val id: String = "youtube"
@@ -35,10 +33,10 @@ object YouTubeRecipe : AppRecipe {
             ?: goal.text.extractYouTubeChannel()
         if (channel != null || goal.requestedIntent == "youtube_open_channel") {
             val value = channel ?: return RecipeProposal.Refused("missing-channel")
-            return openUrlPlan(
+            return appSearchPlan(
                 summary = "Open YouTube channel lookup for \"$value\"",
                 title = "Open YouTube channel lookup",
-                url = youtubeChannelLookupUrl(value),
+                query = youtubeChannelLookupQuery(value),
             )
         }
 
@@ -46,31 +44,34 @@ object YouTubeRecipe : AppRecipe {
             ?.cleanYouTubeValue()
             ?: goal.text.extractYouTubeSearch()
             ?: return RecipeProposal.Refused("missing-youtube-query")
-        return openUrlPlan(
+        return appSearchPlan(
             summary = "Search YouTube for \"$query\"",
             title = "Search YouTube",
-            url = youtubeSearchUrl(query),
+            query = query,
         )
     }
 
-    private fun openUrlPlan(
+    private fun appSearchPlan(
         summary: String,
         title: String,
-        url: String,
+        query: String,
     ): RecipeProposal.Proposed =
         RecipeProposal.Proposed(
             RecipePlan(
                 recipeId = id,
                 displayName = displayName,
-                packageName = null,
+                packageName = YOUTUBE_PACKAGE,
                 appLabel = "YouTube",
                 summary = summary,
                 steps = listOf(
                     RecipeStep(
-                        id = "open-youtube-url",
+                        id = "search-youtube",
                         title = title,
                         command = RecipeCommand.NativeAction(
-                            action = AssistantAction.OpenUrl(url),
+                            action = AssistantAction.SearchInApp(
+                                packageHint = YOUTUBE_PACKAGE,
+                                query = query,
+                            ),
                             allowPackageChangeAfter = true,
                         ),
                     ),
@@ -108,21 +109,14 @@ private fun String.cleanYouTubeValue(): String? =
         .replace(Regex("""\s+"""), " ")
         .takeIf { it.isNotBlank() }
 
-private fun youtubeSearchUrl(query: String): String =
-    "https://www.youtube.com/results?search_query=${query.urlEncode()}"
-
-private fun youtubeChannelLookupUrl(channel: String): String {
+private fun youtubeChannelLookupQuery(channel: String): String {
     val normalized = channel.trim()
     return if (normalized.startsWith("@") && normalized.none(Char::isWhitespace)) {
-        "https://www.youtube.com/${normalized.urlEncode()}"
+        normalized
     } else {
-        youtubeSearchUrl("$normalized channel")
+        "$normalized channel"
     }
 }
-
-private fun String.urlEncode(): String =
-    URLEncoder.encode(this, StandardCharsets.UTF_8.name())
-        .replace("+", "%20")
 
 private val YOUTUBE_BLOCKED_PATTERNS = listOf(
     Regex("""\blike\s+(?:this|the)\s+video\b""", RegexOption.IGNORE_CASE),
@@ -139,3 +133,5 @@ private val YOUTUBE_CHANNEL_PATTERNS = listOf(
     Regex("""\bopen\s+(.+?)\s+(?:youtube\s+)?channel$""", RegexOption.IGNORE_CASE),
     Regex("""\bopen\s+(.+?)\s+channel\s+on\s+youtube$""", RegexOption.IGNORE_CASE),
 )
+
+private const val YOUTUBE_PACKAGE = "com.google.android.youtube"

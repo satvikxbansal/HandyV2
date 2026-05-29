@@ -2,6 +2,7 @@ package com.handy.core.agent
 
 enum class RecipeIntent(val canonical: String) {
     OPEN_APP("open_app"),
+    APP_SEARCH("app_search"),
     SET_ALARM("set_alarm"),
     SET_TIMER("set_timer"),
     WEB_SEARCH("web_search"),

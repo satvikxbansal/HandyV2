@@ -50,6 +50,11 @@ data class OverlayPanelState(
      * can reuse them without asking the model to resolve again.
      */
     val candidateOptions: CandidateOptions? = null,
+    /**
+     * True only when automatic pointer resolution could not confidently land
+     * and the overlay should offer manual target selection.
+     */
+    val manualTargetFallbackAvailable: Boolean = false,
 ) {
     val isPanelVisible: Boolean get() = mode == OverlayMode.ChatPanel
     val isManualTargetSelection: Boolean get() = mode == OverlayMode.ManualTargetSelection

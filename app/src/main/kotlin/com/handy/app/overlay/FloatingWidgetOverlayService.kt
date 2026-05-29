@@ -309,7 +309,8 @@ class FloatingWidgetOverlayService : LifecycleService() {
                     it.mode == OverlayMode.Pointing &&
                         it.buddyState == BuddyState.POINTING &&
                         it.tapForMeConfirmation == null &&
-                        it.candidateOptions?.visible != true
+                        it.candidateOptions?.visible != true &&
+                        it.manualTargetFallbackAvailable
                 }
                 .distinctUntilChanged()
                 .collectLatest { showManualChip ->

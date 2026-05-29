@@ -35,6 +35,8 @@ class UserGoalTest {
 
     @Test fun `guidance questions do not allow recipe execution`() {
         assertThat(UserGoal.allowsRecipeExecution("how do I add a new email address?")).isFalse()
+        assertThat(UserGoal.allowsRecipeExecution("how do I open profile?")).isFalse()
+        assertThat(UserGoal.allowsRecipeExecution("how do I open trash?")).isFalse()
         assertThat(UserGoal.allowsRecipeExecution("show me where to tap")).isFalse()
         assertThat(UserGoal.allowsRecipeExecution("what can I do here?")).isFalse()
     }

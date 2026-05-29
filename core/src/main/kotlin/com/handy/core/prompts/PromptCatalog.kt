@@ -284,9 +284,14 @@ object PromptCatalog {
         } else {
             "for contact-name requests such as \"call mom\" or \"text sarah\", do not use dispatch_action unless the exact number/address/contact uri is already known; ask the user to pick the contact or turn recipes on."
         }
+        val recipePrecedence = if (agentRecipesEnabled) {
+            "when a canonical agent-mode recipe fits, emit the recipe directive instead of calling dispatch_action; especially do this for app-specific search/play/find requests such as YouTube, YouTube Music, or Spotify."
+        } else {
+            "recipes are not available this turn."
+        }
         return """
 
-            direct actions: for well-defined one-step requests like "set a 10-minute timer", "open youtube", "dial +15551234567", "text +15551234567 'on my way'", or "search google for X", prefer the `dispatch_action` tool over verbal instructions. $contactNameGuidance Handy will show its own confirmation UI for destructive or high-risk actions, so don't ask for a separate chat confirmation first. for simple one-step actions, just dispatch.
+            direct actions: for well-defined one-step requests like "set a 10-minute timer", "open youtube", "dial +15551234567", "text +15551234567 'on my way'", or "search google for X", prefer the `dispatch_action` tool over verbal instructions only when no canonical recipe is a better fit. $recipePrecedence $contactNameGuidance Handy will show its own confirmation UI for destructive or high-risk actions, so don't ask for a separate chat confirmation first. for simple one-step dispatch actions, just dispatch.
         """.trimIndent()
     }
 
@@ -315,10 +320,11 @@ object PromptCatalog {
         - search_visible: args include query, plus optional field and submit.
         - scroll_visible: args include direction as up, down, left, or right.
 
-        WEB_SEARCH intent vs tool: use canonical [INTENT:web_search] when the user wants a browser/search-app results page opened for them; use the `web_search` tool only when Handy needs current web evidence to answer inside chat.
+        WEB_SEARCH intent vs tool: use canonical [INTENT:web_search] when the user wants a browser/search-app results page opened for them; use the `web_search` tool only when Handy needs current web evidence to answer inside chat. when the user names a specific searchable app such as YouTube, YouTube Music, Spotify, or Chrome, do not use [INTENT:web_search] or dispatch_action web_search; use that app's canonical recipe.
 
         canonical deterministic flows:
         - open_app: args include name. example: open spotify → [INTENT:open_app].
+        - app_search: args include app and query. example: play jazz on spotify → [INTENT:app_search]. use for installed searchable apps such as Spotify or YouTube Music. for YouTube videos use youtube_search instead.
         - install_app: args include packageHint if known, otherwise searchQuery. example: install spotify → [INTENT:install_app].
         - set_alarm: args include time such as "7:00 AM" or hour/minute.
         - set_timer: args include seconds. example: set a 10-minute timer → [INTENT:set_timer] with args {"seconds":600}.
@@ -331,7 +337,7 @@ object PromptCatalog {
         - open_chrome_url: args include url to open via intent, query for explicit "search chrome for X" or "in chrome" omnibox searches, or markId/label/desc/viewId to navigate within the visible page. example: search chrome for cats → [INTENT:open_chrome_url]. generic "search the web" stays [INTENT:web_search]. for summarizing a visible/current page, use fetch_page on the page URL instead of a recipe.
         - shopping_search: only for meesho, amazon shopping, or flipkart; args include query, plus optional searchMarkId/searchViewId/searchDesc/field and optional submitMarkId/submitViewId/submitDesc. use it only when the user explicitly asks you to search products in the visible shopping surface.
         - shopping_find_coupons: only for meesho, amazon shopping, or flipkart; args may include couponMarkId/couponViewId/couponDesc/target/label/text. use it only to open a visible coupons/offers affordance, not to apply a coupon.
-        - youtube_search: args include query. example: play lofi beats on youtube → [INTENT:youtube_search]. never like, subscribe, or comment.
+        - youtube_search: args include query. example: play lofi beats on youtube or open the latest podcast on youtube → [INTENT:youtube_search]. never like, subscribe, or comment.
         - youtube_open_channel: args include channel. example: open android developers channel → [INTENT:youtube_open_channel].
         - create_note: args include note. example: take a note: buy milk → [INTENT:create_note]. this opens the share sheet; the user chooses the notes app.
         - open_contact: args include name. example: open mom's contact → [INTENT:open_contact].
@@ -408,7 +414,11 @@ object PromptCatalog {
 
         if (intentToolEnabled) {
             buffer.append("\n\n")
-            buffer.append(intentToolAddendum(agentRecipesEnabled = agentRecipesEnabled))
+            buffer.append(
+                intentToolAddendum(
+                    agentRecipesEnabled = quickOverlayResponse && agentRecipesEnabled,
+                ),
+            )
         }
 
         return buffer.toString()

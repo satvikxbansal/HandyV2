@@ -73,6 +73,13 @@ sealed class AssistantAction {
     @SerialName("web_search")
     data class WebSearchIntent(val query: String) : AssistantAction()
 
+    @Serializable
+    @SerialName("search_in_app")
+    data class SearchInApp(
+        val packageHint: String,
+        val query: String,
+    ) : AssistantAction()
+
     // =============================================================
     // V2 additions (scope §4.2). Graduates destructive ones into
     // confirmation; non-destructive dispatch directly via the same

@@ -89,6 +89,7 @@ class RuntimeRecipePackTest {
         assertThat(AndroidRuntimeRecipes.defaultRecipes().map { it.id })
             .containsAtLeast(
                 "open_app",
+                "app_search",
                 "install_app",
                 "web_search",
                 "set_timer",
@@ -110,6 +111,28 @@ class RuntimeRecipePackTest {
                 "ola_ride",
                 "rapido_ride",
             )
+    }
+
+    @Test fun `app search recipe searches installed media app`() {
+        val recipe = AppSearchRecipe { query ->
+            when (query.lowercase()) {
+                "com.spotify.music", "spotify" ->
+                    listOf(LaunchableAppIndex.Entry("com.spotify.music", "Spotify", "com.spotify.music/.Main"))
+                else -> emptyList()
+            }
+        }
+        val action = recipe.propose(
+            goal = goal("Play jazz classics on Spotify", "app_search", "app" to "Spotify", "query" to "jazz classics"),
+            invocation = invocation("app_search", "app" to "Spotify", "query" to "jazz classics"),
+            grounding = grounding(),
+        ).singleNativeAction()
+
+        assertThat(action).isEqualTo(
+            AssistantAction.SearchInApp(
+                packageHint = "com.spotify.music",
+                query = "jazz classics",
+            ),
+        )
     }
 
     @Test fun `gmail recipe opens draft and requires strong hold before send`() {
@@ -196,7 +219,7 @@ class RuntimeRecipePackTest {
         assertThat(proposal).isEqualTo(RecipeProposal.Refused("use-fetch-page-for-summary"))
     }
 
-    @Test fun `youtube recipe opens search URL and blocks engagement`() {
+    @Test fun `youtube recipe searches inside YouTube and blocks engagement`() {
         val action = YouTubeRecipe.propose(
             goal = goal("Play lofi beats on YouTube", "youtube", "query" to "lofi beats"),
             invocation = invocation("youtube", "query" to "lofi beats"),
@@ -204,7 +227,10 @@ class RuntimeRecipePackTest {
         ).singleNativeAction()
 
         assertThat(action).isEqualTo(
-            AssistantAction.OpenUrl("https://www.youtube.com/results?search_query=lofi%20beats"),
+            AssistantAction.SearchInApp(
+                packageHint = "com.google.android.youtube",
+                query = "lofi beats",
+            ),
         )
         assertThat(
             YouTubeRecipe.propose(

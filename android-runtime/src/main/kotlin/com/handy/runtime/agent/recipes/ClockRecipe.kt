@@ -22,6 +22,7 @@ object AndroidRuntimeRecipes {
         findContacts: (String) -> ContactLookupResult = { ContactLookupResult.Matches(emptyList()) },
     ): List<AppRecipe> = listOf(
         OpenAppRecipe(findLaunchableApps),
+        AppSearchRecipe(findLaunchableApps),
         InstallAppRecipe,
         ClockRecipe,
         TimerRecipe,

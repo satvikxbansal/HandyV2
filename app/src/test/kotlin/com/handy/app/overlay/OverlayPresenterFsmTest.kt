@@ -193,6 +193,57 @@ class OverlayPresenterFsmTest {
     }
 
     @Test
+    fun `successful pointer does not expose manual fallback chip`() {
+        val presenter = presenter()
+
+        presenter.onPreparingPoint("tap the sign-in button in the top right corner.")
+        presenter.onFlyingStart("tap the sign-in button in the top right corner.")
+        presenter.onPointingArrived("tap the sign-in button in the top right corner.")
+
+        assertThat(presenter.state.value.manualTargetFallbackAvailable).isFalse()
+    }
+
+    @Test
+    fun `manual fallback chip is only exposed after fallback state`() {
+        val presenter = presenter()
+
+        presenter.onPreparingPoint("Trash")
+        presenter.onManualTargetFallbackAvailable("Trash")
+
+        assertThat(presenter.state.value.manualTargetFallbackAvailable).isTrue()
+
+        presenter.onPointingReturned()
+
+        assertThat(presenter.state.value.manualTargetFallbackAvailable).isFalse()
+    }
+
+    @Test
+    fun `pointer bubble does not nest tap instruction labels`() {
+        val presenter = presenter()
+
+        presenter.onPreparingPoint("tap the sign-in button in the top right corner.")
+        presenter.onFlyingStart("tap the sign-in button in the top right corner.")
+        presenter.onPointingArrived("tap the sign-in button in the top right corner.")
+        presenter.onPointingArrivedBubble("tap the sign-in button in the top right corner.")
+
+        assertThat(presenter.state.value.bubble)
+            .isEqualTo(BuddyBubble.navigation("tap the sign-in button in the top right corner"))
+    }
+
+    @Test
+    fun `pointer bubble keeps tap wrapper for target names`() {
+        val presenter = presenter()
+
+        presenter.onPreparingPoint("Trash")
+        presenter.onFlyingStart("Trash")
+        presenter.onPointingArrived("Trash")
+        presenter.onPointingArrivedBubble("Trash")
+
+        assertThat(presenter.state.value.bubble)
+            .isEqualTo(BuddyBubble.navigation("Tap \"Trash\""))
+    }
+
+    @Test
     fun `widget tap uses browser site label in contextual panel greeting`() {
         val monitor = mockk<HandyForegroundAppMonitor>(relaxed = true)
         every { monitor.refreshNow() } returns ForegroundAppSnapshot(
