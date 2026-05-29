@@ -242,6 +242,79 @@ data, or raw typed secrets.
 
 ---
 
+## Product Notes: Recipes
+
+Recipes are Handy's small pieces of product judgment. They are not
+"remember these buttons and blindly press them later." The model can ask
+for one canonical intent, such as `open_app`, `set_timer`, `book_ride`,
+or `photos_share_current`, plus a small JSON argument block. After that,
+the deterministic registry owns the plan. This keeps the AI expressive
+enough to understand "book a cab to the airport", but unable to invent
+new hidden automation steps at runtime.
+
+The recipes fall into a few deliberately different shapes. Some are
+native Android handoffs: open an app, open Play Store, set an alarm or
+timer, open Calendar compose, Maps, YouTube, Files, Photos, Calculator,
+Settings, food delivery, or a browser search. Some work on the visible
+screen: tap, type, search, scroll, Chrome page controls, shopping search,
+coupons, photo sharing, and ride prep. Some are draft-only: Gmail,
+WhatsApp, SMS, notes, contacts, and sharing flows prepare text or open a
+chooser, then stop before the final human decision. Calculator is even
+more restrained: simple arithmetic is answered locally in chat without
+touching another app at all.
+
+The most important nuance is freshness. When the user opens Handy from
+the floating panel, the panel has a useful cached snapshot of the app
+behind it, including labels and mark IDs. That snapshot is good for
+understanding and previewing the plan. But when a recipe actually starts,
+Handy intentionally asks for a fresh live screen grounding and drops the
+frozen panel snapshot. Every step repeats that live capture, resolves the
+target again, re-runs policy, performs the step, and then verifies that
+something expected happened. This avoids the dangerous blend of "old
+Photos context" with "new current-screen controls."
+
+Foreground app detection is built for that same reason. The Accessibility
+service listens to real-time window-change events, and Handy also
+proactively scans the current accessibility windows when the widget or
+chat opens. It chooses the topmost non-Handy app window, filters out
+Handy's own overlay, keyboards, launchers, Recents, and System UI, and
+extracts browser URL bars when possible so `Chrome on Gmail` and
+`Chrome on GitHub` do not share one memory. The overlay panel refreshes
+its idle app context after a short settle delay, but defers refreshes
+while Handy is listening, streaming, confirming, pointing, or acting.
+
+That is why recipes stop cleanly when reality changes. If the user
+switches apps, goes home, the foreground disappears, Accessibility is
+disconnected, the window changes shape, or the screen tree no longer
+matches the target, the runner treats it as a privacy stop rather than a
+recoverable hiccup. Launch steps are the one exception: opening WhatsApp,
+Uber, Play Store, or Clock is allowed to change packages, then Handy
+waits briefly and re-grounds inside the new app. After that, UI steps
+must stay in the expected package.
+
+The edge cases are product decisions, not afterthoughts. Open-app refuses
+missing or ambiguous app names. Contacts asks the user to pick when names
+collide. Calendar refuses recurring rules until the user clarifies
+repeat behavior. Photos will share only when the user is already viewing
+a photo. Shopping can search or find coupons, but not add to cart, apply
+coupons, pay, or change addresses. Food delivery can search or track, but
+not order. Ride hailing can fill the destination and optionally select a
+class with a hold confirmation, then says the user must tap Confirm or
+Request themselves. Gmail and WhatsApp draft, but Send is a separate
+strong-hold step. Install opens Play Store; the user taps Install.
+
+The same lane discipline applies when the screen is messy. Low confidence
+targets, duplicate labels, stale mark IDs, secure windows, password-like
+fields, OTPs, cards, payments, deletes, and Chrome Incognito all fail
+closed. Tool-suggested device actions are blocked or upgraded to explicit
+confirmation. Recipes are capped at six steps, audited locally, and
+covered by routing, conflict, fixture, policy, and verification tests. In
+reduced mode, Handy still chats, speaks, and answers, but recipes are
+removed from the prompt, direct action tools are not advertised, and the
+executor will not run them.
+
+---
+
 ## Deterministic Recipe Inventory
 
 Recipes are not free-form automation. The assistant may emit one
