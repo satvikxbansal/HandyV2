@@ -99,6 +99,49 @@ class OverlayChatPipelineTest {
     }
 
     @Test
+    fun `voice finalized without point dismisses panel after response bubble`() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val fixture = fixture(
+            llmClient = FakeLlmClient(flowOf(
+                LlmChunk.Text("Done"),
+                LlmChunk.Done("end"),
+            )),
+            scope = this,
+            requestId = "overlay-voice-no-point",
+        )
+
+        fixture.pipeline.runTurn("set an alarm for 8pm", fromVoice = true)
+        advanceUntilIdle()
+
+        verify(exactly = 1) {
+            fixture.presenter.onResponseFinalized(any(), any(), fromVoice = true)
+        }
+        verify(exactly = 1) {
+            fixture.presenter.dismissPanel()
+        }
+    }
+
+    @Test
+    fun `typed finalized without point keeps panel visible`() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val fixture = fixture(
+            llmClient = FakeLlmClient(flowOf(
+                LlmChunk.Text("Done"),
+                LlmChunk.Done("end"),
+            )),
+            scope = this,
+            requestId = "overlay-typed-no-point",
+        )
+
+        fixture.pipeline.runTurn("set an alarm for 8pm", fromVoice = false)
+        advanceUntilIdle()
+
+        verify(exactly = 0) {
+            fixture.presenter.dismissPanel()
+        }
+    }
+
+    @Test
     fun `error event stops speech output`() = runTest {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
         val fixture = fixture(
@@ -273,6 +316,7 @@ class OverlayChatPipelineTest {
         return Fixture(
             bridge = bridge,
             pipeline = pipeline,
+            presenter = presenter,
             speechOutputController = speechOutputController,
             agentSessionController = agentSessionController,
             screenContextBuilder = screenContextBuilder,
@@ -282,6 +326,7 @@ class OverlayChatPipelineTest {
     private data class Fixture(
         val bridge: OverlayPanelBridge,
         val pipeline: OverlayChatPipeline,
+        val presenter: OverlayPresenter,
         val speechOutputController: SpeechOutputController,
         val agentSessionController: AgentSessionController,
         val screenContextBuilder: ScreenContextBuilder,

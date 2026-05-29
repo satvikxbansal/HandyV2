@@ -1,5 +1,6 @@
 package com.handy.runtime.intent
 
+import android.content.Intent
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
@@ -27,5 +28,14 @@ class AndroidIntentDispatcherSafetyTest {
             .isEqualTo("https://www.zomato.com/orders")
         assertThat("https://www.swiggy.com/search?query=biryani".foodDeliveryWebFallbackUrl())
             .isNull()
+    }
+
+    @Test fun `open url uses sendto for mail and sms schemes`() {
+        assertThat(openUrlIntentActionForScheme("mailto")).isEqualTo(Intent.ACTION_SENDTO)
+        assertThat(openUrlIntentActionForScheme("sms")).isEqualTo(Intent.ACTION_SENDTO)
+        assertThat(openUrlIntentActionForScheme("smsto")).isEqualTo(Intent.ACTION_SENDTO)
+
+        assertThat(openUrlIntentActionForScheme("https")).isEqualTo(Intent.ACTION_VIEW)
+        assertThat(openUrlIntentActionForScheme(null)).isEqualTo(Intent.ACTION_VIEW)
     }
 }

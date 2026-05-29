@@ -231,8 +231,9 @@ class AndroidIntentDispatcher(
     private fun fireViewUrl(url: String): IntentResult {
         val uri = runCatching { Uri.parse(url) }.getOrNull()
             ?: return IntentResult.Failed("invalid url")
-        val intent = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        val result = start(intent) { "ACTION_VIEW host=${uri.host.orEmpty()}" }
+        val intent = Intent(openUrlIntentActionForScheme(uri.scheme), uri)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val result = start(intent) { "${intent.action} host=${uri.host.orEmpty()}" }
         if (result == IntentResult.NoHandler) {
             url.foodDeliveryWebFallbackUrl()?.let { fallback ->
                 Timber.d("AndroidIntentDispatcher: food deep link unavailable, falling back to HTTPS")
@@ -383,8 +384,20 @@ class AndroidIntentDispatcher(
             IntentResult.Dispatched(component = intent.component?.flattenToString())
         }.getOrElse {
             Timber.w(it, "AndroidIntentDispatcher: failed %s", label())
-            IntentResult.Failed(it.message ?: "dispatch failed")
+            IntentResult.Failed(it.dispatchFailureReason())
         }
+    }
+
+    private fun Throwable.dispatchFailureReason(): String =
+        when {
+            this is SecurityException &&
+                message.orEmpty().contains(SET_ALARM_PERMISSION) ->
+                "missing_manifest_permission:$SET_ALARM_PERMISSION"
+            else -> message ?: "dispatch failed"
+        }
+
+    private companion object {
+        const val SET_ALARM_PERMISSION = "com.android.alarm.permission.SET_ALARM"
     }
 }
 
@@ -417,6 +430,12 @@ internal fun installAppIntentTarget(action: AssistantAction.InstallApp): Install
 private fun String.encodeUriComponent(): String =
     URLEncoder.encode(this, StandardCharsets.UTF_8.name())
         .replace("+", "%20")
+
+internal fun openUrlIntentActionForScheme(scheme: String?): String =
+    when (scheme?.lowercase()) {
+        "mailto", "sms", "smsto" -> Intent.ACTION_SENDTO
+        else -> Intent.ACTION_VIEW
+    }
 
 internal fun String.isAllowedContactsUri(): Boolean {
     val normalized = trim().lowercase()

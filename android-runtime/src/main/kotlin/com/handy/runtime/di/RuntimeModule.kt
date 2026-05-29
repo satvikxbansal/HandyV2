@@ -1,6 +1,7 @@
 package com.handy.runtime.di
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import com.handy.core.action.ActionAppPolicy
 import com.handy.core.action.ActionPolicyEngine
 import com.handy.core.action.ActionPerformer
@@ -19,6 +20,7 @@ import com.handy.runtime.action.NoopActionPerformer
 import com.handy.runtime.action.DefaultActionPolicyEngine
 import com.handy.runtime.intent.AndroidIntentDispatcher
 import com.handy.runtime.intent.LaunchableAppIndex
+import com.handy.runtime.llm.ClaudeDnsFactory
 import com.handy.runtime.llm.ClaudeLlmClient
 import com.handy.runtime.llm.GeminiCloudLlmClient
 import com.handy.runtime.llm.GeminiNanoLocalGenAiClient
@@ -137,6 +139,10 @@ object RuntimeModule {
         json = json,
         networkDiagnostics = NetworkDiagnostics.from(context),
         sessionBudget = sessionBudget,
+        dns = ClaudeDnsFactory.create(
+            baseClient = httpClient,
+            enabled = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0,
+        ),
     )
 
     @Provides

@@ -51,6 +51,29 @@ class FallbackPointInfererTest {
         assertThat(inferred).isNull()
     }
 
+    @Test fun `executable alarm failure does not point at Handy input text`() {
+        val inferred = FallbackPointInferer.infer(
+            userText = "set an alarm for 7pm",
+            assistantText = """
+                i need the set alarm permission to do that for you.
+
+                for now, you can manually set your 7 pm alarm by opening the clock app.
+            """.trimIndent(),
+            marks = listOf(
+                mark(
+                    id = "m1",
+                    text = "set an alarm for 7pm",
+                    bounds = intArrayOf(80, 1180, 880, 1260),
+                    role = "EditText",
+                    editable = true,
+                ),
+                mark(id = "m2", text = "Clock", bounds = intArrayOf(120, 520, 520, 600)),
+            ),
+        )
+
+        assertThat(inferred).isNull()
+    }
+
     @Test fun `password fields are never selected by fallback inference`() {
         val inferred = FallbackPointInferer.infer(
             userText = "where do I enter my password?",

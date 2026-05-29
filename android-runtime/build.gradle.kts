@@ -49,6 +49,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
 
     implementation(libs.okhttp)
+    implementation(libs.okhttp.dnsoverhttps)
     implementation(libs.okhttp.sse)
     implementation(libs.okhttp.logging)
 

@@ -82,7 +82,11 @@ object FallbackPointInferer {
 
     private fun hasPointingIntent(userNorm: String, assistantNorm: String): Boolean {
         if (QUESTION_NAVIGATION_PATTERNS.any { it.containsMatchIn(userNorm) }) return true
-        if (ASSISTANT_NAVIGATION_PATTERNS.any { it.containsMatchIn(assistantNorm) }) return true
+        if (EXECUTABLE_REQUEST_PATTERNS.any { it.containsMatchIn(userNorm) }) return false
+        if (
+            USER_GUIDANCE_HINTS.any { it.containsMatchIn(userNorm) } &&
+            ASSISTANT_NAVIGATION_PATTERNS.any { it.containsMatchIn(assistantNorm) }
+        ) return true
         return false
     }
 
@@ -162,6 +166,16 @@ object FallbackPointInferer {
         Regex("""\b(tap|press|select|choose|open|use)\s+(the|that|this)\b"""),
         Regex("""\byou(?:'| )?ll\s+want\s+to\s+(tap|press|select|choose|open|use)\b"""),
         Regex("""\blook\s+for\s+(the|a)\b"""),
+    )
+
+    private val USER_GUIDANCE_HINTS = listOf(
+        Regex("""\b(can\s?t|cannot|help|find|show|locate|guide)\b"""),
+        Regex("""\b(point|tap|press|choose|select)\b"""),
+    )
+
+    private val EXECUTABLE_REQUEST_PATTERNS = listOf(
+        Regex("""\b(set|start)\s+(an?\s+)?(alarm|timer)\b"""),
+        Regex("""\b(open|launch|install|call|text|send|draft|share|create|schedule|book|navigate|play)\b"""),
     )
 
     private val MENU_TOKENS = setOf(

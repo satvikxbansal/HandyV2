@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import okhttp3.Dns
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -55,6 +56,7 @@ class ClaudeLlmClient(
     private val networkDiagnostics: NetworkDiagnostics = NetworkDiagnostics.Noop,
     private val sessionBudget: LlmSessionBudget = UnboundedLlmSessionBudget,
     private val retryPolicy: CloudRetryPolicy = CloudRetryPolicy(),
+    private val dns: Dns = Dns.SYSTEM,
     private val baseUrl: String = "https://api.anthropic.com",
     private val defaultModel: String = HandySettings.DEFAULT_CLAUDE_MODEL,
     private val anthropicVersion: String = "2023-06-01",
@@ -62,6 +64,7 @@ class ClaudeLlmClient(
 
     override val modelId: String = defaultModel
     private val streamingHttpClient = httpClient.newBuilder()
+        .dns(dns)
         .connectTimeout(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
         .readTimeout(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
         .writeTimeout(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS)

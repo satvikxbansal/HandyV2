@@ -341,6 +341,10 @@ class OverlayChatPipeline @Inject constructor(
                 )
             } else {
                 Timber.d("OverlayChatPipeline: no point emitted")
+                if (fromVoice && displayOverlaySpoken.isNotBlank()) {
+                    Timber.d("OverlayChatPipeline: dismissing panel after voice response bubble")
+                    presenter.dismissPanel()
+                }
             }
         }
     }
